@@ -19,6 +19,17 @@ The target project must apply these Gradle plugins:
 
 The settings-plugin check requires no plugin — it queries published plugin metadata directly.
 
+## Delegating verbose work to sub-agents
+
+Gradle output — the `dependencyUpdates` report, settings-plugin metadata, and especially each verification build — is large and mostly noise when it passes. Run those steps in **sub-agents** (the general-purpose type, which has the Bash access these commands need) so the raw output stays in the sub-agent's context and only a short summary returns to the main thread. Over a multi-round run, this is where most of the token (plan) usage would otherwise accumulate.
+
+Two jobs are delegated: **discovery** (step 2) and **verification** (steps 5 and 6). For both:
+
+- Spawn one single-shot sub-agent per job — it runs the given command(s) and returns only the summary contract stated in that step.
+- The sub-agent **must not** edit files, run `git`, fix failures, or proceed to another dependency. On a failure it returns enough to act on (see the verification contract) — never a bare "FAIL".
+
+Everything else stays in the main thread: prioritization, the version edits (so each diff stays reviewable), commits, the per-round hard-stop and other user interaction, and reporting. Relay what a sub-agent returns — a passing build needs only a one-line confirmation; surface a failure's error block.
+
 ## Workflow
 
 ### 1. Set the run options
@@ -35,6 +46,14 @@ If the maintainer does not opt in, default to auto-commit off and no push — th
 Each single dependency update plus its verification is one **round**.
 
 ### 2. Check for updates
+
+Delegate this whole step to a sub-agent. It runs the commands below — both the `dependencyUpdates` report and the settings-plugin metadata lookups — and returns only a compact update list:
+
+- **Catalog / build-script dependencies:** one line each as `group:artifact  current → available` (note the catalog alias when it can be determined from `libs.versions.toml`).
+- **Gradle Versions Plugin self-update:** flag separately whether `com.github.ben-manes.versions` itself has an update, since step 3 acts on it before anything else.
+- **Settings plugins:** one line each as `plugin-id  current → latest-stable  (declaring file)`.
+
+The sub-agent returns nothing else — the raw report and the metadata XML stay in its context — and says so explicitly if it finds no updates. The main thread then prioritizes and drives the one-at-a-time workflow from this list.
 
 #### Catalog and build-script dependencies
 
@@ -118,7 +137,7 @@ Settings plugins are build infrastructure; slot each into this ordering by what 
 
 ### 5. Verification
 
-After each version change, run the per-round verification tasks with `--rerun-tasks`:
+After each version change, run the per-round verification tasks with `--rerun-tasks` — in a sub-agent (see **Delegating verbose work to sub-agents** above):
 
 ```
 ./gradlew <per-round tasks> --rerun-tasks
@@ -130,11 +149,18 @@ With the defaults, that is:
 ./gradlew build buildHealth --rerun-tasks
 ```
 
-`--rerun-tasks` forces every task to re-execute, ignoring up-to-date checks and the build cache, so each change is verified from scratch. Verification must pass before a round is committed (auto-commit on) or reported (auto-commit off).
+`--rerun-tasks` forces every task to re-execute, ignoring up-to-date checks and the build cache, so each change is verified from scratch.
+
+The verification sub-agent returns only:
+
+- **On success:** `PASS`, with the `BUILD SUCCESSFUL` marker and — when `buildHealth` ran — its "no issues" confirmation.
+- **On failure:** `FAIL`, which task failed, and the actionable error block (compiler errors with `file:line`, failed test names with the assertion, or the `buildHealth` advice), trimmed to what the main thread needs to decide fix-vs-revert. The sub-agent does not attempt a fix and does not touch any other dependency.
+
+Verification must pass before a round is committed (auto-commit on) or reported (auto-commit off).
 
 ### 6. Final verification, then push
 
-After every round has passed — and been committed, if auto-commit is on — run a single final verification:
+After every round has passed — and been committed, if auto-commit is on — run a single final verification, in a sub-agent with the same return contract as step 5:
 
 ```
 ./gradlew <final tasks> --rerun-tasks

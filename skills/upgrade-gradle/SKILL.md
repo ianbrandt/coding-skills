@@ -14,15 +14,23 @@ The target project must apply this Gradle plugin:
 
 - [gradle-versions-plugin](https://github.com/ben-manes/gradle-versions-plugin) — provides the `dependencyUpdates` task
 
+## Delegating verbose work to sub-agents
+
+The two verbose steps — discovering the latest Gradle version (`dependencyUpdates`, step 1) and the validation `build` (step 4) — produce large output that is mostly noise. Run each in a single-shot **sub-agent** (the general-purpose type, which has the Bash access these commands need) so the raw output stays in the sub-agent and only the short summary contract noted in that step returns to the main thread.
+
+A sub-agent must not edit files, run `git`, or fix failures. The version edit, wrapper regeneration (step 3), and reporting stay in the main thread; relay what each sub-agent returns.
+
 ## Workflow
 
 ### 1. Discover available Gradle version
+
+Delegate to a sub-agent:
 
 ```
 ./gradlew dependencyUpdates --no-parallel
 ```
 
-Look for a "Gradle release-candidate updates" section (or similar) in the output that reports a newer Gradle version.
+It looks for a "Gradle release-candidate updates" section (or similar) in the output that reports a newer Gradle version, and returns only the current and latest available Gradle version (or that none is available). The raw report stays in the sub-agent.
 
 ### 2. Determine upgrade path
 
@@ -52,15 +60,15 @@ The `./gradlew help` step is necessary because it causes the wrapper to download
 
 ### 4. Validation
 
-Run:
+Run, in a sub-agent:
 
 ```
 ./gradlew build
 ```
 
-This must pass before reporting results.
+The sub-agent returns only `PASS` (with the `BUILD SUCCESSFUL` marker), or `FAIL` with the failing task and the actionable error block (compiler errors with `file:line`, failed test names with the assertion) trimmed to what's needed to act on. This must pass before reporting results.
 
-**`--rerun-tasks` option:** Before running `./gradlew build`, check memory for a saved `--rerun-tasks` preference. If no preference is found, ask the maintainer:
+**`--rerun-tasks` option:** Before dispatching the validation build, check memory for a saved `--rerun-tasks` preference. If no preference is found, ask the maintainer:
 
 > Would you like to run `./gradlew build` with `--rerun-tasks`? This forces all tasks to re-execute regardless of up-to-date checks.
 > - **yes** — use `--rerun-tasks` this time

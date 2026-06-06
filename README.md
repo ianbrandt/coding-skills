@@ -20,6 +20,8 @@ Guides Claude through checking, upgrading, and verifying Gradle dependencies one
 5. Verify with the chosen tasks (run with `--rerun-tasks`) after each change
 6. With auto-commit on, commit each verified change and continue, then push only after a final verification passes; with it off, stop and wait for maintainer confirmation after each
 
+**Sub-agents:** The verbose steps — the `dependencyUpdates` report, settings-plugin metadata lookups, and each verification build — run in sub-agents that return only a short summary. This keeps the raw Gradle output out of the main conversation, reducing context and plan (token) usage across a multi-round run.
+
 ### `upgrade-gradle`
 
 Guides Claude through upgrading the Gradle wrapper to the latest available version.
@@ -32,6 +34,8 @@ Guides Claude through upgrading the Gradle wrapper to the latest available versi
 1. Run `dependencyUpdates` to discover the latest Gradle version
 2. If the root build script has a `wrapper` task configuration, update the version there and run `./gradlew wrapper` then `./gradlew help`; otherwise update `gradle-wrapper.properties` directly and run `./gradlew help`
 3. Run `build` to validate the upgrade
+
+**Sub-agents:** Discovery and the validation build run in sub-agents that return a short summary, keeping verbose Gradle output out of the main conversation.
 
 ## Installation
 
