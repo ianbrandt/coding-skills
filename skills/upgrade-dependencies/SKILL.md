@@ -8,20 +8,43 @@ paths: "**/libs.versions.toml,**/settings.gradle.kts,**/settings.gradle"
 
 Check for, upgrade, and verify Gradle dependencies one at a time.
 
-This also covers **settings plugins** — plugins applied in the `plugins { }` block of `settings.gradle(.kts)` — which the Gradle Versions Plugin does not report. They are found with a supplementary metadata lookup, then flow through the same one-at-a-time upgrade workflow.
+The primary update check is a **direct metadata lookup** against each version catalog's declared entries — the same query the settings-plugin check below uses, generalized to every `libs.versions.toml` entry. This requires no plugin and works on **composite builds** (mono-repos using `includeBuild`), where the Gradle Versions Plugin alone is not enough (see [Composite and included builds](#composite-and-included-builds)). The Versions Plugin's `dependencyUpdates` report is used as **optional enrichment** where the plugin is applied.
+
+This also covers **settings plugins** — plugins applied in the `plugins { }` block of `settings.gradle(.kts)` — which the Gradle Versions Plugin does not report. They are found with the same metadata lookup, then flow through the same one-at-a-time upgrade workflow.
 
 ## Prerequisites
 
-The target project must apply these Gradle plugins:
+None required. The catalog and settings-plugin checks query published metadata directly and need no plugin applied.
 
-- [gradle-versions-plugin](https://github.com/ben-manes/gradle-versions-plugin) — provides the `dependencyUpdates` task
-- [dependency-analysis-gradle-plugin](https://github.com/autonomousapps/dependency-analysis-gradle-plugin) (optional) — provides the `buildHealth` task
+Two plugins, if present, enrich the run:
 
-The settings-plugin check requires no plugin — it queries published plugin metadata directly.
+- [gradle-versions-plugin](https://github.com/ben-manes/gradle-versions-plugin) (optional) — provides the `dependencyUpdates` task, which also surfaces transitive and build-script dependencies and a newer-Gradle line. Used as enrichment, not as the primary engine.
+- [dependency-analysis-gradle-plugin](https://github.com/autonomousapps/dependency-analysis-gradle-plugin) (optional) — provides the `buildHealth` task for verification.
+
+## Composite and included builds
+
+A project may be more than one Gradle build: a root build plus other builds pulled in with `includeBuild(...)`, possibly transitively. The practical rule for enumeration: **each directory with its own `settings.gradle(.kts)` is a build.** Each build may have its own version catalog, its own declared repositories, and its own applied plugins.
+
+This matters because the Gradle Versions Plugin's `dependencyUpdates` task **does not traverse included builds** — it reports only the build it runs in (plus that build's subprojects), and only if the plugin is applied there. The plugin is often applied in just one build, or none. And a catalog shared by several builds is a *menu* consumed piecemeal: no single build's `dependencyUpdates` ever sees the whole catalog. So `dependencyUpdates` alone systematically under-reports a composite build.
+
+The direct metadata lookup avoids this: it checks the **declared catalog entries** themselves, build by build, regardless of which build (if any) applies the Versions Plugin.
+
+**Honest ceiling:** metadata lookup checks declared catalog versions, not the fully resolved dependency graph. It will miss transitive-only dependencies and non-catalog build-script dependencies, and you own BOM / `version.ref` / repository-selection reasoning yourself. That is an acceptable trade for a catalog-centric repo; where the Versions Plugin is applied, its `dependencyUpdates` stays the richer check and runs as enrichment.
+
+Throughout this skill, "enumerate the builds" means: find every `settings.gradle(.kts)` and every `libs.versions.toml`, **excluding** generated and throwaway trees:
+
+```
+find . \( -name 'settings.gradle.kts' -o -name 'settings.gradle' \) \
+  -not -path '*/build/*' -not -path '*/.claude/worktrees/*'
+find . -name 'libs.versions.toml' \
+  -not -path '*/build/*' -not -path '*/.claude/worktrees/*'
+```
+
+Enumerating catalogs by **file** de-dupes naturally: a catalog shared by several builds appears once, so it is checked and edited once, not once per consuming build.
 
 ## Delegating verbose work to sub-agents
 
-Gradle output — the `dependencyUpdates` report, settings-plugin metadata, and especially each verification build — is large and mostly noise when it passes. Run those steps in **sub-agents** (the general-purpose type, which has the Bash access these commands need) so the raw output stays in the sub-agent's context and only a short summary returns to the main thread. Over a multi-round run, this is where most of the token (plan) usage would otherwise accumulate.
+The discovery output — the per-entry catalog and settings-plugin metadata fetches (one `maven-metadata.xml` per coordinate, across every build's catalog), the optional `dependencyUpdates` report — and especially each verification build is large and mostly noise. Run those steps in **sub-agents** (the general-purpose type, which has the Bash access these commands need) so the raw output stays in the sub-agent's context and only a short summary returns to the main thread. Over a multi-round run, this is where most of the token (plan) usage would otherwise accumulate.
 
 Two jobs are delegated: **discovery** (step 2) and **verification** (steps 5 and 6). For both:
 
@@ -36,8 +59,10 @@ Everything else stays in the main thread: prioritization, the version edits (so 
 
 At the start of a run, ask the maintainer how to handle verification and Git, then apply the answers for the whole run:
 
-1. **Per-round verification tasks** — the Gradle tasks to run after each dependency change. Default: `build buildHealth` (drop `buildHealth` if the dependency-analysis plugin is not applied).
+1. **Per-round verification tasks** — the Gradle tasks to run after each dependency change. Default for a single build: `build buildHealth` (drop `buildHealth` if the dependency-analysis plugin is not applied). For a **composite build**, this must be expressed per build (see below): a flat `build buildHealth` covers only the build the wrapper runs in, so name each build's task explicitly, e.g. `build :modules:buildHealth examplesCheck`.
 2. **Final verification tasks** — the Gradle tasks to run once before pushing. Default: the same as the per-round tasks. The maintainer may choose a heavier set here, e.g. a clean cumulative run such as `clean build buildHealth`.
+
+   **Composite-aware verification.** In a composite build, lifecycle tasks do not fan out across included builds, and a task like `buildHealth` may exist in only one build. Derive the task set from the build structure: address an included build's task with a fully-qualified path (`:included:task`), and include any aggregator task that exercises builds the root lifecycle does not reach (for example, an `examplesCheck` that builds a set of standalone example builds). When the right set is not obvious, propose one from the enumeration and confirm it with the maintainer.
 3. **Auto-commit** — whether to commit each verified round automatically. If yes, derive the commit-message convention from recent `git log` history, and make one commit per dependency so each upgrade is independently reviewable and revertable.
 4. **Auto-push** — whether to push automatically once every round and the final verification have passed. Applies only when auto-commit is on.
 
@@ -47,49 +72,53 @@ Each single dependency update plus its verification is one **round**.
 
 ### 2. Check for updates
 
-Delegate this whole step to a sub-agent. It runs the commands below — both the `dependencyUpdates` report and the settings-plugin metadata lookups — and returns only a compact update list:
+Delegate this whole step to a sub-agent. It enumerates the builds, runs the lookups below, and returns only a compact update list:
 
-- **Catalog / build-script dependencies:** one line each as `group:artifact  current → available` (note the catalog alias when it can be determined from `libs.versions.toml`).
+- **Catalog dependencies & plugins:** one line each as `group:artifact  current → available  (catalog file · alias)`, or for catalog `[plugins]` entries `plugin-id  current → available  (catalog file · alias)`.
+- **Settings plugins:** one line each as `plugin-id  current → latest-stable  (declaring file(s))`. When the same id+version is declared in several files, list them on one line — it is a single update.
 - **Gradle Versions Plugin self-update:** flag separately whether `com.github.ben-manes.versions` itself has an update, since step 3 acts on it before anything else.
-- **Settings plugins:** one line each as `plugin-id  current → latest-stable  (declaring file)`.
+- **Enrichment (where available):** any extra updates `dependencyUpdates` surfaces that the catalog check did not (transitive / build-script deps), plus any newer-Gradle line.
 
-The sub-agent returns nothing else — the raw report and the metadata XML stay in its context — and says so explicitly if it finds no updates. The main thread then prioritizes and drives the one-at-a-time workflow from this list.
+The sub-agent returns nothing else — the raw metadata XML and any `dependencyUpdates` report stay in its context — and says so explicitly if it finds no updates. The main thread then prioritizes and drives the one-at-a-time workflow from this list.
 
-#### Catalog and build-script dependencies
+#### Primary: catalog-direct metadata lookup
 
-```
-./gradlew dependencyUpdates --no-parallel
-```
+This is the main engine and the only one that fully covers a composite build. Enumerate the builds (see [Composite and included builds](#composite-and-included-builds)) and, for each `libs.versions.toml`, check every declared entry:
 
-If the output contains a "dependencies exceed the version found at the milestone revision level" section, the metadata cache may be stale. Re-run with `--refresh-dependencies`:
+1. Parse the catalog's `[versions]`, `[libraries]`, and `[plugins]` tables. Each `[libraries]` entry resolves to a `group:artifact` coordinate; each `[plugins]` entry to a plugin `id`. A `[versions]` entry is reached through the `version.ref` a library or plugin points at — resolve it via the referencing coordinate.
+2. Determine that build's declared repositories: read its settings file's `dependencyResolutionManagement { repositories { ... } }` for libraries and `pluginManagement { repositories { ... } }` for plugins. Default to Maven Central (`https://repo1.maven.org/maven2/`) and the Gradle Plugin Portal (`https://plugins.gradle.org/m2/`) when not overridden.
+3. For each coordinate, fetch `maven-metadata.xml` (e.g. with `curl -s`) from the declared repositories:
+   - **Library** `group:artifact` → `<repo>/<group-with-dots-as-slashes>/<artifact>/maven-metadata.xml`
+   - **Plugin** `id` → the marker artifact `<repo>/<id-with-dots-as-slashes>/<id>.gradle.plugin/maven-metadata.xml`
+4. From the returned `<versions>` list, choose the highest **stable** version by semantic-version ordering (not string ordering — `3.18` is newer than `3.9`). Ignore pre-releases (`-rc`, `-alpha`, `-beta`, `-M`, `-SNAPSHOT`, and similar) unless the current version is itself a pre-release. Report any entry whose latest stable version is newer than the one declared.
 
-```
-./gradlew dependencyUpdates --no-parallel --refresh-dependencies
-```
+Check each catalog **file** once, even when several builds share it.
 
-Do not use `--refresh-dependencies` on the initial run — it forces re-download of all metadata.
+#### Settings plugins (not in any catalog)
 
-#### Settings plugins (not reported by `dependencyUpdates`)
+Settings plugins applied in the `plugins { }` block of `settings.gradle(.kts)` (e.g. `com.gradle.develocity`, `org.gradle.toolchains.foojay-resolver-convention`) are not catalog entries and are not reported by `dependencyUpdates`. They use the **same metadata lookup** as above:
 
-The `dependencyUpdates` task does not inspect plugins applied in the `plugins { }` block of `settings.gradle(.kts)` (e.g. `com.gradle.develocity`, `org.gradle.toolchains.foojay-resolver-convention`). Check these separately:
-
-1. Find every `settings.gradle.kts` / `settings.gradle` in the build — the root plus any build pulled in with `includeBuild(...)` — and read each `plugins { }` block. For each plugin, record its `id`, current version, the file it is declared in, and whether the version is inline (`version "x"`) or a version-catalog reference. A `plugins { }` block may be absent; many settings files only configure `pluginManagement`/`dependencyResolutionManagement`.
-2. For each plugin `id`, fetch the plugin marker metadata from the Gradle Plugin Portal (e.g. with `curl -s`):
-
-   ```
-   https://plugins.gradle.org/m2/<id-with-dots-as-slashes>/<id>.gradle.plugin/maven-metadata.xml
-   ```
-
-   For example, `org.gradle.toolchains.foojay-resolver-convention` maps to:
+1. From the enumerated settings files, read each `plugins { }` block. For each plugin, record its `id`, current version, the file(s) it is declared in, and whether the version is inline (`version "x"`) or a version-catalog reference. A `plugins { }` block may be absent; many settings files only configure `pluginManagement`/`dependencyResolutionManagement`.
+2. Resolve each plugin `id` via its marker artifact (step 3 above), defaulting to the Plugin Portal and falling back to that file's `pluginManagement { repositories { ... } }` if the id is not on the Portal. For example, `org.gradle.toolchains.foojay-resolver-convention` maps to:
 
    ```
    https://plugins.gradle.org/m2/org/gradle/toolchains/foojay-resolver-convention/org.gradle.toolchains.foojay-resolver-convention.gradle.plugin/maven-metadata.xml
    ```
 
-3. From the returned `<versions>` list, choose the highest **stable** version by semantic-version ordering (not string ordering — `3.18` is newer than `3.9`). Ignore pre-releases (`-rc`, `-alpha`, `-beta`, `-M`, `-SNAPSHOT`, and similar) unless the current version is itself a pre-release. Report any plugin whose latest stable version is newer than the one in use.
-4. If a plugin `id` is not found on the Plugin Portal, look for the same `<id>.gradle.plugin` marker in the repositories declared in that file's `pluginManagement { repositories { ... } }` (for example Maven Central under `https://repo1.maven.org/maven2/...`).
+3. The **same id+version is often repeated across many settings files** in a composite build (e.g. a foojay-resolver literal in every settings file). That is **one** update, applied across all those files in a single round — not one round per file.
 
-Fold any settings-plugin updates into the prioritized, one-at-a-time workflow below — treat each as just another item to update.
+#### Optional enrichment: dependencyUpdates (where the Versions Plugin is applied)
+
+Where a build applies the Gradle Versions Plugin, run its report to catch what the catalog check cannot see — transitive and build-script dependencies, and a newer-Gradle line. It does **not** traverse included builds, so run it once per build that applies it, addressing an included build with a fully-qualified path:
+
+```
+./gradlew dependencyUpdates --no-parallel              # the build the wrapper runs in, if it applies the plugin
+./gradlew :modules:dependencyUpdates --no-parallel     # an included build that applies the plugin
+```
+
+If the output contains a "dependencies exceed the version found at the milestone revision level" section, the metadata cache may be stale. Re-run that build's task with `--refresh-dependencies`. Do not use `--refresh-dependencies` on the initial run — it forces re-download of all metadata.
+
+Fold all updates — catalog entries, settings plugins, and any enrichment-only items — into the prioritized, one-at-a-time workflow below.
 
 ### 3. Self-update the Gradle Versions Plugin first
 
@@ -113,7 +142,7 @@ Update each dependency individually so each upgrade is independently reviewable 
 Settings plugins are build infrastructure; slot each into this ordering by what it affects (e.g. a toolchain-resolver plugin alongside other build toolchain updates).
 
 **For each round:**
-1. Update only its version — in `libs.versions.toml` for catalog entries, or directly in the `settings.gradle(.kts)` `plugins { }` block for an inline-versioned settings plugin
+1. Update only its version — in the `libs.versions.toml` that **declares** it (in a composite build, route the edit to the right catalog file; do not edit a different build's catalog), or directly in the `settings.gradle(.kts)` `plugins { }` block for an inline-versioned settings plugin. When the same settings-plugin id+version is repeated across several files, update **all** of them in this one round — it is a single logical change.
 2. Identify affected modules: for catalog entries, search the repository for usages of the catalog alias; for a settings plugin, note the settings file(s) that declare it
 3. Run verification (step 5)
 4. Then follow the run options:
@@ -143,10 +172,16 @@ After each version change, run the per-round verification tasks with `--rerun-ta
 ./gradlew <per-round tasks> --rerun-tasks
 ```
 
-With the defaults, that is:
+With the single-build defaults, that is:
 
 ```
 ./gradlew build buildHealth --rerun-tasks
+```
+
+For a composite build, use the per-build task set chosen in step 1, with fully-qualified paths for included builds and any aggregator task, e.g.:
+
+```
+./gradlew build :modules:buildHealth examplesCheck --rerun-tasks
 ```
 
 `--rerun-tasks` forces every task to re-execute, ignoring up-to-date checks and the build cache, so each change is verified from scratch.
