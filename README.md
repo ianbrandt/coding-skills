@@ -8,15 +8,17 @@ A [Claude Code](https://claude.ai/code) plugin providing skills for working with
 
 Guides Claude through checking, upgrading, and verifying Gradle dependencies one at a time — including **settings plugins** (those applied in the `plugins { }` block of `settings.gradle(.kts)`), which the gradle-versions-plugin does not report. Each verified upgrade can optionally be committed (one commit per dependency) and pushed.
 
-**Requires:** [gradle-versions-plugin](https://github.com/ben-manes/gradle-versions-plugin) in the target project for the `dependencyUpdates` task. Optionally, the [dependency-analysis-gradle-plugin](https://github.com/autonomousapps/dependency-analysis-gradle-plugin) for the `buildHealth` task.
+The primary update check is a direct metadata lookup against each catalog's declared entries, so it works on **composite builds** (mono-repos using `includeBuild`), where `dependencyUpdates` alone under-reports — it does not traverse included builds and is often applied in only one of them.
 
-**Works with:** any Gradle project using a [version catalog](https://docs.gradle.org/current/userguide/platforms.html) (`libs.versions.toml`). Settings plugins are covered too, including the common case where their versions are declared inline in `settings.gradle(.kts)`.
+**Requires:** nothing. The catalog and settings-plugin checks query published metadata directly. Optionally enriched by the [gradle-versions-plugin](https://github.com/ben-manes/gradle-versions-plugin) (its `dependencyUpdates` task also surfaces transitive and build-script dependencies where applied) and the [dependency-analysis-gradle-plugin](https://github.com/autonomousapps/dependency-analysis-gradle-plugin) (for the `buildHealth` verification task).
+
+**Works with:** any Gradle project using a [version catalog](https://docs.gradle.org/current/userguide/platforms.html) (`libs.versions.toml`), single or composite. Settings plugins are covered too, including the common case where their versions are declared inline in `settings.gradle(.kts)`.
 
 **Workflow:**
 1. Choose the per-round and final verification tasks, and whether to auto-commit and push (asked up front)
-2. Run `dependencyUpdates` to identify available upgrades
-3. Check settings plugins separately against the [Gradle Plugin Portal](https://plugins.gradle.org/) (the gradle-versions-plugin does not report them)
-4. Update one dependency or settings plugin at a time — in `libs.versions.toml`, or in the `settings.gradle(.kts)` `plugins { }` block
+2. Enumerate the builds (root plus every `includeBuild` target) and check each catalog's entries against the [Gradle Plugin Portal](https://plugins.gradle.org/) and Maven Central by direct metadata lookup
+3. Check settings plugins the same way (the gradle-versions-plugin does not report them); where the gradle-versions-plugin is applied, run `dependencyUpdates` as enrichment
+4. Update one dependency or settings plugin at a time — in the catalog file that declares it, or in the `settings.gradle(.kts)` `plugins { }` block
 5. Verify with the chosen tasks (run with `--rerun-tasks`) after each change
 6. With auto-commit on, commit each verified change and continue, then push only after a final verification passes; with it off, stop and wait for maintainer confirmation after each
 
@@ -26,14 +28,15 @@ Guides Claude through checking, upgrading, and verifying Gradle dependencies one
 
 Guides Claude through upgrading the Gradle wrapper to the latest available version.
 
-**Requires:** [gradle-versions-plugin](https://github.com/ben-manes/gradle-versions-plugin) in the target project for the `dependencyUpdates` task.
+**Requires:** nothing. The latest version comes from Gradle's own [version service](https://services.gradle.org/versions/current), so no plugin needs to be applied.
 
-**Works with:** any Gradle project with a [Gradle wrapper](https://docs.gradle.org/current/userguide/gradle_wrapper.html).
+**Works with:** any Gradle project with a [Gradle wrapper](https://docs.gradle.org/current/userguide/gradle_wrapper.html), single or composite — every wrapper in the project is upgraded, each in its own build.
 
 **Workflow:**
-1. Run `dependencyUpdates` to discover the latest Gradle version
-2. If the root build script has a `wrapper` task configuration, update the version there and run `./gradlew wrapper` then `./gradlew help`; otherwise update `gradle-wrapper.properties` directly and run `./gradlew help`
-3. Run `build` to validate the upgrade
+1. Query `services.gradle.org/versions/current` for the latest Gradle version
+2. Find every `gradle-wrapper.properties` in the project (the wrapper task is per-build, so each is upgraded in its own directory)
+3. For each: if that build's script has a `wrapper` task configuration, update the version there and run `./gradlew wrapper` then `./gradlew help`; otherwise update `gradle-wrapper.properties` directly and run `./gradlew help`
+4. Run `build` to validate the upgrade (composite-aware: a root build may not reach every included build)
 
 **Sub-agents:** Discovery and the validation build run in sub-agents that return a short summary, keeping verbose Gradle output out of the main conversation.
 
@@ -69,7 +72,7 @@ The dependency update workflow runs `./gradlew` tasks — and, if you enable aut
 
 The `git` entries are only needed if you opt into auto-commit or auto-push; omit them otherwise. If you choose verification tasks beyond the defaults (e.g. a `clean` cumulative run), add matching `Bash(./gradlew …)` entries.
 
-The settings-plugin check additionally fetches plugin metadata from [plugins.gradle.org](https://plugins.gradle.org/) over HTTPS (via `curl` or a web fetch); allow that mechanism if you want to avoid a prompt for it.
+Both skills fetch metadata over HTTPS (via `curl` or a web fetch): `upgrade-dependencies` checks catalog and settings-plugin versions against [plugins.gradle.org](https://plugins.gradle.org/) and Maven Central, and `upgrade-gradle` reads the latest Gradle version from [services.gradle.org](https://services.gradle.org/versions/current). Allow that mechanism if you want to avoid a prompt for it.
 
 ## Updating
 
