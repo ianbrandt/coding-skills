@@ -6,7 +6,7 @@ A [Claude Code](https://claude.ai/code) plugin providing skills for working with
 
 ### `upgrade-dependencies`
 
-Guides Claude through checking, upgrading, and verifying Gradle dependencies one at a time — including **settings plugins** (those applied in the `plugins { }` block of `settings.gradle(.kts)`), which the gradle-versions-plugin does not report. Each verified upgrade can optionally be committed (one commit per dependency) and pushed.
+Guides Claude through checking, upgrading, and verifying Gradle dependencies one at a time — including **settings plugins** (those applied in the `plugins { }` block of `settings.gradle(.kts)`), which the gradle-versions-plugin does not report. Claude iterates through every available update automatically, committing each verified upgrade as its own atomic commit (one per dependency), and optionally pushes once all upgrades pass.
 
 The primary update check is a direct metadata lookup against each catalog's declared entries, so it works on **composite builds** (mono-repos using `includeBuild`), where `dependencyUpdates` alone under-reports — it does not traverse included builds and is often applied in only one of them.
 
@@ -15,12 +15,12 @@ The primary update check is a direct metadata lookup against each catalog's decl
 **Works with:** any Gradle project using a [version catalog](https://docs.gradle.org/current/userguide/platforms.html) (`libs.versions.toml`), single or composite. Settings plugins are covered too, including the common case where their versions are declared inline in `settings.gradle(.kts)`.
 
 **Workflow:**
-1. Choose the per-round and final verification tasks, and whether to auto-commit and push (asked up front)
+1. Settle the per-round and final verification tasks, and whether to push once everything passes (commits are automatic — one atomic commit per verified upgrade)
 2. Enumerate the builds (root plus every `includeBuild` target) and check each catalog's entries against the [Gradle Plugin Portal](https://plugins.gradle.org/) and Maven Central by direct metadata lookup
 3. Check settings plugins the same way (the gradle-versions-plugin does not report them); where the gradle-versions-plugin is applied, run `dependencyUpdates` as enrichment
 4. Update one dependency or settings plugin at a time — in the catalog file that declares it, or in the `settings.gradle(.kts)` `plugins { }` block
-5. Verify with the chosen tasks (run with `--rerun-tasks`) after each change
-6. With auto-commit on, commit each verified change and continue, then push only after a final verification passes; with it off, stop and wait for maintainer confirmation after each
+5. Verify with the chosen tasks after each change (adding `--rerun-tasks` when a from-scratch check is warranted)
+6. Commit each verified change and continue automatically through every update; push only after a final verification passes, and only if you opted into push
 
 **Sub-agents:** The verbose steps — the `dependencyUpdates` report, settings-plugin metadata lookups, and each verification build — run in sub-agents that return only a short summary. This keeps the raw Gradle output out of the main conversation, reducing context and plan (token) usage across a multi-round run.
 
@@ -51,7 +51,7 @@ Install at user scope (available across all your projects):
 
 ### Bash permissions (optional)
 
-The dependency update workflow runs `./gradlew` tasks — and, if you enable auto-commit/push, `git` commands. To avoid per-invocation approval prompts, add these permissions in `~/.claude/settings.json`:
+The dependency update workflow runs `./gradlew` tasks and `git` commands (it commits each verified upgrade automatically). To avoid per-invocation approval prompts, add these permissions in `~/.claude/settings.json`:
 
 ```json
 {
@@ -70,7 +70,7 @@ The dependency update workflow runs `./gradlew` tasks — and, if you enable aut
 }
 ```
 
-The `git` entries are only needed if you opt into auto-commit or auto-push; omit them otherwise. If you choose verification tasks beyond the defaults (e.g. a `clean` cumulative run), add matching `Bash(./gradlew …)` entries.
+`git add` and `git commit` are used on every dependency run; `git push` is only needed if you opt into push. If you choose verification tasks beyond the defaults (e.g. a `clean` cumulative run), add matching `Bash(./gradlew …)` entries.
 
 Both skills fetch metadata over HTTPS (via `curl` or a web fetch): `upgrade-dependencies` checks catalog and settings-plugin versions against [plugins.gradle.org](https://plugins.gradle.org/) and Maven Central, and `upgrade-gradle` reads the latest Gradle version from [services.gradle.org](https://services.gradle.org/versions/current). Allow that mechanism if you want to avoid a prompt for it.
 

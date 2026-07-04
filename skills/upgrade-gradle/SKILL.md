@@ -85,15 +85,13 @@ In a composite build, a root `build` does **not** automatically build every incl
 
 The sub-agent returns only `PASS` (with the `BUILD SUCCESSFUL` marker), or `FAIL` with the failing task and the actionable error block (compiler errors with `file:line`, failed test names with the assertion) trimmed to what's needed to act on. This must pass before reporting results.
 
-**`--rerun-tasks` option:** Before dispatching the validation build, check memory for a saved `--rerun-tasks` preference. If no preference is found, ask the maintainer:
+**`--rerun-tasks` — your judgement.** A wrapper upgrade changes the Gradle version, but up-to-date checks key off task inputs and outputs, not the Gradle version, so tasks may still report `UP-TO-DATE` from the previous version's run. When you want the validation to genuinely re-exercise the build under the new version, add `--rerun-tasks`:
 
-> Would you like to run `./gradlew build` with `--rerun-tasks`? This forces all tasks to re-execute regardless of up-to-date checks.
-> - **yes** — use `--rerun-tasks` this time
-> - **no** — skip it this time
-> - **always** — use it now and in future sessions (saves preference)
-> - **never** — skip it now and in future sessions (saves preference)
+```
+./gradlew build --rerun-tasks
+```
 
-If the maintainer answers "always" or "never", save that preference to memory for future invocations. This option applies only to `./gradlew build`, not to other Gradle tasks.
+Otherwise the plain incremental `./gradlew build` is enough. This applies only to the validation build, not to other Gradle tasks.
 
 ### 5. Reporting
 

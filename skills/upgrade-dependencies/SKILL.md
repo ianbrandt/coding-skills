@@ -1,6 +1,6 @@
 ---
 name: upgrade-dependencies
-description: Check for and upgrade Gradle version-catalog dependencies and settings.gradle plugins one at a time, verifying after each change and optionally committing and pushing each verified upgrade.
+description: Check for and upgrade Gradle version-catalog dependencies and settings.gradle plugins one at a time, verifying and committing each verified upgrade atomically, and optionally pushing once all upgrades pass.
 paths: "**/libs.versions.toml,**/settings.gradle.kts,**/settings.gradle"
 ---
 
@@ -51,22 +51,21 @@ Two jobs are delegated: **discovery** (step 2) and **verification** (steps 5 and
 - Spawn one single-shot sub-agent per job — it runs the given command(s) and returns only the summary contract stated in that step.
 - The sub-agent **must not** edit files, run `git`, fix failures, or proceed to another dependency. On a failure it returns enough to act on (see the verification contract) — never a bare "FAIL".
 
-Everything else stays in the main thread: prioritization, the version edits (so each diff stays reviewable), commits, the per-round hard-stop and other user interaction, and reporting. Relay what a sub-agent returns — a passing build needs only a one-line confirmation; surface a failure's error block.
+Everything else stays in the main thread: prioritization, the version edits (so each diff stays reviewable), commits, and reporting. Relay what a sub-agent returns — a passing build needs only a one-line confirmation; surface a failure's error block.
 
 ## Workflow
 
 ### 1. Set the run options
 
-At the start of a run, ask the maintainer how to handle verification and Git, then apply the answers for the whole run:
+Two things govern the run:
 
-1. **Per-round verification tasks** — the Gradle tasks to run after each dependency change. Default for a single build: `build buildHealth` (drop `buildHealth` if the dependency-analysis plugin is not applied). For a **composite build**, this must be expressed per build (see below): a flat `build buildHealth` covers only the build the wrapper runs in, so name each build's task explicitly, e.g. `build :modules:buildHealth examplesCheck`.
-2. **Final verification tasks** — the Gradle tasks to run once before pushing. Default: the same as the per-round tasks. The maintainer may choose a heavier set here, e.g. a clean cumulative run such as `clean build buildHealth`.
+1. **Verification tasks** — the Gradle tasks to run after each dependency change (step 5) and once at the end (step 6). Default for a single build: `build buildHealth` (drop `buildHealth` if the dependency-analysis plugin is not applied). For a **composite build**, express this per build: a flat `build buildHealth` covers only the build the wrapper runs in, so name each build's task explicitly, e.g. `build :modules:buildHealth examplesCheck`.
 
-   **Composite-aware verification.** In a composite build, lifecycle tasks do not fan out across included builds, and a task like `buildHealth` may exist in only one build. Derive the task set from the build structure: address an included build's task with a fully-qualified path (`:included:task`), and include any aggregator task that exercises builds the root lifecycle does not reach (for example, an `examplesCheck` that builds a set of standalone example builds). When the right set is not obvious, propose one from the enumeration and confirm it with the maintainer.
-3. **Auto-commit** — whether to commit each verified round automatically. If yes, derive the commit-message convention from recent `git log` history, and make one commit per dependency so each upgrade is independently reviewable and revertable.
-4. **Auto-push** — whether to push automatically once every round and the final verification have passed. Applies only when auto-commit is on.
+   **Composite-aware verification.** In a composite build, lifecycle tasks do not fan out across included builds, and a task like `buildHealth` may exist in only one build. Derive the task set from the build structure: address an included build's task with a fully-qualified path (`:included:task`), and include any aggregator task that exercises builds the root lifecycle does not reach (for example, an `examplesCheck` that builds a set of standalone example builds). When the right set is not obvious, propose one from the enumeration and confirm it with the maintainer. The final verification (step 6) may use a heavier set, e.g. a clean cumulative run such as `clean build buildHealth`.
 
-If the maintainer does not opt in, default to auto-commit off and no push — the review-and-stop-after-each behavior in step 4.
+2. **Push** — the one outward-facing action, and the only opt-in. Default off: leave the verified atomic commits for the maintainer to push. Push automatically once every round and the final verification have passed **only** if the maintainer opts in.
+
+**Commits are automatic.** Iterate through every available update without stopping for approval, committing each verified round as its own atomic commit (step 4) in the repo's existing commit-message convention (derive it from recent `git log`). Never fold multiple dependencies into one commit; batch only dependencies that must move together (step 4).
 
 Each single dependency update plus its verification is one **round**.
 
@@ -124,14 +123,11 @@ Fold all updates — catalog entries, settings plugins, and any enrichment-only 
 
 If the report lists an update for the Gradle Versions Plugin itself (plugin id `com.github.ben-manes.versions`), upgrade only that plugin before any other dependency. A newer plugin may surface different or more accurate updates, so subsequent prioritization should be based on the refreshed report.
 
-Run it as a normal round (step 4): update its version, then verify (step 5). Then, per the run options:
-
-- **Auto-commit off:** report results, **stop**, and wait for the maintainer before re-running the check.
-- **Auto-commit on:** if verification passes, commit it, then re-run step 2 with the upgraded plugin and continue from the refreshed report.
+Run it as a normal round (step 4): update its version, verify (step 5), and commit. Then re-run step 2 with the upgraded plugin and continue from the refreshed report.
 
 ### 4. Update one dependency at a time
 
-Update each dependency individually so each upgrade is independently reviewable and revertable — one dependency per round, and (with auto-commit on) one commit per round. Settings plugins are included here — treat each as a single dependency.
+Update each dependency individually so each upgrade is independently reviewable and revertable — one dependency per round, one commit per round. Settings plugins are included here — treat each as a single dependency.
 
 **Prioritize by compatibility relationships:**
 1. Build toolchain plugins (compiler plugins, annotation processors, code generators) — update and test with the CURRENT language/platform version BEFORE upgrading the language/platform itself
@@ -145,15 +141,7 @@ Settings plugins are build infrastructure; slot each into this ordering by what 
 1. Update only its version — in the `libs.versions.toml` that **declares** it (in a composite build, route the edit to the right catalog file; do not edit a different build's catalog), or directly in the `settings.gradle(.kts)` `plugins { }` block for an inline-versioned settings plugin. When the same settings-plugin id+version is repeated across several files, update **all** of them in this one round — it is a single logical change.
 2. Identify affected modules: for catalog entries, search the repository for usages of the catalog alias; for a settings plugin, note the settings file(s) that declare it
 3. Run verification (step 5)
-4. Then follow the run options:
-   - **Auto-commit off:** report results and **STOP** (see the hard-stop box below).
-   - **Auto-commit on:** if verification passed, commit this single dependency — matching the repo's commit-message convention — and continue to the next round. If verification failed, **stop and report; do not commit, do not push, do not touch another dependency.**
-
-> **Auto-commit off — hard stop after each dependency, no exceptions.**
-> - Do not queue up the next update.
-> - Do not mention what you plan to do next.
-> - Do not continue even if the user previously said "go ahead" or gave general approval.
-> - Resume only when the maintainer sends a new message explicitly asking you to proceed.
+4. If verification passed, commit this single dependency — matching the repo's commit-message convention — and continue straight to the next round without pausing for approval. If verification failed, **stop and report; do not commit, do not push, do not touch another dependency** — leave it for the maintainer to resolve before the run continues.
 
 **Watch for:**
 - Compiler/toolchain API changes
@@ -162,57 +150,47 @@ Settings plugins are build infrastructure; slot each into this ordering by what 
 - New deprecations or required source changes
 - Settings-plugin major version bumps — review the plugin's release notes for renamed DSL extensions or a raised minimum Gradle version before upgrading
 
-**Batching:** Only batch updates when dependencies *must* be updated together (e.g., a library and its required companion version). Prefer single-dependency changes. If batching, explain why — and with auto-commit on, the batch is still a single round and a single commit.
+**Batching:** Only batch updates when dependencies *must* be updated together (e.g., a library and its required companion version). Prefer single-dependency changes. If batching, explain why — the batch is still a single round and a single commit.
 
 ### 5. Verification
 
-After each version change, run the per-round verification tasks with `--rerun-tasks` — in a sub-agent (see **Delegating verbose work to sub-agents** above):
+After each version change, run the per-round verification tasks — in a sub-agent (see **Delegating verbose work to sub-agents** above):
 
 ```
-./gradlew <per-round tasks> --rerun-tasks
+./gradlew <per-round tasks>
 ```
 
-With the single-build defaults, that is:
+With the single-build defaults, that is `./gradlew build buildHealth`. For a composite build, use the per-build task set chosen in step 1, with fully-qualified paths for included builds and any aggregator task, e.g. `./gradlew build :modules:buildHealth examplesCheck`.
 
-```
-./gradlew build buildHealth --rerun-tasks
-```
-
-For a composite build, use the per-build task set chosen in step 1, with fully-qualified paths for included builds and any aggregator task, e.g.:
-
-```
-./gradlew build :modules:buildHealth examplesCheck --rerun-tasks
-```
-
-`--rerun-tasks` forces every task to re-execute, ignoring up-to-date checks and the build cache, so each change is verified from scratch.
+**`--rerun-tasks` — your judgement.** A catalog version bump is a changed task input, so Gradle's up-to-date checks normally re-run the affected tasks and a plain build verifies the change. Reach for `--rerun-tasks` (which forces every task to re-execute, ignoring up-to-date checks and the build cache) only when you have reason to distrust the incremental result — a toolchain / compiler-plugin or code-generator upgrade, signs of stale caching (a task reported `UP-TO-DATE` that the change should have touched, or a `dependencyUpdates` "exceed the milestone" warning), or when you deliberately want a from-scratch check. Default to leaving it off.
 
 The verification sub-agent returns only:
 
 - **On success:** `PASS`, with the `BUILD SUCCESSFUL` marker and — when `buildHealth` ran — its "no issues" confirmation.
 - **On failure:** `FAIL`, which task failed, and the actionable error block (compiler errors with `file:line`, failed test names with the assertion, or the `buildHealth` advice), trimmed to what the main thread needs to decide fix-vs-revert. The sub-agent does not attempt a fix and does not touch any other dependency.
 
-Verification must pass before a round is committed (auto-commit on) or reported (auto-commit off).
+Verification must pass before a round is committed.
 
 ### 6. Final verification, then push
 
-After every round has passed — and been committed, if auto-commit is on — run a single final verification, in a sub-agent with the same return contract as step 5:
+After every round has passed and been committed, run a single final verification, in a sub-agent with the same return contract as step 5:
 
 ```
-./gradlew <final tasks> --rerun-tasks
+./gradlew <final tasks>
 ```
 
-This is a distinct step from per-round verification and may use the heavier task set chosen in step 1 (e.g. a clean cumulative run).
+This is a distinct step from per-round verification and may use the heavier task set chosen in step 1 (e.g. a clean cumulative run). A from-scratch final check is often worth `--rerun-tasks` even when the per-round builds ran without it — same judgement as step 5.
 
 - If final verification fails, **stop and report; do not push.**
-- If it passes and auto-push is on, push with `git push`.
+- If it passes and push was enabled in step 1, push with `git push`.
 
-Push only after this final-verification step passes. With auto-commit off there is nothing to push — skip this step.
+Push only after this final-verification step passes, and only if the maintainer opted in. If push is off, the run ends here with every verified upgrade already committed for the maintainer to push.
 
 ### 7. Reporting
 
 - Summarize what changed and why
 - Report verification results — both per-round and final
-- State what was committed and whether the branch was pushed; with auto-commit off, note that changes are left uncommitted for the maintainer to review
+- State what was committed and whether the branch was pushed; if push was off, note that the verified commits are left for the maintainer to push
 - If a round or the final verification failed, say exactly where the run stopped and what was and was not committed or pushed
 - Separate follow-up ideas from completed work
 
@@ -221,4 +199,4 @@ Push only after this final-verification step passes. With auto-commit off there 
 - **Version catalog:** Do not rename catalog aliases, bundles, or plugin aliases unless explicitly asked. Maintain existing formatting and style.
 - **Settings plugins:** Settings `plugins { }` versions are normally inline because the version catalog is not available in that block. Upgrade them in place; do not migrate them into the catalog unless explicitly asked.
 - **Scope:** Keep diffs focused and minimal. Do not perform unrelated refactors or change unrelated versions. Do not introduce new dependencies without clear justification.
-- **Git:** Commit or push only when the maintainer opts in through the run options (step 1). With auto-commit on, make one commit per verified dependency in the repo's existing commit-message convention — never fold multiple dependencies into one commit — committing a round only after its verification passes, and pushing only after the final verification passes. With auto-commit off, do not run `git commit` or `git push`; leave changes for the maintainer. Do not create branches unless explicitly instructed.
+- **Git:** Commit each verified dependency as its own atomic commit in the repo's existing commit-message convention — never fold multiple dependencies into one commit, and commit a round only after its verification passes. Push only when the maintainer opts in through the run options (step 1), and only after the final verification passes. Do not create branches unless explicitly instructed.
