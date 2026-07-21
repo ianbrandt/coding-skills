@@ -25,6 +25,13 @@ Runs in one of two auto-detected modes:
 An optional lane hint (`/next-roadmap-item R1`) biases the pick without
 overriding the no-collision rules.
 
+The roadmap family lives at the repo root under one naming rule: versioned repos
+track `ROADMAP.md` plus `ROADMAP-PARKED.md`/`ROADMAP-DECLINED.md` as needed;
+local mode uses the same names with a `.local.md` suffix plus
+`ROADMAP-CHANGELOG.local.md` as the done-record git history can't provide. The
+suffix keeps a shadow roadmap from colliding with an upstream project's real
+`ROADMAP.md`. (`docs/roadmap.md` is honored as a legacy location.)
+
 ### `execute-roadmap`
 
 An unattended conductor for working through the whole roadmap in one session: it

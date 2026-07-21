@@ -47,24 +47,39 @@ decide. The parallel machinery (§1–3, §5–6) is identical in both modes; on
 lives (§0, §4) and how an item lands (§8) differ.
 
 ## 0. Detect the mode and locate the roadmap
-Mode is **self-describing**—read it off the working tree, don't guess:
+Mode is **self-describing**—read it off the working tree, don't guess. Check fork-ness **before**
+looking for a tracked roadmap: an upstream project's own `ROADMAP.md` is *their* plan, not your
+shadow roadmap, and must never flip a fork into `versioned` mode.
 ```bash
 if [ -f ROADMAP.local.md ]; then
-  MODE=local; ROADMAP=ROADMAP.local.md; HISTORY=spike-notes.local/roadmap-history.md
-elif git ls-files --error-unmatch docs/roadmap.md >/dev/null 2>&1; then
-  MODE=versioned; ROADMAP=docs/roadmap.md            # a repo-tracked roadmap ⇒ versioned
+  MODE=local; ROADMAP=ROADMAP.local.md; HISTORY=ROADMAP-CHANGELOG.local.md
+elif git remote get-url upstream >/dev/null 2>&1; then
+  MODE=bootstrap                                     # a fork with no shadow roadmap yet—see §9
+elif R=$(git ls-files ROADMAP.md docs/roadmap.md | head -1) && [ -n "$R" ]; then
+  MODE=versioned; ROADMAP=$R                         # tracked roadmap ⇒ versioned (docs/ is legacy)
 else
-  MODE=bootstrap                                     # neither exists yet—see §9
+  MODE=bootstrap                                     # no roadmap anywhere—see §9
 fi
 echo "mode: $MODE  roadmap: ${ROADMAP:-<none>}"
 ```
 - **`ROADMAP.local.md` present** ⇒ `local`. This correctly catches a fork whose `origin` is your
   own GitHub account (an `upstream` remote pushing to `no_push` is the fork tell) but whose work is
   still OSS.
-- **A git-tracked roadmap present** ⇒ `versioned`. Adjust the path if this repo keeps its roadmap
-  somewhere other than `docs/roadmap.md`.
-- **Neither** ⇒ `bootstrap`: if the repo is a fork (an `upstream` remote exists), stamp out a local
-  roadmap per §9 and proceed as `local`; otherwise this repo has no roadmap to work—say so and stop.
+- **An `upstream` remote but no shadow roadmap** ⇒ `bootstrap` (§9), regardless of any tracked
+  `ROADMAP.md` the upstream project ships.
+- **A git-tracked roadmap present** ⇒ `versioned`. Root `ROADMAP.md` is the convention;
+  `docs/roadmap.md` is the legacy location—still honored, but worth migrating to the root family in
+  a grooming commit when the ledger is empty.
+- **None of the above** ⇒ `bootstrap`: set the repo up per §9.
+
+**The roadmap family lives at the repo root, one naming rule for both modes.** Versioned:
+`ROADMAP.md`, plus `ROADMAP-PARKED.md` / `ROADMAP-DECLINED.md`; no changelog—git history is the
+done-record. Local: the same names with a `.local.md` suffix (`ROADMAP.local.md`,
+`ROADMAP-PARKED.local.md`, `ROADMAP-DECLINED.local.md`), plus `ROADMAP-CHANGELOG.local.md`, which
+exists only in local mode because it stands in for the git history upstream never sees. The
+`.local.md` suffix is the never-commit signal, and it keeps a shadow roadmap from colliding with an
+upstream project's real `ROADMAP.md`. Parked/declined files are created on first need, never as
+empty stubs.
 
 Everything below uses `$ROADMAP` for the plan and, in `local` mode, `$HISTORY` for the done-record.
 
@@ -159,9 +174,8 @@ last.
 
 **Read the roadmap's own scoping.** `$ROADMAP` is the **active burndown**—each item is a claimable
 to-do carrying a stable `Rn` ID (claimable sub-items `Rn.m`). Parked / deferred / declined /
-out-of-scope work is **not pickable here**: in `versioned` mode it lives in the repo's
-`roadmap-parked.md` / `roadmap-declined.md` (don't go fishing there); in `local` mode it lives in a
-**"Parked / declined" section** at the foot of `$ROADMAP` (skip it). If the roadmap tags items with a
+out-of-scope work is **not pickable here**: it lives in the mode's `ROADMAP-PARKED` /
+`ROADMAP-DECLINED` variant (§0's naming rule)—don't go fishing there. If the roadmap tags items with a
 parallelism note (independent vs gated, plus the within-lane collision seam), honor it: prefer an
 **independent** slice whose file-touch set is disjoint from every claimed one—disjointness is
 **within-lane too**, not just "different module"; two sessions can collide inside one lane on a shared
@@ -266,7 +280,8 @@ Then land per mode:
 applicable documentation as part of the work: the subsystem's design doc (the durable *why*) plus any
 user-facing surface it touches. There is **no changelog**—git history is the done-record—so a landed
 item is simply **deleted from `$ROADMAP`**, never migrated to a done-list and never annotated
-"landed". (An item that turned out *parked* or *declined* moves to the repo's parked/declined file.)
+"landed". (An item that turned out *parked* or *declined* moves to `ROADMAP-PARKED.md` /
+`ROADMAP-DECLINED.md`, created on first need.)
 Keep the roadmap deletion minimal and localized, in its own final commit.
 
 At session end—**even if unfinished**—follow the repo's end-of-session merge protocol (a
@@ -296,7 +311,7 @@ What you *do* on a finished item:
    key by the `Rn` id. **Filing an issue, opening a PR, and posting a comment are the user's actions,
    never yours**—the roadmap's "requires user present" items (§4) are exactly these.
 3. **Move the item out of the forward roadmap** (`$ROADMAP` is forward-only) and **append its
-   done-record to `$HISTORY`** (`spike-notes.local/roadmap-history.md`). The changelog is a *reasoning
+   done-record to `$HISTORY`** (`ROADMAP-CHANGELOG.local.md`). The changelog is a *reasoning
    archive*, not a bare landed-list: capture what commit messages won't—mechanism notes, corrections,
    refuted hypotheses, the local→upstream sha/number map, and "do-not-re-derive" findings—with a
    status keyword (`BUILT-LOCAL` / `DRAFTED` / `FILED` / `PR-READY` / `MERGED-UPSTREAM`). Free-form
@@ -314,7 +329,7 @@ setup, then proceed from §1:
    with `git remote set-url --push upstream no_push` so a stray push can't reach upstream.
 2. **Exclude the local-only artifacts** (per-clone, uncommitted—never touch the tracked `.gitignore`):
    ```bash
-   printf '\n# Local-only planning artifacts (never commit/push upstream)\n/ROADMAP.local.md\n/.claude/\n/spike-notes.local/\n' \
+   printf '\n# Local-only planning artifacts (never commit/push upstream)\n/ROADMAP*.local.md\n/.claude/\n/spike-notes.local/\n' \
      >> .git/info/exclude
    mkdir -p spike-notes.local
    ```
@@ -322,7 +337,7 @@ setup, then proceed from §1:
    header *is* the local-mode config—no separate file):
    - a one-line banner: local-only, excluded via `.git/info/exclude`, never commit or push; upstream
      sees issues/PRs, not this file;
-   - **forward-only** note pointing landed work at `spike-notes.local/roadmap-history.md`;
+   - **forward-only** note pointing landed work at `ROADMAP-CHANGELOG.local.md`;
    - the fork/upstream remote names;
    - the **binding guardrails**: the §8b no-GitHub-writes rule verbatim, and which items require the
      user present;
@@ -330,6 +345,8 @@ setup, then proceed from §1:
      read of neighboring source (mechanical gate command, comment/KDoc conventions, test framework and
      naming, commit-message convention, em-dash and other prose rules)—to be pasted verbatim into every
      implementation-agent brief.
-4. **Create `spike-notes.local/roadmap-history.md`** as the empty done-record companion.
+4. **Create `ROADMAP-CHANGELOG.local.md`** as the empty done-record companion. (`spike-notes.local/`
+   still holds outreach drafts and spike notes—only the changelog moved to the root family.)
 
-The `gradle-versions-plugin` fork is a worked reference for every one of these files.
+The `gradle-versions-plugin` fork is a worked reference for every one of these files (it may still
+carry the legacy `spike-notes.local/roadmap-history.md` name for the changelog).
