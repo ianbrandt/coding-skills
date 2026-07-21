@@ -25,5 +25,12 @@ Runs in one of two auto-detected modes:
 An optional lane hint (`/next-roadmap-item R1`) biases the pick without
 overriding the no-collision rules.
 
-> `execute-roadmap`, an unattended multi-item conductor built on the same
-> mechanics, is planned for this plugin.
+### `execute-roadmap`
+
+An unattended conductor for working through the whole roadmap in one session: it
+claims several file-disjoint items, builds each in its own worktree via a
+background Workflow (2–5 in flight), and processes each as it finishes, until the
+roadmap is dry or the plan is invalidated. In **versioned** mode it lands each
+item serially on the default branch; in **local** mode it stages each on its own
+branch (no GitHub writes) for you to sync. Built on `next-roadmap-item`'s mode
+detection and worktree/claim mechanics.
