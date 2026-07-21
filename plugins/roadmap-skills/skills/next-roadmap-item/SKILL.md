@@ -5,7 +5,9 @@ description: >-
   start building it. Works in two modes, auto-detected: a versioned roadmap for
   repos you own (git history is the done-record), or a local-only shadow roadmap
   for an upstream OSS project you contribute to via a fork (nothing touches
-  GitHub until you say so). Trigger whenever the user wants to claim, grab,
+  GitHub until you say so). If the repo has no roadmap yet, it bootstraps one
+  first, asking about anything that isn't obvious. Trigger whenever the user
+  wants to claim, grab,
   select, or start an unclaimed/next/disjoint roadmap item—phrasings like
   "tackle a roadmap item", "claim a task and get going", "knock out the next
   thing on the roadmap", or "kick things off without colliding with the other
@@ -321,12 +323,23 @@ What you *do* on a finished item:
 Local mode has no ff-merge, no build-gate-on-main, no push—there is no shared branch to land on. The
 "landing" is entirely: local commits + drafts + roadmap/changelog update, then hands off to the user.
 
-## 9. Bootstrapping a fresh `local`-mode repo
-Only when §0 found neither roadmap **and** the repo is a fork (an `upstream` remote exists). One-time
-setup, then proceed from §1:
+## 9. Bootstrapping a repo with no roadmap
+Runs whenever §0 lands in `bootstrap`. This is the **one attended exception to §7's never-pause
+rule**—a repo's first roadmap run is inherently attended, so **ask (AskUserQuestion) about anything
+that isn't obvious** rather than guessing: which family, initial items, fork wiring, a gate command.
+One-time setup; afterwards proceed from §1 if the new roadmap has items, otherwise report the
+bootstrap and stop.
+
+**Which family?** An `upstream` remote ⇒ `local` (§9a). No `upstream` remote and the user owns the
+repo ⇒ `versioned` (§9b). Ambiguous—say, a direct clone of a project that may not be theirs—⇒ ask:
+"versioned roadmap (a repo you own) or local shadow roadmap (an OSS project you contribute to)?"
+
+### 9a. `local` family (OSS fork)
 
 1. **Confirm the fork wiring**: `origin` = your GitHub fork, `upstream` = the real project, ideally
-   with `git remote set-url --push upstream no_push` so a stray push can't reach upstream.
+   with `git remote set-url --push upstream no_push` so a stray push can't reach upstream. If the
+   remotes aren't wired that way (e.g. a direct clone of upstream), propose the rewiring and ask
+   before touching remotes.
 2. **Exclude the local-only artifacts** (per-clone, uncommitted—never touch the tracked `.gitignore`):
    ```bash
    printf '\n# Local-only planning artifacts (never commit/push upstream)\n/ROADMAP*.local.md\n/.claude/\n/spike-notes.local/\n' \
@@ -347,6 +360,18 @@ setup, then proceed from §1:
      implementation-agent brief.
 4. **Create `ROADMAP-CHANGELOG.local.md`** as the empty done-record companion. (`spike-notes.local/`
    still holds outreach drafts and spike notes—only the changelog moved to the root family.)
+5. **Seed the items**: ask the user what the initial items are (scope is theirs to set—don't invent
+   a plan from the codebase unasked), then write them with stable `Rn` IDs.
 
 The `gradle-versions-plugin` fork is a worked reference for every one of these files (it may still
 carry the legacy `spike-notes.local/roadmap-history.md` name for the changelog).
+
+### 9b. `versioned` family (a repo you own)
+
+1. **Stamp out root `ROADMAP.md`** with a short header: the `Rn` ID scheme (stable, never reused, an
+   item keeps its ID for life; the claim unit is the item, sub-items `Rn.m`), a forward-only note
+   (git history is the done-record—landed items are deleted, parked/declined items move to
+   `ROADMAP-PARKED.md` / `ROADMAP-DECLINED.md`, created on first need).
+2. **Seed the items**: same as §9a step 5—ask, then write with `Rn` IDs.
+3. **Commit the roadmap on the default branch**—it's tracked; that's what makes the mode
+   `versioned`.

@@ -46,8 +46,10 @@ non-override semantics as next-roadmap-item's hint.
 
 ## 1. Conductor setup—once
 The conductor roots in the **main checkout** and never edits repo files outside an item's worktree—the
-run-state file below is the one exception. Detect the mode (next-roadmap-item §0) and run its §3
-hygiene pass once (worktree prune, dead-branch and dead-claim reaping). Then:
+run-state file below is the one exception. Detect the mode (next-roadmap-item §0); a `bootstrap`
+result runs next-roadmap-item §9 first—its interview is allowed even here, since a repo's first
+roadmap run is inherently attended—and if the freshly bootstrapped roadmap has no items, stop. Then
+run its §3 hygiene pass once (worktree prune, dead-branch and dead-claim reaping). Then:
 
 - **Create the run-state file** `.claude/roadmap-run.json` (git-ignored in a versioned repo,
   git-excluded in a local one—either way invisible to the tree; deliberately NOT under
