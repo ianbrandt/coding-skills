@@ -6,10 +6,17 @@
   "plugins": [
     {
       "name": "gradle-skills",
-      "source": "./",
-      "version": "1.6.0",
+      "source": "./plugins/gradle-skills",
+      "version": "1.6.1",
       "description": "Skills for working with Gradle projects.",
       "keywords": ["gradle", "dependencies", "version-catalog", "wrapper"]
+    },
+    {
+      "name": "roadmap-skills",
+      "source": "./plugins/roadmap-skills",
+      "version": "0.1.0",
+      "description": "Skills for driving a repo's roadmap: claim the next item and build it, for repos you own or upstream OSS projects you contribute to via a fork.",
+      "keywords": ["roadmap", "backlog", "worktree", "oss", "contribution"]
     }
   ]
 }

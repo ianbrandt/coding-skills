@@ -1,0 +1,29 @@
+# roadmap-skills
+
+A [Claude Code](https://claude.ai/code) plugin for driving a repo's roadmap when
+you track work as a roadmap file rather than GitHub issues.
+
+## Skills
+
+### `next-roadmap-item`
+
+Claims the next unclaimed, file-disjoint item on the repo's roadmap and starts
+building it test-first, coordinating with other concurrent sessions through git
+worktrees and a shared claim ledger so they don't collide.
+
+Runs in one of two auto-detected modes:
+
+- **versioned**: a repo you own. The roadmap is tracked, git history is the
+  done-record, and finished work lands on the default branch by fast-forward and
+  is pushed.
+- **local**: an upstream OSS project you contribute to via a fork. The roadmap
+  and its companion files are untracked and local-only; **nothing is written to
+  GitHub** (no push, issues, comments, or PRs). Issue, comment, and PR text is
+  drafted as local files for you to review and post by hand, and a local
+  changelog stands in for git history.
+
+An optional lane hint (`/next-roadmap-item R1`) biases the pick without
+overriding the no-collision rules.
+
+> `execute-roadmap`, an unattended multi-item conductor built on the same
+> mechanics, is planned for this plugin.

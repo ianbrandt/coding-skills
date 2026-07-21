@@ -4,7 +4,7 @@
   "author": {
     "name": "Ian Brandt"
   },
-  "repository": "https://github.com/IanBrandt/gradle-skills",
+  "repository": "https://github.com/IanBrandt/coding-skills",
   "license": "MIT",
   "keywords": ["gradle", "dependencies", "version-catalog", "wrapper"]
 }

@@ -1,0 +1,10 @@
+{
+  "name": "roadmap-skills",
+  "description": "Skills for driving a repo's roadmap: claim the next item and build it.",
+  "author": {
+    "name": "Ian Brandt"
+  },
+  "repository": "https://github.com/IanBrandt/coding-skills",
+  "license": "MIT",
+  "keywords": ["roadmap", "backlog", "worktree", "oss", "contribution"]
+}
