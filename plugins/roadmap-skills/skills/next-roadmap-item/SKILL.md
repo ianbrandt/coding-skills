@@ -183,6 +183,14 @@ parallelism note (independent vs gated, plus the within-lane collision seam), ho
 **within-lane too**, not just "different module"; two sessions can collide inside one lane on a shared
 file. Skip a *gated* item whose prerequisite hasn't landed (or claim the prerequisite instead).
 
+**The roadmap is priority-ordered, top-down.** Items appear in descending priority/value, optionally
+grouped into coarse bands (e.g. Now / Next / Later); `Rn` IDs are stable and carry no order, so R17
+sitting above R3 is normal. **Absent a lane hint, take the topmost item that passes the gates
+above.** New items are inserted at their priority position (end-of-band is fine), not appended at
+the bottom. Wholesale reordering is grooming-only work, done when the claim ledger is empty—moving a
+block is a delete-plus-insert that conflicts with any concurrent edit near either end, so never
+reshuffle as a rider on a landing.
+
 **If the invocation carried a lane hint, apply it here—as a preference, not an override.** The hint
 is matched against the roadmap's item IDs (R-numbers) and headings. It only **reorders** the
 candidates that already pass the unclaimed-and-disjoint gates above—it never relaxes them:
@@ -361,7 +369,7 @@ repo ⇒ `versioned` (§9b). Ambiguous—say, a direct clone of a project that m
 4. **Create `ROADMAP-CHANGELOG.local.md`** as the empty done-record companion. (`spike-notes.local/`
    still holds outreach drafts and spike notes—only the changelog moved to the root family.)
 5. **Seed the items**: ask the user what the initial items are (scope is theirs to set—don't invent
-   a plan from the codebase unasked), then write them with stable `Rn` IDs.
+   a plan from the codebase unasked), then write them in priority order with stable `Rn` IDs.
 
 The `gradle-versions-plugin` fork is a worked reference for every one of these files (it may still
 carry the legacy `spike-notes.local/roadmap-history.md` name for the changelog).
@@ -369,7 +377,8 @@ carry the legacy `spike-notes.local/roadmap-history.md` name for the changelog).
 ### 9b. `versioned` family (a repo you own)
 
 1. **Stamp out root `ROADMAP.md`** with a short header: the `Rn` ID scheme (stable, never reused, an
-   item keeps its ID for life; the claim unit is the item, sub-items `Rn.m`), a forward-only note
+   item keeps its ID for life; the claim unit is the item, sub-items `Rn.m`), the §4 priority-order
+   rule (descending priority top-down; reshuffles are grooming-only), and a forward-only note
    (git history is the done-record—landed items are deleted, parked/declined items move to
    `ROADMAP-PARKED.md` / `ROADMAP-DECLINED.md`, created on first need).
 2. **Seed the items**: same as §9a step 5—ask, then write with `Rn` IDs.

@@ -76,8 +76,9 @@ timeout)—the all-dead pipeline is the one stall no completion event can break.
 next-roadmap-item §4's filters—unclaimed, ungated, **file-touch-disjoint from every in-flight item**,
 and **not user-present** (§4's "requires user present" items are never claimed unattended)—minus this
 run's `flagged` and `deferredApex` sets (a flagged item's claim was released, so it reads as unclaimed
-again; without the exclusion it is re-picked and re-burned every refill). When disjointness is
-uncertain, serialize.
+again; without the exclusion it is re-picked and re-burned every refill). Keep candidates in roadmap
+order—the roadmap is priority-ordered top-down (next-roadmap-item §4)—so fills take the topmost
+eligible items first. When disjointness is uncertain, serialize.
 
 **Fill:** while in-flight < cap, claimed < max-items, and a candidate exists: open its worktree +
 branch and write its claim per next-roadmap-item §5, **atomically**. After all claims in a fill batch
