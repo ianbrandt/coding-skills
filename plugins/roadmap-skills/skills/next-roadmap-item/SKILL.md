@@ -291,9 +291,11 @@ loud (tests, compile, a verifiable count); a stage that could fail silently is n
 - **Correctness-critical transform/rewrite machinery** (the suite would *not* catch silent
   wrongness)—design, implement-review, and adversarial-verify stages at `'xhigh'` on Opus.
   `Tier plan: Workflow—design@Opus+xhigh, implement@Sonnet+medium, adversarial-verify@Opus+xhigh.`
-- **Fable is attended-only**—never auto-spawn it. The unattended ceiling is Opus + `'xhigh'` stages;
-  work that genuinely wants Fable runs at the ceiling and is **flagged in the §8 wrap-up** for an
-  attended revisit.
+- **Apex-grade work**—the hardest analysis, design, and adversarial-review stages, where being wrong
+  is expensive and the suite won't catch it—runs those stages on **Fable**, unattended, no
+  authorization needed. It burns roughly 4X Opus against the weekly budget, so spend it on the stage
+  that needs it, not the whole Workflow: implement and mechanical stages stay at their usual tiers.
+  `Tier plan: Workflow—design@Fable+xhigh, implement@Sonnet+medium, adversarial-verify@Fable+xhigh.`
 
 ## 8. Build it, then land
 Do the work **test-first per THIS repo's conventions**—write the failing test first, then match the

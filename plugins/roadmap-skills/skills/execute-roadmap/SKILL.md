@@ -54,14 +54,14 @@ run its §3 hygiene pass once (worktree prune, dead-branch and dead-claim reapin
 - **Create the run-state file** `.claude/roadmap-run.json` (git-ignored in a versioned repo,
   git-excluded in a local one—either way invisible to the tree; deliberately NOT under
   `.claude/claims/`, where the hygiene reaper would parse it as a claim and delete it): per-item
-  `{status, worktree, branch, taskId, attempts}`, plus `landed`/`staged`, `flagged`, `deferredApex`,
+  `{status, worktree, branch, taskId, attempts}`, plus `landed`/`staged`, `flagged`,
   `claimedCount`, and the recent completion/failure window. **Rewrite it on every state change;
   re-read it at the top of every wake.** The conductor's context can be summarized mid-run—task IDs,
-  counters, and deferral lists held only in context do not survive that, and the file doubles as the
+  counters, and flag lists held only in context do not survive that, and the file doubles as the
   morning-after record.
 - Emit the session title, spelled out.
 
-No pause follows—this skill runs unattended. Fable never launches without authorization (§4).
+No pause follows—this skill runs unattended.
 
 ## 2. The loop—a rolling pipeline
 **Every wake begins the same way**—Workflow-completion notification or watchdog: re-read the run-state
@@ -75,8 +75,8 @@ timeout)—the all-dead pipeline is the one stall no completion event can break.
 **Candidates:** re-derive after every completion (the roadmap just changed): open items passing
 next-roadmap-item §4's filters—unclaimed, ungated, **file-touch-disjoint from every in-flight item**,
 and **not user-present** (§4's "requires user present" items are never claimed unattended)—minus this
-run's `flagged` and `deferredApex` sets (a flagged item's claim was released, so it reads as unclaimed
-again; without the exclusion it is re-picked and re-burned every refill). Keep candidates in roadmap
+run's `flagged` set (a flagged item's claim was released, so it reads as unclaimed again; without the
+exclusion it is re-picked and re-burned every refill). Keep candidates in roadmap
 order—the roadmap is priority-ordered top-down (next-roadmap-item §4)—so fills take the topmost
 eligible items first. When disjointness is uncertain, serialize.
 
@@ -168,8 +168,8 @@ starve the pipeline.
 Stopping means: let in-flight builds finish (or TaskStop them if the stop reason poisons their
 premises), process whatever is finished-and-green (**mandatory build in versioned mode, no skip**),
 then wrap. Stop when:
-- **Roadmap dry**—no candidate passes the filters (everything landed/staged, gated, flagged, deferred,
-  or user-present). The normal end.
+- **Roadmap dry**—no candidate passes the filters (everything landed/staged, gated, flagged, or
+  user-present). The normal end.
 - **Plan invalidated**—an item self-reports it, or the §2.4 post-completion check trips: a gate
   discovered wrong, a spike refuting a settled ruling, a finding that materially changes sibling items'
   assumptions. Do NOT improvise a revised plan—stop and report; re-planning is the user's session.
@@ -184,21 +184,11 @@ then wrap. Stop when:
 On stop: finalize the run-state file, send a PushNotification (one line—items landed/staged, stop
 reason), then a full wrap-up: the landed/staged items with SHAs (in local mode, their branch names
 for you to sync; on a public versioned repo, the unpushed `origin/main..main` range awaiting your
-review-then-push), flagged/deferred items with why, the roadmap's remaining state, and a recommendation
+review-then-push), flagged items with why, the roadmap's remaining state, and a recommendation
 for the next attended session. Re-emit the session-title line. No stop path skips the notification and
 wrap-up.
 
-## 4. Fable—one blocking question at the drain
-PushNotification is one-way—no mid-run authorization can arrive on it, so don't poll for one. An item
-whose class is **apex-grade** (correctness-critical enough that the tier doctrine wants Fable—
-next-roadmap-item §7) is simply **deferred**, recorded in `deferredApex`, pipeline unaffected. Only
-when the pipeline is **fully drained**—zero in-flight builds, zero landable/stageable work—and deferred
-apex items remain: send a PushNotification, then block on AskUserQuestion (authorize Fable for the
-deferred items / run them at the Opus + `xhigh` ceiling / skip them)—the user answers remotely.
-Blocking any earlier would queue completion notifications behind the pending question and leave finished
-work unprocessed for hours. Never spawn Fable without that explicit yes.
-
-## 5. Ledger etiquette
+## 4. Ledger etiquette
 The conductor is a peer, not an owner: honor foreign claims when picking (a human session may be
 working an item right now), never `git worktree remove` a worktree it didn't create, and keep its own
 claims accurate—one per in-flight item, written atomically, deleted at completion. Everything
