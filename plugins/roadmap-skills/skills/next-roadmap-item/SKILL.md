@@ -255,11 +255,15 @@ under your control.
 
 Immediately after the title line, emit a one-line **tier plan**, then execute it. The deciding
 question: **would this repo's test suite catch this item going silently wrong?** (If the repo has an
-orchestration doc under `docs/`, defer to its tiering.)
+orchestration doc under `docs/`, defer to its tiering.) Model and effort are independent knobs: model
+is the stage's capability class, effort its deliberation need—escalate the model for a capability
+shortfall, raise effort for careful bookkeeping. Haiku takes mechanical stages only where failure is
+loud (tests, compile, a verifiable count); a stage that could fail silently is never mechanical.
 - **Mechanical laps** (polish, doc moves, roadmap grooming)—inline at launch settings.
   `Tier plan: inline.`
 - **Bounded, test-oracled feature work**—the §8 Workflow with per-stage overrides: mechanical
-  stages at `effort: 'low'` or Sonnet, design and adversarial-verify stages at `'high'`.
+  stages at Haiku or `effort: 'low'`, design and adversarial-verify stages at `'high'`.
+  `Tier plan: Workflow—design@Opus+high, implement@Sonnet+medium, docs@Haiku+low, adversarial-verify@Opus+high.`
 - **Correctness-critical transform/rewrite machinery** (the suite would *not* catch silent
   wrongness)—design, implement-review, and adversarial-verify stages at `'xhigh'` on Opus.
   `Tier plan: Workflow—design@Opus+xhigh, implement@Sonnet+medium, adversarial-verify@Opus+xhigh.`

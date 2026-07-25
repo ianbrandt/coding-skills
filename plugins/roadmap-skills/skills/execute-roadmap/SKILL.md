@@ -105,7 +105,8 @@ the conductor does them inline in the worktree and processes them in the same pa
 
 Verify stages run as plain agents in the item's worktree (no isolation—a worktree-isolated agent
 branches from the default branch's HEAD and would test the wrong tree). Tier per stage: mechanical at
-`effort: 'low'` or a smaller model; design and adversarial-verify at `'high'`/`'xhigh'`.
+Haiku or `effort: 'low'` (loud-oracle stages only—next-roadmap-item §7); design and adversarial-verify
+at `'high'`/`'xhigh'`.
 
 **Process each completion—one at a time:**
 1. Read the report. `plan_invalidating` → §3. `failed` → `git reset --hard` to the last WIP checkpoint
