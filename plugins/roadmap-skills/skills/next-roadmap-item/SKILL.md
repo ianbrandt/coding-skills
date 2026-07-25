@@ -301,7 +301,9 @@ Keep the roadmap deletion minimal and localized, in its own final commit.
 At session end—**even if unfinished**—follow the repo's end-of-session merge protocol (a
 `/land-session` runbook if it has one): rebase onto the default branch, do the risk-based post-rebase
 build (re-build on shared-seam overlap; skip for a disjoint or docs/fixtures-only lap),
-fast-forward-merge from the main checkout, push, then **delete your claim file**. Re-emit the §6
+fast-forward-merge from the main checkout, push **if the repo is private**—a public repo's push
+waits for the user's explicit go, so present the unpushed range instead—then **delete your claim
+file**. Re-emit the §6
 session-title line, revised only if the work's shape changed.
 ```bash
 MAIN=$(git worktree list --porcelain | awk 'NR==1{print $2}')   # re-derive—shell state doesn't persist across Bash calls

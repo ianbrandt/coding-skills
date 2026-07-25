@@ -136,7 +136,10 @@ Per next-roadmap-item §8a, with these unattended deviations:
 - Fast-forward-merge from the main checkout. On `--ff-only` refusal—a human session landed inside your
   rebase→build window—**re-rebase onto the moved branch and retry, bounded (3 attempts)**; never relax
   `--ff-only`.
-- Push; delete the claim; remove the worktree and branch; update the run-state file.
+- Push if the repo is private. **On a public repo, never push**: keep landing each item on local
+  `main` and present the accumulated unpushed range (`origin/main..main`) at stop for the user's
+  review-then-push—the commits are the ghost-written text they sign. Then delete the claim; remove
+  the worktree and branch; update the run-state file.
 
 ### 2b. `local`—stage locally, nothing to GitHub
 Per next-roadmap-item §8b. There is no shared branch, so items do NOT serialize—each is independent:
@@ -179,8 +182,9 @@ then wrap. Stop when:
 - **max-items reached** (claims are capped at it, so there is no overshoot to unwind).
 
 On stop: finalize the run-state file, send a PushNotification (one line—items landed/staged, stop
-reason), then a full wrap-up: the landed/staged items with SHAs (and, in local mode, their branch names
-for you to sync), flagged/deferred items with why, the roadmap's remaining state, and a recommendation
+reason), then a full wrap-up: the landed/staged items with SHAs (in local mode, their branch names
+for you to sync; on a public versioned repo, the unpushed `origin/main..main` range awaiting your
+review-then-push), flagged/deferred items with why, the roadmap's remaining state, and a recommendation
 for the next attended session. Re-emit the session-title line. No stop path skips the notification and
 wrap-up.
 
