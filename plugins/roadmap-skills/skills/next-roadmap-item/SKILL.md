@@ -48,6 +48,13 @@ tidy, the claim tiebreaker, the workflow-worktree reap. Where this repo has cont
 decide. The parallel machinery (§1–3, §5–6) is identical in both modes; only where the roadmap
 lives (§0, §4) and how an item lands (§8) differ.
 
+**Platform names.** The mechanics assume only `git worktree` plus an agent platform that runs
+several sessions at once. The literal names in the snippets—session worktrees under
+`$MAIN/.claude/worktrees/`, generated session branches under `claude/`—are what Claude Code's
+worktree tooling produces, used here as the worked example; the hygiene steps must name them to
+match what that tooling actually creates. On another platform, substitute its equivalents
+throughout.
+
 ## 0. Detect the mode and locate the roadmap
 Mode is **self-describing**—read it off the working tree, don't guess. Check fork-ness **before**
 looking for a tracked roadmap: an upstream project's own `ROADMAP.md` is *their* plan, not your
@@ -212,11 +219,28 @@ maintainer-facing decisions). Those are **never claimable unattended**—skip th
 user's call, not work this skill performs (see §8's no-GitHub-writes rule).
 
 ## 5. Claim your lane—before writing any code
+**`local` mode: rename the branch first.** The worktree tooling names the branch with a generated
+placeholder—fine for a throwaway lane, but in local mode this branch is the one the user eventually
+pushes to their fork as a PR head, and a PR's head branch name is permanent and public. **Name the
+branch as if the PR already exists**: rename now that the item is known (§4), before anything below
+records the branch name—keyed to the item's upstream issue number if it already names one, else a
+short descriptive slug (`fix-issue-971`, `add-jvm-target-flag`). If no number is known yet, use the
+slug; a later sync can't rename a branch that's already been referenced elsewhere.
+```bash
+if [ "$MODE" = "local" ]; then
+  git -C "$WT" branch -m "<pr-ready-slug>"    # e.g. fix-issue-971 or add-jvm-target-flag
+fi
+```
+This also means a `local`-mode branch never matches step 3's generated-namespace merged-branch
+reap—harmless, since local-mode branches are never merged (§8b: no ff-merge, nothing pushed), so
+that reap was never going to touch them regardless of name. The dead-claim reap (§3, keyed off the
+claim JSON's `branch` field vs. worktree-directory existence) is unaffected by the rename either way.
+
 Writing the claim up front is what makes the ledger useful to siblings; a claim written "later" is a
 claim that didn't prevent a collision. The filename is the **worktree directory name**—what the
 step-3 reap keys off, not the branch—matching the existing entries.
 ```bash
-BRANCH=$(git -C "$WT" rev-parse --abbrev-ref HEAD)   # e.g. claude/witty-fermi-1a2b3c
+BRANCH=$(git -C "$WT" rev-parse --abbrev-ref HEAD)   # generated placeholder (versioned) or e.g. fix-issue-971 (local, post-rename)
 NAME=$(basename "$WT")                        # worktree dir name → flat filename (step 3's reap keys off this)
 ITEM="<the roadmap item you picked, short phrase, e.g. R1: aggregation core>"   # no double quotes—they break the printf-built JSON
 mkdir -p "$MAIN/.claude/claims"
