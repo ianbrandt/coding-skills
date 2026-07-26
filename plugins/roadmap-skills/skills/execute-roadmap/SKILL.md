@@ -111,7 +111,13 @@ at `'high'`/`'xhigh'`.
 2. `ready` → inspect the diff (`git -C $WT status` / `diff`), strip any surviving agent artifacts,
    then **squash the WIP checkpoints into atomic, past-tense commits** (soft-reset to the merge-base,
    re-commit in logical units).
-3. **Then process by mode:**
+3. **A Workflow's self-reported green has been wrong.** `ready` is a claim, not a gate: an agent has
+   reported it on a tree whose build was red—having run a scoped subset, having misread the output, or
+   having last built before its own final edit. **The conductor runs the build gate itself** on every
+   completed item (below), and a `ready` report that fails that gate is a `failed` report—back to
+   step 1. Never substitute the report for the gate, and never skip the gate because the report was
+   detailed or confident.
+4. **Then process by mode:**
 
 ### 2a. `versioned`—land serially on the default branch
 Per next-roadmap-item §8a, with these unattended deviations:
@@ -119,8 +125,8 @@ Per next-roadmap-item §8a, with these unattended deviations:
   commit on the rebased tip: reconciling before it conflicts with the previous landing's roadmap edit
   on every serial landing, and unattended conflict resolution is exactly where a sibling's roadmap
   state gets silently mangled. Written fresh post-rebase it conflicts with nothing.
-- **Build—mandatory; the optimistic skip is off in this mode.** The attended risk-based skip assumes
-  a next session as the net; here
+- **Build—mandatory; the optimistic skip is off in this mode**, and mandatory regardless of what the
+  item's report claimed (step 3). The attended risk-based skip assumes a next session as the net; here
   that "next session" is this loop applying the same skip, and at stop time there is none at all—a red
   default branch would spread silently. Gate on the repo's **full build** (from its contributor docs),
   never a scoped single-module test: a module-scoped gate can pass while a sibling module's fixtures,
@@ -136,19 +142,20 @@ Per next-roadmap-item §8a, with these unattended deviations:
 ### 2b. `local`—stage locally, nothing to GitHub
 Per next-roadmap-item §8b. There is no shared branch, so items do NOT serialize—each is independent:
 - Keep the squashed atomic commits **on the item's branch**; do not merge or push them.
-- Run the repo's **build/test to confirm the branch is green** before recording the item done. There
-  is no default branch to protect, but a red item is not "done".
+- **Run the repo's build/test yourself** to confirm the branch is green before recording the item
+  done—same rule as step 3; the item's own report doesn't count. There is no default branch to
+  protect, but a red item is not "done".
 - Move the item out of the forward roadmap and **append its done-record to the changelog** with a
   status keyword (next-roadmap-item §8b). Draft any issue/comment/PR text as local files under the
   notes dir.
 - **Leave the worktree + branch in place** for the user to review and sync. Delete the claim; update
   the run-state file (`staged`, not `landed`).
 
-4. **Post-completion premise check:** `plan_invalidating` is self-reported and an agent can miss it—if
+5. **Post-completion premise check:** `plan_invalidating` is self-reported and an agent can miss it—if
    the completed item's diff touched a shared seam that in-flight or queued items build on, or
    contradicts a roadmap gate's stated assumption, treat it as plan invalidation (§3) even though the
    report said `ready`.
-5. Refill the pipeline (fresh candidate derivation) and log one line:
+6. Refill the pipeline (fresh candidate derivation) and log one line:
    `versioned: landed <Rn.m> <name> (<sha>)—N in flight, M landed.` /
    `local: staged <Rn.m> <name> on <branch>—N in flight, M staged.`
 
@@ -158,11 +165,11 @@ item starve the pipeline.
 
 ## 3. Stop conditions—wrap, notify, end
 Stopping means: let in-flight builds finish (or TaskStop them if the stop reason poisons their
-premises), process whatever is finished-and-green (**mandatory build in versioned mode, no skip**),
-then wrap. Stop when:
+premises), process whatever is finished-and-green (**conductor-run build gate, no skip**), then wrap.
+Stop when:
 - **Roadmap dry**—no candidate passes the filters (everything landed/staged, gated, flagged, or
   user-present). The normal end.
-- **Plan invalidated**—an item self-reports it, or the §2.4 post-completion check trips: a gate
+- **Plan invalidated**—an item self-reports it, or the §2.5 post-completion check trips: a gate
   discovered wrong, a spike refuting a settled ruling, a finding that materially changes sibling items'
   assumptions. Do NOT improvise a revised plan—stop and report; re-planning is the user's session.
 - **[versioned] Default branch red after a landing**—one fix-forward attempt; still red → stop
