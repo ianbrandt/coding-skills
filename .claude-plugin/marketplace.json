@@ -7,7 +7,7 @@
     {
       "name": "gradle-skills",
       "source": "./plugins/gradle-skills",
-      "version": "1.6.1",
+      "version": "1.6.2",
       "description": "Skills for working with Gradle projects.",
       "keywords": ["gradle", "dependencies", "version-catalog", "wrapper"]
     },
