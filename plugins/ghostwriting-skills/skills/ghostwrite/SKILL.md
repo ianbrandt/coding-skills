@@ -38,7 +38,8 @@ only their file differs.
 
 ## 1. Read the spec before drafting
 Read `voice-spec.md` end to end, delta log included, and skim one corpus sample matching the genre.
-A summary carried in context is not the spec; re-read it per session.
+A summary carried in context is not the spec; re-read it per session. No corpus, or no sample for
+the genre ⇒ draft on the spec alone and flag the gap in §3.
 
 This also governs **reviewing** a draft—one carried over from an earlier session, written by another
 agent, or written by you hours ago. Calling a draft ready is drafting.
