@@ -26,11 +26,15 @@ ls "$VOICE/corpus" 2>/dev/null || echo "no corpus"
 - `$VOICE/voice-spec.md`—voice rules, per-genre caps, delta log, procedure.
 - `$VOICE/corpus/`—hand-written samples, one file per piece or genre; filenames free.
 
-Either path may be a symlink into a private repo. The voice data never lives in this skill, in a
-project repo, or in memory. No spec ⇒ **bootstrap** (§5).
+Either path may be a symlink into a private repo, which keeps the voice under version control while
+still answering at the default location. The voice data never lives in this skill, in a project
+repo, or in memory. No spec ⇒ **bootstrap** (§5).
 
-Always-on prohibitions (banned vocabulary, typography, formatting tells) belong in the user's global
-`CLAUDE.md`, which loads every session. `voice-spec.md` is the positive spec, read on demand.
+**The voice has a third file, and the split is by when it loads.** Always-on prohibitions—banned
+vocabulary, typography, formatting tells, anything that must hold in chat replies too—live in the
+user's global `CLAUDE.md` (`~/.claude/CLAUDE.md`), loaded into every session whether or not this
+skill runs. `voice-spec.md` is the positive spec, read on demand. Both are in scope here (§4, §5);
+only their file differs.
 
 ## 1. Read the spec before drafting
 Read `voice-spec.md` end to end, delta log included, and skim one corpus sample matching the genre.
@@ -64,6 +68,12 @@ After the user edits a draft—or after a self-correction in §3—diff their ve
   and add **no** new rule. Adding rules to fix a spec that wasn't read makes the file longer and the
   problem worse.
 
+**Then route it to the right file.** A rule that must hold in *every* response, chat included, goes
+in the global `CLAUDE.md`; a rule about a genre's shape or size goes in `voice-spec.md`. A
+prohibition parked in the spec alone fires only when the spec is read—the exact case the procedure
+failure above describes. Show the `CLAUDE.md` edit and ask before making it; that file loads into
+every session and it's the user's.
+
 Don't paste diffs; most of a first-to-final diff is one-off content churn. When an entry changes a
 standing rule, promote it into the spec's body—the log grows, the body stays stable.
 
@@ -78,11 +88,15 @@ guessing. One-time setup; afterwards proceed from §1.
 2. **Collect them into `$VOICE/corpus/`** by copy or symlink. Never rewrite a sample.
 3. **Read them all and extract observable regularities**, per genre: sentence length and structure,
    person and hedging, how evidence is carried, openings and closings, formatting habits (headings,
-   bullets, emphasis, links), title style, and typical length.
+   bullets, emphasis, links), title style, and typical length. Sort each finding by the §0 split as
+   you go—a positive shape rule, or an always-on prohibition.
 4. **Write `voice-spec.md`** with four sections: **Voice** (rules holding across genres), **Per-genre
    caps** (one entry per genre, size and shape), **Delta log** (seeded with one contrast entry naming
    how a default-register draft differs from the samples), and **Procedure** (§1–§4 in a line each,
    so the spec stands alone).
-5. **Say what you could not derive.** A genre with no sample gets no entry—don't invent one.
+5. **Draft the always-on half for the global `CLAUDE.md`**: the prohibitions from step 3, plus the
+   pointer that sends future sessions here (this skill, and `$VOICE` when it isn't the default).
+   Show the block and ask before editing that file.
+6. **Say what you could not derive.** A genre with no sample gets no entry—don't invent one.
 
 One spec describes one person. Don't blend samples from several writers into a single voice.

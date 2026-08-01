@@ -24,6 +24,9 @@ data, and it never enters this repo.
   hand-written samples and derives the first spec from what those samples
   actually do, saying what it couldn't derive instead of inventing it.
 
-Always-on prohibitions—banned vocabulary, typography, formatting tells—belong in
-your global `CLAUDE.md` where they load every session. The spec is the positive
-half, read on demand.
+The voice has a third file. Always-on prohibitions—banned vocabulary,
+typography, formatting tells—belong in your global `CLAUDE.md`, where they load
+every session whether or not the skill runs; the spec is the positive half, read
+on demand. The skill maintains both: bootstrap drafts the `CLAUDE.md` block
+alongside the spec, and a logged delta is routed to whichever file it belongs in.
+Edits to `CLAUDE.md` are shown for your approval first.
