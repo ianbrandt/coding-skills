@@ -87,4 +87,8 @@ guessing. One-time setup; afterwards proceed from §1.
    editing.
 6. **Say what you could not derive.** A genre with no sample gets no entry—don't invent one.
 
+A **seed spec**—a `share-ghostwriting-spec` export—replaces derivation from scratch: copy it in as
+the starting `voice-spec.md`, keep its per-genre caps, refit its Voice placeholder from the user's
+samples (steps 1–3), and note in the delta log any seed rule the samples contradict.
+
 One spec describes one person; don't blend samples from several writers.
