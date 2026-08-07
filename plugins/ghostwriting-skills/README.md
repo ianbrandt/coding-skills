@@ -27,3 +27,12 @@ Always-on prohibitions—banned vocabulary, typography, formatting tells—live 
 your global `CLAUDE.md`, loaded every session; the spec is the positive half,
 read on demand. The skill maintains both, and shows any `CLAUDE.md` edit for
 your approval first.
+
+### `share-ghostwriting-spec`
+
+Exports your spec as an anonymized seed a teammate can bootstrap from. The
+per-genre caps and procedure carry over as house style; the delta log and
+corpus never ship; identifying content—names, repos, URLs, quoted drafts—is
+scrubbed; and you review the full export before it goes anywhere shared. A
+recipient runs the `ghostwrite` bootstrap with the seed: your caps become
+their starting point, while their voice comes from their own samples.
