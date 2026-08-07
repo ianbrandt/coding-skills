@@ -21,7 +21,7 @@
     {
       "name": "ghostwriting-skills",
       "source": "./plugins/ghostwriting-skills",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "description": "Skills for drafting text that ships under your name—issues, PRs, comments, docs—in your voice, from a spec derived from your own writing.",
       "keywords": ["ghostwriting", "voice", "writing", "style", "pull-request"]
     }
