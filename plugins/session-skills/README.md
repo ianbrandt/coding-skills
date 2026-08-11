@@ -39,6 +39,19 @@ visibility gates a push.
 Then the wrap-up actions every session runs whether or not the work finished: release the claim, stop
 stray background tasks, and leave the branch and worktree standing as the resume record.
 
+### `conduct-a-pipeline`
+
+One session conducting several lanes at once, unattended: hold 2–5 file-disjoint units of work in
+flight, build each in its own worktree via a background Workflow, and process each as it finishes,
+refilling until the candidates run out. Everything in it that looks paranoid is there because
+nobody is watching. A Workflow's self-reported `ready` has been wrong on a red tree, so the
+conductor runs the build gate itself and treats a report that fails it as a failure. A Workflow that
+dies sends no completion notification, so a watchdog covers the pipeline that went quiet rather than
+finished. A second real failure flags the unit and the run continues without it, and a flagged unit
+stays out of later refills so it isn't re-picked and re-burned every pass.
+
+It takes its candidates from a backlog plugin and hands each finished unit back to it to record.
+
 ## What it pairs with
 
 These skills never decide *what* to work on. A backlog plugin answers three questions for
