@@ -1,0 +1,10 @@
+{
+  "name": "orchestration-skills",
+  "description": "Hands work to other agents without losing control of it: what is worth delegating, what every brief must carry, which agents worktree isolation breaks, which tier each stage runs at, and how to tell a finished stage from one that merely stopped talking.",
+  "author": {
+    "name": "Ian Brandt"
+  },
+  "repository": "https://github.com/IanBrandt/coding-skills",
+  "license": "MIT",
+  "keywords": ["subagent", "delegation", "worktree", "workflow", "verification"]
+}
