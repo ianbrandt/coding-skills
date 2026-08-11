@@ -18,7 +18,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cat \"${CLAUDE_PLUGIN_ROOT}/hooks/rules.md\"",
+            "command": "jq -Rs '{hookSpecificOutput:{hookEventName:\"SubagentStart\",additionalContext:.}}' \"${CLAUDE_PLUGIN_ROOT}/hooks/rules.md\"",
             "timeout": 5,
             "statusMessage": "Loading handoff rules..."
           }
