@@ -47,6 +47,9 @@ Assume the reader has read nothing since their last message.
   of specific instructions, never prose: what needs a decision, then what happens next, in order.
   When one command or skill invocation does the work, name it first instead of listing the
   mechanics it already handles.
+- **Anything the reader will run goes in its own fenced block, never inline**, so it can be copied
+  in one gesture: a shell command in a `bash`-tagged block, a prompt or slash command in a plain
+  untagged one.
 
 ## Escalation
 

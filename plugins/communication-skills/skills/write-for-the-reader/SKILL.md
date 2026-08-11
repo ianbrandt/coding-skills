@@ -103,6 +103,19 @@ differently anyway. Give the invocation, where to run it from, and any precondit
 cannot check for itself. A skill invocation counts as a command. Spell out mechanics only where the
 reader has to perform them, or where a step falls outside what the command covers.
 
+**Anything the reader will run goes in its own fenced block, never inline.** Inline code cannot be
+copied in one gesture; a fenced block carries a copy control on the desktop surface, and that is the
+whole point of quoting it. This covers shell commands, slash commands, skill invocations, and launch
+prompts for a fresh session. Two forms, and the distinction matters:
+
+- **A shell command** gets a `bash`-tagged block, one command per block, no leading `$` and no
+  output interleaved inside the fence.
+- **A prompt** gets a plain untagged block, because it is typed to an agent rather than to a shell.
+  Tagging it `bash` mislabels it and can attach a run control to something that is not a command.
+
+Inline code stays right for naming a file, a flag, a function, or a command being discussed rather
+than handed over to run.
+
 ## 6. Catch the jargon you coined this session
 
 The banned-word list in `hooks/rules.md` is a list of known offenders, not the boundary of the rule.
