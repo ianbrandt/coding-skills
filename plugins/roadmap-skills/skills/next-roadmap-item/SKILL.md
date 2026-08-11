@@ -6,9 +6,10 @@ description: >-
   or a local-only shadow roadmap for an upstream OSS fork (nothing reaches
   GitHub until you say so); bootstraps a roadmap if the repo has none. Trigger
   on "tackle a roadmap item", "claim a task and get going", or starting work
-  without colliding with the other sessions. Also resumes an item already
-  claimed and partially built—more building on an in-flight item is this skill,
-  in that item's worktree. An optional lane hint ("R1") only biases the pick.
+  without colliding with the other sessions. Also resumes an item already in
+  flight and partially built—more building on an in-flight item is this skill,
+  which adopts that item's existing worktree. An optional lane hint ("R1") only
+  biases the pick.
   NOT for reading, summarizing, or editing the roadmap, or for wrapping up
   finished work that only needs landing.
 ---
@@ -67,16 +68,27 @@ BRANCH=$(git rev-parse --abbrev-ref HEAD)
 DEFAULT=$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's@^origin/@@')
 DEFAULT=${DEFAULT:-main}                     # the repo's integration branch (main/master/…)
 ```
-**Resume before you branch.** If the run names a specific item—a lane hint, or "keep going on R3"—read
-the ledger *first* (`cat "$MAIN"/.claude/claims/*.json`). A live claim for that item whose worktree
-directory still exists means the item is **already in flight**: that worktree is your worktree.
+**Resume before you branch.** When the run names a specific item—a lane hint, or "keep going on R3"—
+establish whether that item already has a branch **before** you create one. Check all three tells; any
+one of them means the item is **already in flight**, and its existing worktree is *your* worktree:
+1. **The item's own text in `$ROADMAP`**—a build rule pinning the item to one branch/worktree is the
+   durable in-flight record, and it outlives every session that touched it.
+2. **An existing worktree or branch named for the item** (`git worktree list`), carrying commits the
+   default branch doesn't have.
+3. **A live claim naming the item** (`cat "$MAIN"/.claude/claims/*.json`) whose worktree directory
+   still exists. This one catches only a session that died mid-flight.
+
+**The ledger is not the trigger, and an empty ledger is no evidence the item is free.** A session
+deletes its claim at *its own* finish whether or not the item finished (§8), so the ordinary
+handoff—wrap up cleanly, resume next session—leaves the item in flight with no claim at all. Tell 1 or
+2 is what fires then.
 ```bash
-WT="$MAIN/.claude/worktrees/$(basename <the matching claim file> .json)"   # resume: work here
+WT="$MAIN/.claude/worktrees/<the matching worktree dir>"   # resume: work here
 ```
-Set `WT` to it, `BRANCH` to the claim's `branch`, skip the worktree creation below, and go to §4's
-resume path. **Opening a fresh worktree instead strands that branch's commits and silently restarts the
-item**—fatally so when a roadmap build rule pins the item to one branch. The block below is for a *new*
-lane only.
+Set `WT` to it, `BRANCH` to that worktree's checked-out branch, skip the worktree creation below, and go
+to §4's resume path. **Opening a fresh worktree instead strands that branch's commits and silently
+restarts the item**—fatally so when a roadmap build rule pins the item to one branch. The block below is
+for a *new* lane only.
 ```bash
 if [ "$BRANCH" = "$DEFAULT" ]; then
   # Launched in the PRIMARY checkout—open your own worktree now; never edit under $MAIN.
@@ -107,7 +119,8 @@ git log --oneline -15 "$DEFAULT"             # what just landed
 cat "$MAIN"/.claude/claims/*.json 2>/dev/null || echo "ledger empty"
 ```
 The ledger is a **live lease board**, not a log: entries are `{"item","branch","started"}`, deleted by
-their own session at finish. **Empty is normal.** In `local` mode the whole `.claude/` tree is
+their own session at *its* finish—which is not the item's finish. **Empty is normal, and it does not
+mean the roadmap is idle** (§1). In `local` mode the whole `.claude/` tree is
 git-excluded (§9a).
 
 ## 3. Tidy stale worktrees—prune only
@@ -175,11 +188,15 @@ without saying why. Then continue at §7 (§5's claim already exists, §6's titl
 it unchanged).
 
 ## 5. Claim your lane—before writing any code
-**Resuming (§1/§4): this whole section is a no-op.** The claim file, the branch name, and the worktree
-already exist and are already correct—refresh nothing, rename nothing (a local-mode rename would desync
-the branch from the ledger and the worktree directory), and re-picking on a "clash" with your own claim
-is the bug this path exists to prevent. Confirm the claim's `branch` matches `git -C "$WT" rev-parse
---abbrev-ref HEAD` and move on.
+**Resuming (§1/§4): the lane already exists—only the lease may be missing.** The branch and worktree are
+already correct: rename nothing (a local-mode rename would desync the branch from the ledger and the
+worktree directory), and re-picking on a "clash" with your own item is the bug this path exists to
+prevent. Then, for the claim:
+- **A live claim for the item exists** (§1 tell 3)—confirm its `branch` matches `git -C "$WT" rev-parse
+  --abbrev-ref HEAD` and skip the rest of this section.
+- **No claim** (the ordinary case—the prior session deleted its own at wrap)—write one now with the
+  block below. `NAME=$(basename "$WT")` names the **existing** worktree directory, which keeps it keyed
+  for §3's reap; skip the tiebreaker re-pick, since a claim you find on your own item is yours.
 
 **`local` mode: rename the branch first**—it becomes the PR head the user pushes, and a PR head name
 is permanent and public. Rename now that the item is known (§4), before anything below records the
@@ -261,6 +278,13 @@ Work **test-first per THIS repo's conventions**—failing test first, then match
 adversarial review → re-verify—scaled to size. *This instruction is itself the opt-in, so the
 orchestration runs even if the session never enabled `ultracode`*; it grants *orchestration* only, not
 `xhigh` effort. Keep genuinely small items (a one-file tweak, a doc move) inline.
+
+**Your claim is released at session end even when the item isn't finished**—both arms below, no
+exception. The ledger leases *sessions*, not progress, and §3's reaper keys off worktree-and-branch
+existence, so a claim held past its session is a lease nothing can ever expire and an item
+`execute-roadmap` will never touch again. **An unfinished item's resume record is its branch and
+worktree**, plus the pin in `$ROADMAP` when its build rule names one: leave both standing, say in the
+wrap-up which branch the item sits on, and §1 finds it next session.
 
 ### 8a. `versioned`—land on the default branch
 **Bring the docs, then delete the item from the roadmap.** Finishing an item includes updating all
