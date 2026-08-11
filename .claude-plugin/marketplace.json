@@ -14,9 +14,16 @@
     {
       "name": "roadmap-skills",
       "source": "./plugins/roadmap-skills",
-      "version": "0.11.0",
+      "version": "0.12.0",
       "description": "Skills for driving a repo's roadmap: claim the next item and build it, for repos you own or upstream OSS projects you contribute to via a fork.",
       "keywords": ["roadmap", "backlog", "worktree", "oss", "contribution"]
+    },
+    {
+      "name": "session-skills",
+      "source": "./plugins/session-skills",
+      "version": "0.1.0",
+      "description": "Place and lease for a repo worked by several sessions at once: adopt or open a worktree, claim a lane in a shared ledger, and land the work by what the repo actually is rather than by a declared mode.",
+      "keywords": ["worktree", "claim-ledger", "session", "landing", "wrap-up"]
     },
     {
       "name": "communication-skills",
