@@ -6,6 +6,5 @@
   },
   "repository": "https://github.com/IanBrandt/coding-skills",
   "license": "MIT",
-  "keywords": ["register", "summary", "escalation", "decision", "handoff"],
-  "hooks": "./hooks/hooks.json"
+  "keywords": ["register", "summary", "escalation", "decision", "handoff"]
 }
