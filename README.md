@@ -40,11 +40,12 @@ invoked.
 ```
 
 - [`session-skills`](plugins/session-skills) puts a session in its own git worktree, claims that
-  lane in a ledger the other sessions read, and lands the work by what the repo actually is.
-  Install it if you run more than one session against a repo at once.
+  lane in a ledger the other sessions read, and lands the work by what the repo actually is. It also
+  carries the unattended conductor that holds several lanes open at once and refills them as they
+  finish. Install it if you run more than one session against a repo at once.
 - [`roadmap-skills`](plugins/roadmap-skills) backs that lane with a markdown backlog: `Rn` items in
-  priority order, claimed and built one at a time. It needs `session-skills`, which owns the
-  worktree and the ledger.
+  priority order, claimed one at a time or fed to the conductor in a batch. It needs
+  `session-skills`, which owns the worktree and the ledger.
 - [`gradle-skills`](plugins/gradle-skills) upgrades Gradle dependencies and the wrapper, one
   verified atomic commit at a time. Gradle builds only.
 

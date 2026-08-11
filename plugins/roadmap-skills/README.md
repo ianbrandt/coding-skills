@@ -40,12 +40,17 @@ or not its item finished.
 
 ### `execute-roadmap`
 
-An unattended conductor for working through the whole roadmap in one session: it
-claims several file-disjoint items, builds each in its own worktree via a
-background Workflow (2–5 in flight), and processes each as it finishes, until the
-roadmap is dry or the plan is invalidated. In a repo you own it lands each item
-serially on the default branch; on a fork it stages each on its own branch, with
-no GitHub writes, for you to sync.
+The roadmap half of an unattended run. The conductor loop itself—the in-flight
+cap, the fill loop, retries, the build gate, the stop conditions—is
+`session-skills`' `conduct-a-pipeline`, which works the same way whatever the
+backlog is. This skill supplies that loop's two roadmap-shaped inputs: the
+ordered candidate list (open, ungated, and on a fork not flagged as requiring
+you present) and, once an item is green, deleting it from the roadmap or
+appending its changelog entry.
+
+The split is why the loop is worth having: a conductor holding several lanes
+open is the reader that needs mechanical disjointness, and nothing about holding
+those lanes open is specific to tracking work in a markdown file.
 
 ## What it pairs with
 
