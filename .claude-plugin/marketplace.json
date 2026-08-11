@@ -21,7 +21,7 @@
     {
       "name": "handoff-skills",
       "source": "./plugins/handoff-skills",
-      "version": "0.1.2",
+      "version": "0.1.3",
       "description": "Stops before decisions you cannot undo and presents them as real tradeoffs, and writes every summary for someone who did not read the transcript.",
       "keywords": ["register", "summary", "escalation", "decision", "handoff"]
     },
