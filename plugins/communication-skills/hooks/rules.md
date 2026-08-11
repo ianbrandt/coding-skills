@@ -45,6 +45,8 @@ Assume the reader has read nothing since their last message.
   of code shown in the same reply. A local result CI won't show is worth stating.
 - **A wrap-up is a status sign-off, not a report.** Open items and next steps go as a bulleted list
   of specific instructions, never prose: what needs a decision, then what happens next, in order.
+  When one command or skill invocation does the work, name it first instead of listing the
+  mechanics it already handles.
 
 ## Escalation
 

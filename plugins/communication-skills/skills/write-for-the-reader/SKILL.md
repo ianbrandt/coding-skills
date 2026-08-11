@@ -96,6 +96,13 @@ next steps, and write each one so it can be acted on without rereading: the acti
 happens, and what it waits on. A command goes in the item rather than being described. Prose is
 still right for the reasoning behind a decision; it is wrong for the list of what to do.
 
+**When one command does the work, name the command first.** Listing the mechanics behind it (rebase
+this, resolve that conflict, then merge) is worse than the single line that runs it: it reads as
+work the reader has to do by hand, and it restates what the command already owns and would do
+differently anyway. Give the invocation, where to run it from, and any precondition the command
+cannot check for itself. A skill invocation counts as a command. Spell out mechanics only where the
+reader has to perform them, or where a step falls outside what the command covers.
+
 ## 6. Catch the jargon you coined this session
 
 The banned-word list in `hooks/rules.md` is a list of known offenders, not the boundary of the rule.
