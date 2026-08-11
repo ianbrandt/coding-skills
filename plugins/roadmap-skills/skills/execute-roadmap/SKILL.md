@@ -6,8 +6,9 @@ description: >-
   Workflows (2–5 in flight), and keep going until the roadmap is dry or the plan
   is invalidated. Trigger on "execute the roadmap", "roadmap autopilot", "burn
   down the roadmap", or any unattended multi-item run. Optional args: cap,
-  max-items, lane hint. NOT for a single item (that's next-roadmap-item),
-  reading or editing the roadmap, or landing an existing session's work.
+  max-items, lane hint. NOT for a single item, and NOT for resuming one item
+  already claimed and partially built (both are next-roadmap-item); not for
+  reading or editing the roadmap, or landing finished work.
 ---
 
 # Execute roadmap—the unattended conductor
@@ -63,7 +64,9 @@ no completion event can break.
 filters—unclaimed, ungated, **file-touch-disjoint from every in-flight item**, and **not
 user-present**—minus this run's `flagged` set (a flagged item's claim was released, so without the
 exclusion it is re-picked and re-burned every refill). Keep candidates in roadmap order so fills take
-the topmost eligible items first. When disjointness is uncertain, serialize.
+the topmost eligible items first. When disjointness is uncertain, serialize. **The conductor never takes
+next-roadmap-item §1's resume path**: a live claim on a partially-built item is a peer's lane (§4), so
+it stays out of candidates rather than being resumed here—that item is an attended session's to finish.
 
 **Fill:** while in-flight < cap, claimed < max-items, and a candidate exists: open its worktree +
 branch and write its claim per next-roadmap-item §5, **atomically**. After all claims in a fill batch

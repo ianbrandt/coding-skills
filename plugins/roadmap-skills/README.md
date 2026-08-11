@@ -23,7 +23,10 @@ Runs in one of two auto-detected modes:
   changelog stands in for git history.
 
 An optional lane hint (`/next-roadmap-item R1`) biases the pick without
-overriding the no-collision rules.
+overriding the no-collision rules. Point the hint at an item that's already
+claimed and partially built and the skill **resumes** it: launched in that item's
+worktree it continues the branch instead of opening a new one off the default
+branch.
 
 The roadmap family lives at the repo root under one naming rule: versioned repos
 track `ROADMAP.md` plus `ROADMAP-PARKED.md`/`ROADMAP-DECLINED.md` as needed;

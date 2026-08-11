@@ -6,9 +6,11 @@ description: >-
   or a local-only shadow roadmap for an upstream OSS fork (nothing reaches
   GitHub until you say so); bootstraps a roadmap if the repo has none. Trigger
   on "tackle a roadmap item", "claim a task and get going", or starting work
-  without colliding with the other sessions. An optional lane hint ("R1") only
-  biases the pick. NOT for reading, summarizing, or editing the roadmap, or for
-  wrapping up work already done.
+  without colliding with the other sessions. Also resumes an item already
+  claimed and partially built—more building on an in-flight item is this skill,
+  in that item's worktree. An optional lane hint ("R1") only biases the pick.
+  NOT for reading, summarizing, or editing the roadmap, or for wrapping up
+  finished work that only needs landing.
 ---
 
 # Next roadmap item—parallel-safe session cold-start
@@ -64,6 +66,18 @@ MAIN=$(git worktree list --porcelain | awk 'NR==1{print $2}')
 BRANCH=$(git rev-parse --abbrev-ref HEAD)
 DEFAULT=$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's@^origin/@@')
 DEFAULT=${DEFAULT:-main}                     # the repo's integration branch (main/master/…)
+```
+**Resume before you branch.** If the run names a specific item—a lane hint, or "keep going on R3"—read
+the ledger *first* (`cat "$MAIN"/.claude/claims/*.json`). A live claim for that item whose worktree
+directory still exists means the item is **already in flight**: that worktree is your worktree.
+```bash
+WT="$MAIN/.claude/worktrees/$(basename <the matching claim file> .json)"   # resume: work here
+```
+Set `WT` to it, `BRANCH` to the claim's `branch`, skip the worktree creation below, and go to §4's
+resume path. **Opening a fresh worktree instead strands that branch's commits and silently restarts the
+item**—fatally so when a roadmap build rule pins the item to one branch. The block below is for a *new*
+lane only.
+```bash
 if [ "$BRANCH" = "$DEFAULT" ]; then
   # Launched in the PRIMARY checkout—open your own worktree now; never edit under $MAIN.
   NAME="<short-kebab-id>"                    # arbitrary pair (color-animal), NOT activity words like
@@ -153,7 +167,20 @@ that already pass those gates; it never relaxes them.** Match it against item ID
 If everything worthwhile is claimed, don't force a collision: wait for a session to finish (its claim
 disappears / a commit lands), then pick. A hint doesn't change this.
 
+**Resuming an item already in flight (§1).** The pick is already made—skip the selection gates; a claim
+on the item you're resuming is *yours*, not a collision. Before writing any code, **read the branch's
+state**: `git -C "$WT" log --oneline "$DEFAULT..HEAD"` and `git -C "$WT" status` tell you what already
+landed and what's half-done. Build on those commits; don't redo them, and don't reset or rewrite them
+without saying why. Then continue at §7 (§5's claim already exists, §6's title is already set—re-emit
+it unchanged).
+
 ## 5. Claim your lane—before writing any code
+**Resuming (§1/§4): this whole section is a no-op.** The claim file, the branch name, and the worktree
+already exist and are already correct—refresh nothing, rename nothing (a local-mode rename would desync
+the branch from the ledger and the worktree directory), and re-picking on a "clash" with your own claim
+is the bug this path exists to prevent. Confirm the claim's `branch` matches `git -C "$WT" rev-parse
+--abbrev-ref HEAD` and move on.
+
 **`local` mode: rename the branch first**—it becomes the PR head the user pushes, and a PR head name
 is permanent and public. Rename now that the item is known (§4), before anything below records the
 name, following the target project's own branch naming per the **House style block** in `$ROADMAP`'s
