@@ -89,6 +89,13 @@ counts), and **where to do it**—this session or a fresh one, with a one-line r
 user's global instructions define the wrap-up contents, those govern what goes in it; this governs
 how it reads. Keep it short enough that the reader takes it in at a glance.
 
+**Open items and next steps are a bulleted list of specific instructions, never prose.** Prose makes
+the reader extract the actions themselves, and an action buried mid-paragraph reads as commentary
+rather than as something to do. Separate what needs their decision from what happens next, order the
+next steps, and write each one so it can be acted on without rereading: the action, where it
+happens, and what it waits on. A command goes in the item rather than being described. Prose is
+still right for the reasoning behind a decision; it is wrong for the list of what to do.
+
 ## 6. Catch the jargon you coined this session
 
 The banned-word list in `hooks/rules.md` is a list of known offenders, not the boundary of the rule.

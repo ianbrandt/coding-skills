@@ -43,7 +43,8 @@ Assume the reader has read nothing since their last message.
   file, link it rather than pasting the body.
 - **Cut what the reader can already see**: results CI reports, restatements of the diff, a summary
   of code shown in the same reply. A local result CI won't show is worth stating.
-- **A wrap-up is a status sign-off, not a report.**
+- **A wrap-up is a status sign-off, not a report.** Open items and next steps go as a bulleted list
+  of specific instructions, never prose: what needs a decision, then what happens next, in order.
 
 ## Escalation
 
