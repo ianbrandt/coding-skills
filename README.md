@@ -9,8 +9,7 @@ skills for software work, published under the `ianbrandt` marketplace.
 /plugin marketplace add IanBrandt/coding-skills
 /plugin install gradle-skills@ianbrandt
 /plugin install roadmap-skills@ianbrandt
-/plugin install ghostwriting-skills@ianbrandt
-/plugin install handoff-skills@ianbrandt
+/plugin install communication-skills@ianbrandt
 ```
 
 Or add the marketplace and install plugins from the Claude Code Desktop plugin UI.
@@ -21,8 +20,7 @@ Or add the marketplace and install plugins from the Claude Code Desktop plugin U
 | --- | --- |
 | [`gradle-skills`](plugins/gradle-skills) | Check, upgrade, and verify Gradle dependencies and the wrapper, one atomic commit at a time. |
 | [`roadmap-skills`](plugins/roadmap-skills) | Claim and build the next item on a repo's roadmap, for repos you own or OSS projects you contribute to via a fork. |
-| [`ghostwriting-skills`](plugins/ghostwriting-skills) | Draft issues, PRs, comments, and docs in your voice, from a spec derived from your own hand-written samples. |
-| [`handoff-skills`](plugins/handoff-skills) | Stop before decisions you cannot undo and present them as real tradeoffs; write every summary for someone who did not read the transcript. |
+| [`communication-skills`](plugins/communication-skills) | Write to you so a cold reader can follow it, write as you when the text ships under your name, and stop to ask before decisions you cannot undo. |
 
 ## License
 

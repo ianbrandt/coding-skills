@@ -19,18 +19,11 @@
       "keywords": ["roadmap", "backlog", "worktree", "oss", "contribution"]
     },
     {
-      "name": "handoff-skills",
-      "source": "./plugins/handoff-skills",
-      "version": "0.1.3",
-      "description": "Stops before decisions you cannot undo and presents them as real tradeoffs, and writes every summary for someone who did not read the transcript.",
-      "keywords": ["register", "summary", "escalation", "decision", "handoff"]
-    },
-    {
-      "name": "ghostwriting-skills",
-      "source": "./plugins/ghostwriting-skills",
-      "version": "0.2.1",
-      "description": "Skills for drafting text that ships under your name—issues, PRs, comments, docs—in your voice, from a spec derived from your own writing.",
-      "keywords": ["ghostwriting", "voice", "writing", "style", "pull-request"]
+      "name": "communication-skills",
+      "source": "./plugins/communication-skills",
+      "version": "0.1.0",
+      "description": "Writes to you in plain language a cold reader can follow, writes as you when the text ships under your name, and stops to ask before decisions you cannot undo.",
+      "keywords": ["register", "summary", "escalation", "ghostwriting", "voice"]
     }
   ]
 }

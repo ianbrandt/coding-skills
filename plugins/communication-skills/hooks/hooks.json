@@ -8,7 +8,7 @@
             "type": "command",
             "command": "cat \"${CLAUDE_PLUGIN_ROOT}/hooks/rules.md\"",
             "timeout": 5,
-            "statusMessage": "Loading handoff rules..."
+            "statusMessage": "Loading communication rules..."
           }
         ]
       }
@@ -20,7 +20,7 @@
             "type": "command",
             "command": "esc=$(sed -e 's/\\\\/\\\\\\\\/g' -e 's/\"/\\\\\"/g' \"${CLAUDE_PLUGIN_ROOT}/hooks/rules.md\" | awk '1' ORS='\\\\n'); printf '{\"hookSpecificOutput\":{\"hookEventName\":\"SubagentStart\",\"additionalContext\":\"%s\"}}' \"$esc\"",
             "timeout": 5,
-            "statusMessage": "Loading handoff rules..."
+            "statusMessage": "Loading communication rules..."
           }
         ]
       }

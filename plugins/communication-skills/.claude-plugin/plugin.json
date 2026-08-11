@@ -1,0 +1,10 @@
+{
+  "name": "communication-skills",
+  "description": "Writes to you in plain language a cold reader can follow, writes as you when the text ships under your name, and stops to ask before decisions you cannot undo.",
+  "author": {
+    "name": "Ian Brandt"
+  },
+  "repository": "https://github.com/IanBrandt/coding-skills",
+  "license": "MIT",
+  "keywords": ["register", "summary", "escalation", "ghostwriting", "voice"]
+}
