@@ -15,6 +15,8 @@ thing instead of abstracting it. Banned in chat replies, not only in published p
 - "shape", as a noun for a design or a structure—say "pattern" or "approach", or rewrite the
   clause around the plain noun the sentence wants.
 - "owed"—name the obligation: "what the verifier has to check", "what the fix still needs".
+- Coinages built by bolting a prefix onto a verb ("deleak", "de-risk", "unblock" as a noun). If the
+  word isn't already English, say what actually happens: "remove the coupling", "cut the risk".
 
 This list is the live one. It grows here when the user flags a word.
 
