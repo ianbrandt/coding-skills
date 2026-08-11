@@ -29,9 +29,10 @@ Either path may be a symlink into a private repo. The voice data never lives in 
 project repo, or in memory. No spec ⇒ **bootstrap** (§5).
 
 **Always-on rules live elsewhere, split by when they load.** Prohibitions that must hold in chat
-replies too—banned vocabulary, typography, formatting tells—go in the user's global `CLAUDE.md`
-(`~/.claude/CLAUDE.md`), loaded every session; `voice-spec.md` is the positive spec, read on
-demand. Both files are maintained here (§4, §5).
+replies too—typography, formatting tells, banned vocabulary—go wherever the user's always-on
+instructions live: their global `CLAUDE.md` (`~/.claude/CLAUDE.md`), or a plugin that injects rules
+every session. Follow the pointer rather than assuming a file; `voice-spec.md` is the positive
+spec, read on demand. Both are maintained here (§4, §5).
 
 ## 1. Read the spec before drafting
 Read `voice-spec.md` end to end, delta log included, and skim one corpus sample matching the genre.
@@ -62,7 +63,7 @@ After the user edits a draft—or after a §3 self-correction—diff their versi
 - **Procedure failure**—the spec covered it and the draft broke it anyway. Record it as one; add
   **no** new rule.
 
-Route each new rule by the §0 split: must hold in every response ⇒ the global `CLAUDE.md` (show the
+Route each new rule by the §0 split: must hold in every response ⇒ the always-on file §0 names (show the
 edit and ask first); genre shape or size ⇒ `voice-spec.md`. When an entry changes a standing rule,
 promote it into the spec's body—the log grows, the body stays stable.
 
@@ -82,7 +83,7 @@ guessing. One-time setup; afterwards proceed from §1.
    (one entry per genre, size and shape), **Delta log** (seeded with one contrast entry naming how
    a default-register draft differs from the samples), and **Procedure** (§1–§4 in a line each, so
    the spec stands alone).
-5. **Draft the always-on block for the global `CLAUDE.md`**: the step-3 prohibitions plus a
+5. **Draft the always-on block** for the user's always-on instructions: the step-3 prohibitions plus a
    pointer to this skill (and `$VOICE` when it isn't the default). Show the block and ask before
    editing.
 6. **Say what you could not derive.** A genre with no sample gets no entry—don't invent one.

@@ -23,9 +23,10 @@ this repo.
   hand-written samples and derives the first spec from what they actually do,
   saying what it couldn't derive instead of inventing it.
 
-Always-on prohibitions—banned vocabulary, typography, formatting tells—live in
-your global `CLAUDE.md`, loaded every session; the spec is the positive half,
-read on demand. The skill maintains both, and shows any `CLAUDE.md` edit for
+Always-on prohibitions—typography, formatting tells, banned vocabulary—live
+wherever your always-on instructions do: your global `CLAUDE.md`, or a plugin
+that injects rules every session. The spec is the positive half, read on demand.
+The skill maintains both, and shows any edit to your always-on instructions for
 your approval first.
 
 ### `share-ghostwriting-spec`
