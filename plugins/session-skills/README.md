@@ -63,6 +63,15 @@ Used alone, with no backlog plugin at all, these skills still do the job: the us
 the ledger keeps two sessions off each other, and the landing commit is the record.
 `communication-skills` owns how the wrap-up reads once these actions are done.
 
-Editing any skill here is a plugin release: an installed session reads a version-keyed cache, so the
-plugin's `version` in `.claude-plugin/marketplace.json` has to bump in the same commit or the
-session keeps serving the old copy.
+## How it is wired
+
+A `SessionStart` hook injects `hooks/rules.md` into every session, including after `/clear` and
+compaction. It carries one rule the skills can't: the session-title suggestion a session owes at its
+end, in a format the user copies in one gesture. That is owed by every session that did real work,
+including the ones that never claim a lane and so never load `land-and-wrap`—which is why it rides a
+hook rather than a skill, and ships with the plugin rather than sitting in a personal global
+`CLAUDE.md`. No `SubagentStart` hook: a subagent doesn't end a session.
+
+Editing any skill or the rules file here is a plugin release: an installed session reads a
+version-keyed cache, so the plugin's `version` in `.claude-plugin/marketplace.json` has to bump in
+the same commit or the session keeps serving the old copy.

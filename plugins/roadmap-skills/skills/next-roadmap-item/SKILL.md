@@ -122,15 +122,14 @@ Then write the claim, per `claim-a-lane`.
 
 ## 4. Suggest a descriptive session title
 
-As soon as the claim lands and any tiebreaker re-pick settles, **emit a session-title suggestion on
-its own line, in this exact format**—bold label, straight quotes, nothing else on the line:
-
-`**Session title:** "R1: aggregation core"`
+As soon as the claim lands and any tiebreaker re-pick settles, **emit a session-title suggestion as
+the last thing in the reply**, in the format `session-skills`' session rules specify—a
+`**Session title:**` label line, then the bare title alone in a plain untagged fenced block, e.g.
+`R1: aggregation core`.
 
 Base it on the item just claimed: a short noun phrase naming the deliverable, **spelled out with no
-abbreviations**. **Re-emit the same line at session end**, revised only if the work turned out to be
-something else.
-Byte-identical format at both points.
+abbreviations**. **Re-emit the same block at session end**, revised only if the work turned out to be
+something else. Byte-identical format at both points.
 
 ## 5. Emit the tier plan—never pause
 

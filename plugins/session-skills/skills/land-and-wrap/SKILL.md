@@ -112,6 +112,8 @@ The rest, in order:
   docs; machine-local facts go to memory. Nothing that the repo already records.
 - **Say what's left**, plainly, and where to do it: this session (it holds the context) or a fresh
   one (new scope, or this context has grown long).
+- **Suggest a session title** if the session did substantive work, in the format this plugin's
+  `hooks/rules.md` specifies—it loads at every session start, so the format is already in context.
 
 `write-for-the-reader` owns how the wrap-up reads: what to include, what the reader can already see,
 and why open items go as instructions rather than prose.
