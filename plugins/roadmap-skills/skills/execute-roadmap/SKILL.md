@@ -64,17 +64,23 @@ until-condition on task completion and a 30–60 minute timeout)—the all-dead 
 no completion event can break.
 
 **Candidates:** re-derive after every completion: open items passing next-roadmap-item §3's
-filters—unclaimed, ungated, **file-touch-disjoint from every in-flight item**, and **not
+filters—unclaimed, ungated, **disjoint from every live claim's `touches` globs**, and **not
 user-present**—minus this run's `flagged` set (a flagged item's claim was released, so without the
 exclusion it is re-picked and re-burned every refill). Keep candidates in roadmap order so fills take
-the topmost eligible items first. When disjointness is uncertain, serialize. **The conductor never takes
+the topmost eligible items first. An item whose paths can't be predicted well enough to declare
+declares the broadest glob it might reach; that costs parallelism and never costs correctness. **The conductor never takes
 `claim-a-lane`'s resume path**: an item in flight by *any* of that skill's three tells stays out
 of candidates rather than being resumed here—it is an attended session's to finish. **A missing claim
 does not make it open**: a session that wrapped cleanly deleted its own claim and left the item in
 flight, so check the roadmap's pin and `git worktree list` before reading an unclaimed item as free.
 
 **Fill:** while in-flight < cap, claimed < max-items, and a candidate exists: open its worktree +
-branch and write its claim per `claim-a-lane`, **atomically**. After all claims in a fill batch
+branch and write its claim per `claim-a-lane`, **atomically, with its `touches` globs**—the
+conductor is the one reader that depends on them being accurate, since it is holding several lanes
+open at once.
+
+**When a build reports files outside its declared globs, rewrite that claim before the next fill.**
+A stale `touches` is worse than none: it reads as a checked disjointness guarantee. After all claims in a fill batch
 are written, **re-read the ledger once more immediately before spawning each build**—the
 write-then-check tie-break leaves the earlier writer blind to a later one. Then emit the item's
 one-line tier plan (next-roadmap-item §5) and spawn its build as a **background Workflow** sized to

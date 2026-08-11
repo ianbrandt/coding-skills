@@ -19,12 +19,18 @@ description: >-
 Pick one item off this repo's roadmap and build it, without colliding with the other sessions
 working the same repo right now.
 
-This skill owns the **plan of record**: where it lives, which items are pickable, and how a landed
-item is recorded. The session mechanics around that are two other skills, and this one is not a
-second copy of them:
+This skill is a **backlog plugin**: it fills the three-question seam `claim-a-lane` §0 defines,
+using a markdown roadmap in place of an issue tracker. What is workable (§3), where an item is
+already in flight (§2), and how a landed item is recorded (§6). Everything else about the session
+belongs to two skills this one calls rather than copies:
 
 - **`claim-a-lane`**—adopting or opening the worktree, the shared claim ledger, sibling etiquette.
 - **`land-and-wrap`**—how finished work leaves its branch, and what every session does at its end.
+
+**Sequencing is this file's data; disjointness is the ledger's.** A gate ("R3 waits on R2") is known
+before any session exists and only the roadmap can answer it. Whether two items collide on the same
+files is a fact about the working tree, and it is settled by the `touches` globs in the claim
+ledger, not by reading item names.
 
 ## 1. Find the plan of record
 
@@ -74,16 +80,21 @@ record, outliving every session that touched it.
 
 ## 3. Pick a disjoint, unclaimed item
 
-Choose an **unclaimed** item whose likely file-touch set is **disjoint** from everything in the
-ledger—different module, no shared core machinery. `$ROADMAP` itself is the unavoidable shared seam:
-keep those edits minimal, localized, and last.
+Choose an **unclaimed** item that is **workable**—its gates met—and whose file-touch set is
+**disjoint** from every live claim's `touches` globs (`claim-a-lane` §6). Write the paths you expect
+to edit into your own claim; `$ROADMAP` itself is the seam every item eventually touches, so declare
+it and keep the edit minimal, localized, and last.
 
 - **Only the active burndown is pickable.** Items are claimable to-dos with stable `Rn` IDs
   (sub-items `Rn.m`); an ID is never reused and an item keeps it for life. Parked, deferred,
   declined, and out-of-scope work lives in the parked or declined file—don't go fishing there.
-- **Honor any parallelism note** the roadmap tags items with (independent versus gated, plus the
-  within-lane collision seam): prefer an **independent** slice. Disjointness applies within a lane
-  too. Skip a *gated* item whose prerequisite hasn't landed, or claim the prerequisite instead.
+- **Gates are the roadmap's half of the dependency graph.** An item tagged as gated is not
+  workable until its prerequisite lands—skip it, or claim the prerequisite instead. Tag new items
+  the same way, naming the item that gates them, so a later session doesn't have to infer the edge
+  from prose.
+- **Prefer an independent slice**, and record the collision seam an item is known to touch so the
+  next session can declare it in `touches` without re-deriving it. Disjointness applies within a
+  lane too.
 - **The roadmap is priority-ordered, top-down**, optionally in coarse bands (Now / Next / Later).
   `Rn` IDs carry no order, so R17 above R3 is normal. **Absent a lane hint, take the topmost item
   that passes these gates.** Insert new items at their priority position; end-of-band is fine.

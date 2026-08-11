@@ -3,14 +3,16 @@ name: claim-a-lane
 description: >-
   Get into a non-colliding lane before touching code, when two or three sessions
   are working one repo at once and coordinating only through git: adopt the
-  in-flight worktree or open a fresh one, write an atomic claim to the shared
-  ledger, and run the hygiene pass that reaps dead claims without killing a live
-  sibling. Carries the rule that a repo-root path from context silently means the
-  primary checkout, and the tie-break for two sessions that claim the same thing.
+  in-flight worktree or open a fresh one, write an atomic claim recording which
+  paths the lane will touch, and run the hygiene pass that reaps dead claims
+  without killing a live sibling. Two lanes collide when their declared paths
+  overlap, which is the one fact no issue tracker can supply. Carries the rule
+  that a repo-root path from context silently means the primary checkout, and
+  the tie-break for two sessions that claim the same thing.
   Trigger before creating a worktree or branch for a unit of work, when picking
   up work that may already be in flight, and on "claim a lane" or "am I
   colliding with another session". NOT for choosing what to work on (that's the
-  repo's plan of record), and NOT for finishing and landing it (that's
+  repo's backlog), and NOT for finishing and landing it (that's
   land-and-wrap).
 ---
 
@@ -27,6 +29,21 @@ coordination between sessions they can't see.
 
 **Platform names.** Worktrees under `$MAIN/.claude/worktrees/` and branches under `claude/` are what
 Claude Code's tooling produces; name whatever your tooling actually creates.
+
+## 0. The backlog seam
+
+These skills don't decide *what* to work on. Where a repo keeps a backlog—a roadmap file, GitHub
+issues, Jira—a plugin for it answers three questions, and nothing here cares how it stores them:
+
+1. **What is workable?** Open work, with its prerequisites already met. Sequencing between units of
+   work is the backlog's data: it is known before any session exists, and only the backlog can say
+   whether the thing that gates this one is done.
+2. **Where is this already in flight?** A pin resolving a unit of work to a branch or worktree (§2).
+3. **Record it done**, in whatever form that backlog uses (`land-and-wrap` §2).
+
+With no backlog plugin at all, these skills still work: the user names the task, and the landing
+commit is the record. What does **not** come from a backlog is **disjointness**—whether two lanes
+touch the same files. No issue tracker knows that, so the ledger carries it (§6).
 
 ## 1. Locate the shared ground
 
@@ -46,8 +63,8 @@ When the work names something specific—a unit of work, an item ID, "keep going
 establish whether it **already has a branch** before you create one. Check all three tells; any one
 of them means the work is already in flight, and its existing worktree is *your* worktree:
 
-1. **A pin in the repo's plan of record**—a note tying that unit of work to one branch or worktree
-   is the durable in-flight record, and it outlives every session that touched it.
+1. **A pin in the backlog** (§0)—a note tying that unit of work to one branch or worktree is the
+   durable in-flight record, and it outlives every session that touched it.
 2. **An existing worktree or branch named for it** (`git worktree list`), carrying commits the
    default branch doesn't have.
 3. **A live claim naming it** (`cat "$MAIN"/.claude/claims/*.json`) whose worktree directory still
@@ -106,7 +123,7 @@ it literally silently lands edits on the default branch in the primary checkout.
 the claim ledger and the final merge only. After your first Edit, confirm it shows in
 `git -C "$WT" status` and NOT in `git -C "$MAIN" status`.
 
-**Files that live only in the primary checkout.** An untracked plan of record, a local-only notes
+**Files that live only in the primary checkout.** An untracked backlog file, a local-only notes
 directory, and the ledger itself never propagate to a worktree—that is the design, one shared copy
 rather than per-worktree forks of it. A worktree-guard hook, where the environment has one, blocks
 `Edit`/`Write` against the primary checkout while a worktree session is active; that is right for
@@ -169,13 +186,24 @@ directory name**, not the branch.
 BRANCH=$(git -C "$WT" rev-parse --abbrev-ref HEAD)
 NAME=$(basename "$WT")
 ITEM="<what you claimed, short phrase, e.g. R1: aggregation core>"   # no double quotes—they break the printf-built JSON
+TOUCHES='["src/parser/**", "docs/parsing.md"]'                       # paths this lane expects to edit
 mkdir -p "$MAIN/.claude/claims"
-printf '{ "item": "%s", "branch": "%s", "started": "%s" }\n' \
-  "$ITEM" "$BRANCH" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+printf '{ "item": "%s", "branch": "%s", "started": "%s", "touches": %s }\n' \
+  "$ITEM" "$BRANCH" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$TOUCHES" \
   > "$MAIN/.claude/claims/$NAME.json.tmp" \
   && mv "$MAIN/.claude/claims/$NAME.json.tmp" "$MAIN/.claude/claims/$NAME.json"   # atomic: a torn read looks dead to a sibling's reaper, which would rm a live claim
 cat "$MAIN"/.claude/claims/*.json            # re-read to confirm no clash
 ```
+
+**`touches` is what makes disjointness checkable instead of guessed.** Two lanes collide when any
+path one expects to edit falls inside a glob the other declared—compare before claiming, and treat
+an overlap as a collision even when the two units of work are unrelated. It is a declared intent,
+not a measurement, so it will sometimes be wrong: **when the work spreads past what you declared,
+rewrite the claim** (same atomic write) before editing the new paths. A lane that genuinely can't
+predict its paths declares the broadest glob it might reach rather than a narrow lie.
+
+Two files are collision seams almost everywhere and are worth declaring even for a one-line edit: a
+dependency manifest, and the backlog file itself. Keep edits to both minimal, localized, and last.
 
 If another claim names the **same work**, the **lexicographically smaller branch name keeps it**;
 the other backs off and picks something else. Write-then-check leaves you blind to a claim written

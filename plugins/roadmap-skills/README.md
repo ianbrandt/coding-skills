@@ -49,6 +49,14 @@ no GitHub writes, for you to sync.
 
 ## What it pairs with
 
-`session-skills` owns the worktree, the claim ledger, and landing—these skills
-own the plan of record and defer the session mechanics to it rather than
-carrying a second copy.
+`session-skills` owns the worktree, the claim ledger, and landing; this plugin
+is a **backlog plugin** for it, answering what is workable, where an item is
+already in flight, and how a landed item gets recorded—backed by a markdown file
+rather than an issue tracker. The dependency runs one way: these skills call into
+`session-skills`, never the reverse, so a different backlog (issues, a tracker)
+plugs into the same seam without touching it.
+
+Sequencing lives here, because a gate between two items is known before any
+session starts and only the backlog can answer it. Disjointness does not: which
+files a lane touches is a fact about the working tree, and the claim ledger
+carries it.

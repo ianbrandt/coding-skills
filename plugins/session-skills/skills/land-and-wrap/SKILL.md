@@ -4,7 +4,7 @@ description: >-
   Get finished work out of its worktree and close the session cleanly. Decides
   how work lands from two facts about the repo itself—whether it is a fork of
   someone else's project, and whether its origin is public—rather than from a
-  mode someone declared: fast-forward into the default branch and push, merge
+  mode someone declared or the backlog it tracks work in: fast-forward into the default branch and push, merge
   but hold the push for review, or stage locally and touch GitHub not at all.
   Then the wrap-up actions every session runs whether or not the work finished:
   release the claim, stop stray background tasks, leave a resume record. Trigger
@@ -39,17 +39,18 @@ gh repo view --json isPrivate -q .isPrivate                       # origin's vis
 If `gh` isn't available or errors, treat the repo as public and hold the push—the safe direction of
 a wrong guess.
 
-These are independent of where the plan of record lives. A repo you own can carry an untracked,
-local-only roadmap and still merge into its own default branch; that combination is ordinary, not a
-deviation. Only fork-ness stops a merge, and only visibility gates a push.
+These are independent of the backlog. A repo you own can track its work in an untracked, local-only
+roadmap and still merge into its own default branch; that combination is ordinary, not a deviation.
+Only fork-ness stops a merge, and only visibility gates a push.
 
 ## 2. Landing in a repo you own
 
 **Bring the docs first.** Finishing includes every piece of documentation the change touches: the
-subsystem's design doc (the durable *why*) plus any user-facing surface. Then record the work as
-done wherever the repo's plan of record says—a tracked roadmap deletes the landed item and lets git
-history be the done-record; an untracked one appends to its changelog. Keep that edit minimal,
-localized, and in its own final commit.
+subsystem's design doc (the durable *why*) plus any user-facing surface. Then **record it done**
+through whatever backlog plugin the repo uses (`claim-a-lane` §0), in that backlog's own form. With
+no backlog at all, the landing commit is the record and there is nothing else to write. Keep any
+such edit minimal, localized, and in its own final commit—a backlog file is a collision seam every
+other lane is also editing.
 
 Follow the repo's end-of-session merge protocol if it has one (a `/land-session` runbook), otherwise:
 
@@ -71,12 +72,13 @@ The absolute rule:
 1. **Commit atomically on the feature branch**—decomposition-ordered, past-tense, one logical change
    each, in the target project's commit style. The branch and worktree are **left in place** for the
    user to review and sync; never merge or push them.
-2. **Draft outreach as local files**, in the repo's local notes directory (`spike-notes.local/` by
-   convention): `NNN-issue-draft.md`, `NNN-pr-draft.md`, `NNN-comment-draft.md`, keyed by the
-   upstream number once known and by the work's own ID before then. **Filing an issue, opening a PR,
+2. **Draft outreach as local files**—`NNN-issue-draft.md`, `NNN-pr-draft.md`,
+   `NNN-comment-draft.md`, keyed by the upstream number once known and by the work's own ID before
+   then, in whatever local notes directory the repo keeps them in. **Filing an issue, opening a PR,
    and posting a comment are the user's actions, never yours.**
-3. **Record it done** in the plan of record's own way, with a status keyword the user can act
-   on—`BUILT-LOCAL`, `DRAFTED`, `FILED`, `PR-READY`, `MERGED-UPSTREAM`.
+3. **Record it done** through the backlog plugin, in a form that says how far the work got: built
+   locally, drafted, filed, or merged upstream are different states to the person who has to sync
+   it.
 
 **Fetch upstream before designing, not just before filing.** `git fetch upstream` and diff
 `HEAD..upstream/$DEFAULT` at the *start* of a session. A stacked or resumed branch skips the
@@ -97,8 +99,8 @@ WT=$(git rev-parse --show-toplevel)
 rm -f "$MAIN/.claude/claims/$(basename "$WT").json"             # keyed off the worktree dir, matching the reap
 ```
 
-**Unfinished work's resume record is its branch and worktree**, plus a pin in the plan of record when
-one names a branch. Leave both standing, and name the branch in the wrap-up—that is what the next
+**Unfinished work's resume record is its branch and worktree**, plus the backlog's pin when it
+records one. Leave both standing, and name the branch in the wrap-up—that is what the next
 session finds.
 
 The rest, in order:

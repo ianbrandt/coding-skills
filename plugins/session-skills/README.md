@@ -10,7 +10,10 @@ protocol: how a session gets into a lane, and how it gets out.
 ### `claim-a-lane`
 
 Adopt the worktree work is already in flight on, or open a fresh one, then write an atomic claim to
-the ledger before touching code. Carries the three tells that work is already in flight—and the rule
+the ledger before touching code. The claim declares which paths the lane expects to edit, which is
+what turns "are these two tasks disjoint?" from a guess about their names into a glob comparison—and
+it is the one fact no issue tracker can supply, since Jira has no idea two issues collide on a
+dependency manifest. Carries the three tells that work is already in flight—and the rule
 that an empty ledger is not one of them, since a session releases its claim at its own finish rather
 than the work's. Also the hygiene pass: prune, reap dead claims by worktree directory rather than
 merge state, and never `git worktree remove` a sibling's directory, because a live session between
@@ -38,9 +41,14 @@ stray background tasks, and leave the branch and worktree standing as the resume
 
 ## What it pairs with
 
-`roadmap-skills` decides *what* to work on and owns the plan of record; these skills own the place
-and the lease it's worked in. `communication-skills` owns how the wrap-up reads once these actions
-are done.
+These skills never decide *what* to work on. A backlog plugin answers three questions for
+them—what is workable, where something is already in flight, and how to record it done—and
+`roadmap-skills` is one such plugin, backing those answers with a markdown file instead of an issue
+tracker. Sequencing between tasks is the backlog's data; disjointness stays here, in the ledger.
+
+Used alone, with no backlog plugin at all, these skills still do the job: the user names the task,
+the ledger keeps two sessions off each other, and the landing commit is the record.
+`communication-skills` owns how the wrap-up reads once these actions are done.
 
 Editing any skill here is a plugin release: an installed session reads a version-keyed cache, so the
 plugin's `version` in `.claude-plugin/marketplace.json` has to bump in the same commit or the
