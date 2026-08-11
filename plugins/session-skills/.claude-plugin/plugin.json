@@ -1,0 +1,10 @@
+{
+  "name": "session-skills",
+  "description": "Place and lease for a repo worked by several sessions at once: adopt or open a worktree, claim a lane in a shared ledger, and land the work by what the repo actually is rather than by a declared mode.",
+  "author": {
+    "name": "Ian Brandt"
+  },
+  "repository": "https://github.com/IanBrandt/coding-skills",
+  "license": "MIT",
+  "keywords": ["worktree", "claim-ledger", "session", "landing", "wrap-up"]
+}

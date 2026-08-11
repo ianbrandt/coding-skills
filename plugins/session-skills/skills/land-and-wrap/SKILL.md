@@ -1,0 +1,115 @@
+---
+name: land-and-wrap
+description: >-
+  Get finished work out of its worktree and close the session cleanly. Decides
+  how work lands from two facts about the repo itself—whether it is a fork of
+  someone else's project, and whether its origin is public—rather than from a
+  mode someone declared: fast-forward into the default branch and push, merge
+  but hold the push for review, or stage locally and touch GitHub not at all.
+  Then the wrap-up actions every session runs whether or not the work finished:
+  release the claim, stop stray background tasks, leave a resume record. Trigger
+  when work is committed and ready to leave its branch, and at the end of any
+  session that claimed a lane. NOT for how a wrap-up should read (that's
+  write-for-the-reader), and NOT for getting into a lane in the first place
+  (that's claim-a-lane).
+---
+
+# Land and wrap
+
+Two separate jobs, and the second one runs even when the first doesn't: **landing** moves finished
+work out of its worktree, and the **wrap-up** closes the session whether the work finished, stalled,
+or was abandoned.
+
+## 1. Two facts decide how work lands
+
+Read them off the repo; don't take them from a mode someone declared in a file.
+
+```bash
+git remote get-url upstream >/dev/null 2>&1 && echo "fork"        # someone else's project
+gh repo view --json isPrivate -q .isPrivate                       # origin's visibility
+```
+
+- **A fork** (an `upstream` remote, ideally with `git remote set-url --push upstream no_push`) means
+  the work is a contribution to a project you don't own. It **never merges and never pushes**, and
+  **nothing reaches GitHub** (§3).
+- **No `upstream`** means the repo is yours. Work **fast-forwards into the default branch** (§2).
+  Then visibility decides the push: **private pushes; public holds** for the user's explicit go,
+  because a public push is published under their name and can't be taken back.
+
+If `gh` isn't available or errors, treat the repo as public and hold the push—the safe direction of
+a wrong guess.
+
+These are independent of where the plan of record lives. A repo you own can carry an untracked,
+local-only roadmap and still merge into its own default branch; that combination is ordinary, not a
+deviation. Only fork-ness stops a merge, and only visibility gates a push.
+
+## 2. Landing in a repo you own
+
+**Bring the docs first.** Finishing includes every piece of documentation the change touches: the
+subsystem's design doc (the durable *why*) plus any user-facing surface. Then record the work as
+done wherever the repo's plan of record says—a tracked roadmap deletes the landed item and lets git
+history be the done-record; an untracked one appends to its changelog. Keep that edit minimal,
+localized, and in its own final commit.
+
+Follow the repo's end-of-session merge protocol if it has one (a `/land-session` runbook), otherwise:
+
+1. **Rebase onto the default branch.**
+2. **Build, risk-based**: rebuild when the rebase pulled in changes to a seam this work touches; skip
+   it for a disjoint lap or one that moved only docs and fixtures.
+3. **Fast-forward-merge from the main checkout**—`git -C "$MAIN" merge --ff-only "$BRANCH"`. If it
+   can't fast-forward, say so rather than forcing a merge commit.
+4. **Push if private.** On a public repo, present the unpushed range (`origin/main..main`) and stop
+   there; the user reads it before it publishes.
+
+## 3. Landing in a fork—nothing to GitHub
+
+The absolute rule:
+
+> **No GitHub writes of any kind: no push (not even a spike branch to your own fork), no issues, no
+> comments, no PRs, no `gh` write commands. Everything stays local until the user syncs.**
+
+1. **Commit atomically on the feature branch**—decomposition-ordered, past-tense, one logical change
+   each, in the target project's commit style. The branch and worktree are **left in place** for the
+   user to review and sync; never merge or push them.
+2. **Draft outreach as local files**, in the repo's local notes directory (`spike-notes.local/` by
+   convention): `NNN-issue-draft.md`, `NNN-pr-draft.md`, `NNN-comment-draft.md`, keyed by the
+   upstream number once known and by the work's own ID before then. **Filing an issue, opening a PR,
+   and posting a comment are the user's actions, never yours.**
+3. **Record it done** in the plan of record's own way, with a status keyword the user can act
+   on—`BUILT-LOCAL`, `DRAFTED`, `FILED`, `PR-READY`, `MERGED-UPSTREAM`.
+
+**Fetch upstream before designing, not just before filing.** `git fetch upstream` and diff
+`HEAD..upstream/$DEFAULT` at the *start* of a session. A stacked or resumed branch skips the
+"branched from upstream" check by construction, and a held branch keeps aging while it waits. The
+likeliest overlap is the user's own earlier contributions, since those touch the code still being
+worked in. If the diff is non-empty, read those commits before writing code: duplicating merged work
+is a wasted branch at best, and a hand-rolled reimplementation of a public API at worst.
+
+## 4. Wrap-up actions—every session, finished or not
+
+**Release the claim, always.** The ledger leases *sessions*, not progress, and its reaper keys off
+worktree-and-branch existence, so a claim held past its session is a lease nothing can ever expire,
+on work no unattended run will ever touch again.
+
+```bash
+MAIN=$(git worktree list --porcelain | awk 'NR==1{print $2}')   # re-derive—shell state doesn't persist across Bash calls
+WT=$(git rev-parse --show-toplevel)
+rm -f "$MAIN/.claude/claims/$(basename "$WT").json"             # keyed off the worktree dir, matching the reap
+```
+
+**Unfinished work's resume record is its branch and worktree**, plus a pin in the plan of record when
+one names a branch. Leave both standing, and name the branch in the wrap-up—that is what the next
+session finds.
+
+The rest, in order:
+
+- **Stop stray background tasks.** A superseded search, an abandoned build or server: `TaskStop`
+  each. A wrap-up delivered while a stray task is still running isn't a wrap-up. The task list
+  tracks todos, not shells—check real processes (`pgrep -fl`) before claiming a session is clear.
+- **Capture what belongs outside this session.** Durable conventions go to the repo's versioned
+  docs; machine-local facts go to memory. Nothing that the repo already records.
+- **Say what's left**, plainly, and where to do it: this session (it holds the context) or a fresh
+  one (new scope, or this context has grown long).
+
+`write-for-the-reader` owns how the wrap-up reads: what to include, what the reader can already see,
+and why open items go as instructions rather than prose.

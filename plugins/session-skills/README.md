@@ -1,0 +1,47 @@
+# session-skills
+
+A [Claude Code](https://claude.ai/code) plugin for working a repo that several sessions are working
+at once. Each session sits in its own git worktree and can see none of the others' context, so the
+only coordination that exists is what git and a shared claim ledger can carry. These skills are that
+protocol: how a session gets into a lane, and how it gets out.
+
+## Skills
+
+### `claim-a-lane`
+
+Adopt the worktree work is already in flight on, or open a fresh one, then write an atomic claim to
+the ledger before touching code. Carries the three tells that work is already in flight—and the rule
+that an empty ledger is not one of them, since a session releases its claim at its own finish rather
+than the work's. Also the hygiene pass: prune, reap dead claims by worktree directory rather than
+merge state, and never `git worktree remove` a sibling's directory, because a live session between
+tasks looks exactly like an abandoned one.
+
+The rule that costs the most when it's missed: a repo-root path handed over in context—from a git
+status block, a memory, a doc link—means the **primary checkout**, so taking it literally lands the
+edit on the default branch instead of the branch the session thinks it's on.
+
+### `land-and-wrap`
+
+How work leaves a lane, decided by two facts read off the repo instead of a mode declared in a file.
+An `upstream` remote means the repo is a fork of someone else's project: the work never merges,
+never pushes, and nothing at all reaches GitHub—issue and PR text is drafted as local files for the
+user to post. No `upstream` means the repo is theirs, so work fast-forwards into the default branch;
+`origin`'s visibility then decides the push, private going out and public waiting for the user's
+explicit go.
+
+Splitting those two facts apart is what makes "a repo you own with an untracked, local-only roadmap"
+an ordinary combination rather than a special case: only fork-ness stops a merge, and only
+visibility gates a push.
+
+Then the wrap-up actions every session runs whether or not the work finished: release the claim, stop
+stray background tasks, and leave the branch and worktree standing as the resume record.
+
+## What it pairs with
+
+`roadmap-skills` decides *what* to work on and owns the plan of record; these skills own the place
+and the lease it's worked in. `communication-skills` owns how the wrap-up reads once these actions
+are done.
+
+Editing any skill here is a plugin release: an installed session reads a version-keyed cache, so the
+plugin's `version` in `.claude-plugin/marketplace.json` has to bump in the same commit or the
+session keeps serving the old copy.
