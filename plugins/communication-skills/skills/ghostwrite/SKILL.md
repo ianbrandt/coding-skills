@@ -88,7 +88,8 @@ guessing. One-time setup; afterwards proceed from §1.
 5. **Route the always-on rules** the samples imply: the step-3 prohibitions belong in this plugin's
    `hooks/rules.md`, which already loads every session and already carries the typography and
    banned-vocabulary rules—add only what it lacks. Add a pointer to `$VOICE` there when it isn't the
-   default. Show any edit and ask before making it, and bump the plugin `version` in the same commit.
+   default. Show any edit and ask before making it, and bump the plugin `version` in the same
+   commit.
 6. **Say what you could not derive.** A genre with no sample gets no entry—don't invent one.
 
 A **seed spec**—a `share-ghostwriting-spec` export—replaces derivation from scratch: copy it in as

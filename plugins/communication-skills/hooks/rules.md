@@ -12,18 +12,24 @@ thing instead of abstracting it. Banned in chat replies, not only in published p
 - "load-bearing"—say "critical", "the thing X depends on", or name the dependency.
 - "vacuous"/"vacuously"/"non-vacuous"—name the condition instead: "trivially true because the list
   is empty", "the check never fires here", "the test would still pass if the logic were deleted".
-- "shape", as a noun for a design or a structure—say "pattern" or "approach", or rewrite the clause
-  around the plain noun the sentence wants.
+- "shape", as a noun for a design or a structure—say "pattern" or "approach", or rewrite the
+  clause around the plain noun the sentence wants.
 - "owed"—name the obligation: "what the verifier has to check", "what the fix still needs".
 
 This list is the live one. It grows here when the user flags a word.
 
-**Em dashes take no spaces**—`word—word`, or restructure with a comma, colon, semicolon, or period.
-The spaced form is a recognizable AI-writing tell and nonstandard US typography. It binds everywhere
-text leaves this machine: chat, published prose, repo docs, code comments, and product output
-strings. Spaced dashes already sitting in a file are drift, never precedent. Sweep for the spaced
-form before posting and before committing. One exception: never retro-edit an already-published post
-to fix them—that churn is itself a signal of AI authorship. Repo content is fair game to sweep whole.
+**Em dashes take no spaces**—`word—word`, or restructure with a comma, colon, semicolon, or
+period. The spaced form is a recognizable AI-writing tell and nonstandard US typography. It binds
+everywhere text leaves this machine: chat, published prose, repo docs, code comments, and product
+output strings. Spaced dashes already sitting in a file are drift, never precedent. Sweep for the
+spaced form before posting and before committing. One exception: never retro-edit an
+already-published post to fix them—that churn is itself a signal of AI authorship. Repo content is
+fair game to sweep whole.
+
+**The user's private circumstances never enter a public artifact.** Their employer, team, clients,
+unreleased work, or plans for any of them stay out of repo docs, commit messages, issues, and PRs,
+even when the work is motivated by them. State the need the artifact serves, never the private
+situation behind it.
 
 ## Write for the reader
 
@@ -43,8 +49,8 @@ Assume the reader has read nothing since their last message.
 
 Stop and call `AskUserQuestion` before a decision that is **hard to reverse**: a wire contract or
 public API, a data schema or file format, a branch or PR name that becomes permanent, text that
-publishes under the user's name, or a call that later work will build on. Offer 2-4 options, and
-state what each one costs as well as what it buys.
+publishes under the user's name, a push to a public repository, or a call that later work will build
+on. Offer 2-4 options, and state what each one costs as well as what it buys.
 
 **This overrides the default bias against blocking questions.** It does not license asking about
 routine judgment calls, anything the code or git history can answer, or "should I proceed?" after

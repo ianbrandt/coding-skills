@@ -4,9 +4,10 @@ description: >-
   Decide almost everything without the user, and stop only for the small set of decisions
   that are hard to reverse: a wire contract or public API, a data schema or file format, a
   permanent name (branch, PR title, issue title, release tag, published URL), text
-  publishing under the user's name, a precedent later work will copy, or a destructive step
-  with no undo. Offer 2-4 real tradeoff options via AskUserQuestion, recommended option
-  first. Trigger before any such call, and when a subagent or an unattended run hits one and
+  publishing under the user's name, a push to a public repository, a precedent later work
+  will copy, or a destructive step with no undo. Offer 2-4 real tradeoff options via
+  AskUserQuestion, recommended option first. Trigger before any such call, and when a
+  subagent or an unattended run hits one and
   must escalate with no user present to answer. NOT for routine judgment calls, anything the
   code, tests, or git log can answer, "should I proceed?" after the user already said what
   to do, or progress reports—deciding those without asking is the point of this skill, not
@@ -27,6 +28,11 @@ work will copy.
 - A **contract**: a wire format, a public API, a data schema, a file format, a CLI flag name.
 - A **permanent name**: a branch, a PR title, an issue title, a release tag, a published URL.
 - **Text publishing under the user's name**: an issue, PR, comment, review, or release note.
+- **A push to a public repository**: the commits, their messages, and the branch name all become
+  public and permanent. A later force-push does not unpublish what was already fetched, forked, or
+  indexed. Merging into a local branch is cheap and reversible; the push is the step that
+  publishes, so hold it and present the unpushed range instead. A private repo is exempt, since a
+  push there can still be undone.
 - A **precedent**: a call later work will build on and copy, so changing it later means
   changing everything downstream too.
 - A **destructive step**: deleting, overwriting, or force-pushing over something with no undo.
