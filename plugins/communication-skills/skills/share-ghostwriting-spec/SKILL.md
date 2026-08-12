@@ -2,7 +2,7 @@
 name: share-ghostwriting-spec
 description: >-
   Export the user's voice spec as an anonymized seed another writer can
-  bootstrap from: keep the Voice, Per-genre caps, and Procedure sections, drop
+  bootstrap from: keep the Voice, per-genre caps, and Procedure sections, drop
   the delta log and corpus, scrub identifying content, and show the export for
   the user's explicit go before it is shared. Trigger on "share my voice spec",
   "export my spec", "anonymize my spec", or "make a team spec". NOT for
@@ -24,8 +24,10 @@ VOICE=${GHOSTWRITING_DIR:-$HOME/.claude/ghostwriting}
 No spec ⇒ stop and say so; bootstrap first (ghostwrite §5).
 
 ## 1. Select what ships
-Start from `voice-spec.md` and keep exactly three sections: **Voice**, **Per-genre caps**, and
-**Procedure**.
+Start from `voice-spec.md` and keep exactly three sections: **Voice**, the per-genre caps, and
+**Procedure**. Match the caps section by what it holds—one entry per genre, giving that genre's
+size and form—not by its title. `ghostwrite` §5 names it **Per-genre caps**, and a spec written
+before that convention may title it something else.
 
 - **The delta log and the corpus never ship.** Replace the log with an empty one. Sweep the
   dropped log for any rule not yet promoted into the body; carry the rule text over, never an
