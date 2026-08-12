@@ -35,7 +35,7 @@
     {
       "name": "orchestration-skills",
       "source": "./plugins/orchestration-skills",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "description": "Hands work to other agents without losing control of it: what is worth delegating, what every brief must carry, which agents worktree isolation breaks, which tier each stage runs at, and how to tell a finished stage from one that merely stopped talking.",
       "keywords": ["subagent", "delegation", "worktree", "workflow", "verification"]
     }

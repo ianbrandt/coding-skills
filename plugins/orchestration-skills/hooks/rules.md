@@ -41,6 +41,12 @@ self-contained units—never a one-liner. Keep emergent or fuzzy work in the mai
 - **Arbitrate a disagreement by spot-check, not by rank.** The delegate read deeper on its narrow
   slice and is usually right: in one pass the orchestrator was wrong on all four disagreements.
 
+## Open-ended scope
+
+When several paths are viable, **pick and recommend** the one that balances good context against
+weekly usage—do not enumerate options at length or open a multi-session rabbit hole. Prefer landing
+a clean, complete, tested increment. Spend subagents and workflows where they clearly pay off.
+
 ## The skills behind these rules
 
 `delegate-to-subagents`—the full coordination protocol: briefs, fan-out, isolation, integration.
