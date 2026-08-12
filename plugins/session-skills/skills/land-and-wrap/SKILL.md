@@ -119,7 +119,11 @@ The rest, in order:
 - **Capture what belongs outside this session.** Durable conventions go to the repo's versioned
   docs; machine-local facts go to memory. Nothing that the repo already records.
 - **Say what's left**, plainly, and where to do it: this session (it holds the context) or a fresh
-  one (new scope, or this context has grown long).
+  one (new scope, or this context has grown long). A fresh one gets a **launch snippet** in the
+  format this plugin's `hooks/rules.md` specifies, plus the tier to run it at, named from
+  `tier-model-and-effort` rather than from memory. Where the repo has a backlog plugin
+  (`claim-a-lane` §0), its invocation is the snippet's entry point: it finds the in-flight work
+  itself, so name the unfinished **branch** alongside it and leave the recap out.
 - **Suggest a session title** if the session did substantive work, in the format this plugin's
   `hooks/rules.md` specifies—it loads at every session start, so the format is already in context.
 
