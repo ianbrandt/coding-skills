@@ -181,7 +181,10 @@ session does at its end. Two things it defers back to this skill:
 
 **The claim is released at session end even when the item isn't finished.** The unfinished item's
 resume record is its branch and worktree, plus its pin in `$ROADMAP`; leave all of it standing and
-name the branch in the wrap-up.
+name the branch in the wrap-up. The next session's entry point is `/next-roadmap-item <Rn>`, or
+`/execute-roadmap` for an unattended run—§2's resume path adopts that item's existing worktree from
+the ID alone, launched from the primary checkout, so the handoff carries no worktree path and no
+account of what was already built.
 
 ## 7. Bootstrapping a repo with no roadmap
 
