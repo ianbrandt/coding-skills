@@ -18,7 +18,9 @@ loop, the watchdog, processing each completion, retries and flags, the build gat
 conditions—lives in `session-skills`' `conduct-a-pipeline`. Run that skill; this one supplies its
 two backlog-shaped inputs and consumes its output.
 
-It requires `session-skills` installed. Per-item mechanics are inherited the same way:
+It requires `session-skills` installed—check first: if `conduct-a-pipeline` is not among the
+available skills, **stop and tell the user to install `session-skills`**, because nothing later
+fails loudly without it. Per-item mechanics are inherited the same way:
 [`next-roadmap-item`](../next-roadmap-item/SKILL.md) for finding the plan of record (its §1) and the
 selection gates (its §3), `claim-a-lane` for worktrees and the ledger, `land-and-wrap` for landing.
 

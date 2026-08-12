@@ -72,7 +72,9 @@ default branch.
 
 Run **`claim-a-lane`** now, through its worktree and hygiene steps: locate `$MAIN` and `$WT`, resume
 an in-flight worktree or open a fresh one, prune, and reap dead claims. Come back here to pick, then
-finish `claim-a-lane` by writing the claim.
+finish `claim-a-lane` by writing the claim. If `claim-a-lane` is not among the available skills,
+**stop and tell the user to install `session-skills`**—nothing below fails loudly without the
+ledger, so proceeding just runs uncoordinated.
 
 Its resume tells are what decide whether this run is a resume, and **tell 1 is an item's own text in
 `$ROADMAP`**: a build rule pinning the item to one branch or worktree is the durable in-flight
