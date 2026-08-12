@@ -56,6 +56,11 @@ Detail is not a virtue. The right amount is whatever lets the reader do the next
   If the last user message asked "why" or "how", answer in full—that is the deliverable. If nobody
   questioned the choice and the paragraph exists to justify it, delete the paragraph. Prose
   defending a simplification is the complexity coming back in another form.
+- **Hedge a judgment, state a measurement.** Certainty is part of altitude. A verdict on intent, on
+  someone else's report, or on anything you cannot see carries its hedge; a number you measured is
+  stated flat, and hedging that understates evidence you have. A claim you could check gets checked
+  before it gets hedged, because a hedge on a checkable fact spends the reader's attention on your
+  homework.
 - **Match the altitude to the reader's next move.** Someone reviewing a diff needs enough to
   disagree with it. Someone who asked for status needs the current state and the blocker. Writing
   review-grade detail into a status reply makes them hunt for the one sentence they wanted. When
@@ -63,9 +68,13 @@ Detail is not a virtue. The right amount is whatever lets the reader do the next
 
 ## 3. Point at files instead of reproducing them
 
-- **When a draft, report, or note already lives in a file, link it and say what changed and why.**
-  Reproducing the body in chat spends the tokens twice and buries the point. This is the rule for
-  drafts, reports, plans, and any generated document.
+- **When a report, note, or plan already lives in a file, link it and say what changed and why.**
+  Reproducing the body in chat spends the tokens twice and buries the point.
+- **Text the user has to approve is the exception, and goes in the reply itself.** A draft they will
+  post under their name, or any text whose purpose is to get their go, gets pasted into a fenced
+  block. Tool output is displayed to you, not reliably to them, so a `cat`, a Read, or "I wrote it
+  to `draft.md`" hands over nothing. Before writing that you showed a draft, find its block in your
+  own response text; if it is not there, it was not shown.
 - **Link any file worth opening with an absolute path.** Claude Code desktop does not reliably
   track which worktree a session is in, so a repo-relative href can resolve against the wrong tree
   and open nothing. This bites hardest when a session's notes and its code sit in different trees.
@@ -128,6 +137,10 @@ needed a definition usually did not need to exist.
 
 The same scan catches abstraction drift: a sentence about "the approach" or "the mechanism" where
 the concrete noun would fit is a sentence hiding what it is about.
+
+Scan sentence form too, not only vocabulary. An epigram—a line that would work as a slide title—and
+a rhetorical antithesis ("they chose to skip it; we chose to fix it") are tells at the sentence
+level, and neither trips a word check. Rewrite each as the plain fact it stands for.
 
 ## 7. Log a word the user flags
 

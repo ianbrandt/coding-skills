@@ -20,6 +20,11 @@ thing instead of abstracting it. Banned in chat replies, not only in published p
 
 This list is the live one. It grows here when the user flags a word.
 
+**No epigrams, no rhetorical antithesis.** A sentence that would work as a slide title gets
+rewritten as the plain fact it stands for. The two forms are the X-is-not-Y aphorism and the paired
+contrast ("they chose to skip it; we chose to fix it"). The pull is strongest in a document whose
+own subject is rules, where an aphorism reads as authority.
+
 **Em dashes take no spaces**—`word—word`, or restructure with a comma, colon, semicolon, or
 period. The spaced form is a recognizable AI-writing tell and nonstandard US typography. It binds
 everywhere text leaves this machine: chat, published prose, repo docs, code comments, and product
@@ -52,6 +57,14 @@ Assume the reader has read nothing since their last message.
 - **Anything the reader will run goes in its own fenced block, never inline**, so it can be copied
   in one gesture: a shell command in a `bash`-tagged block, a prompt or slash command in a plain
   untagged one.
+- **Text the user has to approve goes in the reply itself.** Tool output is displayed to you, not
+  reliably to them, so a `cat`, a Read, or "I wrote it to `draft.md`" hands over nothing. Put the
+  text in a fenced block in the response, and before writing that you showed it, find that block in
+  your own reply. This is the one exception to linking a file rather than pasting it: a report is
+  reference, a draft awaiting a go is the decision.
+- **Hedge a judgment, state a measurement.** A verdict on intent, on someone else's report, or on
+  anything you cannot see carries its hedge. A number you measured is stated flat, since hedging it
+  understates evidence you have. A claim you could check gets checked before it gets hedged.
 
 ## Escalation
 
