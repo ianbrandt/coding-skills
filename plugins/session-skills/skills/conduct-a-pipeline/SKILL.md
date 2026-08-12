@@ -146,10 +146,12 @@ stages only; design and adversarial-verify at `'high'`/`'xhigh'`.
 
 Per `land-and-wrap` §2, with these unattended deviations:
 
-- Rebase onto the default branch. **Record the unit done in the backlog after the rebase**, as the
-  final fresh commit on the rebased tip: doing it before conflicts with the previous landing's
-  backlog edit on every serial landing, and unattended conflict resolution silently mangles a
-  sibling's backlog state.
+- Rebase onto the default branch. **Record the unit done in the backlog after the rebase.** Where
+  the backlog's record is a tracked-file edit, make it the final fresh commit on the rebased tip:
+  doing it before conflicts with the previous landing's backlog edit on every serial landing, and
+  unattended conflict resolution silently mangles a sibling's backlog state. Where the backlog
+  lives outside the tree—an untracked local-only file, an issue tracker—there is no commit to make;
+  record it once the unit passes the build gate, through the backlog plugin's own mechanics.
 - **Build—mandatory; the risk-based skip is off here**, regardless of what the unit's report claimed
   (step 3). The attended risk-based skip assumes a next session as the net; here that "next session"
   is this loop applying the same skip, and at stop time there is none. Gate on the repo's **full

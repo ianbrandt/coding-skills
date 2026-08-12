@@ -62,15 +62,21 @@ the durable in-flight record, and it is why an unclaimed item is not automatical
 
 `conduct-a-pipeline` §2a/§2b calls back here once a unit is green. In roadmap form:
 
-- **On a repo you own**, the roadmap is forward-only and git history is the done-record: **delete the
-  item** from the roadmap. Never migrate it to a done-list, never annotate it "landed". An item that
-  turned out parked or declined moves to `ROADMAP-PARKED.md` / `ROADMAP-DECLINED.md` instead, created
-  on first need. This edit is the final fresh commit on the rebased tip, per §2a—minimal and
-  localized, since every other lane is editing the same file.
-- **On a fork**, move the item out of the forward roadmap and **append its done-record to the
-  changelog** with a status keyword (`BUILT-LOCAL` / `DRAFTED` / `FILED` / `PR-READY` /
-  `MERGED-UPSTREAM`, per next-roadmap-item §6). The changelog is a reasoning archive, not a landed
-  list: capture what commit messages won't.
+The roadmap is forward-only either way: **delete the item**, never migrate it to a done-list, never
+annotate it "landed". An item that turned out parked or declined moves to the parked or declined
+file instead, created on first need. What varies is where the done-record goes, and that follows
+**the plan's location** (next-roadmap-item §1), not how the work landed:
+
+- **A tracked roadmap**: git history is the done-record—the deletion itself. This edit is the final
+  fresh commit on the rebased tip, per §2a—minimal and localized, since every other lane is editing
+  the same file.
+- **A local-only roadmap** (every fork, and any owned repo keeping its plan off the record): the
+  files are untracked and live only in the primary checkout, so there is no commit to make—delete
+  the item and **append its done-record to the changelog** through `claim-a-lane`'s
+  primary-checkout edit mechanics, once the unit passes the build gate. On a fork the entry carries
+  a status keyword (`BUILT-LOCAL` / `DRAFTED` / `FILED` / `PR-READY` / `MERGED-UPSTREAM`, per
+  next-roadmap-item §6). The changelog is a reasoning archive, not a landed list: capture what
+  commit messages won't.
 
 The conductor's per-completion log line and its wrap-up name items by `Rn.m` and by the roadmap's own
 heading text.
