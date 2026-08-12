@@ -136,9 +136,10 @@ the Register list in this plugin's `hooks/rules.md`. Log the **rule**, not the i
 plus the plain alternative that replaces it, one line, in the same form as the entries already
 there. Do not paste diffs, and do not log a word you used once and caught yourself on.
 
-That file is the live list, so the edit is a plugin change. Bump the plugin `version` in
-`.claude-plugin/marketplace.json` in the same commit, or an installed session keeps serving the old
-list from its version-keyed cache.
+That file is the live list, so the edit is a plugin change, made in the marketplace repo the plugin
+ships from—the copy an installed session runs is a version-keyed cache, and editing it is lost on
+the next update. Bump the plugin `version` in the marketplace repo's `.claude-plugin/marketplace.json`
+in the same commit, or an installed session keeps serving the old list.
 
 An installed plugin picks the new word up only on its next update, so apply the correction from
 memory for the rest of the session rather than waiting for the release.

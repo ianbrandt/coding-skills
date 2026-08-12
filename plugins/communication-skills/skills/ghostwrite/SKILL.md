@@ -64,8 +64,9 @@ After the user edits a draft—or after a §3 self-correction—diff their versi
   **no** new rule.
 
 Route each new rule by the §0 split: must hold in every response ⇒ the always-on file §0 names—this
-plugin's `hooks/rules.md`, which makes the edit a plugin change (bump the plugin `version` in
-`.claude-plugin/marketplace.json` in the same commit), or the user's global file when they keep the
+plugin's `hooks/rules.md`, which makes the edit a plugin change—made in the marketplace repo the
+plugin ships from, not the installed cache, bumping the plugin `version` in that repo's
+`.claude-plugin/marketplace.json` in the same commit—or the user's global file when they keep the
 rules there; genre form or size ⇒ `voice-spec.md`. When an entry changes a standing rule,
 promote it into the spec's body—the log grows, the body stays stable.
 
