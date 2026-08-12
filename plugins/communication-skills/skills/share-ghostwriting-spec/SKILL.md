@@ -3,8 +3,8 @@ name: share-ghostwriting-spec
 description: >-
   Export the user's voice spec as an anonymized seed another writer can
   bootstrap from: keep the Voice, per-genre caps, and Procedure sections, drop
-  the delta log and corpus, scrub identifying content, and show the export for
-  the user's explicit go before it is shared. Trigger on "share my voice spec",
+  the delta log and corpus, scrub identifying content, and write the result to
+  a file the user reads before sharing it. Trigger on "share my voice spec",
   "export my spec", "anonymize my spec", or "make a team spec". NOT for
   drafting text (that's ghostwrite), and never for exporting the corpus or the
   delta log.
@@ -46,10 +46,16 @@ Check every line that ships against this list, and rewrite or drop what matches:
 
 A rule that can't be stated without its private referent doesn't ship.
 
-## 3. Review gate
-Show the complete export in chat and wait for an explicit go before writing it anywhere shared.
-Scrubbing is a first pass; the user's read is the anonymization boundary. Name the destination
-before writing to it.
+## 3. Write it, then hand over the path
+Write the export to `$VOICE/voice-spec-seed.md`, overwriting any earlier run, and give the user
+that path. Nothing else: a spec-sized document pasted into chat is unreadable and unusable, so
+this deliberately overrides the general rule that text awaiting approval goes in the reply.
+
+- The seed file sits beside the spec and is a build output. If `$VOICE` is versioned, say so once
+  and suggest ignoring `voice-spec-seed.md`.
+- Do not write, upload, or send the export anywhere else. Scrubbing is a first pass; the user's
+  read of that file is the anonymization boundary, and sharing it is their move, not yours.
+- Say in one line what the scrub dropped and any judgment call worth their attention.
 
 ## 4. Seeding a recipient
 The recipient runs the ghostwrite bootstrap (§5) with the export as the seed spec: the caps carry
