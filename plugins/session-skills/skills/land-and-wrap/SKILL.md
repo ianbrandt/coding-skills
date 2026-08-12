@@ -54,9 +54,11 @@ other lane is also editing.
 
 Follow the repo's end-of-session merge protocol if it has one (a `/land-session` runbook), otherwise:
 
-1. **Rebase onto the default branch.**
-2. **Build, risk-based**: rebuild when the rebase pulled in changes to a seam this work touches; skip
-   it for a disjoint lap or one that moved only docs and fixtures.
+1. **Rebase onto the default branch**—`git -C "$WT" rebase "$DEFAULT"`.
+2. **Build, risk-based, from `$WT`**: rebuild when the rebase pulled in changes to a seam this work
+   touches; skip it for a disjoint lap or one that moved only docs and fixtures. A bare `git rebase`
+   or a bare build command targets whatever the shell's cwd is, which in a session launched from the
+   repo root is the default branch in the primary checkout—a false green.
 3. **Fast-forward-merge from the main checkout**—`git -C "$MAIN" merge --ff-only "$BRANCH"`. If it
    can't fast-forward, say so rather than forcing a merge commit.
 4. **Push if private.** On a public repo, present the unpushed range (`origin/main..main`) and stop
@@ -95,9 +97,15 @@ on work no unattended run will ever touch again.
 
 ```bash
 MAIN=$(git worktree list --porcelain | awk 'NR==1{print $2}')   # re-derive—shell state doesn't persist across Bash calls
-WT=$(git rev-parse --show-toplevel)
+WT="$MAIN/.claude/worktrees/<the lane's worktree dir>"          # the path claim-a-lane set, written out literally
 rm -f "$MAIN/.claude/claims/$(basename "$WT").json"             # keyed off the worktree dir, matching the reap
+ls "$MAIN"/.claude/claims/                                      # confirm it's gone—rm -f on a wrong path succeeds silently
 ```
+
+**Write `$WT` out; never re-derive it with `git rev-parse --show-toplevel`.** A session launched from
+the repo root works the lane through absolute paths and leaves its cwd in the primary checkout, so
+`--show-toplevel` returns `$MAIN`, the `rm -f` removes a claim file that never existed, and the real
+claim leaks—held past its session, on a lane no unattended run will touch again.
 
 **Unfinished work's resume record is its branch and worktree**, plus the backlog's pin when it
 records one. Leave both standing, and name the branch in the wrap-up—that is what the next

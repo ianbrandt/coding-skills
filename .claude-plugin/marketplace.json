@@ -21,7 +21,7 @@
     {
       "name": "session-skills",
       "source": "./plugins/session-skills",
-      "version": "0.4.1",
+      "version": "0.4.2",
       "description": "Place and lease for a repo worked by several sessions at once: adopt or open a worktree, claim a lane in a shared ledger, land the work by what the repo actually is rather than by a declared mode, and conduct several lanes at once when a run has nobody watching it.",
       "keywords": ["worktree", "claim-ledger", "session", "landing", "wrap-up"]
     },
