@@ -12,6 +12,10 @@ self-contained units—never a one-liner. Keep emergent or fuzzy work in the mai
 - **Put scope, style, and VCS/docs prohibitions verbatim in every brief.** A brief that says "follow
   the repo conventions" does not apply them. Parallel-worktree briefs forbid `commit`/`merge`/`push`
   and shared-doc edits; the orchestrator reconciles and commits serially.
+- **Require findings on disk, and name the tools the task may need.** A brief that asks only for a
+  return value loses everything when the agent goes silent: one did exactly that, and its result had
+  to be reconstructed from the worktree's build reports. A delegate that is not told it can drive a
+  browser reports a Cloudflare 403 as a dead end.
 - **Bound read-heavy fan-out.** Cap a census-style agent at roughly 10 files, read once. An
   over-scoped reader overruns context, dies, and retries from scratch: one such agent burned ~800k
   tokens over 4 retries against ~150k for its bounded siblings.

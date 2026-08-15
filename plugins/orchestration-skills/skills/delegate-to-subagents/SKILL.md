@@ -51,10 +51,20 @@ brief, verbatim:
 - The **style rules** that apply to the files it will write.
 - The **prohibitions**: for a parallel-worktree agent, no `commit`, no `merge`, no `push`, and no
   edits to shared docs—the orchestrator reconciles those once, at the end.
-- The **reporting contract**: a stage that ends without a structured report is treated as failed.
+- The **reporting contract**: a stage that ends without a structured report is treated as failed,
+  **and its findings are written to a file under the scratchpad as well as returned**.
+- The **tools it holds** for the wall this particular task might hit. A delegate that does not know
+  it can drive a browser reports a Cloudflare 403 as a dead end.
 
 Reading global conventions is not the same as applying them. The verbatim copy is the cheap half
 of this rule; section 6 is the half that catches what the copy misses.
+
+The file-drop half of the reporting contract is what makes the return text survivable. In one
+session the two briefs demanding findings on disk both returned cleanly; the third asked only for a
+return value, and that agent wrote its code, finished `clean build`, went silent, and was killed
+twenty minutes in having reported nothing. Its result—457 tests, 67 failures—was recovered by
+reading the worktree's build reports directly. Only the on-disk copy made that possible; nothing
+else recorded what the agent had found.
 
 ## 4. Bound a read-heavy fan-out
 
