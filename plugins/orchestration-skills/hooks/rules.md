@@ -55,6 +55,9 @@ self-contained units—never a one-liner. Keep emergent or fuzzy work in the mai
   That deference covers what it found, never what it reports as impossible—probe a blocker yourself
   before repeating it. One agent's "403 behind Cloudflare" reached the user as a dead end, and the
   page loaded in a browser on the first try.
+- **Own the noticing.** A background agent that hangs or dies sends no notification, and completed
+  agents keep their chips, so three chips once looked like three live agents when only one was
+  running. Read liveness off the agent transcript's mtime, the work on disk, and actual CPU.
 
 ## Open-ended scope
 

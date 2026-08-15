@@ -122,6 +122,14 @@ the other swapped two constructor arguments, flipping report rows from outdated 
 were one-liners a reader would have waved through—which is the point. The check is a **probe**, not
 a read.
 
+**Noticing that a stage stopped is your job, not the user's.** A background agent that hangs or dies
+sends no notification, so nothing arrives to tell you. Check liveness before reporting on a run, and
+read it off evidence rather than off the task chips: completed agents keep their chips, which once
+made three chips look like three live agents when only one was still running. What to look at is the
+agent transcript's mtime, whether its work is on disk in the worktree, and whether any build process
+is actually using CPU. An agent whose build finished ten minutes ago and has written nothing since
+has stopped, whatever its chip shows.
+
 ## 7. Verify the fix stage specifically
 
 Fix stages run after the reviewers, so their diffs are the one part of the pipeline nobody reviewed.
