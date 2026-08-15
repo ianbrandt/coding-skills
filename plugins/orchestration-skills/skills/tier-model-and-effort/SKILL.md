@@ -34,6 +34,14 @@ than at a name. Nothing else in this plugin names a model.
 **"Mechanical" means failure is loud.** A stage that could fail silently is not mechanical, however
 rote it looks. Give it a task-hero model and a real check.
 
+**A unit holding both kinds of work is two stages.** When one agent runs a mechanical harvest and
+then makes the judgment the whole result rests on, the judgment inherits the harvest's tier and gets
+no deliberation of its own. One corpus agent fetched metadata for 1,870 artifacts—loud enough that a
+path bug showed up as 664 consecutive 404s—and in the same run decided whether suffixes like `.SP2`
+and `.jre11` were release variants or genuine pre-releases. That second call was the entire
+argument, it fails silently, and it went out at the tier the fetching deserved. Harvest cheap, then
+judge at the tier the judgment needs.
+
 ## 2. The effort labels
 
 The desktop picker shows: **Low / Medium / High / Extra / Max / Ultracode**. There is no "default"
