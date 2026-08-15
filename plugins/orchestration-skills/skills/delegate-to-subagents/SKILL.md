@@ -143,6 +143,14 @@ The delegate read deeper on its narrow slice and is usually right. In one roadma
 orchestrator was wrong on **all four** disagreements; a seven-claim spot-check against the source
 settled it in a few minutes.
 
+**That deference covers what a delegate found, never what it reports as impossible.** "I could not
+reach it" describes one agent's attempt with the tools it believed it had. It is not a finding about
+the world, and passing it along as one hands the user a dead end that is not there. A corpus agent
+reported `mvnrepository.com/popular` as 403 behind Cloudflare "to both curl and WebFetch"; that
+reached the user unchallenged, and the page then loaded in a browser on the first try. Probe a
+reported blocker yourself before repeating it, especially when you hold a tool the delegate was
+never told about.
+
 ## 9. Integrating parallel worktrees
 
 - Pull each worktree's work in with `git -C <worktree> diff | git apply`.

@@ -52,6 +52,9 @@ self-contained units—never a one-liner. Keep emergent or fuzzy work in the mai
   Confirm the fix reached its target and watch a regression test go red then green.
 - **Arbitrate a disagreement by spot-check, not by rank.** The delegate read deeper on its narrow
   slice and is usually right: in one pass the orchestrator was wrong on all four disagreements.
+  That deference covers what it found, never what it reports as impossible—probe a blocker yourself
+  before repeating it. One agent's "403 behind Cloudflare" reached the user as a dead end, and the
+  page loaded in a browser on the first try.
 
 ## Open-ended scope
 
