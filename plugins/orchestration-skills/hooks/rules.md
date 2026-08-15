@@ -18,6 +18,11 @@ self-contained units—never a one-liner. Keep emergent or fuzzy work in the mai
 - **Pick the tier per stage.** Model is the stage's capability class; effort is its deliberation
   need. Reserve the apex tier for the hardest analysis, design, and review. Never name a model from
   memory—the current table lives in the `tier-model-and-effort` skill.
+- **State each stage's tier in the message that launches it.** An up-front plan is a forecast and
+  nothing later checks it. One session announced `Workflow—design@high, implement@medium, docs@low,
+  adversarial-verify@high` and then ran no Workflow, built the item inline, and set no model on
+  either agent it launched. Note also that `Agent` has no effort parameter—only a Workflow sets
+  both knobs—so never announce an effort you cannot apply.
 
 ## Isolation
 

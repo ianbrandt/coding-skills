@@ -54,9 +54,23 @@ Model and effort are user-side settings, and they are only weakly observable fro
 effort is never surfaced, and the environment block's model name can lag a mid-session change.
 
 So do not stop and ask the user to change a picker. Launch at the everyday baseline, keep the main
-loop there, and set `agent(..., {model, effort})` explicitly on the stages that need something else.
-An unattended or queued run should emit its per-stage tier plan up front and then run without a
-pause.
+loop there, and set the tier explicitly on the stages that need something else.
+
+**The two knobs are not both available everywhere.** The `Agent` tool takes `model` and has no
+effort parameter, so a subagent launched that way inherits the session's effort no matter what you
+announce. Only a Workflow's `agent(..., {model, effort})` sets both. A stage that genuinely needs a
+different effort is itself a reason to reach for a Workflow; a stage that only needs a different
+model is fine on `Agent`. Never announce an effort setting you have no way to apply.
+
+**Announce each stage's tier in the message that launches it.** An up-front plan is worth
+writing—it tells the user what a run will cost before it starts—but nothing later checks it, and a
+plan written before the stages are known describes stages that never happen. So plan only what you
+actually intend to delegate, restate the tier as you launch each stage, and say plainly when a
+planned stage turns out not to run. In one session the plan `Workflow—design@high, implement@medium,
+docs@low, adversarial-verify@high` was announced within a minute of the claim, before any source had
+been read. That session then ran no Workflow at all, built the item inline in the main loop, sent
+both delegated agents out with no model override, and never launched the apex judgment pass it
+promised an hour later.
 
 The apex tier can be spawned unattended for analysis, design, and review stages. Its cost is the
 reason to **aim** it, not the reason to avoid it.
