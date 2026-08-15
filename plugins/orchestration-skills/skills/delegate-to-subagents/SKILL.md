@@ -30,6 +30,14 @@ overhead nets out only on work that is:
 Keep in the main loop: emergent work, fuzzy work, anything where the definition of done is what
 you are still discovering.
 
+**Verification is part of what a delegation costs.** A delegated diff stays unreviewed until you
+review it, so a stage you cannot afford to check is a stage you cannot afford to launch. Weigh it
+against the context you have left, not against the context the launch itself consumes. In one
+session an implementation agent went out in the same turn that acknowledged the session was nearly
+out of room; its diff reached the next session uncommitted, never read line by line, with the
+binary-compatibility gate unrun. Hand the whole unit to a fresh session instead. That costs a
+re-read and arrives with someone able to check the result.
+
 Delegate outward regardless of size: **bulky reads**. A search agent that reads twenty files and
 returns a conclusion keeps twenty files out of your context, which matters most when the
 orchestrator is the one holding the long-running plan.
