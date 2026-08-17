@@ -139,16 +139,29 @@ Model and effort are the **user's controls**: **start building immediately, no p
 end-of-turn checkpoint.** Sessions launch at the everyday baseline and the main loop stays there;
 escalate by **delegation, not the session pickers**.
 
-Immediately after the title line, emit a one-line **tier plan**, then execute it. The deciding
-question: **would this repo's test suite catch this item going silently wrong?** Formats:
+Immediately after the title line, emit a one-line **tier plan** naming the stages **this item
+actually has**, then execute it. Two decisions go into it, and they are independent:
 
-- **Mechanical laps** (polish, doc moves, roadmap grooming)—inline at launch settings.
-  `Tier plan: inline.`
-- **Bounded, test-oracled feature work**—a Workflow with per-stage overrides.
-  `Tier plan: Workflow—design@high, implement@medium, docs@low, adversarial-verify@high.`
-- **Correctness-critical transform or rewrite machinery**, where the suite would *not* catch silent
-  wrongness—design, implement-review, and adversarial-verify at the top effort, and the apex model
-  on the stages where being wrong is expensive.
+- **How much verification the item needs.** The question: **would this repo's test suite catch this
+  item going silently wrong?** A loud suite lets the implement stage run cheap. A silent failure
+  mode—transform or rewrite machinery—puts the weight on design and adversarial-verify, at the top
+  effort and the apex model wherever being wrong is expensive.
+- **What runs each stage.** Inline in the main loop, a delegated agent, or a Workflow. A single
+  roadmap item is usually a linear design → build → verify, which the main loop plus one or two
+  agents handles with nothing to script. Reach for a **Workflow** when there is fan-out, a loop
+  until some condition holds, or several units to drive deterministically. A mechanical lap—polish,
+  a doc move, roadmap grooming—stays inline at launch settings: `Tier plan: inline.`
+
+**Name a model for every delegated stage, and an effort only for a Workflow stage.** The `Agent`
+tool has no effort parameter, so an effort announced for a plain subagent never applies.
+
+Write the plan against the item in front of you. One derived from a real item reads like this:
+
+`Tier plan: inline design and implementation (the trace is already settled), then one
+adversarial-verify agent at the apex tier against the merge logic.`
+
+The plan is a forecast, so restate each stage's tier in the message that launches it, and say so
+when a planned stage turns out not to run.
 
 `tier-model-and-effort` carries the current model table and the per-stage override syntax; name
 tiers from it rather than from memory, since model names age faster than the rules around them.
