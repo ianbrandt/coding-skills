@@ -174,10 +174,12 @@ means the **House style block** in `$ROADMAP`'s header, distilled from the proje
 `.editorconfig`, and observed neighbors; **paste that block verbatim into every implementation-agent
 brief**. When in doubt, match the neighboring file, not your habits.
 
-**Orchestrate substantial items** with the **Workflow tool**—design → implement test-first →
-adversarial review → re-verify—scaled to size. *This instruction is itself the opt-in, so the
-orchestration runs even if the session never enabled `ultracode`*; it grants orchestration only, not
-extra effort. Keep genuinely small items (a one-file tweak, a doc move) inline.
+**Orchestrate substantial items** with delegated agents—design → implement test-first → adversarial
+review → re-verify—scaled to size. *This instruction is itself the opt-in, so the orchestration runs
+even if the session never enabled `ultracode`*; it grants orchestration only, not extra effort. Keep
+genuinely small items (a one-file tweak, a doc move) inline. Reach for the **Workflow tool** in the
+cases §5 names—fan-out, a loop until some condition holds, several units driven
+deterministically—rather than as the default vehicle for a single item.
 
 Then hand off to **`land-and-wrap`**, which decides how the work leaves its branch and what the
 session does at its end. Two things it defers back to this skill:
