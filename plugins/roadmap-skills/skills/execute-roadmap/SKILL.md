@@ -3,8 +3,7 @@ name: execute-roadmap
 description: >-
   Work through THIS repo's roadmap unattended: derive the ordered candidate list
   from the roadmap, hand it to parallel-session-skills' conduct-a-pipeline, and
-  record
-  each finished item back into the roadmap and its changelog. Trigger on "execute
+  record each finished item back into the roadmap and its changelog. Trigger on "execute
   the roadmap", "roadmap autopilot", "burn down the roadmap", or any unattended
   multi-item run. Optional args: cap, max-items, lane hint. NOT for a single item,
   and NOT for resuming one item already in flight and partially built (both are
@@ -19,9 +18,10 @@ loop, the watchdog, processing each completion, retries and flags, the build gat
 conditions—lives in `parallel-session-skills`' `conduct-a-pipeline`. Run that skill; this one
 supplies its two backlog-shaped inputs and consumes its output.
 
-It requires both `session-skills` and `parallel-session-skills` installed—check first: if
-`conduct-a-pipeline` is not among the available skills, **stop and tell the user to install
-`parallel-session-skills`**, because nothing later fails loudly without it. Per-item mechanics are
+It requires both `session-skills` and `parallel-session-skills` installed—**check for both by name,
+and stop if either is missing**. A run that finds `conduct-a-pipeline` but not `work-in-worktree`
+gets all the way to opening a worktree per a skill that isn't there, once per lane, unattended.
+Neither absence fails loudly on its own. Per-item mechanics are
 inherited the same way: [`next-roadmap-item`](../next-roadmap-item/SKILL.md) for finding the plan of
 record (its §1) and the selection gates (its §3), `work-in-worktree` for the worktree, `claim-a-lane`
 for the ledger, `land-and-wrap` for landing.
