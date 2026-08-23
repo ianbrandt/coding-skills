@@ -19,7 +19,7 @@ description: >-
 Pick one item off this repo's roadmap and build it, without colliding with the other sessions
 working the same repo right now.
 
-This skill is a **backlog plugin**: it fills the three-question seam `work-in-worktree` §0 defines,
+This skill is a **backlog plugin**: it fills the backlog seam `work-in-worktree` §0 defines,
 using a markdown roadmap in place of an issue tracker. What is workable (§3), where an item is
 already in flight (§2), and how a landed item is recorded (§6). Everything else about the session
 belongs to three skills this one calls rather than copies:
@@ -80,8 +80,8 @@ in the primary checkout.
 item's own text in `$ROADMAP`**: a build rule pinning the item to one branch or worktree is the
 durable in-flight record, outliving every session that touched it.
 
-Then run **`claim-a-lane`**'s §1 and §2—orient against siblings, prune, reap dead claims—and come
-back here to pick. Writing the claim (its §3) happens after the pick, not before. `claim-a-lane`
+Run `work-in-worktree` §4's prune too. Then run **`claim-a-lane`**'s §1 and §2—orient against
+siblings, reap dead claims—and come back here to pick. Writing the claim (its §3) happens after the pick, not before. `claim-a-lane`
 ships in `parallel-session-skills`; where it isn't installed the repo has no ledger, so **say so in
 one line** and skip every ledger step below. The pick then rests on the roadmap's gates alone, and
 two sessions running that way can collide on the same files with nothing to catch it.
