@@ -7,8 +7,9 @@ description: >-
   worktree and branch when it isn't. Carries the rule that costs the most when
   it is missed—a repo-root path handed over in context means the primary
   checkout, so taking it literally lands the edit on the default branch—plus
-  how to edit a file that lives only there, and the three-question seam a
-  backlog plugin fills. Trigger before creating a worktree or branch for a unit
+  how to edit a file that lives only there, the prune that keeps stale worktrees
+  and merged branches from piling up, and the three-question seam a backlog
+  plugin fills. Trigger before creating a worktree or branch for a unit
   of work, when picking up work that may already be in flight, and on "start on
   this in a worktree". NOT for keeping several sessions off each other's files
   (that's claim-a-lane, in parallel-session-skills), NOT for choosing what to
@@ -41,7 +42,7 @@ issues, Jira—a plugin for it answers three questions, and nothing here cares h
    work is the backlog's data: it is known before any session exists, and only the backlog can say
    whether the thing that gates this one is done.
 2. **Where is this already in flight?** A pin resolving a unit of work to a branch or worktree (§2).
-3. **Record it done**, in whatever form that backlog uses (`land-and-wrap` §2).
+3. **Record it done**, in whatever form that backlog uses (`land-and-wrap` §2, or §3 on a fork).
 
 With no backlog plugin at all, these skills still work: the user names the task, and the landing
 commit is the record. What does **not** come from a backlog is **disjointness**—whether two lanes
@@ -136,6 +137,24 @@ edit through a plain `Bash` call instead: a heredoc `python3 - <<'PYEOF'` with a
 before the replace, so a drifted anchor fails loudly instead of silently doing nothing, or `Write`
 to a scratch path and `cp scratch target` when rewriting a whole file. Such guards typically reject
 a *compound* command (`A && B`, `VAR=x; cmd`)—split it into plain single commands.
+
+## 4. Hygiene—prune only
+
+Cheap, safe, and worth running whichever of §2 or §3 you came through. Neither command has anything
+to do with other sessions; a session working alone accumulates the same stale worktree registrations
+and merged branches.
+
+```bash
+git worktree prune                           # safe: only reaps worktrees whose dir is already gone
+git for-each-ref --merged "$DEFAULT" --format='%(refname:short)' \
+  'refs/heads/claude/*' 'refs/heads/worktree-*' | xargs -r git branch -d   # merged only; -d self-guards
+```
+
+**Never `git worktree remove` a worktree you didn't create.** A live session between tasks looks
+identical to an abandoned one, and removing its directory kills it mid-flight. Leftovers are
+harmless clutter the next `prune` reaps; when in doubt, leave it.
+
+Where the repo runs a claim ledger, `claim-a-lane` §2 adds the dead-claim reap on top of this.
 
 ## Then what
 

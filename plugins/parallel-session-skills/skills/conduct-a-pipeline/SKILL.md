@@ -48,7 +48,7 @@ it. A backlog plugin may add its own arguments, such as a hint biasing candidate
 
 The conductor roots in the **main checkout** and never edits repo files outside a unit's worktree,
 the run-state file excepted. Get the candidate list from the backlog; if it is empty, stop. Run
-`claim-a-lane`'s hygiene pass (its §2) once. Then:
+the hygiene pass once—`work-in-worktree` §4's prune, then `claim-a-lane` §2's dead-claim reap. Then:
 
 - **Create the run-state file** `.claude/pipeline-run.json`—git-ignored where the backlog is tracked,
   git-excluded where it isn't, and deliberately NOT under `.claude/claims/`, where the hygiene reaper

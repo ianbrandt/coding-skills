@@ -12,9 +12,10 @@ ledger, and the conductor that drives several lanes off it.
 Write an atomic claim to the ledger before touching code. The claim declares which paths the lane
 expects to edit, which is what turns "are these two tasks disjoint?" from a guess about their names
 into a glob comparison—and it is the one fact no issue tracker can supply, since Jira has no idea
-two issues collide on a dependency manifest. Carries the hygiene pass too: prune, reap dead claims
-by worktree directory rather than merge state, and never `git worktree remove` a sibling's
-directory, because a live session between tasks looks exactly like an abandoned one.
+two issues collide on a dependency manifest. Carries the dead-claim reap too, keyed off the worktree
+directory rather than merge state, because a just-claimed session's branch tip equals the default
+branch and merge state reads that as dead. And the etiquette: never `git worktree remove` a
+sibling's directory, because a live session between tasks looks exactly like an abandoned one.
 
 The rule that costs the most when it's missed: an empty ledger is not evidence the work is free. A
 session releases its claim at its own finish rather than the work's, so the ordinary handoff leaves

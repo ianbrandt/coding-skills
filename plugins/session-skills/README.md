@@ -16,7 +16,8 @@ on work that already has one strands the first branch's commits and silently res
 The rule that costs the most when it's missed: a repo-root path handed over in context—from a git
 status block, a memory, a doc link—means the **primary checkout**, so taking it literally lands the
 edit on the default branch instead of the branch the session thinks it's on. The fix for a file that
-genuinely lives only in the primary checkout, such as an untracked backlog, is here too.
+genuinely lives only in the primary checkout, such as an untracked backlog, is here too, along with
+the prune that keeps stale worktree registrations and merged branches from accumulating.
 
 ### `land-and-wrap`
 

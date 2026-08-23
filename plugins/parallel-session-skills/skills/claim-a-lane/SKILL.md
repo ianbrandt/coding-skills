@@ -27,10 +27,17 @@ over the repo's contributor docs. Those docs govern the code; this governs the c
 sessions they can't see.
 
 **Get into the worktree first.** `work-in-worktree`, in `session-skills`, locates `$MAIN` and
-`$WT`, adopts the worktree the work is already in flight on, and opens a fresh one otherwise. It
-also carries the backlog seam this skill's disjointness check completes: a backlog says what is
-workable and where it is in flight, and only the ledger says whether two units of work collide.
-Everything below assumes `$MAIN`, `$WT`, and `$DEFAULT` are already set.
+`$WT`, adopts the worktree the work is already in flight on, and opens a fresh one otherwise, and
+its §4 prunes stale worktrees and merged branches. It also carries the backlog seam this skill's
+disjointness check completes: a backlog says what is workable and where it is in flight, and only
+the ledger says whether two units of work collide.
+
+**Re-derive `$MAIN` here rather than inheriting it.** Shell state doesn't persist between calls, and
+an unset `$MAIN` is the one failure this skill hides instead of raising: `cat
+"$MAIN"/.claude/claims/*.json` on an empty variable globs against `/.claude/claims/`, matches
+nothing, and falls through to the same "no claims" message a genuinely empty ledger prints. The
+session then reads a repo full of live siblings as idle and claims a colliding lane. `$WT` is set by
+`work-in-worktree`; unset, §3's first command fails loudly, which is the safe direction.
 
 **Platform names.** Worktrees under `$MAIN/.claude/worktrees/` and claims under
 `$MAIN/.claude/claims/` are what Claude Code's tooling produces; name whatever your tooling actually
@@ -39,22 +46,26 @@ creates.
 ## 1. Orient against siblings
 
 ```bash
+MAIN=$(git worktree list --porcelain | awk 'NR==1{print $2}')   # re-derive—see above; never inherit
+DEFAULT=$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's@^origin/@@')
+DEFAULT=${DEFAULT:-main}
 git worktree list                            # who's around (worktrees ≈ sessions)
 git log --oneline -15 "$DEFAULT"             # what just landed
-cat "$MAIN"/.claude/claims/*.json 2>/dev/null || echo "ledger empty"
+echo "ledger: $MAIN/.claude/claims"          # print the resolved path—a wrong $MAIN reads as an empty ledger
+cat "$MAIN"/.claude/claims/*.json 2>/dev/null || echo "no claims"
 ```
+
+**Read that path before reading the result.** If it came out as `/.claude/claims`, `$MAIN` didn't
+resolve and the "no claims" line means nothing.
 
 The ledger is a **live lease board, not a log**: entries are `{"item","branch","started"}`, deleted
 by their own session at *its* finish—which is not the work's finish. **Empty is normal, and it does
 not mean the repo is idle**; `work-in-worktree` §2 has the tells that do settle that.
 
-## 2. Hygiene—prune only
+## 2. Reap dead claims
 
-```bash
-git worktree prune                           # safe: only reaps worktrees whose dir is already gone
-git for-each-ref --merged "$DEFAULT" --format='%(refname:short)' \
-  'refs/heads/claude/*' 'refs/heads/worktree-*' | xargs -r git branch -d   # merged only; -d self-guards
-```
+The worktree prune and the merged-branch reap are `work-in-worktree` §4's—they have nothing to do
+with siblings, and a session working alone needs them too. Run that first, then this.
 
 **Never `git worktree remove` a sibling's worktree**, not even a merged-and-clean one. A live
 session between tasks looks identical to an abandoned one, and removing its directory kills it
