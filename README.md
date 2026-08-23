@@ -42,8 +42,10 @@ invoked.
 - [`session-skills`](plugins/session-skills) puts a session in its own git worktree, claims that
   lane in a ledger the other sessions read, and lands the work by what the repo actually is. It also
   carries the unattended conductor that holds several lanes open at once and refills them as they
-  finish, plus one small session-start rule of its own: the session-title format every session owes
-  at its end. Install it if you run more than one session against a repo at once.
+  finish, plus two small session-start rules of its own: the session-title format every session owes
+  at its end, and a per-turn judgment of whether the work is better served by continuing here or
+  handing off to a fresh session. Install it if you run more than one session against a repo at
+  once.
 - [`roadmap-skills`](plugins/roadmap-skills) backs that lane with a markdown backlog: `Rn` items in
   priority order, claimed one at a time or fed to the conductor in a batch. It needs
   `session-skills`, which owns the worktree and the ledger.

@@ -22,6 +22,30 @@ A skill may also emit this earlier, when a unit of work is claimed and its name 
 That title and this one are the same block, byte-identical, revised at the end only if the work
 turned out to be something else.
 
+## Judge whether the session should continue
+
+At the end of a turn that finished something, weigh continuing against handing off, silently. Say
+nothing unless a tell below trips: a turn that ends with a paragraph about session length costs more
+than the handoff it was hedging against.
+
+Hand off when:
+
+- **The claimed unit just landed** and the next one touches different files. The repo holds the
+  state now, so a fresh session re-derives it for the price of one backlog entry.
+- **The session has been compacted**, or is re-reading files it already read, or re-deriving a fact
+  it established earlier. Those are one tell: the transcript has stopped carrying the work.
+- **The next thing is a different repo, a different lane, or a different kind of work.** Context
+  built for the last unit is dead weight against the new one, and it is re-read on every turn.
+
+Keep going when:
+
+- **A diff is built but unreviewed**, a build unverified, or a hypothesis live and unwritten.
+  Whatever exists nowhere but this transcript is what a fresh session cannot re-derive.
+- **The work is mid-unit.** Wait for the landing; handing off from the middle of a unit costs more
+  than it saves.
+
+When a tell trips, say so in one line and hand off in the format below.
+
 ## Hand off the next session
 
 Recommending a fresh session owes it a launch snippet: the root directory to start in, then a
