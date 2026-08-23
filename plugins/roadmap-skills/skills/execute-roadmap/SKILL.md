@@ -84,3 +84,16 @@ file instead, created on first need. What varies is where the done-record goes, 
 
 The conductor's per-completion log line and its wrap-up name items by `Rn.m` and by the roadmap's own
 heading text.
+
+## 4. Suggest a session title
+
+An unattended run covers several items, so the per-item title of `next-roadmap-item` §4 doesn't
+apply—**emit one title at the end of the run**, in the format `session-skills`' session rules
+specify: a `**Session title:**` label line, then the bare title alone in a plain untagged fenced
+block.
+
+The title is always the literal prefix `Execute Roadmap: `, then a short phrase summarizing the items
+that actually landed, **spelled out with no abbreviations**—`Execute Roadmap: claim ledger and
+worktree prune`. Summarize what the run did, not how many items it took: name the two or three that
+carry the run, and where the items share a theme, name the theme instead. Items flagged or retried
+without landing don't enter the title.

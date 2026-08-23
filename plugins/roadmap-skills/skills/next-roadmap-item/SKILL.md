@@ -135,9 +135,10 @@ the last thing in the reply**, in the format `session-skills`' session rules spe
 `**Session title:**` label line, then the bare title alone in a plain untagged fenced block, e.g.
 `R1: aggregation core`.
 
-Base it on the item just claimed: a short noun phrase naming the deliverable, **spelled out with no
-abbreviations**. **Re-emit the same block at session end**, revised only if the work turned out to be
-something else. Byte-identical format at both points.
+The title is always the claimed item's `Rn` ID, a colon, then a short noun phrase naming the
+deliverable, **spelled out with no abbreviations**—`R1: aggregation core`, never the phrase alone and
+never the ID alone. A sub-item keeps its own `Rn.m`. **Re-emit the same block at session end**,
+revised only if the work turned out to be something else. Byte-identical format at both points.
 
 ## 5. Emit the tier plan—never pause
 
