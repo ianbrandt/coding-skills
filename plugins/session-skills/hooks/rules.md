@@ -62,6 +62,5 @@ work already half-built.
 
 ## The skills behind these rules
 
-`claim-a-lane`—getting into a non-colliding lane before touching code.
+`work-in-worktree`—getting the work into the right worktree before touching code.
 `land-and-wrap`—how finished work leaves its branch, and the rest of the wrap-up.
-`conduct-a-pipeline`—running several lanes at once with nobody watching.

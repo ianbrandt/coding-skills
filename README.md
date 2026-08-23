@@ -35,20 +35,23 @@ invoked.
 
 ```sh
 /plugin install session-skills@ianbrandt
+/plugin install parallel-session-skills@ianbrandt
 /plugin install roadmap-skills@ianbrandt
 /plugin install gradle-skills@ianbrandt
 ```
 
-- [`session-skills`](plugins/session-skills) puts a session in its own git worktree, claims that
-  lane in a ledger the other sessions read, and lands the work by what the repo actually is. It also
-  carries the unattended conductor that holds several lanes open at once and refills them as they
-  finish, plus two small session-start rules of its own: the session-title format every session owes
-  at its end, and a per-turn judgment of whether the work is better served by continuing here or
-  handing off to a fresh session. Install it if you run more than one session against a repo at
-  once.
-- [`roadmap-skills`](plugins/roadmap-skills) backs that lane with a markdown backlog: `Rn` items in
-  priority order, claimed one at a time or fed to the conductor in a batch. It needs
-  `session-skills`, which owns the worktree and the ledger.
+- [`session-skills`](plugins/session-skills) puts a unit of work in its own git worktree and gets it
+  back out again, landing it by what the repo actually is rather than by a mode you declare. It also
+  carries two small session-start rules: the session-title format every session owes at its end, and
+  a per-turn judgment of whether the work is better served by continuing here or handing off to a
+  fresh session.
+- [`parallel-session-skills`](plugins/parallel-session-skills) keeps two or three sessions off each
+  other's files, through a claim ledger declaring which paths each lane will touch. It also carries
+  the unattended conductor that holds several lanes open at once and refills them as they finish.
+  Install it if you run more than one session against a repo at a time; it needs `session-skills`.
+- [`roadmap-skills`](plugins/roadmap-skills) backs a lane with a markdown backlog: `Rn` items in
+  priority order, claimed one at a time or fed to the conductor in a batch. Claiming one needs
+  `session-skills`; feeding the conductor needs `parallel-session-skills` as well.
 - [`gradle-skills`](plugins/gradle-skills) upgrades Gradle dependencies and the wrapper, one
   verified atomic commit at a time. Gradle builds only.
 

@@ -1,6 +1,6 @@
 {
   "name": "session-skills",
-  "description": "Place and lease for a repo worked by several sessions at once: adopt or open a worktree, claim a lane in a shared ledger, land the work by what the repo actually is rather than by a declared mode, and conduct several lanes at once when a run has nobody watching it.",
+  "description": "Puts a session in its own git worktree and gets it back out again: adopt the worktree work is already in flight on or open a fresh one, and land the work by what the repo actually is rather than by a declared mode.",
   "author": {
     "name": "Ian Brandt"
   },

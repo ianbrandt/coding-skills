@@ -7,11 +7,11 @@ description: >-
   mode someone declared or the backlog it tracks work in: fast-forward into the default branch and push, merge
   but hold the push for review, or stage locally and touch GitHub not at all.
   Then the wrap-up actions every session runs whether or not the work finished:
-  release the claim, stop stray background tasks, leave a resume record. Trigger
+  release any claim, stop stray background tasks, leave a resume record. Trigger
   when work is committed and ready to leave its branch, and at the end of any
-  session that claimed a lane. NOT for how a wrap-up should read (that's
-  write-for-the-reader), and NOT for getting into a lane in the first place
-  (that's claim-a-lane).
+  session that opened a worktree. NOT for how a wrap-up should read (that's
+  write-for-the-reader), and NOT for getting into the worktree in the first
+  place (that's work-in-worktree).
 ---
 
 # Land and wrap
@@ -47,7 +47,7 @@ Only fork-ness stops a merge, and only visibility gates a push.
 
 **Bring the docs first.** Finishing includes every piece of documentation the change touches: the
 subsystem's design doc (the durable *why*) plus any user-facing surface. Then **record it done**
-through whatever backlog plugin the repo uses (`claim-a-lane` §0), in that backlog's own form. With
+through whatever backlog plugin the repo uses (`work-in-worktree` §0), in that backlog's own form. With
 no backlog at all, the landing commit is the record and there is nothing else to write. Keep any
 such edit minimal, localized, and in its own final commit—a backlog file is a collision seam every
 other lane is also editing.
@@ -91,13 +91,15 @@ is a wasted branch at best, and a hand-rolled reimplementation of a public API a
 
 ## 4. Wrap-up actions—every session, finished or not
 
-**Release the claim, always.** The ledger leases *sessions*, not progress, and its reaper keys off
+**Release the claim, always—where the repo runs a claim ledger.** A session that never wrote a claim
+has nothing to release here and skips to the next action; a session that did releases it whether or
+not the work finished. The ledger leases *sessions*, not progress, and its reaper keys off
 worktree-and-branch existence, so a claim held past its session is a lease nothing can ever expire,
 on work no unattended run will ever touch again.
 
 ```bash
 MAIN=$(git worktree list --porcelain | awk 'NR==1{print $2}')   # re-derive—shell state doesn't persist across Bash calls
-WT="$MAIN/.claude/worktrees/<the lane's worktree dir>"          # the path claim-a-lane set, written out literally
+WT="$MAIN/.claude/worktrees/<the lane's worktree dir>"          # the path work-in-worktree set, written out literally
 rm -f "$MAIN/.claude/claims/$(basename "$WT").json"             # keyed off the worktree dir, matching the reap
 ls "$MAIN"/.claude/claims/                                      # confirm it's gone—rm -f on a wrong path succeeds silently
 ```
@@ -122,7 +124,7 @@ The rest, in order:
   one (new scope, or this context has grown long). A fresh one gets a **launch snippet** in the
   format this plugin's `hooks/rules.md` specifies, plus the tier to run it at, named from
   `tier-model-and-effort` rather than from memory. Where the repo has a backlog plugin
-  (`claim-a-lane` §0), its invocation is the snippet's entry point: it finds the in-flight work
+  (`work-in-worktree` §0), its invocation is the snippet's entry point: it finds the in-flight work
   itself, so name the unfinished **branch** alongside it and leave the recap out.
 - **Suggest a session title** if the session did substantive work, in the format this plugin's
   `hooks/rules.md` specifies—it loads at every session start, so the format is already in context.

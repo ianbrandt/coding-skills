@@ -10,8 +10,8 @@ description: >-
   a pipeline that died without notifying, and the stop conditions. Trigger on
   "run several items unattended", "autopilot", "keep the pipeline full", or any
   multi-lane run with nobody watching. NOT for a single unit of work (that's
-  claim-a-lane then land-and-wrap), and NOT for deciding what the candidates are—
-  that comes from the repo's backlog plugin.
+  work-in-worktree, then claim-a-lane, then land-and-wrap), and NOT for deciding
+  what the candidates are—that comes from the repo's backlog plugin.
 ---
 
 # Conduct a pipeline
@@ -21,12 +21,12 @@ flight, builds each in its own worktree via a background Workflow, and processes
 finishes—a rolling pipeline, refilled after every completion, running until candidates run out or
 the plan is invalidated.
 
-Per-lane mechanics are **inherited**, not restated: `claim-a-lane` for worktrees and the claim
-ledger, `land-and-wrap` for the two landing arms. This skill adds the conductor layer and the
-**unattended deviations**—each one exists because there is no human in the loop. *This skill is the
-Workflow orchestration opt-in for every unit built under it.*
+Per-lane mechanics are **inherited**, not restated: `work-in-worktree` for the worktree and the
+backlog seam, `claim-a-lane` for the claim ledger, `land-and-wrap` for the two landing arms. This
+skill adds the conductor layer and the **unattended deviations**—each one exists because there is no
+human in the loop. *This skill is the Workflow orchestration opt-in for every unit built under it.*
 
-**Candidates come from the backlog** (`claim-a-lane` §0), not from here. A backlog plugin supplies
+**Candidates come from the backlog** (`work-in-worktree` §0), not from here. A backlog plugin supplies
 an ordered list of workable units and records each one done in its own form; this skill decides how
 many run at once, what happens when one fails, and when to stop. With no backlog plugin, the user
 supplies the list up front and the conductor runs it dry.
@@ -48,7 +48,7 @@ it. A backlog plugin may add its own arguments, such as a hint biasing candidate
 
 The conductor roots in the **main checkout** and never edits repo files outside a unit's worktree,
 the run-state file excepted. Get the candidate list from the backlog; if it is empty, stop. Run
-`claim-a-lane`'s hygiene pass once. Then:
+`claim-a-lane`'s hygiene pass (its §2) once. Then:
 
 - **Create the run-state file** `.claude/pipeline-run.json`—git-ignored where the backlog is tracked,
   git-excluded where it isn't, and deliberately NOT under `.claude/claims/`, where the hygiene reaper
@@ -71,11 +71,11 @@ unpolled it occupies its slot forever. So **whenever builds are in flight, arm a
 pipeline is the one stall no completion event can break.
 
 **Candidates:** re-derive after every completion. The backlog supplies what is workable and in what
-order (`claim-a-lane` §0); this skill removes what the session layer knows to be unavailable:
+order (`work-in-worktree` §0); this skill removes what the session layer knows to be unavailable:
 
 - **claimed**—a live claim names it;
 - **not disjoint**—any path it expects to edit falls inside a live claim's `touches` globs;
-- **already in flight** by any of `claim-a-lane` §2's three tells. **The conductor never takes the
+- **already in flight** by any of `work-in-worktree` §2's three tells. **The conductor never takes the
   resume path**: a unit in flight stays out of candidates rather than being resumed here—it is an
   attended session's to finish. **A missing claim does not make it open**: a session that wrapped
   cleanly deleted its own claim and left the work in flight, so check the backlog's pin and `git
@@ -88,9 +88,9 @@ paths can't be predicted well enough to declare declares the broadest glob it mi
 costs parallelism and never costs correctness.
 
 **Fill:** while in-flight < cap, claimed < max-items, and a candidate exists: open its worktree +
-branch and write its claim per `claim-a-lane`, **atomically, with its `touches` globs**—the
-conductor is the one reader that depends on them being accurate, since it is holding several lanes
-open at once.
+branch per `work-in-worktree` §3 and write its claim per `claim-a-lane` §3, **atomically, with its
+`touches` globs**—the conductor is the one reader that depends on them being accurate, since it is
+holding several lanes open at once.
 
 **When a build reports files outside its declared globs, rewrite that claim before the next fill.**
 A stale `touches` is worse than none: it reads as a checked disjointness guarantee. After all claims
