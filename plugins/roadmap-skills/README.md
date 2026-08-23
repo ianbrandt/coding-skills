@@ -42,8 +42,8 @@ or not its item finished.
 
 The roadmap half of an unattended run. The conductor loop itself—the in-flight
 cap, the fill loop, retries, the build gate, the stop conditions—is
-`session-skills`' `conduct-a-pipeline`, which works the same way whatever the
-backlog is. This skill supplies that loop's two roadmap-shaped inputs: the
+`parallel-session-skills`' `conduct-a-pipeline`, which works the same way
+whatever the backlog is. This skill supplies that loop's two roadmap-shaped inputs: the
 ordered candidate list (open, ungated, and on a fork not flagged as requiring
 you present) and, once an item is green, deleting it from the roadmap or
 appending its changelog entry.
@@ -54,12 +54,16 @@ those lanes open is specific to tracking work in a markdown file.
 
 ## What it pairs with
 
-`session-skills` owns the worktree, the claim ledger, and landing; this plugin
-is a **backlog plugin** for it, answering what is workable, where an item is
-already in flight, and how a landed item gets recorded—backed by a markdown file
-rather than an issue tracker. The dependency runs one way: these skills call into
-`session-skills`, never the reverse, so a different backlog (issues, a tracker)
-plugs into the same seam without touching it.
+`session-skills` owns the worktree and landing, and `parallel-session-skills`
+owns the claim ledger; this plugin is a **backlog plugin** for both, answering
+what is workable, where an item is already in flight, and how a landed item gets
+recorded—backed by a markdown file rather than an issue tracker. The dependency
+runs one way: these skills call into those, never the reverse, so a different
+backlog (issues, a tracker) plugs into the same seam without touching it.
+
+`next-roadmap-item` needs only `session-skills`, and says so and runs
+uncoordinated when there is no ledger to read. `execute-roadmap` needs
+`parallel-session-skills` too, since the conductor loop lives there.
 
 Sequencing lives here, because a gate between two items is known before any
 session starts and only the backlog can answer it. Disjointness does not: which

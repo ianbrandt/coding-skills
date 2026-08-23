@@ -10,8 +10,8 @@ description: >-
   built—more building on an in-flight item is this skill, which adopts that
   item's existing worktree. An optional lane hint ("R1") only biases the pick.
   NOT for reading, summarizing, or editing the roadmap, and NOT for the worktree
-  and claim mechanics themselves (that's claim-a-lane) or for landing finished
-  work (that's land-and-wrap).
+  mechanics themselves (that's work-in-worktree) or the claim ledger (that's
+  claim-a-lane) or landing finished work (that's land-and-wrap).
 ---
 
 # Next roadmap item—parallel-safe session cold-start
@@ -19,12 +19,13 @@ description: >-
 Pick one item off this repo's roadmap and build it, without colliding with the other sessions
 working the same repo right now.
 
-This skill is a **backlog plugin**: it fills the three-question seam `claim-a-lane` §0 defines,
+This skill is a **backlog plugin**: it fills the three-question seam `work-in-worktree` §0 defines,
 using a markdown roadmap in place of an issue tracker. What is workable (§3), where an item is
 already in flight (§2), and how a landed item is recorded (§6). Everything else about the session
-belongs to two skills this one calls rather than copies:
+belongs to three skills this one calls rather than copies:
 
-- **`claim-a-lane`**—adopting or opening the worktree, the shared claim ledger, sibling etiquette.
+- **`work-in-worktree`**—adopting or opening the worktree, and the primary-checkout path rules.
+- **`claim-a-lane`**—the shared claim ledger and sibling etiquette, where the repo runs one.
 - **`land-and-wrap`**—how finished work leaves its branch, and what every session does at its end.
 
 **Sequencing is this file's data; disjointness is the ledger's.** A gate ("R3 waits on R2") is known
@@ -61,7 +62,7 @@ changelog: the landing commit that deletes the item *is* the record. A local-onl
 untracked, so git history can't hold it and `$HISTORY` does.
 
 Both files live **only in the primary checkout** when they are untracked, which is by design—one
-shared plan, not per-worktree copies. `claim-a-lane` has the mechanics for editing a
+shared plan, not per-worktree copies. `work-in-worktree` has the mechanics for editing a
 primary-checkout file from a worktree session.
 
 **This is not the same question as how work lands.** `land-and-wrap` decides that from fork-ness and
@@ -70,20 +71,25 @@ default branch.
 
 ## 2. Get into a lane
 
-Run **`claim-a-lane`** now, through its worktree and hygiene steps: locate `$MAIN` and `$WT`, resume
-an in-flight worktree or open a fresh one, prune, and reap dead claims. Come back here to pick, then
-finish `claim-a-lane` by writing the claim. If `claim-a-lane` is not among the available skills,
-**stop and tell the user to install `session-skills`**—nothing below fails loudly without the
-ledger, so proceeding just runs uncoordinated.
+Run **`work-in-worktree`** now: locate `$MAIN` and `$WT`, then resume an in-flight worktree or open a
+fresh one. If it is not among the available skills, **stop and tell the user to install
+`session-skills`**—nothing below fails loudly without it, so proceeding just edits the default branch
+in the primary checkout.
 
-Its resume tells are what decide whether this run is a resume, and **tell 1 is an item's own text in
-`$ROADMAP`**: a build rule pinning the item to one branch or worktree is the durable in-flight
-record, outliving every session that touched it.
+`work-in-worktree` §2's resume tells are what decide whether this run is a resume, and **tell 1 is an
+item's own text in `$ROADMAP`**: a build rule pinning the item to one branch or worktree is the
+durable in-flight record, outliving every session that touched it.
+
+Then run **`claim-a-lane`**'s §1 and §2—orient against siblings, prune, reap dead claims—and come
+back here to pick. Writing the claim (its §3) happens after the pick, not before. `claim-a-lane`
+ships in `parallel-session-skills`; where it isn't installed the repo has no ledger, so **say so in
+one line** and skip every ledger step below. The pick then rests on the roadmap's gates alone, and
+two sessions running that way can collide on the same files with nothing to catch it.
 
 ## 3. Pick a disjoint, unclaimed item
 
 Choose an **unclaimed** item that is **workable**—its gates met—and whose file-touch set is
-**disjoint** from every live claim's `touches` globs (`claim-a-lane` §6). Write the paths you expect
+**disjoint** from every live claim's `touches` globs (`claim-a-lane` §3). Write the paths you expect
 to edit into your own claim; `$ROADMAP` itself is the seam every item eventually touches, so declare
 it and keep the edit minimal, localized, and last.
 
@@ -120,7 +126,7 @@ claim disappears, or a commit lands), then pick. A hint doesn't change this.
 on the item you are resuming is *yours*, not a collision, and re-picking on it is the bug
 `claim-a-lane`'s resume path exists to prevent.
 
-Then write the claim, per `claim-a-lane`.
+Then write the claim, per `claim-a-lane` §3—where the repo has a ledger at all.
 
 ## 4. Suggest a descriptive session title
 

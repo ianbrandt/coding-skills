@@ -2,7 +2,8 @@
 name: execute-roadmap
 description: >-
   Work through THIS repo's roadmap unattended: derive the ordered candidate list
-  from the roadmap, hand it to session-skills' conduct-a-pipeline, and record
+  from the roadmap, hand it to parallel-session-skills' conduct-a-pipeline, and
+  record
   each finished item back into the roadmap and its changelog. Trigger on "execute
   the roadmap", "roadmap autopilot", "burn down the roadmap", or any unattended
   multi-item run. Optional args: cap, max-items, lane hint. NOT for a single item,
@@ -15,14 +16,15 @@ description: >-
 
 This skill is the roadmap half of an unattended run. The conductor loop—the in-flight cap, the fill
 loop, the watchdog, processing each completion, retries and flags, the build gate, and the stop
-conditions—lives in `session-skills`' `conduct-a-pipeline`. Run that skill; this one supplies its
-two backlog-shaped inputs and consumes its output.
+conditions—lives in `parallel-session-skills`' `conduct-a-pipeline`. Run that skill; this one
+supplies its two backlog-shaped inputs and consumes its output.
 
-It requires `session-skills` installed—check first: if `conduct-a-pipeline` is not among the
-available skills, **stop and tell the user to install `session-skills`**, because nothing later
-fails loudly without it. Per-item mechanics are inherited the same way:
-[`next-roadmap-item`](../next-roadmap-item/SKILL.md) for finding the plan of record (its §1) and the
-selection gates (its §3), `claim-a-lane` for worktrees and the ledger, `land-and-wrap` for landing.
+It requires both `session-skills` and `parallel-session-skills` installed—check first: if
+`conduct-a-pipeline` is not among the available skills, **stop and tell the user to install
+`parallel-session-skills`**, because nothing later fails loudly without it. Per-item mechanics are
+inherited the same way: [`next-roadmap-item`](../next-roadmap-item/SKILL.md) for finding the plan of
+record (its §1) and the selection gates (its §3), `work-in-worktree` for the worktree, `claim-a-lane`
+for the ledger, `land-and-wrap` for landing.
 
 ## 0. Arguments
 
@@ -57,7 +59,7 @@ ordered workable list. From the roadmap that is:
 Everything else the conductor filters on—claimed, not disjoint, already in flight, flagged this
 run—is the session layer's and needs nothing from here.
 
-The roadmap's **pin** is `claim-a-lane` §2's tell 1: an item's entry naming a branch or worktree is
+The roadmap's **pin** is `work-in-worktree` §2's tell 1: an item's entry naming a branch or worktree is
 the durable in-flight record, and it is why an unclaimed item is not automatically free.
 
 ## 3. Recording an item done
@@ -74,7 +76,7 @@ file instead, created on first need. What varies is where the done-record goes, 
   the same file.
 - **A local-only roadmap** (every fork, and any owned repo keeping its plan off the record): the
   files are untracked and live only in the primary checkout, so there is no commit to make—delete
-  the item and **append its done-record to the changelog** through `claim-a-lane`'s
+  the item and **append its done-record to the changelog** through `work-in-worktree`'s
   primary-checkout edit mechanics, once the unit passes the build gate. On a fork the entry carries
   a status keyword (`BUILT-LOCAL` / `DRAFTED` / `FILED` / `PR-READY` / `MERGED-UPSTREAM`, per
   next-roadmap-item §6). The changelog is a reasoning archive, not a landed list: capture what
