@@ -38,17 +38,27 @@ It takes its candidates from a backlog plugin and hands each finished unit back 
 
 `session-skills`, which owns the worktree these skills claim a lane in: `work-in-worktree` locates
 the primary checkout, adopts the worktree work is already in flight on, and opens a fresh one
-otherwise, and `land-and-wrap` gets the work back out and releases the claim at session end. The
-dependency runs one way—`session-skills` works alone, this plugin does not.
+otherwise, and `land-and-wrap` gets the work back out. This plugin fills the lease seam
+`work-in-worktree` §0 defines. The dependency runs one way—`session-skills` works alone and names no
+plugin that fills its seams, this plugin does not work without it, and `claim-a-lane` stops and says
+so when `work-in-worktree` is absent. Nothing in the manifest format enforces that, so the check is
+the skill's own.
 
 A backlog plugin is optional on top of both. It answers what is workable and where something is
 already in flight; disjointness stays here, in the ledger, because no issue tracker knows it.
-`roadmap-skills` is one such plugin, backing those answers with a markdown file.
 
 ## How it is wired
 
 No `SessionStart` hook, and so no always-on token cost: nothing here applies to a session that never
 opens a lane, and the skill descriptions are enough to trigger both skills.
+
+One `SessionEnd` hook, which injects nothing into any session because it runs after the session is
+over. It releases any claim carrying the ending session's id, so a session that dies or exits without
+wrapping hands its lane back anyway. It is a net rather than the path: `land-and-wrap` still releases
+at wrap, which returns the lane immediately instead of whenever the session exits. Restricted hooks
+(`disableAllHooks`, `allowManagedHooksOnly`, a managed policy, or an untrusted workspace) disarm the
+net silently, which is why `claim-a-lane` checks what it can see and says so. `hooks/release-claim.sh`
+carries its own self-check in `release-claim.test.sh`; run it with `sh release-claim.test.sh`.
 
 Editing any skill here is a plugin release: an installed session reads a version-keyed cache, so the
 plugin's `version` in `.claude-plugin/marketplace.json` has to bump in the same commit or the

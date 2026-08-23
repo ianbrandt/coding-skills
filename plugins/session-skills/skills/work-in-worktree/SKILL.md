@@ -11,10 +11,10 @@ description: >-
   and merged branches from piling up, and the three-question seam a backlog
   plugin fills. Trigger before creating a worktree or branch for a unit
   of work, when picking up work that may already be in flight, and on "start on
-  this in a worktree". NOT for keeping several sessions off each other's files
-  (that's claim-a-lane, in parallel-session-skills), NOT for choosing what to
-  work on (that's the repo's backlog), and NOT for finishing and landing it
-  (that's land-and-wrap).
+  this in a worktree". NOT for keeping several sessions off each other's
+  files—that's a concurrency plugin's lane claim, where one is installed—NOT for
+  choosing what to work on (that's the repo's backlog), and NOT for finishing
+  and landing it (that's land-and-wrap).
 ---
 
 # Work in a worktree
@@ -29,11 +29,11 @@ over the repo's contributor docs. Those docs govern the code; this governs where
 **Platform names.** Worktrees under `$MAIN/.claude/worktrees/` and branches under `claude/` are what
 Claude Code's tooling produces; name whatever your tooling actually creates.
 
-**When other sessions are working the same repo at once**, this is half the job. `claim-a-lane`, in
-`parallel-session-skills`, adds the shared claim ledger that keeps two lanes off the same files.
-Nothing here needs it, and a session working alone skips it.
+**When other sessions are working the same repo at once**, this is half the job: a concurrency
+plugin (§0's lease seam) adds the shared lease that keeps two lanes off the same files. Nothing here
+needs it, and a session working alone skips it.
 
-## 0. The backlog seam
+## 0. The two seams
 
 These skills don't decide *what* to work on. Where a repo keeps a backlog—a roadmap file, GitHub
 issues, Jira—a plugin for it answers three questions, and nothing here cares how it stores them:
@@ -46,7 +46,14 @@ issues, Jira—a plugin for it answers three questions, and nothing here cares h
 
 With no backlog plugin at all, these skills still work: the user names the task, and the landing
 commit is the record. What does **not** come from a backlog is **disjointness**—whether two lanes
-touch the same files. No issue tracker knows that, so a claim ledger carries it, in `claim-a-lane`.
+touch the same files. No issue tracker knows that; it is the other seam's data.
+
+**The lease seam.** Where several sessions work one repo at once, a concurrency plugin leases each
+session a lane: it answers whether this lane's files are disjoint from every sibling's, it holds the
+lease evidence a dead session leaves behind (§2), and it expects the lease released at session end,
+finished or not—a lease covers the session, not the work. Nothing here cares how it stores leases. A
+session working alone, or a repo with no such plugin, skips every lease step, and these skills still
+work.
 
 ## 1. Locate the two checkouts
 
@@ -70,14 +77,14 @@ of them means the work is already in flight, and its existing worktree is *your*
    durable in-flight record, and it outlives every session that touched it.
 2. **An existing worktree or branch named for it** (`git worktree list`), carrying commits the
    default branch doesn't have.
-3. **A live claim naming it** (`cat "$MAIN"/.claude/claims/*.json`), where the repo runs a claim
-   ledger, whose worktree directory still exists. This one catches only a session that died
-   mid-flight.
+3. **A live lease naming it**, where the repo runs a concurrency plugin (§0's lease seam)—that
+   plugin says how to read its ledger; consult it now, before deciding. A lease whose worktree still
+   exists catches only a session that died mid-flight.
 
-**The ledger is not the trigger, and an empty ledger is no evidence the work is free.** A session
-deletes its claim at *its own* finish whether or not the work finished, so the ordinary handoff—wrap
-up cleanly, resume next session—leaves the work in flight with no claim at all. Tell 1 or 2 is what
-fires then, and they are the only two tells a repo with no ledger has.
+**The lease is not the trigger, and an empty ledger is no evidence the work is free.** A lease
+covers a session, not the work: the ordinary handoff—wrap up cleanly, resume next session—leaves the
+work in flight with no lease at all. Tell 1 or 2 is what fires then, and they are the only two tells
+a repo with no concurrency plugin has.
 
 ```bash
 WT="$MAIN/.claude/worktrees/<the matching worktree dir>"   # resume: work here
@@ -116,11 +123,11 @@ becomes a pull request's head, and a PR head name is permanent and public. On a 
 generated name to the target project's own convention now, before anything records it—`git -C "$WT"
 branch -m add-jvm-target-flag`. Absent a stated convention, a short descriptive slug. **The name
 chosen then is final**: filing an issue afterwards is not a reason to renumber it to
-`fix-issue-<N>`, which desyncs the branch from its worktree directory and from any claim naming it.
+`fix-issue-<N>`, which desyncs the branch from its worktree directory and from anything else that
+recorded the name.
 On a repo you own, the generated name is fine—nothing outside this machine ever sees it. A renamed
-branch escapes `claim-a-lane`'s merged-branch reap, which is harmless: a fork's branches are never
-merged locally, and the dead-claim reap keys off the claim's own `branch` field rather than the name
-pattern.
+branch escapes §4's merged-branch reap, which is harmless: a fork's branches are never merged
+locally, so the reap never had it.
 
 **Translate every context-supplied `<repo-root>/…` path to `$WT/…`** before any `Read`/`Edit`/
 `Write`. The `gitStatus` block, memories, and doc links all cite the bare repo-root path, and taking
@@ -129,7 +136,8 @@ files that live only there and for the final merge. After your first Edit, confi
 `git -C "$WT" status` and NOT in `git -C "$MAIN" status`.
 
 **Files that live only in the primary checkout.** An untracked backlog file, a local-only notes
-directory, and a claim ledger never propagate to a worktree—that is the design, one shared copy
+directory, and any shared ledger a plugin keeps there never propagate to a worktree—that is the
+design, one shared copy
 rather than per-worktree forks of it. A worktree-guard hook, where the environment has one, blocks
 `Edit`/`Write` against the primary checkout while a worktree session is active; that is right for
 source files and wrong for this family. Don't relocate the file to satisfy the guard. Splice the
@@ -154,14 +162,14 @@ git for-each-ref --merged "$DEFAULT" --format='%(refname:short)' \
 identical to an abandoned one, and removing its directory kills it mid-flight. Leftovers are
 harmless clutter the next `prune` reaps; when in doubt, leave it.
 
-Where the repo runs a claim ledger, `claim-a-lane` §2 adds the dead-claim reap on top of this.
+A concurrency plugin adds its own hygiene on top of this (§0's lease seam).
 
 ## Then what
 
 You are in the right tree with `$MAIN`, `$WT`, `$BRANCH`, and `$DEFAULT` in hand. Two skills take it
 from here, and neither is required to start:
 
-- **`claim-a-lane`** (`parallel-session-skills`)—when other sessions are working this repo, orient
-  against them and write a claim declaring the paths this lane will touch, before writing code.
+- **the concurrency plugin filling §0's lease seam**—when other sessions are working this repo,
+  claim a lane and write its lease declaring the paths this lane will touch, before writing code.
 - **`land-and-wrap`**—when the work is committed and ready to leave the branch, and at the end of
   any session, finished or not.

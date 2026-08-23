@@ -6,5 +6,11 @@
   },
   "repository": "https://github.com/IanBrandt/coding-skills",
   "license": "MIT",
-  "keywords": ["worktree", "claim-ledger", "session", "landing", "wrap-up"]
+  "keywords": [
+    "worktree",
+    "session",
+    "landing",
+    "wrap-up",
+    "resume"
+  ]
 }

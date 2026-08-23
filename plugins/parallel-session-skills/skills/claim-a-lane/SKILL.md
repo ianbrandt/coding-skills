@@ -26,11 +26,11 @@ On a judgment call about the lane itself—what to claim, whose worktree to touc
 over the repo's contributor docs. Those docs govern the code; this governs the coordination between
 sessions they can't see.
 
-**Get into the worktree first.** `work-in-worktree`, in `session-skills`, locates `$MAIN` and
-`$WT`, adopts the worktree the work is already in flight on, and opens a fresh one otherwise, and
-its §4 prunes stale worktrees and merged branches. It also carries the backlog seam this skill's
-disjointness check completes: a backlog says what is workable and where it is in flight, and only
-the ledger says whether two units of work collide.
+**This skill fills `work-in-worktree` §0's lease seam**, and requires it. `work-in-worktree`, in
+`session-skills`, locates `$MAIN` and `$WT`, adopts the worktree the work is already in flight on,
+opens a fresh one otherwise, and prunes stale worktrees and merged branches in its §4. **If it is
+not among the available skills, stop and tell the user to install `session-skills`**—nothing here
+fails loudly without it, and no manifest enforces the dependency.
 
 **Re-derive `$MAIN` here rather than inheriting it.** Shell state doesn't persist between calls, and
 an unset `$MAIN` is the one failure this skill hides instead of raising: `cat
@@ -58,8 +58,9 @@ cat "$MAIN"/.claude/claims/*.json 2>/dev/null || echo "no claims"
 **Read that path before reading the result.** If it came out as `/.claude/claims`, `$MAIN` didn't
 resolve and the "no claims" line means nothing.
 
-The ledger is a **live lease board, not a log**: entries are `{"item","branch","started"}`, deleted
-by their own session at *its* finish—which is not the work's finish. **Empty is normal, and it does
+The ledger is a **live lease board, not a log**: entries are
+`{"item","branch","started","session","touches"}`, deleted by their own session at *its* finish—which
+is not the work's finish. **Empty is normal, and it does
 not mean the repo is idle**; `work-in-worktree` §2 has the tells that do settle that.
 
 ## 2. Reap dead claims
@@ -99,11 +100,12 @@ directory name**, not the branch.
 ```bash
 BRANCH=$(git -C "$WT" rev-parse --abbrev-ref HEAD)
 NAME=$(basename "$WT")
-ITEM="<what you claimed, short phrase, e.g. R1: aggregation core>"   # no double quotes—they break the printf-built JSON
-TOUCHES='["src/parser/**", "docs/parsing.md"]'                       # paths this lane expects to edit
+ITEM="<what you claimed, short phrase, e.g. parser aggregation core>"  # no double quotes—they break the printf-built JSON
+TOUCHES='["src/parser/**", "docs/parsing.md"]'                        # paths this lane expects to edit
+SESSION="${CLAUDE_SESSION_ID:-${CLAUDE_CODE_SESSION_ID:-}}"           # stamped so this plugin's SessionEnd hook can release it
 mkdir -p "$MAIN/.claude/claims"
-printf '{ "item": "%s", "branch": "%s", "started": "%s", "touches": %s }\n' \
-  "$ITEM" "$BRANCH" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$TOUCHES" \
+printf '{ "item": "%s", "branch": "%s", "started": "%s", "session": "%s", "touches": %s }\n' \
+  "$ITEM" "$BRANCH" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$SESSION" "$TOUCHES" \
   > "$MAIN/.claude/claims/$NAME.json.tmp" \
   && mv "$MAIN/.claude/claims/$NAME.json.tmp" "$MAIN/.claude/claims/$NAME.json"   # atomic: a torn read looks dead to a sibling's reaper, which would rm a live claim
 cat "$MAIN"/.claude/claims/*.json            # re-read to confirm no clash
@@ -117,7 +119,7 @@ rewrite the claim** (same atomic write) before editing the new paths. A lane tha
 predict its paths declares the broadest glob it might reach rather than a narrow lie.
 
 Two files are collision seams almost everywhere and are worth declaring even for a one-line edit: a
-dependency manifest, and the backlog file itself. Keep edits to both minimal, localized, and last.
+dependency manifest, and—where the backlog is a file in the repo—the backlog file itself. Keep edits to both minimal, localized, and last.
 
 If another claim names the **same work**, the **lexicographically smaller branch name keeps it**;
 the other backs off and picks something else. Write-then-check leaves you blind to a claim written
@@ -134,5 +136,35 @@ it keyed for §2's reap.
 
 ## Releasing it
 
-Your claim is released at **session** end, finished or not: the ledger leases sessions, not
-progress. That half lives in `land-and-wrap`, along with the two ways work leaves a lane.
+Your claim is released at **session** end, finished or not: the ledger leases sessions, not progress.
+`land-and-wrap` §4 is the trigger; this is the step it runs.
+
+```bash
+MAIN=$(git worktree list --porcelain | awk 'NR==1{print $2}')   # re-derive—shell state doesn't persist
+rm -f "$MAIN/.claude/claims/$(basename "$WT").json"             # keyed off the worktree dir, matching §2's reap
+ls "$MAIN"/.claude/claims/                                      # confirm—rm -f on a wrong path succeeds silently
+```
+
+`$WT` is the path `work-in-worktree` set, **written out literally**. Re-deriving it with `git
+rev-parse --show-toplevel` returns `$MAIN` in a session launched from the repo root, so the `rm`
+removes a file that never existed and the real claim leaks.
+
+This plugin's `SessionEnd` hook releases any claim carrying this session's id when a session ends
+without wrapping. It is the net, not the path: releasing at wrap hands the lane back immediately
+rather than whenever the session eventually exits.
+
+**Say out loud when the net isn't armed.** Restricted hooks make the release above the *only* path,
+and a session that doesn't know that is the one that leaks a lease nothing can expire:
+
+```bash
+python3 -c 'import json,os
+hits=[k for f in (os.path.expanduser("~/.claude/settings.json"),".claude/settings.json")
+      for k in ("disableAllHooks","allowManagedHooksOnly")
+      if os.path.exists(f) and json.load(open(f)).get(k)]
+print("hooks RESTRICTED:",hits,"— SessionEnd net will not fire") if hits else print("no local hook restriction")'
+```
+
+**A clean result is not proof.** The same message names two causes this check cannot see—a managed
+policy, and an untrusted workspace—and a malformed `hooks.json` loads a plugin with no hooks at all,
+silently. So treat the net as best-effort in every session: release at wrap regardless, and when the
+check does trip, name it in one line so nobody counts on a hook that is off.

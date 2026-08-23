@@ -7,7 +7,7 @@ description: >-
   mode someone declared or the backlog it tracks work in: fast-forward into the default branch and push, merge
   but hold the push for review, or stage locally and touch GitHub not at all.
   Then the wrap-up actions every session runs whether or not the work finished:
-  release any claim, stop stray background tasks, leave a resume record. Trigger
+  release any lease, stop stray background tasks, leave a resume record. Trigger
   when work is committed and ready to leave its branch, and at the end of any
   session that opened a worktree. NOT for how a wrap-up should read (that's
   write-for-the-reader), and NOT for getting into the worktree in the first
@@ -91,23 +91,18 @@ is a wasted branch at best, and a hand-rolled reimplementation of a public API a
 
 ## 4. Wrap-up actions—every session, finished or not
 
-**Release the claim, always—where the repo runs a claim ledger.** A session that never wrote a claim
-has nothing to release here and skips to the next action; a session that did releases it whether or
-not the work finished. The ledger leases *sessions*, not progress, and its reaper keys off
-worktree-and-branch existence, so a claim held past its session is a lease nothing can ever expire,
-on work no unattended run will ever touch again.
+**Release any lease you hold, always—where the repo runs a concurrency plugin** (`work-in-worktree`
+§0's lease seam). A session that never wrote one has nothing to release and skips to the next action;
+a session that did releases it whether or not the work finished. A lease covers the session, not the
+work, and one held past its session blocks its lane for every unattended run until something expires
+it.
 
-```bash
-MAIN=$(git worktree list --porcelain | awk 'NR==1{print $2}')   # re-derive—shell state doesn't persist across Bash calls
-WT="$MAIN/.claude/worktrees/<the lane's worktree dir>"          # the path work-in-worktree set, written out literally
-rm -f "$MAIN/.claude/claims/$(basename "$WT").json"             # keyed off the worktree dir, matching the reap
-ls "$MAIN"/.claude/claims/                                      # confirm it's gone—rm -f on a wrong path succeeds silently
-```
-
-**Write `$WT` out; never re-derive it with `git rev-parse --show-toplevel`.** A session launched from
-the repo root works the lane through absolute paths and leaves its cwd in the primary checkout, so
-`--show-toplevel` returns `$MAIN`, the `rm -f` removes a claim file that never existed, and the real
-claim leaks—held past its session, on a lane no unattended run will touch again.
+**The plugin that owns the ledger carries the release step**—run it now. Identify the lane by the
+`$WT` `work-in-worktree` set, **written out literally, never re-derived with `git rev-parse
+--show-toplevel`**: a session launched from the repo root works the lane through absolute paths and
+leaves its cwd in the primary checkout, so `--show-toplevel` returns `$MAIN`, and a release keyed off
+the wrong tree removes nothing and leaks the real lease. Confirm the lease is gone before moving
+on.
 
 **Unfinished work's resume record is its branch and worktree**, plus the backlog's pin when it
 records one. Leave both standing, and name the branch in the wrap-up—that is what the next
@@ -124,7 +119,8 @@ The rest, in order:
   one (new scope, or this context has grown long). A fresh one gets a **launch snippet** in the
   format this plugin's `hooks/rules.md` specifies, plus the tier to run it at, named from
   `tier-model-and-effort` rather than from memory. Where the repo has a backlog plugin
-  (`work-in-worktree` §0), its invocation is the snippet's entry point: it finds the in-flight work
+  (`work-in-worktree` §0's backlog seam), its invocation is the snippet's entry point: it finds the
+  in-flight work
   itself, so name the unfinished **branch** alongside it and leave the recap out.
 - **Suggest a session title** if the session did substantive work, in the format this plugin's
   `hooks/rules.md` specifies—it loads at every session start, so the format is already in context.

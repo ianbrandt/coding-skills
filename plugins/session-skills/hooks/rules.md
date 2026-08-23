@@ -10,7 +10,7 @@ block, so the user copies it in one gesture:
 **Session title:**
 
 ```
-R1: aggregation core
+parser aggregation core
 ```
 ````
 
