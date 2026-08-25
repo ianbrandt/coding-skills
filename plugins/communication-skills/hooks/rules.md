@@ -20,6 +20,18 @@ thing instead of abstracting it. Banned in chat replies, not only in published p
 
 This list is the live one. It grows here when the user flags a word.
 
+**No inanimate agency.** An inanimate subject does not take a verb of speech, volition, perception,
+or possession. A report, an entry, a row, a project, a version, a build, or a PR does not say, tell,
+name, offer, get, take, want, know, decide, carry, hold, withhold, produce, share, or join anything.
+Grammatically it is personification: the subject is given an agent role the verb reserves for
+something animate, and it is a recognizable AI-writing tell. Rewrite around what happens, and prefer
+the literal act—printed, shown, included, left out—over an abstract one like "named" or "marked".
+Going passive is only half the fix, since a passive that goes abstract trades personification for
+opacity: name the real actor where there is one, and write a condition as an if/then sentence rather
+than compressing it into a noun phrase. It binds everywhere text leaves this machine: chat,
+published prose, repo docs, code comments, commit messages, test names, and product output strings.
+Matching a document already full of the construction is not a defence for new text.
+
 **No epigrams, no rhetorical antithesis.** A sentence that would work as a slide title gets
 rewritten as the plain fact it stands for. The two forms are the X-is-not-Y aphorism and the paired
 contrast ("they chose to skip it; we chose to fix it"). The pull is strongest in a document whose
