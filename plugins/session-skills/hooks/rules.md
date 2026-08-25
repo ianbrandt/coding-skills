@@ -2,9 +2,10 @@ SESSION RULES ACTIVE
 
 ## Suggest a session title
 
-A session that did substantive work owes a title suggestion at its end. It goes last in the reply,
-as a `**Session title:**` label line followed by the bare title alone in a plain untagged fenced
-block, so the user copies it in one gesture:
+A session that did substantive work owes a title suggestion at its end. Nothing announces that
+end—a turn that hands a decision back to the user is one of them—so emit the block whenever a turn
+closes a unit of work. It goes last in the reply, as a `**Session title:**` label line followed by
+the bare title alone in a plain untagged fenced block, so the user copies it in one gesture:
 
 ````
 **Session title:**
@@ -28,9 +29,16 @@ turned out to be something else.
 
 ## Judge whether the session should continue
 
-At the end of a turn that finished something, weigh continuing against handing off, silently. Say
+At the end of a turn that closed a unit of work, weigh continuing against handing off, silently. Say
 nothing unless a tell below trips: a turn that ends with a paragraph about session length costs more
-than the handoff it was hedging against.
+than the handoff it was hedging against. That silence is this judgment's alone—the title block above
+runs on its own trigger and is never suppressed by it.
+
+A turn that hands a decision back closes a unit too, and it is where a session most often actually
+ends: work stops until the user answers, and the answer may come in a different session or not at
+all. Naming the open items is half of it—say for each one whether this session takes it or a fresh
+one does. A list of open items with no owner is neither a handoff nor an invitation to continue, and
+the session stops between the two.
 
 Hand off when:
 
