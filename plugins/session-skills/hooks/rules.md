@@ -18,6 +18,10 @@ Nothing but the title inside the fence—no quotes, no label—because everythin
 Spell words out ("package", not "pkg"), keeping established type and API names as they are. Trivial
 Q&A owes nothing.
 
+Last means last. Where the reply also carries the launch snippet from the handoff section below,
+that snippet comes first and this block closes the reply. Both are plain untagged fences, and
+emitting the launch snippet does not discharge this one.
+
 A skill may also emit this earlier, when a unit of work is claimed and its name is already known.
 That title and this one are the same block, byte-identical, revised at the end only if the work
 turned out to be something else.
