@@ -142,6 +142,11 @@ Scan sentence form too, not only vocabulary. An epigram—a line that would work
 a rhetorical antithesis ("they chose to skip it; we chose to fix it") are tells at the sentence
 level, and neither trips a word check. Rewrite each as the plain fact it stands for.
 
+Personification is the third, and the easiest to miss, since every word in the sentence can be
+plain. Check each subject against its verb: if a person doing that verb would be speaking, wanting,
+perceiving, or possessing, and the subject is a thing, rewrite it. The rule and the repair are in
+`hooks/rules.md`. Run this one on chat replies too, not only on published prose.
+
 ## 7. Log a word the user flags
 
 When the user calls something jargon, or rewrites a phrase of yours into plainer English, add it to
