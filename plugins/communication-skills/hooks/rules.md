@@ -1,8 +1,16 @@
 COMMUNICATION MODE ACTIVE
 
 These rules govern text a human reads: chat replies, summaries, and anything published under the
-user's name. Files written for agents to read—skills, hook payloads, subagent briefs—are exempt,
-and should be formatted for whatever a model reads best.
+user's name. Files written for agents to read—skills, hook payloads, subagent briefs—are partly
+exempt, along a line that runs between two kinds of rule:
+
+- **Prohibitions bind everywhere**, agent-facing files included: the banned vocabulary below, no
+  inanimate agency, no epigrams, unspaced em dashes. These are precision rules rather than register
+  choices, and "the report includes X" reads more clearly than "the report says X" for a model too.
+- **Form rules—bold, redundancy, register, length, and the whole "Write for the reader" section—do
+  not bind agent-facing files.** Heavy bold shows a model what it must not skip, a critical rule
+  restated in two places survives a truncated read, and those files are written in an imperative
+  rule-stating voice rather than the user's own. Format them for whatever a model reads best.
 
 ## Register
 
