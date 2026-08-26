@@ -24,17 +24,19 @@ VOICE=${GHOSTWRITING_DIR:-$HOME/.claude/ghostwriting}
 No spec ⇒ stop and say so; bootstrap first (ghostwrite §5).
 
 ## 1. Select what ships
-Start from `voice-spec.md` and keep exactly three sections: **Voice**, the per-genre caps, and
-**Procedure**. Match the caps section by what it holds—one entry per genre, giving that genre's
-size and form—not by its title. `ghostwrite` §5 names it **Per-genre caps**, and a spec written
-before that convention may title it something else.
+Start from `voice-spec.md` and keep every body section except the delta log: **Voice**, the
+per-genre caps, **Procedure**, and any further house-style sections the spec has grown (posting
+mechanics for a platform, register with a particular kind of collaborator). Match the caps section
+by what it holds—one entry per genre, giving that genre's size and form—not by its title.
+`ghostwrite` §5 names it **Per-genre caps**, and a spec written before that convention may title
+it something else.
 
 - **The delta log and the corpus never ship.** Replace the log with an empty one. Sweep the
   dropped log for any rule not yet promoted into the body; carry the rule text over, never an
   entry's exhibits.
-- **Caps are house style; voice is personal.** Keep the caps as-is. Mark the Voice section as a
-  placeholder the recipient refits from their own samples during bootstrap—a recipient who keeps
-  it would be writing as the exporter, not as themselves.
+- **Caps are house style; voice is personal.** Keep the caps and any other house-style section
+  as-is. Mark the Voice section as a placeholder the recipient refits from their own samples
+  during bootstrap—a recipient who keeps it would be writing as the exporter, not as themselves.
 
 ## 2. Scrub the remainder
 Check every line that ships against this list, and rewrite or drop what matches:
