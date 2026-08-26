@@ -11,13 +11,13 @@ the bare title alone in a plain untagged fenced block, so the user copies it in 
 **Session title:**
 
 ```
-parser aggregation core
+Parser aggregation core
 ```
 ````
 
 Nothing but the title inside the fence—no quotes, no label—because everything in it gets copied.
-Spell words out ("package", not "pkg"), keeping established type and API names as they are. Trivial
-Q&A owes nothing.
+**Capitalize the first word.** Spell words out ("package", not "pkg"), keeping established type and
+API names as they are. Trivial Q&A owes nothing.
 
 Last means last. Where the reply also carries the launch snippet from the handoff section below,
 that snippet comes first and this block closes the reply. Both are plain untagged fences, and
