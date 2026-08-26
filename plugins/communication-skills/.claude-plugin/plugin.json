@@ -1,6 +1,6 @@
 {
   "name": "communication-skills",
-  "description": "Writes to you in plain language a cold reader can follow, writes as you when the text ships under your name, and stops to ask before decisions you cannot undo.",
+  "description": "Always-on rules for plain prose without AI tells—in chat, in repo docs, and in anything published under your name—plus the correction loop behind them and the stop-and-ask protocol for decisions you cannot undo.",
   "author": {
     "name": "Ian Brandt"
   },
