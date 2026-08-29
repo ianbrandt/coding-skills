@@ -39,6 +39,11 @@ Read `voice-spec.md` end to end, delta log included, and skim one corpus sample 
 A summary carried in context is not the spec; re-read it per session. No corpus, or no sample for
 the genre ⇒ draft on the spec alone and flag the gap in §3.
 
+**Re-read the always-on rules file §0 names in the same pass**, even though it loaded at session
+start: by drafting time that copy sits far back in the context, where it is weakly attended, and
+most rule breaks happen deep in long sessions. Reading it again immediately before drafting puts
+the prohibitions where they bind.
+
 This also governs **reviewing** a draft—carried over from an earlier session, written by another
 agent, or by you hours ago. Calling a draft ready is drafting.
 
