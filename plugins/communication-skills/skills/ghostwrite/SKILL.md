@@ -58,11 +58,23 @@ sentence rhythm included, and only then check the rule list for what imitation m
 to match the user's own sentences lands the register more reliably than text written from
 prohibitions; a draft written from the rule list alone drifts back to the default register.
 
-## 3. Self-review, then hand it over
+## 3. Self-review, sweep, then hand it over
 Check the draft against the spec rule by rule and fix what you broke **before** the user sees it; a
-rule you broke and fixed yourself still goes to §4 as a procedure failure. Then show the draft in
-chat and wait for an explicit go. A question about scope or wording is the review happening, not
-its conclusion.
+rule you broke and fixed yourself still goes to §4 as a procedure failure.
+
+Self-review is not enough for register tells: you re-read your own draft with the same tendency
+that produced it, and its tells read as natural. So before the first hand-over of a piece, **run a
+fresh-context sweep**—a subagent given nothing but the draft verbatim, the always-on rules file §0
+names, and this brief: for every sentence, name the subject and check its verb against the
+inanimate-agency rule; for every noun, say whether it is the thing's literal name or a metaphor
+standing in for it; then check the banned vocabulary and the dash rule; report each violation with
+its sentence and the rule broken, or report a clean pass. A small model is enough—detecting a tell
+in given text is an easier task than not generating it. Fix the real findings (each is a §4
+procedure failure), re-run the sweep only after substantive redrafting, and skip it only for a
+draft of a sentence or two.
+
+Then show the draft in chat and wait for an explicit go. A question about scope or wording is the
+review happening, not its conclusion.
 
 ## 4. Log the delta
 After the user edits a draft—or after a §3 self-correction—diff their version against yours and
