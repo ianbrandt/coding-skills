@@ -35,7 +35,8 @@ keep them there instead. Check the plugin file first, and follow a pointer rathe
 file; `voice-spec.md` is the positive spec, read on demand. Both are maintained here (§4, §5).
 
 ## 1. Read the spec before drafting
-Read `voice-spec.md` end to end, delta log included, and skim one corpus sample matching the genre.
+Read `voice-spec.md` end to end, delta log included, and read two or three corpus samples matching
+the genre—as models to imitate, not background.
 A summary carried in context is not the spec; re-read it per session. No corpus, or no sample for
 the genre ⇒ draft on the spec alone and flag the gap in §3.
 
@@ -51,6 +52,11 @@ agent, or by you hours ago. Calling a draft ready is drafting.
 Write to the spec's entry for the genre—its form and size. No entry ⇒ use the nearest neighbor
 and flag the gap in §3. **Caps are caps, not targets**: exceed one only when the content forces it,
 never for thoroughness. Everything else about the draft comes from the spec, not your defaults.
+
+**Imitate, then check.** Draft by matching the corpus samples and the spec's **Contrast pairs**,
+sentence rhythm included, and only then check the rule list for what imitation missed. Text written
+to match the user's own sentences lands the register more reliably than text written from
+prohibitions; a draft written from the rule list alone drifts back to the default register.
 
 ## 3. Self-review, then hand it over
 Check the draft against the spec rule by rule and fix what you broke **before** the user sees it; a
@@ -75,6 +81,11 @@ plugin ships from, not the installed cache, bumping the plugin `version` in that
 rules there; genre form or size ⇒ `voice-spec.md`. When an entry changes a standing rule,
 promote it into the spec's body—the log grows, the body stays stable.
 
+A failure that **recurs** gets a second promotion: into the spec's **Contrast pairs** section, as
+the drafted sentence and the user's rewrite, verbatim. The pairs are what §2 imitates. The tendency
+that produced the draft reads the rule-breaking form as natural, so an example of the idiomatic
+alternative prevents the next instance better than the generalized rule alone.
+
 Log only what recurs or would recur, and don't paste diffs.
 
 ## 5. Bootstrap—derive a spec from samples
@@ -87,10 +98,10 @@ guessing. One-time setup; afterwards proceed from §1.
 3. **Extract observable regularities**, per genre: sentence length and structure, person and
    hedging, how evidence is carried, openings and closings, formatting habits (headings, bullets,
    emphasis, links), title style, and typical length. Sort each finding by the §0 split as you go.
-4. **Write `voice-spec.md`** with four sections: **Voice** (cross-genre rules), **Per-genre caps**
-   (one entry per genre, size and form), **Delta log** (seeded with one contrast entry naming how
-   a default-register draft differs from the samples), and **Procedure** (§1–§4 in a line each, so
-   the spec stands alone).
+4. **Write `voice-spec.md`** with five sections: **Voice** (cross-genre rules), **Per-genre caps**
+   (one entry per genre, size and form), **Contrast pairs** (seeded with one before→after pair
+   contrasting a default-register draft with the samples), **Delta log** (starts empty), and
+   **Procedure** (§1–§4 in a line each, so the spec stands alone).
 5. **Route the always-on rules** the samples imply: the step-3 prohibitions belong in this plugin's
    `hooks/rules.md`, which already loads every session and already carries the typography and
    banned-vocabulary rules—add only what it lacks. Add a pointer to `$VOICE` there when it isn't the
