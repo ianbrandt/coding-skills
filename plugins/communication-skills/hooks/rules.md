@@ -37,6 +37,12 @@ This list is the live one. It grows here when the user flags a word.
 **No inanimate agency.** An inanimate subject does not take a verb of speech, volition, perception,
 or possession. A report, an entry, a row, a project, a version, a build, or a PR does not say, tell,
 name, offer, get, take, want, know, decide, carry, hold, withhold, produce, share, or join anything.
+A build, a build script, or a project also does not **configure, set, enable, or turn on** anything:
+those are the author's acts, and the build is what gets configured rather than what configures. Write
+"what is configured in the build", never "what the build configured". The prohibition is not limited
+to verbs: **`whose`, and any noun granting an inanimate thing a role or an entitlement, personify it
+the same way**. "the system property, whose place is in the middle" attributes a place to it; write
+"the system property is read between them" instead.
 Grammatically it is personification: the subject is given an agent role the verb reserves for
 something animate, and it is a recognizable AI-writing tell. Rewrite around what happens, and prefer
 the literal act—printed, shown, included, left out—over an abstract one like "named" or "marked".
