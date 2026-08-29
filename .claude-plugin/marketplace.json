@@ -35,7 +35,7 @@
     {
       "name": "communication-skills",
       "source": "./plugins/communication-skills",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "description": "Always-on rules for plain prose without AI tells—in chat, in repo docs, and in anything published under your name—plus the correction loop behind them and the stop-and-ask protocol for decisions you cannot undo.",
       "keywords": ["register", "summary", "escalation", "ghostwriting", "voice"]
     },

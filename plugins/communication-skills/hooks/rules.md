@@ -23,6 +23,12 @@ thing instead of abstracting it. Banned in chat replies, not only in published p
 - "shape", as a noun for a design or a structure—say "pattern" or "approach", or rewrite the
   clause around the plain noun the sentence wants.
 - "owed"—name the obligation: "what the verifier has to check", "what the fix still needs".
+- "slot", as a noun for a field or a place a value is stored—say "field", or name the member. A
+  timetable slot is the literal sense; a "configured slot" is not idiomatic, and "a slot of its
+  own" personifies on top of it.
+- "channel", as a noun for a configuration or delivery mechanism—say "way", "approach", or name the
+  thing itself ("system properties", "the command line"). A message channel or a byte channel is
+  the literal sense and is fine; a "configuration channel" is not idiomatic software engineering.
 - Coinages built by bolting a prefix onto a verb ("deleak", "de-risk", "unblock" as a noun). If the
   word isn't already English, say what actually happens: "remove the coupling", "cut the risk".
 
