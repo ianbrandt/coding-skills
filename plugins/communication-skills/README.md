@@ -32,6 +32,15 @@ always-on rule:
   Form rules—bold, redundancy, length, the reader-facing voice—stop at the agent-facing line, so
   those files are formatted for whatever a model reads best.
 
+A `Stop` hook runs [`hooks/lint_reply.py`](hooks/lint_reply.py) over the final reply before each
+turn ends. It flags the mechanically detectable subset of the rules—the banned vocabulary, spaced
+em dashes, and an inanimate subject paired with an agentive verb—and sends the hits back, so the
+model re-judges the flagged sentences and rewrites real violations before you read the reply. A hit
+is a flag rather than a verdict: literal senses stay ("a Slack channel", "an array shape"), text
+inside code fences and backticks is never matched, and the lint blocks a reply at most once per
+turn. Rules that need judgment to detect stay where they were, in the model's own review passes;
+the lint is the floor under them.
+
 Adding a word to the banned list is a plugin release rather than a local edit: an installed session
 reads a version-keyed cache, so the plugin's `version` in `.claude-plugin/marketplace.json` has to
 bump in the same commit or the session keeps serving the old list.
