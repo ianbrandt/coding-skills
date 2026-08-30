@@ -40,11 +40,17 @@ VERBS = [
     "produces", "produced", "claims", "claimed", "asks", "asked", "expects", "expected",
     "promises", "promised", "cares", "cared", "configures", "configured", "sets", "set",
     "enables", "enabled", "believes", "believed", "thinks", "thought", "sees", "saw",
-    "notices", "noticed",
+    "notices", "noticed", "concludes", "concluded", "notes", "noted", "states", "stated",
+    "finds", "found",
 ]
+# Up to two words either side of the noun: "the latest CI stability report
+# concluded" is the construction, and an adjective must not hide it. Gaps are
+# single-line, so a match never spans a line break, and a form of "be" before
+# the verb is excluded so a correct passive ("the claim file is named") stays.
+BE = r"(?:is|are|was|were|be|been|being)"
 BIGRAM_RE = re.compile(
-    r"\b(?:" + "|".join(DETERMINERS) + r")\s+(?:"
-    + "|".join(re.escape(n) for n in NOUNS) + r")\s+(?:\w+\s+)?(?:"
+    r"\b(?:" + "|".join(DETERMINERS) + r")[ \t]+(?:\w+[ \t]+){0,2}(?:"
+    + "|".join(re.escape(n) for n in NOUNS) + r")[ \t]+(?:(?!" + BE + r"\b)\w+[ \t]+)?(?:"
     + "|".join(VERBS) + r")\b",
     re.IGNORECASE,
 )
@@ -180,6 +186,10 @@ def self_test():
     assert "spaced em dash x2" in note and "inanimate agency x1" in note, note
     assert "never word — word" in note and "name the real actor" in note, note  # rules inline
     assert "loaded at session start" not in note, note  # never defer the rule to elsewhere
+    cases += 1
+
+    assert any(g == "inanimate agency" for g, _ in lint("The report concluded the build is fine."))
+    assert any(g == "inanimate agency" for g, _ in lint("The stability report noted a regression."))
     cases += 1
 
     data = {"session_id": "selftest", "last_assistant_message": "This shape is vacuous."}
