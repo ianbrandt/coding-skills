@@ -32,14 +32,20 @@ always-on rule:
   Form rules—bold, redundancy, length, the reader-facing voice—stop at the agent-facing line, so
   those files are formatted for whatever a model reads best.
 
-A `Stop` hook runs [`hooks/lint_reply.py`](hooks/lint_reply.py) over the final reply before each
-turn ends. It flags the mechanically detectable subset of the rules—the banned vocabulary, spaced
-em dashes, and an inanimate subject paired with an agentive verb—and sends the hits back, so the
-model re-judges the flagged sentences and rewrites real violations before you read the reply. A hit
-is a flag rather than a verdict: literal senses stay ("a Slack channel", "an array shape"), text
-inside code fences and backticks is never matched, and the lint blocks a reply at most once per
-turn. Rules that need judgment to detect stay where they were, in the model's own review passes;
-the lint is the floor under them.
+[`hooks/lint_reply.py`](hooks/lint_reply.py) runs on both ends of a turn. A `Stop` hook runs it
+with `--record` over the final reply and saves what it finds; a `UserPromptSubmit` hook runs the
+same script with `--emit`, which opens the next turn with those hits and then clears them. It flags
+the mechanically detectable subset of the rules: the banned vocabulary, spaced em dashes, and an
+inanimate subject paired with an agentive verb.
+
+The lint never blocks, and that is the whole design. A `Stop` hook cannot patch a reply, so
+blocking one buys a corrected answer at the price of re-emitting the entire original, which you
+have already read and which stays in the transcript beside it. Carrying the hits into the next turn
+costs a few dozen tokens instead, and the flagged reply stands as sent. A hit is a flag rather than
+a verdict: literal senses stay ("a Slack channel", "an array shape"), text inside code fences and
+backticks is never matched, and a clean reply clears whatever the previous one left pending. Rules
+that need judgment to detect stay where they were, in the model's own review passes; the lint is
+the floor under them.
 
 Adding a word to the banned list is a plugin release rather than a local edit: an installed session
 reads a version-keyed cache, so the plugin's `version` in `.claude-plugin/marketplace.json` has to

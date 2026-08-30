@@ -1,10 +1,17 @@
 #!/usr/bin/env python3
-# Stop hook: lint the assistant's final reply for AI-writing patterns.
-# Blocks the stop once (exit 2) on a hit so the model re-judges and rewrites.
+# House-style lint for the assistant's replies, in two halves.
+#   --record  Stop hook: lint the final reply, save the hits, never block.
+#   --emit    UserPromptSubmit hook: print the saved hits into the next turn, then clear them.
+# Never blocking is the point: a Stop hook cannot patch a reply, so blocking one
+# costs a full re-emission of an answer the reader has already seen. The
+# correction lands on the next reply instead.
 import io
 import json
+import os
 import re
 import sys
+import tempfile
+from collections import Counter, OrderedDict
 
 BANNED_WORDS = [
     "load-bearing", "vacuous", "vacuously", "non-vacuous", "shape", "shapes",
@@ -56,106 +63,125 @@ def strip_code(text):
     return text
 
 
-def excerpt(text, start, end, width=60):
-    pad = max((width - (end - start)) // 2, 0)
-    return text[max(0, start - pad):min(len(text), end + pad)].strip()
-
-
 def lint(text):
-    """Pure: text in, list of (group, matched_text, excerpt) out."""
+    """Pure: text in, list of (group, matched_text) out."""
     stripped = strip_code(text)
-    hits = []
-    for name, pattern in GROUPS:
-        for m in pattern.finditer(stripped):
-            hits.append((name, m.group(0), excerpt(stripped, m.start(), m.end())))
-    return hits
+    return [
+        (name, m.group(0))
+        for name, pattern in GROUPS
+        for m in pattern.finditer(stripped)
+    ]
 
 
-def evaluate(data):
-    if data.get("stop_hook_active"):  # loop guard: never bounce twice in one turn
-        return []
-    text = data.get("last_assistant_message")
-    if not text:
-        return []
-    return lint(text)
-
-
-def format_message(hits):
-    lines = ["A pre-send lint flagged possible AI-writing patterns in the reply.", ""]
-    for group, matched, exc in hits:
-        lines.append('%s: "%s" - %s' % (group, matched, exc))
-    lines.append("")
+def summarize(hits):
+    """Pure: hits in, the note the next turn opens with out."""
+    groups = OrderedDict()
+    for group, matched in hits:
+        groups.setdefault(group, Counter())[matched] += 1
+    lines = ["A house-style lint flagged the previous reply:"]
+    for group, counter in groups.items():
+        example = counter.most_common(1)[0][0]
+        lines.append('- %s x%d, e.g. "%s"' % (group, sum(counter.values()), example))
     lines.append(
-        "Each hit is a flag for judgment, not a verdict. Judge it against the "
-        "matching rule in the communication rules loaded at session start. A "
-        "literal sense (a Slack channel, an array shape, a timetable slot, "
-        "quoted text) stays as written. Rewrite only real violations, leave "
-        "the rest of the reply unchanged, and send the corrected reply."
+        "Keep these out of the reply you are about to write. Do not re-send the "
+        "previous reply, do not correct it, and do not mention this note. Each "
+        "hit is a flag for judgment rather than a verdict: judge it against the "
+        "communication rules loaded at session start, and leave a literal sense "
+        "(a Slack channel, an array shape, a timetable slot) alone."
     )
     return "\n".join(lines) + "\n"
 
 
-def run(stdin_text, err=sys.stderr):
+def state_path(data):
+    key = str(data.get("session_id") or "default").replace("/", "_")
+    return os.path.join(tempfile.gettempdir(), "claude-reply-lint-%s.txt" % key)
+
+
+def discard(path):
     try:
-        hits = evaluate(json.loads(stdin_text))
-        if not hits:
-            return 0
-        err.write(format_message(hits))
-        return 2
+        os.remove(path)
+    except OSError:
+        pass
+
+
+def record(data):
+    """Stop hook: save the hits for the next turn. Returns what was saved, or ''."""
+    path = state_path(data)
+    hits = lint(data.get("last_assistant_message") or "")
+    if not hits:
+        discard(path)  # a clean reply clears whatever the last one left
+        return ""
+    note = summarize(hits)
+    with open(path, "w") as f:
+        f.write(note)
+    return note
+
+
+def emit(data, out=sys.stdout):
+    """UserPromptSubmit hook: print the saved note as context, then clear it."""
+    path = state_path(data)
+    try:
+        with open(path) as f:
+            note = f.read()
+    except OSError:
+        return ""
+    discard(path)
+    out.write(note)
+    return note
+
+
+def run(mode, stdin_text, out=sys.stdout):
+    try:
+        data = json.loads(stdin_text)
+        emit(data, out) if mode == "--emit" else record(data)
     except Exception:
-        return 0  # unparseable/missing input or any internal error: never block
-
-
-def main():
-    sys.exit(run(sys.stdin.read()))
+        pass  # unparseable input, an unwritable temp dir, anything: never interfere
+    return 0
 
 
 def self_test():
     cases = 0
 
-    hits = lint("The build script says the tests pass.")  # personification, intervening word
-    assert any(h[0] == "inanimate agency" for h in hits)
+    assert any(g == "inanimate agency" for g, _ in lint("The build script says the tests pass."))
     cases += 1
 
-    hits = lint("The report says everything is fine.")  # personification, no intervening word
-    assert any(h[0] == "inanimate agency" for h in hits)
+    assert any(g == "inanimate agency" for g, _ in lint("The report says everything is fine."))
     cases += 1
 
-    hits = lint("This fix is not vacuous at all.")  # banned word
-    assert any(h[0] == "banned word" and h[1].lower() == "vacuous" for h in hits)
+    assert any(g == "banned word" and m.lower() == "vacuous"
+               for g, m in lint("This fix is not vacuous at all."))
     cases += 1
 
-    hits = lint("This is one thing — and another thing.")  # spaced em dash
-    assert any(h[0] == "spaced em dash" for h in hits)
+    assert any(g == "spaced em dash" for g, _ in lint("This is one thing — and another."))
     cases += 1
 
-    text = "Here is code:\n```\nshape = (1, 2)\n```\nAnd inline `shape` too."  # code-fenced, no hit
-    assert lint(text) == []
+    assert lint("Code:\n```\nshape = (1, 2)\n```\nAnd inline `shape` too.") == []
     cases += 1
 
-    code = run(json.dumps({  # stop_hook_active suppresses everything
-        "stop_hook_active": True, "last_assistant_message": "vacuous shape — x"
-    }))
-    assert code == 0
+    assert lint("The function returns early when the list is empty, keeping the loop simple.") == []
     cases += 1
 
-    hits = lint(  # ordinary engineering prose, no hit
-        "The function returns early when the input list is empty, which keeps the loop simple."
-    )
-    assert hits == []
+    assert lint("This is correct—no space here, nothing else flagged.") == []
     cases += 1
 
-    hits = lint("This is correct—no space here, nothing else flagged.")  # unspaced em dash
-    assert hits == []
+    note = summarize(lint("A — B — C, and the report says so."))  # counted, one example each
+    assert "spaced em dash x2" in note and "inanimate agency x1" in note, note
     cases += 1
 
-    code = run("not json at all {{{")  # garbage stdin
-    assert code == 0
+    data = {"session_id": "selftest", "last_assistant_message": "This shape is vacuous."}
+    assert record(data)  # record saves...
+    buf = io.StringIO()
+    assert "banned word" in emit(data, buf) and "banned word" in buf.getvalue()  # ...emit drains
+    assert emit(data, io.StringIO()) == ""  # ...and a second read finds nothing
     cases += 1
 
-    buf = io.StringIO()  # end-to-end: a real hit exits 2 and writes the message
-    code = run(json.dumps({"last_assistant_message": "This shape is vacuous."}), err=buf)
-    assert code == 2 and "banned word" in buf.getvalue()
+    record(data)  # a clean reply clears a pending note
+    record({"session_id": "selftest", "last_assistant_message": "Plain prose, nothing flagged."})
+    assert emit(data, io.StringIO()) == ""
+    cases += 1
+
+    assert run("--record", "not json at all {{{") == 0  # garbage stdin never interferes
+    assert run("--emit", "not json at all {{{") == 0
     cases += 1
 
     print("PASS (%d cases)" % cases)
@@ -166,7 +192,7 @@ if __name__ == "__main__":
         self_test()
     else:
         try:
-            main()
+            sys.exit(run("--emit" if "--emit" in sys.argv else "--record", sys.stdin.read()))
         except SystemExit:
             raise
         except Exception:
