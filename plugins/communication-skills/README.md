@@ -41,11 +41,16 @@ inanimate subject paired with an agentive verb.
 The lint never blocks, and that is the whole design. A `Stop` hook cannot patch a reply, so
 blocking one buys a corrected answer at the price of re-emitting the entire original, which you
 have already read and which stays in the transcript beside it. Carrying the hits into the next turn
-costs a few dozen tokens instead, and the flagged reply stands as sent. A hit is a flag rather than
-a verdict: literal senses stay ("a Slack channel", "an array shape"), text inside code fences and
-backticks is never matched, and a clean reply clears whatever the previous one left pending. Rules
-that need judgment to detect stay where they were, in the model's own review passes; the lint is
-the floor under them.
+costs a few dozen tokens instead, and the flagged reply stands as sent.
+
+Each line of the note ends with the rule that line is about, because a note that only names the
+pattern and defers to "the rules loaded at session start" measured no better than sending nothing:
+across six two-turn trials per arm, no note left 6 of 6 next replies dirty, the deferring note left
+5 of 6 dirty, and the same mechanism with the rule stated inline left 0 of 6 dirty. Literal senses
+stay ("a Slack channel", "an array shape"), text inside code fences and backticks is never matched,
+and a clean reply clears whatever the previous one left pending. Rules that need judgment to detect
+stay where they were, in the model's own review passes; the lint is the floor under them, and a
+construction it cannot match mechanically is still a violation.
 
 Adding a word to the banned list is a plugin release rather than a local edit: an installed session
 reads a version-keyed cache, so the plugin's `version` in `.claude-plugin/marketplace.json` has to

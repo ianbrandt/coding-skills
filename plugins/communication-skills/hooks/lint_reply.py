@@ -73,6 +73,17 @@ def lint(text):
     ]
 
 
+# Naming the pattern is not enough: a note that defers to "the rules loaded at
+# session start" measured no better than no note at all. Each line carries its
+# own rule so the note stands alone.
+RULES = {
+    "banned word": "that word is banned in prose; use a plain synonym",
+    "spaced em dash": "an em dash takes no surrounding spaces: write word\u2014word, never word \u2014 word",
+    "inanimate agency": "an inanimate subject must not take a verb of speech, volition, "
+                        "perception, or possession; name the real actor or rewrite around the act",
+}
+
+
 def summarize(hits):
     """Pure: hits in, the note the next turn opens with out."""
     groups = OrderedDict()
@@ -81,13 +92,14 @@ def summarize(hits):
     lines = ["A house-style lint flagged the previous reply:"]
     for group, counter in groups.items():
         example = counter.most_common(1)[0][0]
-        lines.append('- %s x%d, e.g. "%s"' % (group, sum(counter.values()), example))
+        lines.append('- %s x%d, e.g. "%s". Rule: %s.'
+                     % (group, sum(counter.values()), example, RULES.get(group, "")))
     lines.append(
-        "Keep these out of the reply you are about to write. Do not re-send the "
-        "previous reply, do not correct it, and do not mention this note. Each "
-        "hit is a flag for judgment rather than a verdict: judge it against the "
-        "communication rules loaded at session start, and leave a literal sense "
-        "(a Slack channel, an array shape, a timetable slot) alone."
+        "Apply these rules in the reply you are about to write, including in "
+        "markdown headings. Do not re-send the previous reply and do not correct "
+        "it; there is no need to mention this note unless the user asks about it. "
+        "Leave a literal sense (a Slack channel, an array shape, a timetable "
+        "slot) alone."
     )
     return "\n".join(lines) + "\n"
 
@@ -166,6 +178,8 @@ def self_test():
 
     note = summarize(lint("A — B — C, and the report says so."))  # counted, one example each
     assert "spaced em dash x2" in note and "inanimate agency x1" in note, note
+    assert "never word — word" in note and "name the real actor" in note, note  # rules inline
+    assert "loaded at session start" not in note, note  # never defer the rule to elsewhere
     cases += 1
 
     data = {"session_id": "selftest", "last_assistant_message": "This shape is vacuous."}
