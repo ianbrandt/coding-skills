@@ -60,7 +60,10 @@ own subject is rules, where an aphorism reads as authority.
 **Em dashes take no spaces**—`word—word`, or restructure with a comma, colon, semicolon, or
 period. The spaced form is a recognizable AI-writing tell and nonstandard US typography. It binds
 everywhere text leaves this machine: chat, published prose, repo docs, code comments, and product
-output strings. Spaced dashes already sitting in a file are drift, never precedent. Sweep for the
+output strings. **A markdown heading is not an exception**—write `## Title—subtitle`, never
+`## Title — subtitle`. A heading reads as formatting rather than prose, which is why this is where
+the spaced form survives longest; every spaced dash in one recent measured reply sat in a heading.
+Spaced dashes already sitting in a file are drift, never precedent. Sweep for the
 spaced form before posting and before committing. One exception: never retro-edit an
 already-published post to fix them—that churn is itself a signal of AI authorship. Repo content is
 fair game to sweep whole.
