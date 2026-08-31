@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
-# House-style lint for the assistant's replies, in two halves.
+# House-style lint and reminders for the assistant's prose, in three parts.
 #   --record  Stop hook: lint the final reply, save the hits, never block.
-#   --emit    UserPromptSubmit hook: print the saved hits into the next turn, then clear them.
+#   --emit    UserPromptSubmit hook: print any saved hits into the next turn,
+#             then clear them, then print the standing style reminder.
+#   --nudge   PostToolUse hook on Write|Edit: when the file just written is
+#             prose, tell the model to re-read and fix it in place now.
 # Never blocking is the point: a Stop hook cannot patch a reply, so blocking one
 # costs a full re-emission of an answer the reader has already seen. The
-# correction lands on the next reply instead.
+# correction lands on the next reply instead; the reminders lower how often a
+# correction is needed at all.
 import io
 import json
 import os
@@ -171,6 +175,24 @@ RULES = {
                         "perception, or possession; name the real actor or rewrite around the act",
 }
 
+REMINDER = (
+    "Style, for this reply and any prose written to files: an inanimate subject "
+    "takes no agentive verb—\"the entry declared in the `plugins` block\", never "
+    "\"the `plugins` block owns/says/gives\". Em dashes unspaced (word—word). "
+    "Plain words.\n"
+)
+
+NUDGE = (
+    "You just wrote prose to a file. Re-read it now for inanimate agency "
+    "(report/build/entry/declaration as subject of says/gives/owns/wrote/holds), "
+    "spaced em dashes, and banned vocabulary; fix in place before moving on. If "
+    "this text will publish under the user's name, run the ghostwrite §3 "
+    "fresh-context sweep before hand-over."
+)
+
+PROSE_SUFFIXES = (".md", ".markdown", ".txt")
+
+
 def summarize(hits):
     """Pure: hits in, the note the next turn opens with out."""
     groups = OrderedDict()
@@ -217,22 +239,39 @@ def record(data):
 
 
 def emit(data, out=sys.stdout):
-    """UserPromptSubmit hook: print the saved note as context, then clear it."""
+    """UserPromptSubmit hook: print any saved note, clear it, then the reminder."""
     path = state_path(data)
+    note = ""
     try:
         with open(path) as f:
             note = f.read()
+        discard(path)
     except OSError:
+        pass
+    out.write(note + REMINDER)
+    return note + REMINDER
+
+
+def nudge(data, out=sys.stdout):
+    """PostToolUse hook: on a prose-file Write/Edit, tell the model to sweep it."""
+    file_path = str((data.get("tool_input") or {}).get("file_path") or "")
+    if not file_path.lower().endswith(PROSE_SUFFIXES):
         return ""
-    discard(path)
-    out.write(note)
-    return note
+    payload = json.dumps({"hookSpecificOutput": {
+        "hookEventName": "PostToolUse", "additionalContext": NUDGE}})
+    out.write(payload)
+    return payload
 
 
 def run(mode, stdin_text, out=sys.stdout):
     try:
         data = json.loads(stdin_text)
-        emit(data, out) if mode == "--emit" else record(data)
+        if mode == "--emit":
+            emit(data, out)
+        elif mode == "--nudge":
+            nudge(data, out)
+        else:
+            record(data)
     except Exception:
         pass  # unparseable input, an unwritable temp dir, anything: never interfere
     return 0
@@ -317,16 +356,31 @@ def self_test():
     assert record(data)  # record saves...
     buf = io.StringIO()
     assert "banned word" in emit(data, buf) and "banned word" in buf.getvalue()  # ...emit drains
-    assert emit(data, io.StringIO()) == ""  # ...and a second read finds nothing
+    assert REMINDER in buf.getvalue()  # ...with the standing reminder appended
+    second = io.StringIO()
+    emit(data, second)  # a second read finds no note, only the reminder
+    assert second.getvalue() == REMINDER
     cases += 1
 
     record(data)  # a clean reply clears a pending note
     record({"session_id": "selftest", "last_assistant_message": "Plain prose, nothing flagged."})
-    assert emit(data, io.StringIO()) == ""
+    clean = io.StringIO()
+    emit(data, clean)
+    assert clean.getvalue() == REMINDER
+    cases += 1
+
+    buf = io.StringIO()
+    out = nudge({"tool_input": {"file_path": "/tmp/draft.md"}}, buf)
+    parsed = json.loads(out)
+    assert parsed["hookSpecificOutput"]["additionalContext"] == NUDGE
+    assert parsed["hookSpecificOutput"]["hookEventName"] == "PostToolUse"
+    assert nudge({"tool_input": {"file_path": "/src/Main.kt"}}, io.StringIO()) == ""
+    assert nudge({}, io.StringIO()) == ""
     cases += 1
 
     assert run("--record", "not json at all {{{") == 0  # garbage stdin never interferes
     assert run("--emit", "not json at all {{{") == 0
+    assert run("--nudge", "not json at all {{{") == 0
     cases += 1
 
     print("PASS (%d cases)" % cases)
@@ -337,7 +391,11 @@ if __name__ == "__main__":
         self_test()
     else:
         try:
-            sys.exit(run("--emit" if "--emit" in sys.argv else "--record", sys.stdin.read()))
+            mode = "--record"
+            for candidate in ("--emit", "--nudge"):
+                if candidate in sys.argv:
+                    mode = candidate
+            sys.exit(run(mode, sys.stdin.read()))
         except SystemExit:
             raise
         except Exception:
