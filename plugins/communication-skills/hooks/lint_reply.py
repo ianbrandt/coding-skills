@@ -24,59 +24,141 @@ BANNED_RE = re.compile(
 
 EMDASH_RE = re.compile(r"[ \t]—|—[ \t]")
 
-DETERMINERS = ["the", "a", "an", "this", "that", "each", "every", "its", "our", "my", "your"]
-NOUNS = [
-    "report", "entry", "row", "project", "version", "build", "PR", "issue", "doc", "docs",
-    "document", "file", "list", "table", "spec", "plugin", "skill", "page", "section",
-    "README", "commit", "branch", "repo", "repository", "test", "suite", "diff", "patch",
-    "draft", "message", "comment", "post", "note", "memo", "roadmap", "backlog", "item",
-    "codebase", "config", "flag", "option", "property", "setting",
-]
-# -s form and past-tense/irregular form of each governing verb
-VERBS = [
-    "says", "said", "tells", "told", "wants", "wanted", "knows", "knew",
-    "decides", "decided", "carries", "carried", "holds", "held", "offers", "offered",
-    "names", "named", "shares", "shared", "joins", "joined", "withholds", "withheld",
-    "produces", "produced", "claims", "claimed", "asks", "asked", "expects", "expected",
-    "promises", "promised", "cares", "cared", "configures", "configured", "sets", "set",
-    "enables", "enabled", "believes", "believed", "thinks", "thought", "sees", "saw",
-    "notices", "noticed", "concludes", "concluded", "notes", "noted", "states", "stated",
-    "finds", "found",
-]
-# Up to two words either side of the noun: "the latest CI stability report
-# concluded" is the construction, and an adjective must not hide it. Gaps are
-# single-line, so a match never spans a line break, and a form of "be" before
-# the verb is excluded so a correct passive ("the claim file is named") stays.
-BE = r"(?:is|are|was|were|be|been|being)"
-BIGRAM_RE = re.compile(
-    r"\b(?:" + "|".join(DETERMINERS) + r")[ \t]+(?:\w+[ \t]+){0,2}(?:"
-    + "|".join(re.escape(n) for n in NOUNS) + r")[ \t]+(?:(?!" + BE + r"\b)\w+[ \t]+)?(?:"
-    + "|".join(VERBS) + r")\b",
-    re.IGNORECASE,
-)
+# Inanimate agency, inverted from the old design: no noun list. Any
+# determiner-led subject counts unless it is animate; what is closed is the
+# verb list, because speech/volition/possession/authorship is a bounded
+# semantic class where nouns are not. Runtime-mechanism verbs (returns,
+# resolves, flattens, matches, asserts, prints) stay off the list so a running
+# program acting at runtime never flags.
+VERB_FORMS = """
+says said tells told wants wanted knows knew decides decided carries carried
+holds held offers offered names named shares shared joins joined withholds
+withheld produces produced claims claimed asks asked expects expected promises
+promised cares cared configures configured enables enabled believes believed
+thinks thought notices noticed concludes concluded notes noted states stated
+writes wrote gives gave uses used exempts exempted keeps kept declares declared
+credits credited owns owned wishes wished intends intended refuses refused
+insists insisted assumes assumed remembers remembered forgets forgot adds added
+sees saw finds found sets
+""".split()
+# Volition/speech verbs stay flagged even with a bare pronoun subject ("It
+# exempts a range"). The possession/action tier (holds, keeps, adds, uses...)
+# needs a real noun subject: "This keeps the diff small" with an action
+# antecedent is idiomatic English, not personification.
+STRICT_FORMS = set("""
+says said tells told wants wanted knows knew decides decided claims claimed
+asks asked expects expected promises promised believes believed thinks thought
+concludes concluded notes noted states stated exempts exempted declares
+declared insists insisted refuses refused assumes assumed credits credited
+""".split())
+PARTICIPLES = """
+declaring naming telling asking offering giving stating claiming holding
+keeping wanting knowing deciding promising configuring crediting owning
+insisting assuming
+""".split()
 
-GROUPS = [
-    ("banned word", BANNED_RE),
-    ("spaced em dash", EMDASH_RE),
-    ("inanimate agency", BIGRAM_RE),
-]
+# Subjects that legitimately act: people, roles, and the agents/sessions that
+# contain one. Checked with any possessive suffix stripped.
+ANIMATE = set("""
+i we you he she they user users author authors maintainer maintainers reviewer
+reviewers team teams developer developers dev devs engineer engineers
+contributor contributors reader readers writer writers person people agent
+agents assistant model human humans folks everyone someone anybody nobody who
+session sessions subagent subagents
+""".split())
+
+DET = r"(?:the|a|an|this|that|these|those|each|every|its|our|my|your|neither|either|both|no)"
+VERB = r"(?:" + "|".join(VERB_FORMS) + r")"
+STRICT = r"(?:" + "|".join(sorted(STRICT_FORMS)) + r")"
+PART = r"(?:" + "|".join(PARTICIPLES) + r")"
+BE = r"(?:is|are|was|were|be|been|being|to|not|n't|does|do|did|can|could|will|would|may|might|must|should)"
+ADV = r"(?:never|also|always|still|then|only|just|already|itself)"
+W = r"[\w'’-]+"
+# A gap word may be neither an auxiliary/copula (kills passives: "the file is
+# named") nor a determiner (kills adjectival participles: "the declared bound"
+# never matches, because "declared" would need a determiner directly before it).
+GAP = r"(?:(?!" + BE + r"\b|" + DET + r"\b)" + W + r"[ \t]+)"
+
+# "the build wrote", "every non-static field in the class hierarchy holds"
+SUBJECT_VERB_RE = re.compile(
+    r"\b" + DET + r"[ \t]+(" + GAP + r"{1,6}?)(?:" + ADV + r"[ \t]+)?(" + VERB + r")\b",
+    re.IGNORECASE)
+# "declaration that wrote", "the alias, which gives"
+RELATIVE_RE = re.compile(
+    r"\b(" + W + r"),?[ \t]+(?:that|which)[ \t]+(?:" + ADV + r"[ \t]+)?(?!" + BE + r"\b)("
+    + VERB + r")\b",
+    re.IGNORECASE)
+# "a libs.versions.toml declaring an alias"
+PARTICIPLE_RE = re.compile(
+    r"\b" + DET + r"[ \t]+(" + GAP + r"{1,4}?)(" + PART + r")\b",
+    re.IGNORECASE)
+# "It exempts a range" (strict verbs only); "Neither adds a constraint" (a bare
+# correlative subject stands for a thing, so the full verb list counts).
+PRONOUN_RE = re.compile(
+    r"\b(it|this|that)[ \t]+(?:" + ADV + r"[ \t]+)?(" + STRICT + r")\b"
+    r"|\b(neither|either|both|each)[ \t]+(?:" + ADV + r"[ \t]+)?(" + VERB + r")\b",
+    re.IGNORECASE)
+
+AGENCY_PATTERNS = [SUBJECT_VERB_RE, RELATIVE_RE, PARTICIPLE_RE, PRONOUN_RE]
+
+PREPOSITIONS = {
+    "in", "at", "on", "by", "above", "below", "under", "over", "within",
+    "there", "here", "earlier",
+}
 
 
 def strip_code(text):
     text = re.sub(r"```.*?```", "", text, flags=re.DOTALL)
     text = re.sub(r"~~~.*?~~~", "", text, flags=re.DOTALL)
-    text = re.sub(r"`[^`]*`", "", text)
+    # Replace inline code with a placeholder noun so the sentence keeps its
+    # subject: "a `plugins` block declaration wrote" must stay matchable.
+    text = re.sub(r"`[^`]*`", "CODE", text)
     return text
+
+
+def _base(word):
+    word = word.lower().strip(",.;:")
+    for suffix in ("'s", "’s"):
+        if word.endswith(suffix):
+            return word[: -len(suffix)]
+    return word
+
+
+def _agency_hits(stripped):
+    hits = []
+    for pattern in AGENCY_PATTERNS:
+        for m in pattern.finditer(stripped):
+            groups = [g for g in m.groups() if g]
+            subject_words = groups[0].split()
+            verb = groups[-1].lower()
+            matched = m.group(0)
+            if any(_base(w) in ANIMATE for w in subject_words):
+                continue
+            # "a session's notes": a possessive before the "verb" makes it a noun.
+            if subject_words[-1].endswith(("'s", "’s", "s'")):
+                continue
+            # "That said, ..." is a discourse idiom, not a talking pronoun.
+            if matched.lower().startswith("that said"):
+                continue
+            # "the rule stated in ..." is a reduced passive, not an act: skip a
+            # past form followed directly by a preposition.
+            if not verb.endswith("s"):
+                after = re.match(r"[ \t]+(" + W + r")", stripped[m.end():])
+                if after and after.group(1).lower() in PREPOSITIONS:
+                    continue
+            hits.append(("inanimate agency", matched))
+    return hits
 
 
 def lint(text):
     """Pure: text in, list of (group, matched_text) out."""
     stripped = strip_code(text)
-    return [
+    hits = [
         (name, m.group(0))
-        for name, pattern in GROUPS
+        for name, pattern in (("banned word", BANNED_RE), ("spaced em dash", EMDASH_RE))
         for m in pattern.finditer(stripped)
     ]
+    return hits + _agency_hits(stripped)
 
 
 # Naming the pattern is not enough: a note that defers to "the rules loaded at
@@ -84,11 +166,10 @@ def lint(text):
 # own rule so the note stands alone.
 RULES = {
     "banned word": "that word is banned in prose; use a plain synonym",
-    "spaced em dash": "an em dash takes no surrounding spaces: write word\u2014word, never word \u2014 word",
+    "spaced em dash": "an em dash takes no surrounding spaces: write word—word, never word — word",
     "inanimate agency": "an inanimate subject must not take a verb of speech, volition, "
                         "perception, or possession; name the real actor or rewrite around the act",
 }
-
 
 def summarize(hits):
     """Pure: hits in, the note the next turn opens with out."""
@@ -160,10 +241,57 @@ def run(mode, stdin_text, out=sys.stdout):
 def self_test():
     cases = 0
 
-    assert any(g == "inanimate agency" for g, _ in lint("The build script says the tests pass."))
+    def agency(text):
+        return [h for h in lint(text) if h[0] == "inanimate agency"]
+
+    # The nine violations confirmed in the R74 issue draft (2026-08-30), the
+    # measured ground truth this design was rebuilt against.
+    r74 = [
+        "A version catalog plugin alias bounds a `plugins` block declaration that never used it",
+        "a `plugins` block declaration that wrote its own version range inline",
+        "so the report is no longer a function of the declarations the build wrote",
+        "with the `rejectVersionIf` rule the README gives for respecting declared bounds",
+        "With a `gradle/libs.versions.toml` declaring an alias for that plugin id",
+        "Every non-static field in the class hierarchy holds the same value",
+        "Neither adds a constraint to the buildscript classpath configuration.",
+        "It exempts a range on the grounds that a required range keeps its own interval",
+        "Recovery runs only when the declared version states a range",
+    ]
+    for text in r74:
+        assert agency(text), text
     cases += 1
 
-    assert any(g == "inanimate agency" for g, _ in lint("The report says everything is fine."))
+    for text in [
+        "The build script says the tests pass.",
+        "The report says everything is fine.",
+        "The report concluded the build is fine.",
+        "The stability report noted a regression.",
+        "The cap is gone, so the report offers the upgrade anyway.",
+        "The plugins block owns the version for every alias in it.",
+        "Each carries its own version range.",
+    ]:
+        assert agency(text), text
+    cases += 1
+
+    for text in [
+        "The user says the build is slow on CI.",
+        "The maintainer wrote the original recovery in 2023.",
+        "The function returns early when the list is empty, keeping the loop simple.",
+        "The test passes on Gradle 8.4 and fails on 9.0.0.",
+        "Gradle flattens the alias to a bare require on the marker.",
+        "The claim file is named by the session that holds the lease.",
+        "I wrote the fix and we decided to keep the flag off by default.",
+        "The value is used only when the declared version is exact.",
+        "This keeps the diff small and the behaviour unchanged.",
+        "That said, the guard is still worth a test.",
+        "The declared bound is a ceiling, not a floor.",
+        "The rule stated in the README covers this case.",
+        "A reviewer who knows the codebase can confirm this in minutes.",
+        "The upgrade is left out of the report when the rule fires.",
+        "Run the suite before you commit anything.",
+        "A session's notes are kept under the scratchpad.",
+    ]:
+        assert agency(text) == [], (text, agency(text))
     cases += 1
 
     assert any(g == "banned word" and m.lower() == "vacuous"
@@ -176,9 +304,6 @@ def self_test():
     assert lint("Code:\n```\nshape = (1, 2)\n```\nAnd inline `shape` too.") == []
     cases += 1
 
-    assert lint("The function returns early when the list is empty, keeping the loop simple.") == []
-    cases += 1
-
     assert lint("This is correct—no space here, nothing else flagged.") == []
     cases += 1
 
@@ -186,10 +311,6 @@ def self_test():
     assert "spaced em dash x2" in note and "inanimate agency x1" in note, note
     assert "never word — word" in note and "name the real actor" in note, note  # rules inline
     assert "loaded at session start" not in note, note  # never defer the rule to elsewhere
-    cases += 1
-
-    assert any(g == "inanimate agency" for g, _ in lint("The report concluded the build is fine."))
-    assert any(g == "inanimate agency" for g, _ in lint("The stability report noted a regression."))
     cases += 1
 
     data = {"session_id": "selftest", "last_assistant_message": "This shape is vacuous."}
