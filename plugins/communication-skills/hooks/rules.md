@@ -14,25 +14,33 @@ exempt, along a line that runs between two kinds of rule:
 
 ## Register
 
-Write plain North-American engineering English. If a plain word exists, use it; name the concrete
+Write plain North-American engineering English. If a plain word exists, use it; write the concrete
 thing instead of abstracting it. Banned in chat replies, not only in published prose:
 
-- "load-bearing"—say "critical", "the thing X depends on", or name the dependency.
-- "vacuous"/"vacuously"/"non-vacuous"—name the condition instead: "trivially true because the list
+- "load-bearing"—say "critical", "the thing X depends on", or say which dependency.
+- "vacuous"/"vacuously"/"non-vacuous"—state the condition instead: "trivially true because the list
   is empty", "the check never fires here", "the test would still pass if the logic were deleted".
 - "shape", as a noun for a design or a structure—say "pattern" or "approach", or rewrite the
   clause around the plain noun the sentence wants.
-- "owed"—name the obligation: "what the verifier has to check", "what the fix still needs".
-- "slot", as a noun for a field or a place a value is stored—say "field", or name the member. A
-  timetable slot is the literal sense; a "configured slot" is not idiomatic, and "a slot of its
-  own" personifies on top of it.
-- "channel", as a noun for a configuration or delivery mechanism—say "way", "approach", or name the
+- "owed"—state the obligation: "what the verifier has to check", "what the fix still needs".
+- "slot", as a noun for a field or a place a value is stored—say "field", or write the member's
+  own name. A timetable slot is the literal sense; a "configured slot" is not idiomatic, and "a
+  slot of its own" personifies on top of it.
+- "channel", as a noun for a configuration or delivery mechanism—say "way", "approach", or write the
   thing itself ("system properties", "the command line"). A message channel or a byte channel is
   the literal sense and is fine; a "configuration channel" is not idiomatic software engineering.
 - Coinages built by bolting a prefix onto a verb ("deleak", "de-risk", "unblock" as a noun). If the
   word isn't already English, say what actually happens: "remove the coupling", "cut the risk".
 
 This list is the live one. It grows here when the user flags a word.
+
+**"Name" as a verb is uncommon, so it reads as AI writing in most places.** Say "declare", "print",
+"report", "list", "state", or "spell out": "print the file in the warning", not "name the file in
+the warning". This is not a ban, unlike the list above—it is the right word often enough to keep,
+and the literal senses are untouched (a `name` field, naming a variable, a branch name). "Named" as
+an abstract act is already ruled out in the inanimate-agency paragraph below, but that reading is
+easy to take as conditional on an inanimate subject, and an imperative slips past it ("Fix: name
+every cause…").
 
 **No inanimate agency.** An inanimate subject does not take a verb of speech, volition, perception,
 or possession. A report, an entry, a row, a project, a version, a build, or a PR does not say, tell,
@@ -47,8 +55,8 @@ Grammatically it is personification: the subject is given an agent role the verb
 something animate, and it is a recognizable AI-writing tell. Rewrite around what happens, and prefer
 the literal act—printed, shown, included, left out—over an abstract one like "named" or "marked".
 Going passive is only half the fix, since a passive that goes abstract trades personification for
-opacity: name the real actor where there is one, and write a condition as an if/then sentence rather
-than compressing it into a noun phrase. It binds everywhere text leaves this machine: chat,
+opacity: say who the real actor is where there is one, and write a condition as an if/then
+sentence rather than compressing it into a noun phrase. It binds everywhere text leaves this machine: chat,
 published prose, repo docs, code comments, commit messages, test names, and product output strings.
 Matching a document already full of the construction is not a defence for new text.
 
@@ -78,7 +86,7 @@ situation behind it.
 Assume the reader has read nothing since their last message.
 
 - **No back-references into the transcript.** Not "the fix above", not "as noted earlier", not a
-  term coined three tool calls ago. Name the file, the decision, and the outcome in full.
+  term coined three tool calls ago. Spell out the file, the decision, and the outcome in full.
 - **Lead with the outcome**, then what is left. Not a chronology of what you tried.
 - **Link a file worth opening, with an absolute path**, and say what changed in it. A relative href
   can resolve against the wrong worktree and open nothing. When a draft or report already lives in a
@@ -87,7 +95,7 @@ Assume the reader has read nothing since their last message.
   of code shown in the same reply. A local result CI won't show is worth stating.
 - **A wrap-up is a status sign-off, not a report.** Open items and next steps go as a bulleted list
   of specific instructions, never prose: what needs a decision, then what happens next, in order.
-  When one command or skill invocation does the work, name it first instead of listing the
+  When one command or skill invocation does the work, put it first instead of listing the
   mechanics it already handles.
 - **Anything the reader will run goes in its own fenced block, never inline**, so it can be copied
   in one gesture: a shell command in a `bash`-tagged block, a prompt or slash command in a plain
