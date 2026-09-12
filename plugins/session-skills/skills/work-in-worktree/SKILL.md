@@ -115,6 +115,9 @@ if [ "$BRANCH" = "$DEFAULT" ]; then
 else
   WT=$(git rev-parse --show-toplevel)        # YOUR worktree—edit/build only under here
 fi
+# Durable notes belong in the primary checkout: a worktree's untracked files go with it on removal.
+[ "$WT" != "$MAIN" ] && [ -d "$MAIN/spike-notes.local" ] && [ ! -e "$WT/spike-notes.local" ] \
+  && ln -s "$MAIN/spike-notes.local" "$WT/spike-notes.local"
 echo "worktree: $WT   main checkout: $MAIN"
 ```
 
@@ -146,6 +149,15 @@ before the replace, so a drifted anchor fails loudly instead of silently doing n
 to a scratch path and `cp scratch target` when rewriting a whole file. Such guards typically reject
 a *compound* command (`A && B`, `VAR=x; cmd`)—split it into plain single commands.
 
+**Write durable notes to the primary checkout, never into the worktree.** `git worktree remove`
+deletes a worktree's untracked files without a warning, and the loss shows up only when a later
+session follows a reference to a note that is gone. The `ln -s` line in the block above links a
+local-only notes directory through, so existing write paths land in `$MAIN`. `spike-notes.local` is
+a convention of the author's repos; the `-d` test skips the link wherever that directory is absent,
+and a repo with its own notes directory gets the same line with its name. **An exclude pattern with
+a trailing slash does not match the link**: `/spike-notes.local/` matches only a directory, so the
+link shows as untracked in every new worktree. Write the pattern as `/spike-notes.local`.
+
 ## 4. Hygiene—prune only
 
 Cheap, safe, and worth running whichever of §2 or §3 you came through. Neither command has anything
@@ -161,6 +173,13 @@ git for-each-ref --merged "$DEFAULT" --format='%(refname:short)' \
 **Never `git worktree remove` a worktree you didn't create.** A live session between tasks looks
 identical to an abandoned one, and removing its directory kills it mid-flight. Leftovers are
 harmless clutter the next `prune` reaps; when in doubt, leave it.
+
+**Before removing your own worktree, list its untracked files** and move anything real to `$MAIN`
+first. Build output is filtered out:
+
+```bash
+git -C "$WT" status --porcelain -uall | grep '^??' | grep -Ev '(^\?\? |/)(build|\.gradle|\.kotlin)/'
+```
 
 A concurrency plugin adds its own hygiene on top of this (§0's lease seam).
 
