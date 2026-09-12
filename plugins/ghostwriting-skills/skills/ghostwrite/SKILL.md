@@ -17,10 +17,11 @@ This skill is the method; the voice is the user's own data (§0). The user signs
 user reads it first: **drafting is yours, posting is theirs.**
 
 ## 0. Locate the voice data—and detect the mode
-The plugin's `voice_dir` option is: `${user_config.voice_dir}` (empty when the user set none). When
-it is set, use it as `$VOICE` in place of the default below.
+The plugin's `voice_dir` option is substituted into the first line below (empty when the user set
+none); then `$GHOSTWRITING_DIR`, then the default.
 ```bash
-VOICE=${GHOSTWRITING_DIR:-$HOME/.claude/ghostwriting}
+VOICE='${user_config.voice_dir}'
+VOICE=${VOICE:-${GHOSTWRITING_DIR:-$HOME/.claude/ghostwriting}}
 [ -f "$VOICE/voice-spec.md" ] && echo "spec: $VOICE/voice-spec.md" || echo "MODE=bootstrap"
 ls "$VOICE/corpus" 2>/dev/null || echo "no corpus"
 ```
@@ -93,7 +94,8 @@ After the user edits a draft—or after a §3 self-correction—diff their versi
 Route each new rule by the §0 split: must hold in every response ⇒ the always-on file §0 names;
 genre form or size ⇒ `voice-spec.md`. When that always-on file ships from a plugin, the edit is a
 plugin change: make it in the repo the plugin is published from, not the installed cache, and bump
-the plugin's version in the same commit, or the installed session keeps serving the old list. When
+the plugin's `version` in that repo's `.claude-plugin/marketplace.json` in the same commit, or the
+installed session keeps serving the old list. When
 an entry changes a standing rule, promote it into the spec's body—the log grows, the body stays
 stable.
 
@@ -122,7 +124,7 @@ guessing. One-time setup; afterwards proceed from §1.
    file §0 names, which already includes the typography and banned-vocabulary rules when it is the
    `writing-conventions` file—add only what it lacks. With no always-on file, they go in the spec's
    own prohibitions section. Show any edit and ask before making it, and where the file ships from a
-   plugin, bump that plugin's version in the same commit.
+   plugin, bump its `version` in that repo's `.claude-plugin/marketplace.json` in the same commit.
 6. **Say what you could not derive.** A genre with no sample gets no entry—don't invent one.
 
 A **seed spec**—a `share-ghostwriting-spec` export—replaces derivation from scratch: copy it in as
