@@ -49,10 +49,12 @@ silently, which is why this skill lives beside the delegation rules.
 
 ## How it is wired
 
-A `SessionStart` hook injects `hooks/rules.md` into every session, including after `/clear` and
-compaction. That file is the short always-on form; the four skills hold the full protocols behind
-it. There is no `SubagentStart` hook here on purpose—these rules govern the agent doing the
-delegating, not the one carrying out the task.
+A `SessionStart` hook injects `hooks/rules.md` into every session, including after `/clear`,
+compaction, and a fork. That file is the short always-on form; the four skills hold the full
+protocols behind it. A `SubagentStart` hook injects one rule only, the escalation paragraph
+addressed to a subagent: a hard-to-reverse decision goes into its result with the options, not
+settled silently. The rest of the file governs the agent doing the delegating, not the one
+carrying out the task, so it stays out of subagents.
 
 Editing `hooks/rules.md` or any skill is a plugin release: an installed session reads a
 version-keyed cache, so the plugin's `version` in `.claude-plugin/marketplace.json` has to bump in
