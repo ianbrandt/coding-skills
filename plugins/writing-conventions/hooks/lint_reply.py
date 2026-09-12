@@ -283,9 +283,9 @@ def self_test():
     def agency(text):
         return [h for h in lint(text) if h[0] == "inanimate agency"]
 
-    # The nine violations confirmed in the R74 issue draft (2026-08-30), the
-    # measured ground truth this design was rebuilt against.
-    r74 = [
+    # Nine violations confirmed by hand in one issue draft, the measured ground
+    # truth this design was rebuilt against.
+    confirmed = [
         "A version catalog plugin alias bounds a `plugins` block declaration that never used it",
         "a `plugins` block declaration that wrote its own version range inline",
         "so the report is no longer a function of the declarations the build wrote",
@@ -296,7 +296,7 @@ def self_test():
         "It exempts a range on the grounds that a required range keeps its own interval",
         "Recovery runs only when the declared version states a range",
     ]
-    for text in r74:
+    for text in confirmed:
         assert agency(text), text
     cases += 1
 
