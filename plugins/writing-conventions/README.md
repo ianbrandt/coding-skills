@@ -65,15 +65,23 @@ session-start rules still load, since that hook is a plain `cat`.
 
 The census behind this plugin found that 101 of 107 corrections landed on text that ships: PR
 bodies, comments, issue bodies, commit messages, docs. A lint over chat never sees those, so a
-`PreToolUse` hook watches the commands that publish them: `git commit`, `gh pr create`, `gh pr
-edit`, `gh pr comment`, `gh pr review`, `gh issue create`, `gh issue comment`, and `gh release
-create`. It is a prompt-type hook, so a small model reads the command, pulls out the commit message
-or the title and body, and checks that text against the four prohibitions: inanimate agency,
-spaced em dashes, the banned words, and epigrams. It never judges form or length. A violation it
-can quote comes back as the tool's error, with the sentence and a plain rewrite, and the session
-fixes the text and runs the command again; anything else, including a message read from a file,
-is allowed through. The cost is one small-model call per gated command, a few times a session,
-and a few seconds of latency on each.
+`PreToolUse` hook watches the commands that publish them: `git commit` and every `gh pr`,
+`gh issue`, and `gh release` subcommand. It is a prompt-type hook, so a small model reads the
+command, pulls out the commit message or the title and body, and checks that text against the four
+prohibitions: inanimate agency, spaced em dashes, the banned words, and epigrams. It never judges
+form or length. A violation it can quote comes back as the tool's error, with the sentence and a
+plain rewrite, and the session fixes the text and runs the command again; a command that publishes
+nothing new (`gh pr view`, `gh pr checks`, `--amend --no-edit`, a label change) is let through by the
+prompt, as is a body read from a file path, which the command does not contain.
+
+The cost is one small-model call per `git commit` and per `gh pr`, `gh issue`, or `gh release`
+command, read-only ones included, and a few seconds of latency on each. The `if` filter on a hook is
+best-effort: when a command contains `$VAR`, `$()`, or a backtick, Claude Code runs every handler
+whose pattern names a subcommand, so a command such as `cd "$WT" && ./gradlew test` costs the four
+handlers' calls in parallel. That is why the gate is four handlers rather than one per subcommand,
+and why the prompt returns early for a command with nothing to check. A `git -C <literal path>
+commit` does not match `Bash(git commit *)` and is not gated; the `"$WT"` form is, through the
+same fallback.
 
 Nothing else is gated. A `git push` is not read, because a branch name is chosen long before it,
 and a `Write` or `Edit` is nudged rather than blocked, because a file is cheap to fix after the
