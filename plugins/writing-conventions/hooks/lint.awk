@@ -163,17 +163,30 @@ function agency(s, l,   p, pos, rest, start, len, span, after, after2, verb, m, 
     }
   }
 }
-function strip_code(t,   out, n, i, lines, infence) {
-  n = split(t, lines, "\n"); out = ""
+# Fenced blocks are dropped by matching the opening marker (three or more of
+# the same character, closed by at least as many); a fence left open at the end
+# of the text is treated as prose, so a truncated reply is still linted. Inline
+# code, straight or curly double-quoted text, and markdown emphasis or link
+# syntax around a word are reduced so the sentence keeps its grammar.
+function strip_code(t,   out, n, i, lines, fence, held) {
+  n = split(t, lines, "\n"); out = ""; fence = ""; held = ""
   for (i = 1; i <= n; i++) {
-    if (lines[i] ~ /^[ \t]*(```|~~~)/) { infence = !infence; continue }
-    if (infence) continue
+    if (match(lines[i], /^[ \t]*(`{3,}|~{3,})/)) {
+      m = substr(lines[i], RSTART, RLENGTH); sub(/^[ \t]+/, "", m)
+      if (fence == "") { fence = m; held = lines[i] "\n"; continue }
+      if (substr(m, 1, 1) == substr(fence, 1, 1) && length(m) >= length(fence)) { fence = ""; held = ""; continue }
+    }
+    if (fence != "") { held = held lines[i] "\n"; continue }
     out = out lines[i] "\n"
   }
+  if (fence != "") out = out held
   gsub(/`[^`\n]*`/, "CODE", out)
   gsub(/"[^"\n]*"/, "QUOTE", out)
-  # literal senses stay: a Slack or byte channel, an array shape, a time slot, release notes
-  gsub(/[Ss]lack channel|[Mm]essage channel|[Bb]yte channel|[Rr]elease channel|[Aa]rray shape|[Tt]ensor shape|[Tt]imetable slot|[Tt]ime slot|[Rr]elease notes/, "LITERAL", out)
+  gsub(/“[^”\n]*”/, "QUOTE", out)
+  gsub(/\]\([^)\n]*\)/, "", out)
+  gsub(/[*\[]+/, "", out)
+  # literal senses stay: a Slack or byte channel, an array shape, a time slot
+  gsub(/[Ss]lack channel|[Mm]essage channel|[Bb]yte channel|[Rr]elease channel|[Aa]rray shape|[Tt]ensor shape|[Tt]imetable slot|[Tt]ime slot/, "LITERAL", out)
   return out
 }
 function trim(x) { sub(/^[ \t]+/, "", x); sub(/[ \t]+$/, "", x); return x }

@@ -102,6 +102,21 @@ expect - 'Inline `the report says` is code, and so is this fence:
 the report says everything
 ```
 '
+expect "$A" 'Intro.
+```bash
+git log
+The report says everything is fine, and this fence is never closed.'
+expect - 'A four-backtick wrapper shows a fence:
+````
+```
+the report says everything
+```
+````
+'
+expect - 'I said “the report says X” and moved on.'
+expect "$A" "The **report** says everything is fine."
+expect "$A" "The [report](https://x/y) says everything is fine."
+expect "$A" "The release notes, whose format changed, need updates."
 # banned words and dashes
 expect "banned word" "This fix is not vacuous at all."
 expect "banned word" "That channel predates the options."
