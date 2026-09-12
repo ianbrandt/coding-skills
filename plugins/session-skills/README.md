@@ -48,7 +48,7 @@ record. The dependency runs one way—a plugin filling a seam references this on
 this plugin names no filler. The marketplace's own README has the family map and which plugins fill
 which seam.
 
-`communication-skills` owns how the wrap-up reads once these actions are done.
+`writing-conventions` governs how the wrap-up reads once these actions are done.
 
 ## How it is wired
 

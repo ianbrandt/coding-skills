@@ -1,4 +1,4 @@
-# communication-skills
+# writing-conventions
 
 A [Claude Code](https://claude.ai/code) plugin for how an agent writes. Its main product is a short
 set of always-on rules—plain engineering English, no AI tells, replies a cold reader can follow—

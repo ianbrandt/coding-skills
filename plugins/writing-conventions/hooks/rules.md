@@ -1,4 +1,4 @@
-COMMUNICATION MODE ACTIVE
+WRITING CONVENTIONS ACTIVE
 
 These rules govern text a human reads: chat replies, summaries, and anything published under the
 user's name. Files written for agents to read—skills, hook payloads, subagent briefs—are partly

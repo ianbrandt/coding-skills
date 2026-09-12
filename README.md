@@ -18,11 +18,11 @@ These two are mostly rules that load at session start, so they change every sess
 invoked.
 
 ```sh
-/plugin install communication-skills@ianbrandt
+/plugin install writing-conventions@ianbrandt
 /plugin install orchestration-skills@ianbrandt
 ```
 
-- [`communication-skills`](plugins/communication-skills) changes how a session writes to you and
+- [`writing-conventions`](plugins/writing-conventions) changes how a session writes to you and
   when it stops to ask. Replies drop the jargon and the back-references a cold reader cannot
   follow. A decision you cannot undo comes back as a question instead of a done deal. It also
   drafts text that ships under your name from a voice spec built out of your own writing.
