@@ -20,6 +20,8 @@ expect "$A" "The report concluded the build is fine."
 expect "$A" "The stability report stated a regression."
 expect "$A" "The cap is gone, so the report offers the upgrade anyway."
 expect "$A" "so the report is no longer a function of the declarations the build wrote, which the README states plainly."
+# a task writing a file is a program doing its job (rules.md item 1), so writes/wrote stay out of the verb list
+expect - "so the report is no longer a function of the declarations the build wrote."
 expect "$A" "The deprecation message names the replacement id."
 expect "$A" "It exempts a range on the grounds that the rule wants an interval."
 expect "$A" "Recovery runs only when the declared version states a range."
@@ -75,6 +77,24 @@ expect "$A" "The title now names \`rejectPreReleases\`."
 expect "$A" "The fenced output below it already names the artifact."
 expect "$A" "The body says nothing about the five review commits."
 expect "$A" "The revision that asks for snapshots gets them filtered."
+# gaps closed after the 2026-09-12 review
+expect "$A" "The report says, roughly, that the build is fine."
+expect "$A" "The alias, which declares the version, is kept."
+expect "$A" "The build configures the toolchain."
+expect "$A" "The plugins block owns the version."
+expect "$A" "The entry carries both versions."
+expect "$A" 'With a `libs.versions.toml` declaring an alias for that plugin id'
+expect "$A" "The report says we decided it."
+expect "$A" "The build script says the user wants a refund."
+expect "$A" "That is what the report said."
+expect "$A" "The spec states that the build is fine."
+expect "$A" "The report—from CI says the build is fine."
+expect - "The customer wants a refund."
+expect - "The stakeholder decided the scope."
+expect - "The team, which decided the scope, is small."
+expect - "The user says we decided it."
+expect - "The task writes a file and the build fails."
+expect - "A map holds a value until the loop gives up."
 # quotations and code never count
 expect - 'I said "the report says X" and rewrote it.'
 expect - 'Inline `the report says` is code, and so is this fence:
