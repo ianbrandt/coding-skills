@@ -2,7 +2,7 @@
   "hooks": {
     "SessionStart": [
       {
-        "matcher": "startup|resume|clear|compact",
+        "matcher": "startup|resume|clear|compact|fork",
         "hooks": [
           {
             "type": "command",
@@ -101,7 +101,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "esc=$(sed -e 's/\\\\/\\\\\\\\/g' -e 's/\"/\\\\\"/g' \"${CLAUDE_PLUGIN_ROOT}/hooks/rules.md\" | awk '1' ORS='\\\\n'); printf '{\"hookSpecificOutput\":{\"hookEventName\":\"SubagentStart\",\"additionalContext\":\"%s\"}}' \"$esc\"",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/rules-context.sh\" SubagentStart",
             "timeout": 5,
             "statusMessage": "Loading writing rules..."
           }
