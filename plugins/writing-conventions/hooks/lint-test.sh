@@ -134,8 +134,11 @@ cases=$((cases + 1)); [ -z "$(printf 'Plain prose, nothing flagged.' | awk -v no
 cases=$((cases + 1))
 v=$(printf '{"session_id":"abc/1","cwd":"/x","last_assistant_message":"Line one\\nsays \\"hi\\" \\u2014 done \\\\ end","effort":{"level":"m"}}' | awk -v key=last_assistant_message -f "$HERE/jsonstr.awk")
 [ "$v" = "$(printf 'Line one\nsays "hi" — done \\ end')" ] || { echo "FAIL jsonstr: [$v]"; fail=1; }
-# end to end: record, emit, second emit, clean record clears, nudge
-export TMPDIR="${TMPDIR:-/tmp}"
+# end to end: record, emit, second emit, clean record clears, nudge. The state
+# files go to a scratch directory so the test never reads or deletes a live
+# session's note.
+TMPDIR=$(mktemp -d); export TMPDIR
+trap 'rm -rf "$TMPDIR"' EXIT
 cases=$((cases + 1))
 printf '{"session_id":"selftest","last_assistant_message":"This shape is vacuous."}' | bash "$HERE/lint.sh" --record
 out=$(printf '{"session_id":"selftest"}' | bash "$HERE/lint.sh" --emit)
@@ -150,6 +153,11 @@ cases=$((cases + 1))
 n=$(printf '{"tool_name":"Write","tool_input":{"file_path":"/tmp/draft.md","content":"x"}}' | bash "$HERE/lint.sh" --nudge)
 case "$n" in '{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"You just wrote prose'*) ;; *) echo "FAIL nudge: $n"; fail=1;; esac
 [ -z "$(printf '{"tool_input":{"file_path":"/src/main.py"}}' | bash "$HERE/lint.sh" --nudge)" ] || { echo "FAIL nudge fired on .py"; fail=1; }
+[ -n "$(printf '{"tool_input":{"file_path":"/tmp/README.MD"}}' | bash "$HERE/lint.sh" --nudge)" ] || { echo "FAIL nudge skipped README.MD"; fail=1; }
+# no session id: nothing is saved, and nothing another session saved is printed
+printf '{"last_assistant_message":"This shape is vacuous."}' | bash "$HERE/lint.sh" --record
+[ -z "$(ls "$TMPDIR")" ] || { echo "FAIL record without session id wrote a file"; fail=1; }
+case "$(printf '{"x":1}' | bash "$HERE/lint.sh" --emit)" in *flagged*) echo "FAIL emit without session id printed a note"; fail=1;; esac
 [ -z "$(printf 'not json' | bash "$HERE/lint.sh" --nudge)" ] || { echo "FAIL nudge on garbage"; fail=1; }
 printf 'not json at all {{{' | bash "$HERE/lint.sh" --record; [ $? -eq 0 ] || { echo "FAIL garbage record exit"; fail=1; }
 [ $fail -eq 0 ] && echo "PASS ($cases cases)" || { echo "FAILED"; exit 1; }
