@@ -22,13 +22,15 @@ invoked.
 /plugin install orchestration-skills@ianbrandt
 ```
 
-- [`writing-conventions`](plugins/writing-conventions) changes how a session writes to you and
-  when it stops to ask. Replies drop the jargon and the back-references a cold reader cannot
-  follow. A decision you cannot undo comes back as a question instead of a done deal.
+- [`writing-conventions`](plugins/writing-conventions) changes how a session writes: to you, in
+  repo docs, and in anything published under your name. Replies drop the jargon, the personified
+  subjects, and the back-references a cold reader cannot follow, and a lint reports each miss in
+  the next turn.
 - [`orchestration-skills`](plugins/orchestration-skills) changes how a session hands work to other
   agents. It decides what is worth delegating and at what tier, puts scope and prohibitions in
   every brief, isolates the agents that would corrupt a shared worktree, and treats a stage that
-  stopped talking as failed rather than finished.
+  stopped talking as failed rather than finished. A decision you cannot undo comes back as a
+  question instead of a done deal.
 
 ### Add for the work you do
 

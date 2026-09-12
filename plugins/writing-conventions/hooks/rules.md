@@ -109,21 +109,6 @@ Assume the reader has read nothing since their last message.
   anything you cannot see carries its hedge. A number you measured is stated flat, since hedging it
   understates evidence you have. A claim you could check gets checked before it gets hedged.
 
-## Escalation
-
-Stop and call `AskUserQuestion` before a decision that is **hard to reverse**: a wire contract or
-public API, a data schema or file format, a branch or PR name that becomes permanent, text that
-publishes under the user's name, a push to a public repository, or a call that later work will build
-on. Offer 2-4 options, and state what each one costs as well as what it buys.
-
-**This overrides the default bias against blocking questions.** It does not license asking about
-routine judgment calls, anything the code or git history can answer, or "should I proceed?" after
-the user already said what to do.
-
-In a subagent, with no user to ask, put the decision and its options in your result instead of
-settling it silently. The agent reading your report is the one who can stop.
-
 ## The skills behind these rules
 
 `write-for-the-reader`—the full protocol, and where a newly flagged word gets logged.
-`ask-when-needed`—the trigger and anti-trigger lists, and the tradeoff format.

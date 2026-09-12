@@ -10,14 +10,11 @@ became a rule. `write-for-the-reader` is where a word you flag gets logged into 
 `ghostwriting-skills` plugin, which drafts text that ships under your name, routes the general rules
 it learns from your edits into the same file when this plugin is installed.
 
-Writing in either direction can turn into a decision you cannot take back, so `ask-when-needed`
-stops and asks instead of guessing.
-
 ## What loads every session
 
 A `SessionStart` hook injects [`hooks/rules.md`](hooks/rules.md) into every session, including
 after `/clear` and compaction. A `SubagentStart` hook injects the same file into every subagent,
-since a subagent's report is what a later summary is built from. The file contains four kinds of
+since a subagent's report is what a later summary is built from. The file contains three kinds of
 always-on rule:
 
 - **Register.** A banned-vocabulary list ("load-bearing", "vacuous", "shape" as a noun, "owed",
@@ -26,7 +23,6 @@ always-on rule:
 - **Write for the reader.** Assume the reader has read nothing since their last message. No
   back-references into the transcript, lead with the outcome, link a file instead of pasting it,
   cut what the reader can already see.
-- **Escalation.** The short form of `ask-when-needed`.
 - **Scope.** Which of the above bind agent-facing files and which do not. Prohibitions bind
   everywhere, `SKILL.md` files included, because they are about precision rather than register.
   Form rules—bold, redundancy, length, the reader-facing voice—stop at the agent-facing line, so
@@ -68,13 +64,3 @@ line, a call you might have made differently gets one sentence naming the altern
 Links a file with an absolute path instead of pasting its contents, and leaves out what you can
 already see for yourself, like a local test-suite pass CI already reports. When you flag a word as
 jargon, this skill is what logs it into `hooks/rules.md`.
-
-### `ask-when-needed`
-
-The escalation protocol. Stops before a decision that is hard to reverse: a wire contract or public
-API, a data schema or file format, a branch or PR name that becomes permanent, text publishing
-under your name, or a call later work will build on. Everything else it decides on its own and
-keeps moving, including "should I proceed?" once you have already said what to do. A stop arrives
-as an `AskUserQuestion` with two to four options, each naming what it costs as well as what it
-buys. A subagent with no one to ask puts the decision and its options in its report instead of
-settling it silently.

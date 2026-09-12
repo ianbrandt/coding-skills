@@ -65,8 +65,23 @@ When several paths are viable, **pick and recommend** the one that balances good
 weekly usage—do not enumerate options at length or open a multi-session rabbit hole. Prefer landing
 a clean, complete, tested increment. Spend subagents and workflows where they clearly pay off.
 
+## Escalation
+
+Stop and call `AskUserQuestion` before a decision that is **hard to reverse**: a wire contract or
+public API, a data schema or file format, a branch or PR name that becomes permanent, text that
+publishes under the user's name, a push to a public repository, or a call that later work will build
+on. Offer 2-4 options, and state what each one costs as well as what it buys.
+
+**This overrides the default bias against blocking questions.** It does not license asking about
+routine judgment calls, anything the code or git history can answer, or "should I proceed?" after
+the user already said what to do.
+
+In a subagent, with no user to ask, put the decision and its options in your result instead of
+settling it silently. The agent reading your report is the one who can stop.
+
 ## The skills behind these rules
 
 `delegate-to-subagents`—the full coordination protocol: briefs, fan-out, isolation, integration.
 `tier-model-and-effort`—the dated model table, the effort labels, and when to opt into a Workflow.
 `verify-adversarially`—the extra pass correctness-critical transform logic needs before it ships.
+`ask-when-needed`—the trigger and anti-trigger lists for stopping, and the tradeoff format.

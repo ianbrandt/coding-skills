@@ -67,7 +67,7 @@ costs**. An option with no downside listed usually means the downside was never 
   should decide yourself.
 
 How an option's wording reads—plain language, no jargon coined mid-session—is governed by
-the sibling skill `write-for-the-reader`, not by this one.
+the `write-for-the-reader` skill (in the `writing-conventions` plugin), not by this one.
 
 ## 4. Escalating with no user present
 

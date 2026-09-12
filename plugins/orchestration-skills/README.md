@@ -36,10 +36,21 @@ input that produces silently wrong output or a documented failure to find one. L
 spots that have shipped past a green suite before, and requires each hypothesis be settled by a live
 probe against compiled code rather than a code trace.
 
+### `ask-when-needed`
+
+The escalation protocol, for the decisions no agent should settle alone. Stops before a decision
+that is hard to reverse: a wire contract or public API, a data schema or file format, a branch or
+PR name that becomes permanent, text publishing under the user's name, a push to a public
+repository, or a call later work will build on. Everything else is decided without asking,
+including "should I proceed?" once the user has already said what to do. A stop arrives as an
+`AskUserQuestion` with two to four options, each naming what it costs as well as what it buys. A
+subagent with no one to ask puts the decision and its options in its report instead of settling it
+silently, which is why this skill lives beside the delegation rules.
+
 ## How it is wired
 
 A `SessionStart` hook injects `hooks/rules.md` into every session, including after `/clear` and
-compaction. That file is the short always-on form; the three skills hold the full protocols behind
+compaction. That file is the short always-on form; the four skills hold the full protocols behind
 it. There is no `SubagentStart` hook here on purpose—these rules govern the agent doing the
 delegating, not the one carrying out the task.
 
