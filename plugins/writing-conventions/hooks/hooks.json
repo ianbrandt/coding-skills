@@ -18,7 +18,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "if command -v python3 >/dev/null 2>&1; then python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/lint_reply.py\" --record; fi",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/lint.sh\" --record",
             "timeout": 10,
             "statusMessage": "Linting the reply..."
           }
@@ -42,7 +42,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "if command -v python3 >/dev/null 2>&1; then python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/lint_reply.py\" --emit; fi",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/lint.sh\" --emit",
             "timeout": 10,
             "statusMessage": "Checking the last reply's lint..."
           }
@@ -55,7 +55,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "if command -v python3 >/dev/null 2>&1; then python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/lint_reply.py\" --nudge; fi",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/lint.sh\" --nudge",
             "timeout": 10,
             "statusMessage": "Checking for a prose write..."
           }

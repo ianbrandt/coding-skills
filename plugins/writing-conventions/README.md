@@ -27,11 +27,20 @@ Prohibitions bind everywhere, `SKILL.md` files included, because they are about 
 than register. Form rules—bold, redundancy, length, the reader-facing voice—stop at the
 agent-facing line, so those files are formatted for whatever a model reads best.
 
-[`hooks/lint_reply.py`](hooks/lint_reply.py) runs on both ends of a turn. A `Stop` hook runs it
-with `--record` over the final reply and saves what it finds; a `UserPromptSubmit` hook runs the
-same script with `--emit`, which opens the next turn with those hits and then clears them. It flags
-the mechanically detectable subset of the rules: the banned vocabulary, spaced em dashes, and an
-inanimate subject paired with an agentive verb.
+[`hooks/lint.sh`](hooks/lint.sh) runs on both ends of a turn, in bash and awk with no other
+dependency. A `Stop` hook runs it with `--record` over the final reply and saves what it finds; a
+`UserPromptSubmit` hook runs it with `--emit`, which opens the next turn with those hits and a
+one-line reminder, then clears them; a `PostToolUse` hook on `Write` and `Edit` runs `--nudge`,
+which asks for a re-read when the file just written is prose or holds comments and test names
+(`.md`, `.txt`, `.kt`, `.kts`, `.java`, `.groovy`). The lint itself is
+[`hooks/lint.awk`](hooks/lint.awk), a pure filter over text, and
+[`hooks/lint-test.sh`](hooks/lint-test.sh) is its self-test.
+
+It flags the mechanically detectable subset of the rules: the banned vocabulary, spaced em dashes,
+and an inanimate subject paired with a verb of speech, volition, or cognition. That last set is
+deliberately narrow. An earlier version also matched possession verbs (holds, carries, keeps) and
+scored about 40% precision on a hand-checked sample, mostly on code mechanics such as a map that
+holds a value; the current set trades recall for a hit the model can act on.
 
 The lint never blocks, and that is the whole design. A `Stop` hook cannot patch a reply, so
 blocking one buys a corrected answer at the price of re-emitting the entire original, which you
@@ -42,10 +51,15 @@ Each line of the note ends with the rule that line is about, because a note that
 pattern and defers to "the rules loaded at session start" measured no better than sending nothing:
 across six two-turn trials per arm, no note left 6 of 6 next replies dirty, the deferring note left
 5 of 6 dirty, and the same mechanism with the rule stated inline left 0 of 6 dirty. Literal senses
-stay ("a Slack channel", "an array shape"), text inside code fences and backticks is never matched,
-and a clean reply clears whatever the previous one left pending. Rules that need judgment to detect
-stay where they were, in the model's own review passes; the lint is the floor under them, and a
-construction it cannot match mechanically is still a violation.
+stay ("a Slack channel", "an array shape"), text inside code fences, backticks, and double quotes is
+never matched, and a clean reply clears whatever the previous one left pending. Rules that need
+judgment to detect stay where they were, in the model's own review passes; the lint is the floor
+under them, and a construction it cannot match mechanically is still a violation.
+
+The hooks run under bash: on macOS and Linux always, and on Windows when Git for Windows is
+installed, which is also what gives Claude Code its Bash tool there. On a native Windows install
+without Git Bash, Claude Code runs hooks in PowerShell, and these three will fail quietly; the
+session-start rules still load, since that hook is a plain `cat`.
 
 Adding a word to the banned list is a plugin release rather than a local edit: an installed session
 reads a version-keyed cache, so the plugin's `version` in `.claude-plugin/marketplace.json` has to
