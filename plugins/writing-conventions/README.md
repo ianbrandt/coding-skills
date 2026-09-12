@@ -1,7 +1,7 @@
 # writing-conventions
 
 A [Claude Code](https://claude.ai/code) plugin for how an agent writes. Its main product is a short
-set of always-on rules—plain engineering English, no AI tells, replies a cold reader can follow—
+set of always-on rules (plain engineering English, free of AI tells, replies a cold reader can follow)
 injected at the start of every session and every subagent, so they bind without anyone invoking a
 skill.
 
@@ -13,8 +13,9 @@ it learns from your edits into the same file when this plugin is installed.
 ## What loads every session
 
 A `SessionStart` hook injects [`hooks/rules.md`](hooks/rules.md) into every session, including
-after `/clear` and compaction. A `SubagentStart` hook injects the same file into every subagent,
-since a subagent's report is what a later summary is built from. The file is eight named
+after `/clear`, compaction, and a fork. A `SubagentStart` hook injects the same file into every
+subagent through [`hooks/rules-context.sh`](hooks/rules-context.sh), since a subagent's report is
+what a later summary is built from. The file is eight named
 anti-patterns, one line and one drafted-to-accepted pair each: inanimate agency, spaced em dashes,
 a banned-vocabulary list, epigrams and paired contrasts, narration, sentence order, coinages, and
 writing for a reader who has read nothing since their last message. Two standing rules follow: a
@@ -32,7 +33,7 @@ dependency. A `Stop` hook runs it with `--record` over the final reply and saves
 `UserPromptSubmit` hook runs it with `--emit`, which opens the next turn with those hits and a
 one-line reminder, then clears them; a `PostToolUse` hook on `Write` and `Edit` runs `--nudge`,
 which asks for a re-read when the file just written is prose or holds comments and test names
-(`.md`, `.txt`, `.kt`, `.kts`, `.java`, `.groovy`). The lint itself is
+(`.md`, `.markdown`, `.txt`, `.kt`, `.kts`, `.java`, `.groovy`, in any letter case). The lint itself is
 [`hooks/lint.awk`](hooks/lint.awk), a pure filter over text, and
 [`hooks/lint-test.sh`](hooks/lint-test.sh) is its self-test.
 
@@ -47,8 +48,8 @@ blocking one buys a corrected answer at the price of re-emitting the entire orig
 have already read and which stays in the transcript beside it. Carrying the hits into the next turn
 costs a few dozen tokens instead, and the flagged reply stands as sent.
 
-Each line of the note ends with the rule that line is about, because a note that only names the
-pattern and defers to "the rules loaded at session start" measured no better than sending nothing:
+Each line of the note ends with the rule that line is about, because a note with only the
+pattern in it, deferring to "the rules loaded at session start" measured no better than sending nothing:
 across six two-turn trials per arm, no note left 6 of 6 next replies dirty, the deferring note left
 5 of 6 dirty, and the same mechanism with the rule stated inline left 0 of 6 dirty. Literal senses
 stay ("a Slack channel", "an array shape"), text inside code fences, backticks, and double quotes is
@@ -96,9 +97,10 @@ bump in the same commit or the session keeps serving the old list.
 [`evals/`](evals/) is a `claude plugin eval` suite of twelve drafting tasks built from the
 corrections that motivated this plugin: commit messages, PR bodies, an issue body, a maintainer
 comment, a README paragraph, KDoc, a changelog entry, Spock method names, a code comment, and a
-status reply. Each prompt states the facts the way a user would, without the rules, and each case
-carries three free regex graders (spaced dashes, banned words, a narrow personification pattern),
-a judge-model grader for personification, and where the genre has a cap, a judge grader for form.
+status reply. In each prompt the facts are stated the way a user would state them, without the rules, and each
+case has three free regex graders (spaced dashes, the banned words that have no literal sense, and
+a narrow personification pattern over present-tense verbs and a fixed noun list), a judge-model
+grader for personification, and where the genre has a cap, a judge grader for form.
 Run it from the plugin directory:
 
 ```bash

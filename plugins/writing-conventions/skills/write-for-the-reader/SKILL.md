@@ -15,9 +15,9 @@ description: >-
 
 # Write for the reader—register, context, and altitude
 
-This skill governs writing **to** the user. Its sibling `ghostwrite` governs writing **as** the
-user, for text they sign and post. Escalation—when to stop and hand over a decision—belongs to
-`ask-when-needed`; write none of it here.
+This skill governs writing **to** the user. `ghostwrite`, in the `ghostwriting-skills` plugin,
+governs writing **as** the user, for text they sign and post. Escalation—when to stop and hand over
+a decision—belongs to `ask-when-needed` in the `orchestration-skills` plugin; write none of it here.
 
 This plugin's `hooks/rules.md` loads every session and carries the short form: eight named
 anti-patterns with one contrast pair each. This file is the full protocol behind it, and §8 is the
@@ -165,7 +165,7 @@ memory for the rest of the session rather than waiting for the release.
 
 ## 8. The prohibitions, in full
 
-The always-on file states each of these in a line and a pair. This is the reasoning and the edge
+Each of these is stated in the always-on file in a line and a pair. This is the reasoning and the edge
 cases, kept here so the always-on file stays short enough to be read every turn.
 
 ### Scope
@@ -191,7 +191,7 @@ thing instead of abstracting it. Banned in chat replies, not only in published p
 - "vacuous"/"vacuously"/"non-vacuous"—state the condition instead: "trivially true because the list
   is empty", "the check never fires here", "the test would still pass if the logic were deleted".
 - "shape", as a noun for a design or a structure—say "pattern" or "approach", or rewrite the
-  clause around the plain noun the sentence wants.
+  clause around the plain noun that fits.
 - "owed"—state the obligation: "what the verifier has to check", "what the fix still needs".
 - "slot", as a noun for a field or a place a value is stored—say "field", or write the member's
   own name. A timetable slot is the literal sense; a "configured slot" is not idiomatic, and "a
