@@ -14,19 +14,18 @@ it learns from your edits into the same file when this plugin is installed.
 
 A `SessionStart` hook injects [`hooks/rules.md`](hooks/rules.md) into every session, including
 after `/clear` and compaction. A `SubagentStart` hook injects the same file into every subagent,
-since a subagent's report is what a later summary is built from. The file contains three kinds of
-always-on rule:
+since a subagent's report is what a later summary is built from. The file is eight named
+anti-patterns, one line and one drafted-to-accepted pair each: inanimate agency, spaced em dashes,
+a banned-vocabulary list, epigrams and paired contrasts, narration, sentence order, coinages, and
+writing for a reader who has read nothing since their last message. Two standing rules follow: a
+rule broken in a draft is swept across the branch, and the user's private circumstances stay out
+of public artifacts. It runs about 450 words, so it costs roughly 600 tokens per session and per
+subagent, down from about 1,600 words; the reasoning behind each rule, and its edge cases, sit in `write-for-the-reader` §8
+and load only when that skill does.
 
-- **Register.** A banned-vocabulary list ("load-bearing", "vacuous", "shape" as a noun, "owed",
-  coinages built by bolting a prefix onto a verb), plus three constructions to avoid: inanimate
-  agency, epigrams and rhetorical antithesis, and spaced em dashes.
-- **Write for the reader.** Assume the reader has read nothing since their last message. No
-  back-references into the transcript, lead with the outcome, link a file instead of pasting it,
-  cut what the reader can already see.
-- **Scope.** Which of the above bind agent-facing files and which do not. Prohibitions bind
-  everywhere, `SKILL.md` files included, because they are about precision rather than register.
-  Form rules—bold, redundancy, length, the reader-facing voice—stop at the agent-facing line, so
-  those files are formatted for whatever a model reads best.
+Prohibitions bind everywhere, `SKILL.md` files included, because they are about precision rather
+than register. Form rules—bold, redundancy, length, the reader-facing voice—stop at the
+agent-facing line, so those files are formatted for whatever a model reads best.
 
 [`hooks/lint_reply.py`](hooks/lint_reply.py) runs on both ends of a turn. A `Stop` hook runs it
 with `--record` over the final reply and saves what it finds; a `UserPromptSubmit` hook runs the
