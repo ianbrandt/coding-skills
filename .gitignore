@@ -1,3 +1,4 @@
 .obsidian/
 .claude/
 .DS_Store
+plugins/*/evals/results/

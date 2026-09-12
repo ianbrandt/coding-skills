@@ -83,6 +83,25 @@ Adding a word to the banned list is a plugin release rather than a local edit: a
 reads a version-keyed cache, so the plugin's `version` in `.claude-plugin/marketplace.json` has to
 bump in the same commit or the session keeps serving the old list.
 
+## Measuring it
+
+[`evals/`](evals/) is a `claude plugin eval` suite of twelve drafting tasks built from the
+corrections that motivated this plugin: commit messages, PR bodies, an issue body, a maintainer
+comment, a README paragraph, KDoc, a changelog entry, Spock method names, a code comment, and a
+status reply. Each prompt states the facts the way a user would, without the rules, and each case
+carries three free regex graders (spaced dashes, banned words, a narrow personification pattern),
+a judge-model grader for personification, and where the genre has a cap, a judge grader for form.
+Run it from the plugin directory:
+
+```bash
+claude plugin eval . --runs 2 --no-publish
+```
+
+The default two-arm run scores the same prompts with and without the plugin loaded and reports
+the difference. Every run costs a fraction of a dollar in judge and agent calls, so the suite is
+for a change to the rules file or the hooks, not for every commit. Results land under
+`evals/results/`, which is ignored.
+
 ## Skills
 
 ### `write-for-the-reader`
