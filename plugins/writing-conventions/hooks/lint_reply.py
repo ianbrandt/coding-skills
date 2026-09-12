@@ -186,8 +186,8 @@ NUDGE = (
     "You just wrote prose to a file. Re-read it now for inanimate agency "
     "(report/build/entry/declaration as subject of says/gives/owns/wrote/holds), "
     "spaced em dashes, and banned vocabulary; fix in place before moving on. If "
-    "this text will publish under the user's name, run the ghostwrite §3 "
-    "fresh-context sweep before hand-over."
+    "this text will publish under the user's name, have a fresh-context "
+    "subagent sweep it against the rules before hand-over."
 )
 
 PROSE_SUFFIXES = (".md", ".markdown", ".txt")

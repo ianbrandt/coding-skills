@@ -24,8 +24,7 @@ invoked.
 
 - [`writing-conventions`](plugins/writing-conventions) changes how a session writes to you and
   when it stops to ask. Replies drop the jargon and the back-references a cold reader cannot
-  follow. A decision you cannot undo comes back as a question instead of a done deal. It also
-  drafts text that ships under your name from a voice spec built out of your own writing.
+  follow. A decision you cannot undo comes back as a question instead of a done deal.
 - [`orchestration-skills`](plugins/orchestration-skills) changes how a session hands work to other
   agents. It decides what is worth delegating and at what tier, puts scope and prohibitions in
   every brief, isolates the agents that would corrupt a shared worktree, and treats a stage that
@@ -34,12 +33,17 @@ invoked.
 ### Add for the work you do
 
 ```sh
+/plugin install ghostwriting-skills@ianbrandt
 /plugin install session-skills@ianbrandt
 /plugin install parallel-session-skills@ianbrandt
 /plugin install roadmap-skills@ianbrandt
 /plugin install gradle-skills@ianbrandt
 ```
 
+- [`ghostwriting-skills`](plugins/ghostwriting-skills) drafts text that ships under your name from a
+  voice spec built out of your own writing, hands each draft over for your go, and learns from your
+  edits. With `writing-conventions` installed, the general rules it learns land in that plugin's
+  always-on file.
 - [`session-skills`](plugins/session-skills) puts a unit of work in its own git worktree and gets it
   back out again, landing it by what the repo actually is rather than by a mode you declare. It also
   carries two small session-start rules: the session-title format every session owes at its end, and

@@ -127,5 +127,3 @@ settling it silently. The agent reading your report is the one who can stop.
 
 `write-for-the-reader`—the full protocol, and where a newly flagged word gets logged.
 `ask-when-needed`—the trigger and anti-trigger lists, and the tradeoff format.
-`ghostwrite`—drafting text that ships under the user's name, from their own voice spec.
-`share-ghostwriting-spec`—exporting that spec as an anonymized seed for someone else.

@@ -17,6 +17,8 @@ This skill is the method; the voice is the user's own data (§0). The user signs
 user reads it first: **drafting is yours, posting is theirs.**
 
 ## 0. Locate the voice data—and detect the mode
+The plugin's `voice_dir` option is: `${user_config.voice_dir}` (empty when the user set none). When
+it is set, use it as `$VOICE` in place of the default below.
 ```bash
 VOICE=${GHOSTWRITING_DIR:-$HOME/.claude/ghostwriting}
 [ -f "$VOICE/voice-spec.md" ] && echo "spec: $VOICE/voice-spec.md" || echo "MODE=bootstrap"
@@ -29,10 +31,12 @@ Either path may be a symlink into a private repo. The voice data never lives in 
 project repo, or in memory. No spec ⇒ **bootstrap** (§5).
 
 **Always-on rules live elsewhere, split by when they load.** Prohibitions that must hold in chat
-replies too—typography, formatting tells, banned vocabulary—live in this plugin's `hooks/rules.md`,
-which loads every session, or in the user's global `CLAUDE.md` (`~/.claude/CLAUDE.md`) when they
-keep them there instead. Check the plugin file first, and follow a pointer rather than assuming a
-file; `voice-spec.md` is the positive spec, read on demand. Both are maintained here (§4, §5).
+replies too—typography, formatting tells, banned vocabulary—live in an always-on rules file that
+loads every session: the `writing-conventions` plugin's `hooks/rules.md` when that plugin is
+installed, or the user's global `CLAUDE.md` (`~/.claude/CLAUDE.md`) when they keep them there
+instead. Check which of those loaded in this session, and follow a pointer rather than assuming a
+file; `voice-spec.md` is the positive spec, read on demand. Both are maintained here (§4, §5). With
+no always-on file at all, the prohibitions go in the spec too.
 
 ## 1. Read the spec before drafting
 Read `voice-spec.md` end to end, delta log included, and read two or three corpus samples matching
@@ -86,12 +90,12 @@ After the user edits a draft—or after a §3 self-correction—diff their versi
 - **Procedure failure**—the spec covered it and the draft broke it anyway. Record it as one; add
   **no** new rule.
 
-Route each new rule by the §0 split: must hold in every response ⇒ the always-on file §0 names—this
-plugin's `hooks/rules.md`, which makes the edit a plugin change—made in the marketplace repo the
-plugin ships from, not the installed cache, bumping the plugin `version` in that repo's
-`.claude-plugin/marketplace.json` in the same commit—or the user's global file when they keep the
-rules there; genre form or size ⇒ `voice-spec.md`. When an entry changes a standing rule,
-promote it into the spec's body—the log grows, the body stays stable.
+Route each new rule by the §0 split: must hold in every response ⇒ the always-on file §0 names;
+genre form or size ⇒ `voice-spec.md`. When that always-on file ships from a plugin, the edit is a
+plugin change: make it in the repo the plugin is published from, not the installed cache, and bump
+the plugin's version in the same commit, or the installed session keeps serving the old list. When
+an entry changes a standing rule, promote it into the spec's body—the log grows, the body stays
+stable.
 
 A failure that **recurs** gets a second promotion: into the spec's **Contrast pairs** section, as
 the drafted sentence and the user's rewrite, verbatim. The pairs are what §2 imitates. The tendency
@@ -114,11 +118,11 @@ guessing. One-time setup; afterwards proceed from §1.
    (one entry per genre, size and form), **Contrast pairs** (seeded with one before→after pair
    contrasting a default-register draft with the samples), **Delta log** (starts empty), and
    **Procedure** (§1–§4 in a line each, so the spec stands alone).
-5. **Route the always-on rules** the samples imply: the step-3 prohibitions belong in this plugin's
-   `hooks/rules.md`, which already loads every session and already carries the typography and
-   banned-vocabulary rules—add only what it lacks. Add a pointer to `$VOICE` there when it isn't the
-   default. Show any edit and ask before making it, and bump the plugin `version` in the same
-   commit.
+5. **Route the always-on rules** the samples imply: the step-3 prohibitions belong in the always-on
+   file §0 names, which already includes the typography and banned-vocabulary rules when it is the
+   `writing-conventions` file—add only what it lacks. With no always-on file, they go in the spec's
+   own prohibitions section. Show any edit and ask before making it, and where the file ships from a
+   plugin, bump that plugin's version in the same commit.
 6. **Say what you could not derive.** A genre with no sample gets no entry—don't invent one.
 
 A **seed spec**—a `share-ghostwriting-spec` export—replaces derivation from scratch: copy it in as

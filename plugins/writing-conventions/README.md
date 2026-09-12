@@ -6,9 +6,9 @@ injected at the start of every session and every subagent, so they bind without 
 skill.
 
 Every rule in that list arrived the same way: a specific draft came back wrong, and the correction
-became a rule. The `ghostwrite` skill is where that loop runs—draft, hand over, classify the user's
-edit, route the resulting rule to the file it belongs in. Keeping the loop running is the second
-thing this plugin is for.
+became a rule. `write-for-the-reader` is where a word you flag gets logged into the list. The
+`ghostwriting-skills` plugin, which drafts text that ships under your name, routes the general rules
+it learns from your edits into the same file when this plugin is installed.
 
 Writing in either direction can turn into a decision you cannot take back, so `ask-when-needed`
 stops and asks instead of guessing.
@@ -58,24 +58,6 @@ bump in the same commit or the session keeps serving the old list.
 
 ## Skills
 
-### `ghostwrite`
-
-The correction loop, and the drafting protocol it runs inside. Drafts text that ships under your
-name—issues, PRs, comments, commit messages, docs, code comments—from a voice spec built out of
-your own hand-written samples, then hands the draft over for your explicit go rather than posting
-it. Once you edit it, the skill diffs your version against its own and classifies each change: a
-rule the spec never covered earns a new entry, and a rule the spec already covered that the draft
-broke anyway is recorded as a procedure failure and earns nothing.
-
-Each new rule is then routed by audience. A rule general enough to bind every reply goes into
-`hooks/rules.md`, where it becomes part of the always-on set above and ships to everyone who
-installs the plugin. A rule about the form or length of one genre stays in your private voice spec,
-which is where the part of your writing that does not generalize belongs: how long your PR bodies
-run, how you hedge, whether your code comments default to zero.
-
-Runs a bootstrap interview when you have no spec yet, and says what it could not derive rather than
-inventing it.
-
 ### `write-for-the-reader`
 
 Governs what the agent writes to you: chat replies, summaries, wrap-ups. Assumes you have read
@@ -96,17 +78,3 @@ keeps moving, including "should I proceed?" once you have already said what to d
 as an `AskUserQuestion` with two to four options, each naming what it costs as well as what it
 buys. A subagent with no one to ask puts the decision and its options in its report instead of
 settling it silently.
-
-### `share-ghostwriting-spec`
-
-Exports your voice spec as an anonymized seed a teammate can bootstrap from: keeps the per-genre
-caps and procedure, drops the delta log and corpus, scrubs names and URLs and quoted drafts, and
-shows you the full export before anything ships anywhere shared.
-
-## Your voice data never enters this repo
-
-`voice-spec.md` and the `corpus/` of hand-written samples it is built from live at
-`$GHOSTWRITING_DIR`, defaulting to `~/.claude/ghostwriting/`—a path that can itself be a symlink
-into a private repo. Nothing about your voice is written into this plugin or this repo.
-`share-ghostwriting-spec` exists for the one case where something does leave your machine: it
-hands a teammate an anonymized seed to bootstrap their own spec from, not a copy of yours.

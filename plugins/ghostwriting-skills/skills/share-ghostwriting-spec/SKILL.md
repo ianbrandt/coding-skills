@@ -17,6 +17,8 @@ voice. The user reviews it before it leaves their machine: **building the export
 it is theirs.**
 
 ## 0. Locate the spec
+The plugin's `voice_dir` option is: `${user_config.voice_dir}` (empty when the user set none). When
+it is set, use it as `$VOICE` in place of the default below.
 ```bash
 VOICE=${GHOSTWRITING_DIR:-$HOME/.claude/ghostwriting}
 [ -f "$VOICE/voice-spec.md" ] && echo "spec: $VOICE/voice-spec.md" || echo "NO SPEC"
