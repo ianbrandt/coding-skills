@@ -1,6 +1,5 @@
 ---
 type: regex
-pattern: ' — | – |^— |—$'
-flags: m
+pattern: '[ \t]—|—[ \t]|[ \t]–|–[ \t]'
 match: not_contains
 ---
