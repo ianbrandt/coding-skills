@@ -61,6 +61,24 @@ installed, which is also what gives Claude Code its Bash tool there. On a native
 without Git Bash, Claude Code runs hooks in PowerShell, and these three will fail quietly; the
 session-start rules still load, since that hook is a plain `cat`.
 
+## The gate at publication
+
+The census behind this plugin found that 101 of 107 corrections landed on text that ships: PR
+bodies, comments, issue bodies, commit messages, docs. A lint over chat never sees those, so a
+`PreToolUse` hook watches the commands that publish them: `git commit`, `gh pr create`, `gh pr
+edit`, `gh pr comment`, `gh pr review`, `gh issue create`, `gh issue comment`, and `gh release
+create`. It is a prompt-type hook, so a small model reads the command, pulls out the commit message
+or the title and body, and checks that text against the four prohibitions: inanimate agency,
+spaced em dashes, the banned words, and epigrams. It never judges form or length. A violation it
+can quote comes back as the tool's error, with the sentence and a plain rewrite, and the session
+fixes the text and runs the command again; anything else, including a message read from a file,
+is allowed through. The cost is one small-model call per gated command, a few times a session,
+and a few seconds of latency on each.
+
+Nothing else is gated. A `git push` is not read, because a branch name is chosen long before it,
+and a `Write` or `Edit` is nudged rather than blocked, because a file is cheap to fix after the
+fact and a blocked edit stops the turn.
+
 Adding a word to the banned list is a plugin release rather than a local edit: an installed session
 reads a version-keyed cache, so the plugin's `version` in `.claude-plugin/marketplace.json` has to
 bump in the same commit or the session keeps serving the old list.
