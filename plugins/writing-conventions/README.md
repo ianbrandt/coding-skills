@@ -127,6 +127,12 @@ the difference. Every run costs a fraction of a dollar in judge and agent calls,
 for a change to the rules file or the hooks, not for every commit. Results land under
 `evals/results/`, which is ignored.
 
+Before the prompts were seeded and the judge changed, the plugin raised the mean case score by
+0.06. After both changes, the gain was about 0.20, measured on 2026-09-13. Plugin-loaded drafts
+failed a regex grader on one run of 24 and the personification judge on 3. Tells copied from the
+facts still get through: in the PR body case, "the README told users" appeared in one of two
+plugin-loaded drafts, in each of two separate runs.
+
 ## Skills
 
 ### `write-for-the-reader`
