@@ -102,7 +102,11 @@ bump in the same commit or the session keeps serving the old list.
 [`evals/`](evals/) is a `claude plugin eval` suite of twelve drafting tasks built from the
 corrections that motivated this plugin: commit messages, PR bodies, an issue body, a maintainer
 comment, a README paragraph, KDoc, a changelog entry, Spock method names, a code comment, and a
-status reply. In each prompt the facts are stated the way a user would state them, without the rules, and each
+status reply. In each prompt the facts are stated the way a user would state them, without the rules.
+In four of them (a PR body, a commit message, the issue body, and the status reply) the facts are
+written with tells a session is likely to copy into a draft: a personified report or build, a spaced em
+dash, a banned word, or a "whose" after a file. A session often paraphrases source text, and with
+clean facts the scores with and without the plugin differed little. Each
 case has three free regex graders (spaced dashes, the banned words that have no literal sense, and
 a narrow personification pattern over present-tense verbs and a fixed noun list), a judge-model
 grader for personification, and where the genre calls for it, a judge grader for form. The form
