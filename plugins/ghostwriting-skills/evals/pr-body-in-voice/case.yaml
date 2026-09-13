@@ -1,0 +1,55 @@
+schema_version: "1.0"
+name: pr-body-in-voice
+description: Ghostwrite a PR body from a fixture voice spec, and check the hand-over for register tells and dropped facts.
+tags: [pr, ghostwrite]
+runs: 4
+context:
+  scaffold_script: scaffold.sh
+execution:
+  max_turns: 20
+  timeout_seconds: 900
+  allowed_tools: [Read, Glob, Grep, Skill, Agent]
+  prompt: |
+    Ghostwrite the PR description I'll post under my name. My voice data is in ./voice (voice-spec.md and corpus/). Reply with the body only; I'll review it before posting.
+
+    The PR is for rotor, a log rotation tool. The pruner deletes an archive once it is older than the retention window. It computed an archive's age from the file's modification time. When archives are copied to an NFS mount, the copy resets the modification time to the time of the copy, so archives past the retention window were kept forever. The pruner now reads the date from the archive's file name, for example app-2026-08-01.log.gz, and uses the modification time only when the name has no date. A new test covers an archive copied with a fresh modification time. Fixes #241.
+graders:
+  - name: used-subagent
+    type: tool_used
+    tool: Agent
+    arm: with-only
+  - name: no-spaced-dash
+    type: regex
+    pattern: '[ \t]—|—[ \t]|[ \t]–|–[ \t]'
+    match: not_contains
+  - name: no-banned-word
+    type: regex
+    pattern: '\b(load-bearing|vacuous(ly)?|non-vacuous|owed?|owes|de-?risk|deleak)\b'
+    flags: i
+    match: not_contains
+  - name: no-agency-regex
+    type: regex
+    pattern: '\b(the|a|an|this|that|its|each|every|no)\s+(\w+\s+){0,2}(report|build|entry|option|version|pr|file|name|filename|commit|test|spec|setting|config|archive|mount|copy|pruner|window|timestamp|date|change|body|script|hook)\s+(says|tells|wants|knows|decides|claims|asks|declares|carries|holds|owns|names|states|expects|believes|thinks|intends|refuses|assumes|promises|configures|judges|offers|teaches|respects)\b|\b(report|build|entry|option|version|pr|file|name|filename|commit|test|spec|setting|config|archive|mount|copy|script|hook),?\s+whose\b'
+    flags: i
+    match: not_contains
+  - name: no-agency
+    type: llm
+    criteria: >-
+      The reply may wrap the PR body in notes to the user; judge only the PR body.
+      Judge the text for personification of inanimate things. FAIL if any sentence gives an inanimate
+      subject (a file, file name, archive, mount, copy, config, option, version, PR, test, or similar)
+      a verb of speech, volition, cognition, or possession: says, tells, wants, knows, decides, claims,
+      asks, declares, carries, holds, owns, names, judges, offers, teaches, respects, or uses "whose"
+      after such a noun. A program doing its runtime job is not personification: the pruner deletes an
+      archive, a copy resets a timestamp, a test covers a case, a function returns. PASS if every
+      subject with such a verb is a person or a program doing its job, or the sentence is written
+      around what happens, with no agent. Quote the offending sentence when failing.
+  - name: facts-kept
+    type: llm
+    criteria: >-
+      The reply may wrap the PR body in notes to the user; judge only the PR body.
+      PASS if the body states all of these: the pruner now takes an archive's date from its file name;
+      it falls back to the modification time when the name has no date; the bug was that copying an
+      archive to an NFS mount reset its modification time, so old archives were never pruned; a test
+      covers the copied-archive case; and it fixes #241. A close paraphrase counts. FAIL if any of these
+      is missing or stated wrongly, or if the body adds a claim about behavior or tests beyond them. Name the missing or wrong fact.

@@ -1,0 +1,56 @@
+schema_version: "1.0"
+name: pr-body-report-constraint
+description: Ghostwrite a PR body about a dependency report and a version range, and check the hand-over for register tells and dropped facts.
+tags: [pr, ghostwrite]
+runs: 4
+context:
+  scaffold_script: scaffold.sh
+execution:
+  max_turns: 20
+  timeout_seconds: 900
+  allowed_tools: [Read, Glob, Grep, Skill, Agent]
+  prompt: |
+    Ghostwrite the PR description I'll post under my name. My voice data is in ./voice (voice-spec.md and corpus/). Reply with the body only; I'll review it before posting.
+
+    The PR is for tally, a Gradle plugin that prints a report of dependency updates. A build script can set a version range on a dependency, for example `[1.2,2.0)`. For such a dependency the report listed the newest release, 2.1, as the available update, even though 2.1 is outside the range and Gradle would never resolve it. With this change the report lists the newest version inside the range as the update, and lists the newest version outside the range on a separate line marked "outside range". A new task property, `showOutsideRange`, turns that second line off; it is on by default. The README section on version ranges now covers the property. Fixes #88.
+graders:
+  - name: used-subagent
+    type: tool_used
+    tool: Agent
+    arm: with-only
+  - name: no-spaced-dash
+    type: regex
+    pattern: '[ \t]—|—[ \t]|[ \t]–|–[ \t]'
+    match: not_contains
+  - name: no-banned-word
+    type: regex
+    pattern: '\b(load-bearing|vacuous(ly)?|non-vacuous|owed?|owes|de-?risk|deleak)\b'
+    flags: i
+    match: not_contains
+  - name: no-agency-regex
+    type: regex
+    pattern: '\b(the|a|an|this|that|its|each|every|no)\s+(\w+\s+){0,2}(report|build|entry|option|version|pr|file|commit|test|spec|setting|config|range|constraint|property|task|plugin|dependency|readme|section|line|change|body|script|hook)\s+(says|tells|wants|knows|decides|claims|asks|declares|carries|holds|owns|names|states|expects|believes|thinks|intends|refuses|assumes|promises|configures|judges|offers|teaches|respects)\b|\b(report|build|entry|option|version|pr|file|commit|test|spec|setting|config|range|constraint|property|task|plugin|dependency|readme|section|script|hook),?\s+whose\b'
+    flags: i
+    match: not_contains
+  - name: no-agency
+    type: llm
+    criteria: >-
+      The reply may wrap the PR body in notes to the user; judge only the PR body.
+      Judge the text for personification of inanimate things. FAIL if any sentence gives an inanimate
+      subject (a report, build, build script, range, constraint, property, task, version, README, PR, or similar)
+      a verb of speech, volition, cognition, or possession: says, tells, wants, knows, decides, claims,
+      asks, declares, carries, holds, owns, names, judges, offers, teaches, respects, or uses "whose"
+      after such a noun. A program doing its runtime job is not personification: the plugin prints a report, Gradle resolves a
+      version, a property turns a line off, a function returns. PASS if every
+      subject with such a verb is a person or a program doing its job, or the sentence is written
+      around what happens, with no agent. Quote the offending sentence when failing.
+  - name: facts-kept
+    type: llm
+    criteria: >-
+      The reply may wrap the PR body in notes to the user; judge only the PR body.
+      PASS if the body states all of these: for a dependency with a version range set in the build
+      script, the report now lists the newest version inside the range as the update; the newest version
+      outside the range is listed on a separate line; the bug was that a version outside the range,
+      such as 2.1 for `[1.2,2.0)`, was listed as the update; a `showOutsideRange` property, on by
+      default, turns that line off; the README covers the property; and it fixes #88. A close paraphrase counts. FAIL if any of these
+      is missing or stated wrongly, or if the body adds a claim about behavior or tests beyond them. Name the missing or wrong fact.

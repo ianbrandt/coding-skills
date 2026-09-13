@@ -41,6 +41,23 @@ quoted drafts are scrubbed; and the export is written to a file beside your spec
 before it goes anywhere. A recipient runs the `ghostwrite` bootstrap with the seed: your caps become
 their starting point, while their voice comes from their own samples.
 
+## Measuring it
+
+[`evals/`](evals/) is a `claude plugin eval` suite of two PR-body drafting tasks. Each case runs
+`ghostwrite` against a fixture voice spec for an invented maintainer, copied into the workspace by a
+scaffold script, and grades the reply for spaced dashes, banned words, and personified subjects,
+plus a judge-model check that the body kept every fact it was given. Run it from the plugin
+directory:
+
+```bash
+claude plugin eval . --scaffold --runs 4 --judge-model sonnet --no-publish
+```
+
+The cases grant no shell and load no `writing-conventions`, so the lint step in `ghostwrite` does
+not run, and the rewrite pass is all the suite measures. Both prompts are single turns, and on those the default register
+is already clean: every arm, including no plugin, passes personification on nearly every run.
+Results land under `evals/results/`, which is ignored.
+
 ## Works with `writing-conventions`
 
 Neither plugin needs the other. `writing-conventions` loads the prohibitions every session (no
