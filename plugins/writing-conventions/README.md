@@ -105,7 +105,10 @@ comment, a README paragraph, KDoc, a changelog entry, Spock method names, a code
 status reply. In each prompt the facts are stated the way a user would state them, without the rules, and each
 case has three free regex graders (spaced dashes, the banned words that have no literal sense, and
 a narrow personification pattern over present-tense verbs and a fixed noun list), a judge-model
-grader for personification, and where the genre has a cap, a judge grader for form.
+grader for personification, and where the genre calls for it, a judge grader for form. The form
+graders check only this plugin's own rules: lead with the outcome, and no narration of how the
+change came about. Sentence counts and heading limits are left to `ghostwrite`, since a limit
+stated in the prompt measures whether the model follows the prompt.
 The personification judge fails a draft only for a sentence it can quote. With the looser wording
 and the default Haiku judge, it failed 11 of 24 runs both with and without the plugin loaded, and
 only one of the 11 flagged drafts had a real violation.
