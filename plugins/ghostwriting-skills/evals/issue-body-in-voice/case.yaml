@@ -46,7 +46,9 @@ graders:
   - name: form
     type: llm
     criteria: >-
-      The reply may wrap the issue body in notes to the user; judge only the issue body.
+      The reply may wrap the issue body in notes to the user; judge only the issue body. Notes before or after
+      the body are not part of it, including a single closing line about a check that did not run or a
+      question for the user.
       PASS if the body opens with one to three sentences of prose stating the problem, followed only by
       exhibits (a fenced reproduction, fenced output, or short one-fact bullets such as the version), with
       no section headings such as "Steps to reproduce", "Expected", or "Actual", and no proposed fix.
@@ -54,10 +56,13 @@ graders:
   - name: facts-kept
     type: llm
     criteria: >-
-      The reply may wrap the issue body in notes to the user; judge only the issue body.
+      The reply may wrap the issue body in notes to the user; judge only the issue body. Notes before or after
+      the body are not part of it, including a single closing line about a check that did not run or a
+      question for the user.
       PASS if the body states all of these: a later version is listed as an update for a library that an
       applied platform (BOM) pins to an exact version; that upgrade cannot be applied; the reproduction
       uses the spring-boot-dependencies 3.3.0 platform and jackson-databind with no version and runs
       `./gradlew tallyReport`; the output shows `jackson-databind [2.17.1 -> 2.18.2]` while 2.17.1 is
-      pinned; and it was seen on tally 0.9.0. A close paraphrase counts. FAIL if any of these is missing
-      or stated wrongly, or if the body adds a claim about behavior beyond them. Name the missing or wrong fact.
+      pinned; and it was seen on tally 0.9.0. A close paraphrase counts. FAIL only when you can name a fact that is missing or stated wrongly,
+      or quote a sentence of the body that adds a claim about behavior beyond them, and start with
+      that fact or quote. PASS in every other case, including when you are unsure.

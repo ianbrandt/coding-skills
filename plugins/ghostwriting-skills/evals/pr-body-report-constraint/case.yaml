@@ -46,17 +46,22 @@ graders:
   - name: form
     type: llm
     criteria: >-
-      The reply may wrap the PR body in notes to the user; judge only the PR body.
+      The reply may wrap the PR body in notes to the user; judge only the PR body. Notes before or after
+      the body are not part of it, including a single closing line about a check that did not run or a
+      question for the user.
       PASS if the body is one to four sentences of prose (a Fixes #N line does not count), has no
       headings and no bullet list, and opens with what the change does. FAIL otherwise, and name the
       part that breaks the limit.
   - name: facts-kept
     type: llm
     criteria: >-
-      The reply may wrap the PR body in notes to the user; judge only the PR body.
+      The reply may wrap the PR body in notes to the user; judge only the PR body. Notes before or after
+      the body are not part of it, including a single closing line about a check that did not run or a
+      question for the user.
       PASS if the body states all of these: for a dependency with a version range set in the build
       script, the report now lists the newest version inside the range as the update; the newest version
       outside the range is listed on a separate line; the bug was that a version outside the range,
       such as 2.1 for `[1.2,2.0)`, was listed as the update; a `showOutsideRange` property, on by
-      default, turns that line off; the README covers the property; and it fixes #88. A close paraphrase counts. FAIL if any of these
-      is missing or stated wrongly, or if the body adds a claim about behavior or tests beyond them. Name the missing or wrong fact.
+      default, turns that line off; the README covers the property; and it fixes #88. A close paraphrase counts. FAIL only when you can name a fact that is missing or stated wrongly,
+      or quote a sentence of the body that adds a claim about behavior or tests beyond them, and start with
+      that fact or quote. PASS in every other case, including when you are unsure.
