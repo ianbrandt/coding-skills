@@ -106,10 +106,13 @@ status reply. In each prompt the facts are stated the way a user would state the
 case has three free regex graders (spaced dashes, the banned words that have no literal sense, and
 a narrow personification pattern over present-tense verbs and a fixed noun list), a judge-model
 grader for personification, and where the genre has a cap, a judge grader for form.
+The personification judge fails a draft only for a sentence it can quote. With the looser wording
+and the default Haiku judge, it failed 11 of 24 runs both with and without the plugin loaded, and
+only one of the 11 flagged drafts had a real violation.
 Run it from the plugin directory:
 
 ```bash
-claude plugin eval . --runs 2 --no-publish
+claude plugin eval . --runs 2 --judge-model sonnet --no-publish
 ```
 
 The default two-arm run scores the same prompts with and without the plugin loaded and reports

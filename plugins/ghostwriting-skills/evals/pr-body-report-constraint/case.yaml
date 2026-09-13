@@ -36,14 +36,13 @@ graders:
     type: llm
     criteria: >-
       The reply may wrap the PR body in notes to the user; judge only the PR body.
-      Judge the text for personification of inanimate things. FAIL if any sentence gives an inanimate
+      Judge the text for personification of inanimate things. FAIL only for a sentence you can quote in which an inanimate
       subject (a report, build, build script, range, constraint, property, task, version, README, PR, or similar)
-      a verb of speech, volition, cognition, or possession: says, tells, wants, knows, decides, claims,
-      asks, declares, carries, holds, owns, names, judges, offers, teaches, respects, or uses "whose"
-      after such a noun. A program doing its runtime job is not personification: the plugin prints a report, Gradle resolves a
-      version, a property turns a line off, a function returns. PASS if every
-      subject with such a verb is a person or a program doing its job, or the sentence is written
-      around what happens, with no agent. Quote the offending sentence when failing.
+      takes a verb of speech, volition, cognition, or possession: says, tells, wants, knows, decides, claims,
+      asks, declares, carries, holds, owns, names, judges, offers, teaches, respects, documents, or "whose"
+      directly after such a noun. A program doing its runtime job is not personification: the plugin prints a report, Gradle resolves a
+      version, a property turns a line off, a function returns. A sentence written around what happens, with no agent,
+      passes. PASS in every other case, including when you are unsure. When failing, start with the quoted sentence.
   - name: facts-kept
     type: llm
     criteria: >-
