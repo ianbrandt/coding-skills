@@ -70,16 +70,32 @@ sentence rhythm included, and only then check the rule list for what imitation m
 to match the user's own sentences lands the register more reliably than text written from
 prohibitions; a draft written from the rule list alone drifts back to the default register.
 
-## 3. Self-review, rewrite, lint, then hand it over
+## 3. Self-review, lint, rewrite, then hand it over
 Check the draft against the spec rule by rule and fix what you broke **before** the user sees it; a
 rule you broke and fixed yourself still goes to §4 as a procedure failure, recorded when §4 runs.
 
-Self-review is not enough for register tells: you re-read your own draft with the same tendency
-that produced it, and its tells read as natural. A report of violations is not enough either, since
-each fix comes from that same tendency, and rounds of find-and-fix rarely converge. So before the
-first hand-over of a piece, **have a fresh-context subagent rewrite it**. Give the subagent nothing
-but the draft verbatim, the always-on rules file §0 names (or the spec's prohibitions when there is
-none), the spec's **Contrast pairs** section verbatim, the genre's cap, and this brief:
+**Then run the lint over the draft.** With `writing-conventions` installed, its `lint.awk` prints
+one line per flagged sentence, and prints nothing for clean text:
+```bash
+LINT=$(ls -d "${CLAUDE_CONFIG_DIR:-$HOME/.claude}"/plugins/cache/*/writing-conventions/*/hooks/lint.awk 2>/dev/null | sort -V | tail -1)
+[ -n "$LINT" ] && awk -f "$LINT" "$DRAFT" || echo "no lint installed"   # $DRAFT: a scratch file holding the draft
+```
+Fix a real hit by hand, in place, and leave a false positive alone. With no lint installed or no
+shell, use the hand-over line to say the lint did not run.
+
+**A short draft with no lint hits skips the rewrite below and goes straight to the hand-over.**
+Short means up to about five sentences of prose, which covers most PR bodies, comments, and commit
+messages; fenced exhibits do not count. On drafts that size the rewrite has returned the text word
+for word, or swapped one inanimate-agency break for another, at over a minute and tens of thousands
+of tokens per piece. A longer draft, or a short one the lint flagged, gets the rewrite.
+
+Self-review is not enough for register tells in a longer draft: you re-read your own draft with the
+same tendency that produced it, and its tells read as natural. A report of violations is not enough
+either, since each fix comes from that same tendency, and rounds of find-and-fix rarely converge. So
+before the first hand-over of such a piece, **have a fresh-context subagent rewrite it**. Give the
+subagent nothing but the draft verbatim, the always-on rules file §0 names (or the spec's
+prohibitions when there is none), the spec's **Contrast pairs** section verbatim, the genre's cap,
+and this brief:
 
 > Rewrite the draft so it breaks none of the rules, imitating the right-hand side of each contrast
 > pair. For every sentence, find the subject and check its verb against the inanimate-agency rule;
@@ -93,19 +109,11 @@ in given text. Then check the rewrite before you adopt it:
 
 1. **Diff it against your draft for meaning.** Restore any fact the rewrite dropped or changed, and
    remove anything it added.
-2. **Run the lint over it**, because tells survive a rewrite. With `writing-conventions` installed,
-   its `lint.awk` prints one line per flagged sentence, and prints nothing for clean text:
-   ```bash
-   LINT=$(ls -d "${CLAUDE_CONFIG_DIR:-$HOME/.claude}"/plugins/cache/*/writing-conventions/*/hooks/lint.awk 2>/dev/null | sort -V | tail -1)
-   [ -n "$LINT" ] && awk -f "$LINT" "$DRAFT" || echo "no lint installed"   # $DRAFT: a scratch file holding the rewrite
-   ```
-   Fix a real hit by hand, in place, and leave a false positive alone. Don't send the text back for
-   another rewrite round. With no lint installed or no shell, use the hand-over line to say the
-   lint did not run.
+2. **Run the lint over it again**, because tells survive a rewrite. Fix a real hit by hand, in
+   place, and don't send the text back for another rewrite round.
 
 Each rule break the rewrite or the lint fixed is a §4 procedure failure. Re-run the rewrite only
-after substantive redrafting. For a draft of a sentence or two, skip the rewrite but still run the
-lint.
+after substantive redrafting.
 
 Then hand it over: the body exactly as asked, and nothing else. At most one line may follow it, and
 only to say that a check did not run, to ask a question that must be settled before posting, or to
