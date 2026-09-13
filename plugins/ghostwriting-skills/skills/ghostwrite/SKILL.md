@@ -60,6 +60,11 @@ never for thoroughness. A fact the user gave always forces it: never drop a give
 Keep the fact, and use the hand-over line (§3) to say which part runs over. Everything else about the
 draft comes from the spec, not your defaults.
 
+**Check the end of the body against the form, not only the opening.** When the genre's entry is
+opening prose and then exhibits, as an issue entry usually is, every line after the first exhibit is
+an exhibit too. A fact left over at the end, such as the version where the problem was seen, goes in
+a one-fact bullet or in the opening sentences, never in a closing sentence of prose.
+
 **Imitate, then check.** Draft by matching the corpus samples and the spec's **Contrast pairs**,
 sentence rhythm included, and only then check the rule list for what imitation missed. Text written
 to match the user's own sentences lands the register more reliably than text written from
