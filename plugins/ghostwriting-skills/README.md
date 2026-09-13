@@ -81,6 +81,17 @@ facts judge, and two of them left out that `showOutsideRange` is on by default. 
 plugin scored 0.11 lower: all three plugin-loaded bodies failed form, and two of them put a sentence
 of prose after the fenced exhibits, which the spec's issue limit forbids.
 
+Later on 2026-09-13, `ghostwrite` was changed to check the end of a body against the genre's form,
+so a fact left after the exhibits goes in a one-fact bullet. With three runs per case, the plugin
+scored 0.94 on average and no plugin scored 0.87, a gap of +0.07. On the pruner PR the plugin scored
+1.00 and no plugin 0.78, with two replies without the plugin failing on a spaced dash in a closing
+note. On the report PR the plugin scored 0.94 and no plugin 0.89. On the issue the plugin scored
+0.89 and no plugin 0.94. Two plugin-loaded bodies moved the version into a bullet and still failed
+form with three FAIL votes each. Given the same body and criteria by hand, the same judge model
+passed both, so the remaining issue gap is most likely judge variance rather than a closing sentence
+of prose. The third plugin-loaded body still put "Seen on tally 0.9.0." on its own line after the
+bullets, and passed form.
+
 ## Works with `writing-conventions`
 
 Neither plugin needs the other. `writing-conventions` loads the prohibitions every session (no
