@@ -67,15 +67,20 @@ session-start rules still load, since that hook is a plain `cat`.
 The census behind this plugin found that 101 of 107 corrections landed on text that ships: PR
 bodies, comments, issue bodies, commit messages, docs. A lint over chat never sees those, so a
 `PreToolUse` hook watches the commands that publish them: `git commit` and every `gh pr`,
-`gh issue`, and `gh release` subcommand. It is a prompt-type hook, so a small model reads the
-command, pulls out the commit message or the title and body, and checks that text against the four
+`gh issue`, and `gh release` subcommand. It is a prompt-type hook, so a model reads the command,
+pulls out the commit message or the title and body, and checks that text against the four
 prohibitions: inanimate agency, spaced em dashes, the banned words, and epigrams. It never judges
 form or length. A violation it can quote comes back as the tool's error, with the sentence and a
 plain rewrite, and the session fixes the text and runs the command again; a command that publishes
 nothing new (`gh pr view`, `gh pr checks`, `--amend --no-edit`, a label change) is let through by the
 prompt, as is a body read from a file path, which the command does not contain.
 
-The cost is one small-model call per `git commit` and per `gh pr`, `gh issue`, or `gh release`
+The `model` field on each handler is set to Sonnet. Claude Code's default for a prompt hook is
+Haiku, which denied 10 of 24 checks on a dozen clean commit messages and then rejected its own
+suggested rewrites, so a session could not commit at all. Sonnet allowed 23 of those 24, and both
+models denied all 16 checks on planted violations.
+
+The cost is one Sonnet call per `git commit` and per `gh pr`, `gh issue`, or `gh release`
 command, read-only ones included, and a few seconds of latency on each. The `if` filter on a hook is
 best-effort: when a command contains `$VAR`, `$()`, or a backtick, Claude Code runs every handler
 whose pattern names a subcommand, so a command such as `cd "$WT" && ./gradlew test` costs the four
