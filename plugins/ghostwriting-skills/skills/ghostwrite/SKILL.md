@@ -63,20 +63,41 @@ sentence rhythm included, and only then check the rule list for what imitation m
 to match the user's own sentences lands the register more reliably than text written from
 prohibitions; a draft written from the rule list alone drifts back to the default register.
 
-## 3. Self-review, sweep, then hand it over
+## 3. Self-review, rewrite, lint, then hand it over
 Check the draft against the spec rule by rule and fix what you broke **before** the user sees it; a
 rule you broke and fixed yourself still goes to §4 as a procedure failure.
 
 Self-review is not enough for register tells: you re-read your own draft with the same tendency
-that produced it, and its tells read as natural. So before the first hand-over of a piece, **run a
-fresh-context sweep**—a subagent given nothing but the draft verbatim, the always-on rules file §0
-names, and this brief: for every sentence, name the subject and check its verb against the
-inanimate-agency rule; for every noun, say whether it is the thing's literal name or a metaphor
-standing in for it; then check the banned vocabulary and the dash rule; report each violation with
-its sentence and the rule broken, or report a clean pass. A small model is enough—detecting a tell
-in given text is an easier task than not generating it. Fix the real findings (each is a §4
-procedure failure), re-run the sweep only after substantive redrafting, and skip it only for a
-draft of a sentence or two.
+that produced it, and its tells read as natural. A report of violations is not enough either, since
+each fix comes from that same tendency, and rounds of find-and-fix rarely converge. So before the
+first hand-over of a piece, **have a fresh-context subagent rewrite it**. Give the subagent nothing
+but the draft verbatim, the always-on rules file §0 names (or the spec's prohibitions when there is
+none), the spec's **Contrast pairs** section verbatim, the genre's cap, and this brief:
+
+> Rewrite the draft so it breaks none of the rules, imitating the right-hand side of each contrast
+> pair. For every sentence, find the subject and check its verb against the inanimate-agency rule;
+> replace a noun that stands in for a thing as a metaphor with the thing's literal name; fix dashes
+> and banned words. Keep every fact, number, name, link, code span, and fenced block as given, and
+> add nothing. Stay inside the cap. Return only the rewritten text.
+
+Pick a mid-tier model over the smallest: writing text without the tells is harder than spotting them
+in given text. Then check the rewrite before you adopt it:
+
+1. **Diff it against your draft for meaning.** Restore any fact the rewrite dropped or changed, and
+   remove anything it added.
+2. **Run the lint over it**, because tells survive a rewrite. With `writing-conventions` installed,
+   its `lint.awk` prints one line per flagged sentence, and prints nothing for clean text:
+   ```bash
+   LINT=$(ls -d "${CLAUDE_CONFIG_DIR:-$HOME/.claude}"/plugins/cache/*/writing-conventions/*/hooks/lint.awk 2>/dev/null | sort -V | tail -1)
+   [ -n "$LINT" ] && awk -f "$LINT" "$DRAFT" || echo "no lint installed"   # $DRAFT: a scratch file holding the rewrite
+   ```
+   Fix a real hit by hand, in place, and leave a false positive alone. Don't send the text back for
+   another rewrite round. With no lint installed or no shell, say in the hand-over that the lint
+   did not run.
+
+Each rule break the rewrite or the lint fixed is a §4 procedure failure. Re-run the rewrite only
+after substantive redrafting. For a draft of a sentence or two, skip the rewrite but still run the
+lint.
 
 Then show the draft in chat and wait for an explicit go. A question about scope or wording is the
 review happening, not its conclusion.
