@@ -43,7 +43,7 @@ no always-on file at all, the prohibitions go in the spec too.
 Read `voice-spec.md` end to end, delta log included, and read two or three corpus samples matching
 the genre—as models to imitate, not background.
 A summary carried in context is not the spec; re-read it per session. No corpus, or no sample for
-the genre ⇒ draft on the spec alone and flag the gap in §3.
+the genre ⇒ draft on the spec alone and record the gap in §4.
 
 **Re-read the always-on rules file §0 names in the same pass**, even though it loaded at session
 start: by drafting time that copy sits far back in the context, where it is weakly attended, and
@@ -55,8 +55,10 @@ agent, or by you hours ago. Calling a draft ready is drafting.
 
 ## 2. Draft to the spec
 Write to the spec's entry for the genre—its form and size. No entry ⇒ use the nearest neighbor
-and flag the gap in §3. **Caps are caps, not targets**: exceed one only when the content forces it,
-never for thoroughness. Everything else about the draft comes from the spec, not your defaults.
+and record the gap in §4. **Caps are caps, not targets**: exceed one only when the content forces it,
+never for thoroughness. A fact the user gave always forces it: never drop a given fact to fit a cap.
+Keep the fact, and use the hand-over line (§3) to say which part runs over. Everything else about the
+draft comes from the spec, not your defaults.
 
 **Imitate, then check.** Draft by matching the corpus samples and the spec's **Contrast pairs**,
 sentence rhythm included, and only then check the rule list for what imitation missed. Text written
@@ -65,7 +67,7 @@ prohibitions; a draft written from the rule list alone drifts back to the defaul
 
 ## 3. Self-review, rewrite, lint, then hand it over
 Check the draft against the spec rule by rule and fix what you broke **before** the user sees it; a
-rule you broke and fixed yourself still goes to §4 as a procedure failure.
+rule you broke and fixed yourself still goes to §4 as a procedure failure, recorded when §4 runs.
 
 Self-review is not enough for register tells: you re-read your own draft with the same tendency
 that produced it, and its tells read as natural. A report of violations is not enough either, since
@@ -78,7 +80,8 @@ none), the spec's **Contrast pairs** section verbatim, the genre's cap, and this
 > pair. For every sentence, find the subject and check its verb against the inanimate-agency rule;
 > replace a noun that stands in for a thing as a metaphor with the thing's literal name; fix dashes
 > and banned words. Keep every fact, number, name, link, code span, and fenced block as given, and
-> add nothing. Stay inside the cap. Return only the rewritten text.
+> add nothing. Stay inside the cap, unless that means dropping a fact; then keep the fact. Return only
+> the rewritten text.
 
 Pick a mid-tier model over the smallest: writing text without the tells is harder than spotting them
 in given text. Then check the rewrite before you adopt it:
@@ -92,18 +95,22 @@ in given text. Then check the rewrite before you adopt it:
    [ -n "$LINT" ] && awk -f "$LINT" "$DRAFT" || echo "no lint installed"   # $DRAFT: a scratch file holding the rewrite
    ```
    Fix a real hit by hand, in place, and leave a false positive alone. Don't send the text back for
-   another rewrite round. With no lint installed or no shell, say in the hand-over that the lint
-   did not run.
+   another rewrite round. With no lint installed or no shell, use the hand-over line to say the
+   lint did not run.
 
 Each rule break the rewrite or the lint fixed is a §4 procedure failure. Re-run the rewrite only
 after substantive redrafting. For a draft of a sentence or two, skip the rewrite but still run the
 lint.
 
-Then show the draft in chat and wait for an explicit go. A question about scope or wording is the
-review happening, not its conclusion.
+Then hand it over: the body exactly as asked, and nothing else. At most one line may follow it, and
+only to say that a check did not run, to ask a question that must be settled before posting, or to
+say which part runs over a cap (§2). That line follows the spec's prohibitions too. No rewrite notes,
+no draft history, no delta-log entries: those wait for §4. Then wait for an explicit go. A question
+about scope or wording is the review happening, not its conclusion.
 
 ## 4. Log the delta
-After the user edits a draft—or after a §3 self-correction—diff their version against yours and
+§4 runs once per piece, after the user edits the draft or gives the go, and never inside the
+hand-over. Diff their version against yours, add the rule breaks you fixed yourself in §3, and
 **classify each change first**; the two failures take opposite fixes:
 
 - **Missing rule**—the spec didn't cover it. Append a delta-log entry: date, the piece, what you

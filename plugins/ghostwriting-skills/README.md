@@ -23,9 +23,11 @@ The drafting protocol and the correction loop it runs inside.
   your spec's contrast pairs, since a draft's tells read as natural to the model that produced it.
   The rewrite is checked for dropped facts, then run through the `writing-conventions` lint when that
   plugin is installed, because some tells survive a rewrite. Then the draft goes in the reply for
-  your explicit go; drafting is the skill's, posting is yours.
-- **Log the delta** after you edit. A rule the spec was missing earns a new entry; a rule the spec
-  had and the draft broke anyway is recorded as a procedure failure and earns nothing. A rule general
+  your explicit go, with at most one line after it: a check that did not run, a question to settle
+  before posting, or the part that runs over a cap because a fact you gave would not fit. Drafting is
+  the skill's, posting is yours.
+- **Log the delta** once, after you edit or give the go, never in the hand-over. A rule the spec
+  was missing earns a new entry; a rule the spec had and the draft broke anyway is recorded as a procedure failure and earns nothing. A rule general
   enough to bind every reply is routed to the always-on writing rules file your session loads, when
   one does (the `writing-conventions` plugin's `hooks/rules.md`, or your global `CLAUDE.md`);
   everything about the form and size of one genre stays in your spec.
