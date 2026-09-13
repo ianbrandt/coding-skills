@@ -70,14 +70,16 @@ the reply around the body: every plugin-loaded reply added process notes that th
 ask for, such as the lint not running or a delta-log entry, and 7 of 9 of those notes had a spaced
 em dash, which fails the regex grader for the whole reply.
 
-Later on 2026-09-13, `ghostwrite` was changed to hand over the body and at most one line after it,
-and the suite was run again with three runs per case. The plugin still scored lower, by 0.15 on
-average: 0.67 on every plugin-loaded run, against 0.81 without the plugin. No plugin-loaded reply
-had a spaced dash, rewrite notes, or a delta-log entry. Each one ended with a one-line note that the
-lint did not run, which is expected, since the cases grant no shell. All 9 plugin-loaded runs failed
-both the form and the facts judges, though 7 of the 9 bodies above that note kept every fact within
-the limit. The judges most likely counted the note as part of the body. The facts judge also
-failed 8 of 9 runs without the plugin, so its verdicts need a read of the drafts before they count.
+Later on 2026-09-13, `ghostwrite` was changed to hand over the body and at most one line after it.
+The form and facts judges were also told that notes around the body are not part of it, and the facts
+judge now fails a run only when it can name a missing fact or quote an added claim. With three runs
+per case, the plugin and no plugin both scored 0.91, a gap of 0.00. No plugin-loaded reply had a
+spaced dash, rewrite notes, or a delta-log entry. Each one ended with a one-line note that the lint
+did not run, which is expected, since the cases grant no shell. Both arms scored 1.00 on the pruner
+PR. On the report PR the plugin scored 0.11 higher: all three bodies without the plugin failed the
+facts judge, and two of them left out that `showOutsideRange` is on by default. On the issue the
+plugin scored 0.11 lower: all three plugin-loaded bodies failed form, and two of them put a sentence
+of prose after the fenced exhibits, which the spec's issue limit forbids.
 
 ## Works with `writing-conventions`
 
