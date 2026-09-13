@@ -43,6 +43,13 @@ graders:
       directly after such a noun. A program doing its runtime job is not personification: the pruner deletes an
       archive, a copy resets a timestamp, a test covers a case, a function returns. A sentence written around what happens, with no agent,
       passes. PASS in every other case, including when you are unsure. When failing, start with the quoted sentence.
+  - name: form
+    type: llm
+    criteria: >-
+      The reply may wrap the PR body in notes to the user; judge only the PR body.
+      PASS if the body is one to four sentences of prose (a Fixes #N line does not count), has no
+      headings and no bullet list, and opens with what the change does. FAIL otherwise, and name the
+      part that breaks the limit.
   - name: facts-kept
     type: llm
     criteria: >-

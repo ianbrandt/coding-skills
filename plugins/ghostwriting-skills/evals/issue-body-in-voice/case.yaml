@@ -1,0 +1,63 @@
+schema_version: "1.0"
+name: issue-body-in-voice
+description: Ghostwrite an issue body from a fixture voice spec, with no length limit in the prompt, and check the hand-over against the spec's issue limit, register tells, and dropped facts.
+tags: [issue, ghostwrite]
+runs: 4
+context:
+  scaffold_script: scaffold.sh
+execution:
+  max_turns: 20
+  timeout_seconds: 900
+  allowed_tools: [Read, Glob, Grep, Skill, Agent]
+  prompt: |
+    Ghostwrite the body of a GitHub issue I'll file under my name. My voice data is in ./voice (voice-spec.md and corpus/). Reply with the body only; I'll review it before filing.
+
+    The issue is for tally, a Gradle plugin that prints a report of dependency updates. When a platform (BOM) applied to the build pins a library to an exact version, the report still lists a later version of that library as an available update, and that upgrade cannot be applied without changing the platform. Reproduction: a build with `implementation(platform("org.springframework.boot:spring-boot-dependencies:3.3.0"))` and `implementation("com.fasterxml.jackson.core:jackson-databind")`, running `./gradlew tallyReport`, prints `jackson-databind [2.17.1 -> 2.18.2]` although the platform pins 2.17.1. Seen on tally 0.9.0.
+graders:
+  - name: used-subagent
+    type: tool_used
+    tool: Agent
+    arm: with-only
+  - name: no-spaced-dash
+    type: regex
+    pattern: '[ \t]—|—[ \t]|[ \t]–|–[ \t]'
+    match: not_contains
+  - name: no-banned-word
+    type: regex
+    pattern: '\b(load-bearing|vacuous(ly)?|non-vacuous|owed?|owes|de-?risk|deleak)\b'
+    flags: i
+    match: not_contains
+  - name: no-agency-regex
+    type: regex
+    pattern: '\b(the|a|an|this|that|its|each|every|no)\s+(\w+\s+){0,2}(report|build|entry|option|version|file|commit|test|setting|config|platform|bom|constraint|property|task|plugin|dependency|library|upgrade|body|script|hook)\s+(says|tells|wants|knows|decides|claims|asks|declares|carries|holds|owns|names|states|expects|believes|thinks|intends|refuses|assumes|promises|configures|judges|offers|teaches|respects)\b|\b(report|build|entry|option|version|file|commit|test|setting|config|constraint|property|task|plugin|script|hook),?\s+whose\b'
+    flags: i
+    match: not_contains
+  - name: no-agency
+    type: llm
+    criteria: >-
+      The reply may wrap the issue body in notes to the user; judge only the issue body.
+      Judge the text for personification of inanimate things. FAIL only for a sentence you can quote in which an inanimate
+      subject (a report, build, build script, platform, BOM, constraint, version, upgrade, or similar)
+      takes a verb of speech, volition, cognition, or possession: says, tells, wants, knows, decides, claims,
+      asks, declares, carries, holds, owns, names, judges, offers, teaches, respects, documents, or "whose"
+      directly after such a noun. A program doing its runtime job is not personification: the plugin prints a report, Gradle resolves a
+      version, a platform pins a version, a function returns. A sentence written around what happens, with no agent,
+      passes. PASS in every other case, including when you are unsure. When failing, start with the quoted sentence.
+  - name: form
+    type: llm
+    criteria: >-
+      The reply may wrap the issue body in notes to the user; judge only the issue body.
+      PASS if the body opens with one to three sentences of prose stating the problem, followed only by
+      exhibits (a fenced reproduction, fenced output, or short one-fact bullets such as the version), with
+      no section headings such as "Steps to reproduce", "Expected", or "Actual", and no proposed fix.
+      FAIL otherwise, and name the part that breaks the limit.
+  - name: facts-kept
+    type: llm
+    criteria: >-
+      The reply may wrap the issue body in notes to the user; judge only the issue body.
+      PASS if the body states all of these: a later version is listed as an update for a library that an
+      applied platform (BOM) pins to an exact version; that upgrade cannot be applied; the reproduction
+      uses the spring-boot-dependencies 3.3.0 platform and jackson-databind with no version and runs
+      `./gradlew tallyReport`; the output shows `jackson-databind [2.17.1 -> 2.18.2]` while 2.17.1 is
+      pinned; and it was seen on tally 0.9.0. A close paraphrase counts. FAIL if any of these is missing
+      or stated wrongly, or if the body adds a claim about behavior beyond them. Name the missing or wrong fact.

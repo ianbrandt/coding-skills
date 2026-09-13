@@ -43,20 +43,30 @@ their starting point, while their voice comes from their own samples.
 
 ## Measuring it
 
-[`evals/`](evals/) is a `claude plugin eval` suite of two PR-body drafting tasks. Each case runs
+[`evals/`](evals/) is a `claude plugin eval` suite of two PR-body drafting tasks and one issue-body task. Each case runs
 `ghostwrite` against a fixture voice spec for an invented maintainer, copied into the workspace by a
-scaffold script, and grades the reply for spaced dashes, banned words, and personified subjects,
-plus a judge-model check that the body kept every fact it was given. Run it from the plugin
-directory:
+scaffold script, and grades the reply for spaced dashes, banned words, and personified subjects.
+Two judge-model checks follow: the body kept every fact it was given, and it fits the spec's limit
+for the genre. No length or format is given in any prompt, so a form pass means the limit was read
+from the spec. The spec's location is in the prompt for both runs, and the run without the plugin
+reads the spec too, so the two runs differ by the drafting procedure rather than by access to the
+spec. Run it
+from the plugin directory:
 
 ```bash
 claude plugin eval . --scaffold --runs 4 --judge-model sonnet --no-publish
 ```
 
 The cases grant no shell and load no `writing-conventions`, so the lint step in `ghostwrite` does
-not run, and the rewrite pass is all the suite measures. Both prompts are single turns, and on those the default register
+not run, and the rewrite pass is all the suite measures. Every prompt is a single turn, and on those the default register
 is already clean: every arm, including no plugin, passes personification on nearly every run.
 Results land under `evals/results/`, which is ignored.
+
+On 2026-09-13, with three runs per case, the plugin scored lower than no plugin, by 0.28 on
+average. The drafted bodies met the spec's limits about as often in both runs. The gap came from
+the reply around the body: every plugin-loaded reply added process notes that the prompt did not
+ask for, such as the lint not running or a delta-log entry, and 7 of 9 of those notes had a spaced
+em dash, which fails the regex grader for the whole reply.
 
 ## Works with `writing-conventions`
 

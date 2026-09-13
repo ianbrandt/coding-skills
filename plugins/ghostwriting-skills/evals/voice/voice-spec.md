@@ -24,6 +24,8 @@ person's writing is in this file.
 
 - **PR body**: one to four sentences of prose, no headings, no bullet list. Open with what the change
   does. A `Fixes #N` line at the end does not count toward the cap.
+- **Issue**: one to three sentences stating the problem, then exhibits only: a fenced reproduction,
+  fenced output, or short one-fact bullets. No section headings, and no proposed fix unless asked.
 - **Commit message**: a subject under 60 characters in the imperative; a body only for the reason.
 
 ## Contrast pairs
