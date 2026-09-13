@@ -9,14 +9,15 @@ description: >-
   hooks/rules.md. Trigger when writing a summary, a wrap-up, or a status
   message, when a reply is running long or turning abstract, and on "that's
   jargon" / "log that word" / "too much detail". NOT for text publishing under
-  the user's name (that's ghostwrite), and NOT for deciding when to stop and ask
+  the user's name when ghostwrite is installed (then that's ghostwrite), and NOT for deciding when to stop and ask
   (that's ask-when-needed).
 ---
 
 # Write for the reader—register, context, and altitude
 
 This skill governs writing **to** the user. `ghostwrite`, in the `ghostwriting-skills` plugin,
-governs writing **as** the user, for text they sign and post. Escalation—when to stop and hand over
+governs writing **as** the user, for text they sign and post, when that plugin is installed. Without
+it, this skill covers that text too. Escalation—when to stop and hand over
 a decision—belongs to `ask-when-needed` in the `orchestration-skills` plugin; write none of it here.
 
 This plugin's `hooks/rules.md` loads every session and carries the short form: eight named
