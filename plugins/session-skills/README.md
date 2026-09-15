@@ -8,6 +8,11 @@ those two points is the repo's business, not this plugin's.
 
 ### `work-in-worktree`
 
+Fetch first, and branch from `origin/<default>` rather than the local default branch: nothing
+local shows whether the checkout is current, so a stale branch point either surfaces at push time as
+a rejected non-fast-forward or never surfaces and the work merges on top of code it never saw. The
+same fetch guards a one-line edit to a file another machine also edits.
+
 Adopt the worktree work is already in flight on, or open a fresh one. The three tells that settle
 which—a pin in the repo's backlog, an existing worktree carrying commits the default branch
 doesn't have, and a live lease where the repo runs a concurrency plugin—matter because opening a

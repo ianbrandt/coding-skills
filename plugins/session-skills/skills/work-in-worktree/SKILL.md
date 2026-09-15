@@ -1,18 +1,20 @@
 ---
 name: work-in-worktree
 description: >-
-  Get a unit of work into the right git worktree before touching code: locate
-  the primary checkout and your own worktree, adopt the worktree the work is
-  already in flight on instead of opening a second one, and open a fresh
+  Get a unit of work into the right git worktree before touching code: fetch so
+  the branch point is current rather than whatever the checkout was left at,
+  locate the primary checkout and your own worktree, adopt the worktree the work
+  is already in flight on instead of opening a second one, and open a fresh
   worktree and branch when it isn't. Carries the rule that costs the most when
   it is missed—a repo-root path handed over in context means the primary
   checkout, so taking it literally lands the edit on the default branch—plus
   how to edit a file that lives only there, the prune that keeps stale worktrees
   and merged branches from piling up, and the three-question seam a backlog
   plugin fills. Trigger before creating a worktree or branch for a unit
-  of work, when picking up work that may already be in flight, and on "start on
-  this in a worktree". NOT for keeping several sessions off each other's
-  files—that's a concurrency plugin's lane claim, where one is installed—NOT for
+  of work, when picking up work that may already be in flight, before editing a
+  file another machine also edits, and on "start on this in a worktree" or "am
+  I starting from a stale checkout". NOT for keeping several sessions off each
+  other's files—that's a concurrency plugin's lane claim, where one is installed—NOT for
   choosing what to work on (that's the repo's backlog), and NOT for finishing
   and landing it (that's land-and-wrap).
 ---
@@ -65,7 +67,24 @@ MAIN=$(git worktree list --porcelain | awk 'NR==1{print $2}')
 BRANCH=$(git rev-parse --abbrev-ref HEAD)
 DEFAULT=$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's@^origin/@@')
 DEFAULT=${DEFAULT:-main}                     # the repo's integration branch (main/master/…)
+
+BASE="origin/$DEFAULT"                       # branch from this, never from the local default branch
+git fetch -q || echo "fetch failed: $BASE may be behind" >&2      # do not swallow this
+git rev-parse --verify -q "$BASE" >/dev/null || BASE="$DEFAULT"   # no remote: local is all there is
 ```
+
+**Nothing local tells you the checkout is current**, and a clean working tree least of all: another
+machine, or another session, may have pushed since anyone last fetched here. Branching from a stale
+`$DEFAULT` bakes the staleness into the branch, where it surfaces at push time as a rejected
+non-fast-forward, or never surfaces at all and the work merges clean on top of code it never saw.
+Fetching costs one round trip at the start of the session and removes both cases. A fetch that
+fails, offline or behind an expired credential, leaves `$BASE` as stale as before and looks
+identical to a clean one, so let the failure print rather than discarding it, and say so rather
+than reporting the branch point as current.
+
+**A file written for another machine to read**—a handoff list, a shared to-do, a status note—is
+where this bites hardest, because a second machine editing it is the whole point of the file. Fetch
+before editing one even when no worktree is involved and the edit is a single line.
 
 ## 2. Resume before you branch
 
@@ -91,7 +110,7 @@ WT="$MAIN/.claude/worktrees/<the matching worktree dir>"   # resume: work here
 ```
 
 Set `WT` to it and `BRANCH` to that worktree's checked-out branch, skip §3, and read the branch's
-state before writing anything: `git -C "$WT" log --oneline "$DEFAULT..HEAD"` and `git -C "$WT"
+state before writing anything: `git -C "$WT" log --oneline "$BASE..HEAD"` and `git -C "$WT"
 status` tell you what already landed and what is half-done. Build on those commits; don't redo them,
 and don't reset or rewrite them without saying why.
 
@@ -109,7 +128,7 @@ if [ "$BRANCH" = "$DEFAULT" ]; then
      || git show-ref --verify --quiet "refs/heads/claude/$NAME"; do
     NAME="$NAME-$RANDOM"                     # taken by a sibling—suffix and retry
   done
-  git worktree add "$MAIN/.claude/worktrees/$NAME" -b "claude/$NAME" "$DEFAULT"
+  git worktree add "$MAIN/.claude/worktrees/$NAME" -b "claude/$NAME" "$BASE"   # §1: current, not local
   WT="$MAIN/.claude/worktrees/$NAME"
   BRANCH="claude/$NAME"                      # update—the capture above read the default branch
 else

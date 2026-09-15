@@ -79,7 +79,10 @@ work already half-built.
 
 ## The skills behind these rules
 
-`work-in-worktree`—getting the work into the right worktree before touching code.
+`work-in-worktree`—getting the work into the right worktree before touching code, off a
+**fetched** default branch: a clean working tree is no evidence the checkout is current, and a
+file another machine edits too, such as a shared to-do, needs that fetch even for a one-line edit
+with no worktree involved.
 `land-and-wrap`—how finished work leaves its branch, and the rest of the wrap-up. **Invoke it at
 the end of any session that opened a worktree**, including one where a repo-local landing runbook
 already merged the work: that runbook covers the landing, not the wrap-up.
