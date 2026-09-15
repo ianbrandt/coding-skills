@@ -115,16 +115,18 @@ rather than at load time, the only symptom was a hook error on every commit.
 
 The cost is one Sonnet call per `git commit` and per `gh pr`, `gh issue`, or `gh release`
 command, read-only ones included, and a few seconds of latency on each. The `if` filter on a hook is
-best-effort: when a command contains `$VAR`, `$()`, or a backtick, Claude Code runs every handler
-whose pattern names a subcommand, so a command such as `cd "$WT" && ./gradlew test` costs those
-handlers' calls in parallel. That is why the gate is one handler per subcommand rather than one for
-every command, and why the prompt returns early for a command with nothing to check. A
-`git -C <literal path> commit` does not match `Bash(git commit *)` and is not gated; the `"$WT"` form
-is, through the same fallback.
+best-effort: when a command contains `$()` or a backtick, Claude Code runs every handler whose
+pattern names a subcommand for the same tool, so `echo $(pwd) && ls` costs the four `Bash(...)`
+handlers' calls in parallel and none of the `PowerShell(...)` ones. A `$VAR` on its own does not
+trigger that fallback: `cd "$X" && git status` matches `Bash(git status *)` alone, and `cd "$X" &&
+ls` matches nothing. That is why the gate is one handler per subcommand rather than one for every
+command, and why the prompt returns early for a command with nothing to check. Neither
+`git -C <path> commit` nor `git -C "$WT" commit` matches `Bash(git commit *)`, so neither is gated.
 
-An `if` pattern is one permission rule, not a list, so covering four subcommands across two tools
-takes eight handlers with the same prompt in each. Editing that prompt means editing all eight, and
-they have to stay identical.
+An `if` pattern is one permission rule, not a list: an array there is an invalid config, and every
+hook in that file is dropped without a message. So covering four subcommands across two tools takes
+eight handlers with the same prompt in each. Editing that prompt means editing all eight, and they
+have to stay identical.
 
 Nothing else is gated. A `git push` is not read, because a branch name is chosen long before it,
 and a `Write` or `Edit` is nudged rather than blocked, because a file is cheap to fix after the
