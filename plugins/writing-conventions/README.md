@@ -81,7 +81,10 @@ Windows leaves `bash.exe` in `bin\`, which is not on the `PATH` at all, and the 
 `PATH` is WSL, under two names, which cannot run a hook against a Windows path.
 
 The PowerShell side is registered as `pwsh` with an argument list rather than as a shell command, so
-no quoting is involved and a box without PowerShell 7 fails to launch it and falls back to bash. The
+no quoting is involved and a box without PowerShell 7 fails to launch it and falls back to bash. That
+failure is silent: on a macOS install with no `pwsh`, nothing reaches the session. Windows PowerShell
+5.1 never runs a hook, since only `pwsh` is registered; the scripts stay 5.1-clean so the self-test
+runs there. A Windows box with neither PowerShell 7 nor Git Bash gets no command hook at all. The
 `SessionStart` rules load either way, since that hook is a plain `cat`.
 
 ## The gate at publication
