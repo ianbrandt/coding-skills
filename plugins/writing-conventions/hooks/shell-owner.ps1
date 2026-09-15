@@ -14,17 +14,25 @@
 # WindowsApps execution alias); WSL cannot run a hook against a Windows path, so
 # it is not the bash these hooks mean.
 #
+# The install root comes from `git --exec-path` rather than from where git.exe
+# sits: a scoop or portable install puts a shim on the PATH, and a walk up from
+# the shim lands outside the Git directory. The exec path is
+# <root>\mingw64\libexec\git-core in every Git for Windows layout.
+#
 # ponytail: git.exe off the PATH with Git Bash installed and the switch unset
 # reads as "no bash", and both scripts then emit. Probe the default install paths
 # if that ever shows up.
 $ErrorActionPreference = 'Stop'
 
 $haveGitBash = $false
-$gitExe = (Get-Command git -ErrorAction SilentlyContinue | Select-Object -First 1).Source
-if ($gitExe) {
-  $gitRoot = Split-Path (Split-Path $gitExe -Parent) -Parent
-  foreach ($rel in 'bin\bash.exe', 'usr\bin\bash.exe') {
-    if (Test-Path -LiteralPath (Join-Path $gitRoot $rel)) { $haveGitBash = $true; break }
+$gitCmd = Get-Command git -ErrorAction SilentlyContinue | Select-Object -First 1
+if ($gitCmd) {
+  $execPath = & $gitCmd.Source --exec-path 2>$null
+  if ($execPath) {
+    $gitRoot = Split-Path (Split-Path (Split-Path $execPath -Parent) -Parent) -Parent
+    foreach ($rel in 'bin\bash.exe', 'usr\bin\bash.exe') {
+      if (Test-Path -LiteralPath (Join-Path $gitRoot $rel)) { $haveGitBash = $true; break }
+    }
   }
 }
 
