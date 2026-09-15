@@ -94,39 +94,48 @@ bodies, comments, issue bodies, commit messages, docs. A lint over chat never se
 `PreToolUse` hook watches the commands that publish them: `git commit` and every `gh pr`,
 `gh issue`, and `gh release` subcommand, through the `Bash` tool and through the `PowerShell` tool
 both. Covering only `Bash` leaves every commit ungated on a Windows session where the PowerShell tool
-is the shell. It is a prompt-type hook, so a model reads the command,
-pulls out the commit message or the title and body, and checks that text against the four
-prohibitions: inanimate agency, spaced em dashes, the banned words, and epigrams. It never judges
-form or length. A violation it can quote comes back as the tool's error, with the sentence and a
-plain rewrite, and the session fixes the text and runs the command again; a command that publishes
-nothing new (`gh pr view`, `gh pr checks`, `--amend --no-edit`, a label change) is let through by the
-prompt, as is a body read from a file path, which the command does not contain.
+is the shell. [`hooks/gate.sh`](hooks/gate.sh) and [`hooks/gate.ps1`](hooks/gate.ps1) hand the command
+to a model, which pulls out the commit message or the title and body and checks that text against the
+four prohibitions: inanimate agency, spaced em dashes, the banned words, and epigrams. Form and
+length are never judged. A violation the model can quote comes back as the tool's error, with the
+sentence and a plain rewrite, and the session fixes the text and runs the command again; a command
+that publishes nothing new (`gh pr view`, `gh pr checks`, `--amend --no-edit`, a label change) is let
+through, as is a body read from a file path, which the command does not contain.
 
-The `model` field on each handler is the alias `sonnet` rather than a pinned model id. Claude Code's
-default for a prompt hook is Haiku, which denied 10 of 24 checks on a dozen clean commit messages and
-then rejected its own suggested rewrites, so a session could not commit at all. Sonnet allowed 23 of
-those 24, and both models denied all 16 checks on planted violations.
+The check runs as one nested `claude -p --bare` call, with
+[`hooks/gate-prompt.md`](hooks/gate-prompt.md) as the system prompt and the hook input as the
+message. Which model answers comes from `WRITING_CONVENTIONS_GATE_MODEL`, or from the `sonnet` alias
+when that is unset; set it in the `env` block of a settings file to any id the session's endpoint
+serves.
 
-The alias is what makes that portable. It resolves through `ANTHROPIC_DEFAULT_SONNET_MODEL`, so the
-gate works on a session pointed at a LiteLLM proxy in front of Bedrock or Vertex as well as on a
-first-party one. A pinned `claude-sonnet-5` came back from one such proxy as HTTP 400, `Invalid model
-name passed in model=claude-sonnet-5`, and since the field is a free-form string checked at call time
-rather than at load time, the only symptom was a hook error on every commit.
+An alias is enough there because `--model` resolves one through `ANTHROPIC_DEFAULT_SONNET_MODEL` and
+friends, so the default holds on a first-party install and on a LiteLLM proxy in front of Bedrock or
+Vertex alike. That is the reason the check runs out in a script rather than in a prompt-type hook,
+where the `model` field resolves nothing: `"model": "sonnet"` there reaches the API verbatim, a proxy
+answers HTTP 400 `Invalid model name passed in model=sonnet`, and Claude Code logs
+`unrecognized_model` with `query_source: hook_prompt`. Since that field is a free-form string checked
+at call time rather than at load time, the only symptom was a hook error on every commit, with the
+gate silently absent.
 
-The cost is one Sonnet call per `git commit` and per `gh pr`, `gh issue`, or `gh release`
-command, read-only ones included, and a few seconds of latency on each. The `if` filter on a hook is
-best-effort: when a command contains `$()` or a backtick, Claude Code runs every handler whose
-pattern names a subcommand for the same tool, so `echo $(pwd) && ls` costs the four `Bash(...)`
-handlers' calls in parallel and none of the `PowerShell(...)` ones. A `$VAR` on its own does not
-trigger that fallback: `cd "$X" && git status` matches `Bash(git status *)` alone, and `cd "$X" &&
-ls` matches nothing. That is why the gate is one handler per subcommand rather than one for every
-command, and why the prompt returns early for a command with nothing to check. Neither
-`git -C <path> commit` nor `git -C "$WT" commit` matches `Bash(git commit *)`, so neither is gated.
+Sonnet is the default because Claude Code's own default for a check like this is Haiku, which denied
+10 of 24 checks on a dozen clean commit messages and then rejected its own suggested rewrites, so a
+session could not commit at all. Sonnet allowed 23 of those 24, and both models denied all 16 checks
+on planted violations.
 
-An `if` pattern is one permission rule, not a list: an array there is an invalid config, and every
-hook in that file is dropped without a message. So covering four subcommands across two tools takes
-eight handlers with the same prompt in each. Editing that prompt means editing all eight, and they
-have to stay identical.
+`--bare` skips hooks, plugins, LSP, and CLAUDE.md discovery, so one check costs about 2k tokens and 4
+to 10 seconds, and the gate cannot fire inside its own nested session. The same call without it costs
+48k tokens and about 11 seconds. The tradeoff is authentication: under `--bare` the nested call takes
+`ANTHROPIC_API_KEY`, an `apiKeyHelper` from a settings file, or a third-party provider's own
+credentials, and a session signed in through OAuth alone has none of those. Every failure path exits
+0, so a gate that cannot reach a model lets the command through instead of blocking it.
+
+The cost is one call per `git commit` and per `gh pr`, `gh issue`, or `gh release` command, read-only
+ones included. One hook entry per shell covers all four command families, because the command text is
+matched in the script rather than through a hook `if` pattern. `git -C <path> commit` is gated that
+way too, and no `Bash(git commit *)` rule matches that form, which is the one a worktree session uses.
+[`hooks/gate-test.sh`](hooks/gate-test.sh) and [`hooks/gate-test.ps1`](hooks/gate-test.ps1) check the
+plumbing offline against a stub `claude` on the PATH: which commands reach the model, the exit codes,
+and the fail-open path.
 
 Nothing else is gated. A `git push` is not read, because a branch name is chosen long before it,
 and a `Write` or `Edit` is nudged rather than blocked, because a file is cheap to fix after the
