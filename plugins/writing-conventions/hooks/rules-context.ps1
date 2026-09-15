@@ -11,12 +11,12 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'shell-owner.ps1')
 if (-not $PowerShellOwnsHook) { exit 0 }
 
-$event = if ($args.Count -ge 1) { [string]$args[0] } else { 'SubagentStart' }
+$eventName = if ($args.Count -ge 1) { [string]$args[0] } else { 'SubagentStart' }
 $utf8 = New-Object System.Text.UTF8Encoding($false)
 $rules = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'rules.md'), $utf8)
 if (-not $rules.EndsWith("`n")) { $rules += "`n" }
 
-$out = '{"hookSpecificOutput":{"hookEventName":' + (ConvertTo-Json $event) +
+$out = '{"hookSpecificOutput":{"hookEventName":' + (ConvertTo-Json $eventName) +
        ',"additionalContext":' + (ConvertTo-Json $rules) + '}}'
 $bytes = $utf8.GetBytes($out)
 $stdout = [Console]::OpenStandardOutput()
