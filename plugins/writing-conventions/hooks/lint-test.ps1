@@ -59,8 +59,12 @@ $scratch = Join-Path ([IO.Path]::GetTempPath()) ("lintps-" + [Guid]::NewGuid().T
 [void](New-Item -ItemType Directory -Path $scratch)
 $savedTmp = $env:TMPDIR
 $savedTool = $env:CLAUDE_CODE_USE_POWERSHELL_TOOL
+$savedOs = $env:OS
 $env:TMPDIR = $scratch
-$env:CLAUDE_CODE_USE_POWERSHELL_TOOL = '1'   # make PowerShell the owner for the run
+# make PowerShell the owner for the run: shell-owner.ps1 wants both the tool
+# switch and a Windows OS, and pwsh on macOS or Linux leaves $env:OS unset
+$env:CLAUDE_CODE_USE_POWERSHELL_TOOL = '1'
+$env:OS = 'Windows_NT'
 try {
   function Invoke-Hook([string]$mode, [string]$stdin) {
     return ($stdin | & (Get-Process -Id $PID).Path -NoProfile -File $script $mode | Out-String)
@@ -107,6 +111,7 @@ try {
 } finally {
   $env:TMPDIR = $savedTmp
   $env:CLAUDE_CODE_USE_POWERSHELL_TOOL = $savedTool
+  $env:OS = $savedOs
   Remove-Item -LiteralPath $scratch -Recurse -Force -ErrorAction SilentlyContinue
 }
 
