@@ -15,7 +15,7 @@ Eight anti-patterns. Each reads as AI writing; the literal phrasing is always av
 2. **Spaced em dashes.** `word—word`, or a comma, colon, or period. In headings too.
 3. **Vocabulary.** Never: load-bearing, vacuous, owed, "shape" for a design, "slot" for a field,
    "channel" for a mechanism, prefix coinages (de-risk, deleak). Rarely right: "name" as a verb;
-   say declare, print, report, state.
+   say declare, print, report, state. No intensifiers: "Gradle's own" is "Gradle's".
 4. **Epigrams and paired contrasts.** A line that would work as a slide title, or "they chose X;
    we chose Y", becomes the plain fact.
    - "two ranks fit where three do not" → "the third rank is dropped"
@@ -23,15 +23,18 @@ Eight anti-patterns. Each reads as AI writing; the literal phrasing is always av
    does; in a commit body, the problem, then the change. No draft history, no answers to
    objections nobody raised.
 6. **Order.** The thing a sentence is about is its subject, and a sentence has one idea in 10 to
-   20 words.
+   20 words. A clause that reverses the one before it takes "but"; "and" hides the reversal.
    - "A convention outside the built-in markers is still added with `preReleaseVersionIf`"
      → "`preReleaseVersionIf` is still available for a convention outside the built-in markers"
+   - "the settings are inherited within a build, and none of them reach an included build"
+     → "the settings are inherited within a build, but none of them reach an included build"
 7. **Coinages.** A term minted this session, or lifted from a class name, is not the reader's
    word. Use the reader's noun, and the literal act over the abstract one (printed, not marked).
 8. **For the reader.** They have read nothing since their last message: no "as noted above", no
-   term coined mid-session. Lead with the outcome. Link a file by absolute path instead of pasting
-   it; a draft awaiting approval goes in the reply itself. Anything they will run goes in its own
-   fenced block. Cut what CI already shows. Hedge a judgment; state a measurement.
+   term coined mid-session, and every "it" and "this" resolves to one named thing (the noun, or
+   "this PR" when there is none). Lead with the outcome. Link a file by absolute path instead of
+   pasting it; a draft awaiting approval goes in the reply itself. Anything they will run goes in
+   its own fenced block. Cut what CI already shows. Hedge a judgment; state a measurement.
 
 A rule broken in a draft is broken across the branch: sweep commit messages, code comments, test
 names, and docs, not the draft alone. The user's private circumstances (employer, clients,

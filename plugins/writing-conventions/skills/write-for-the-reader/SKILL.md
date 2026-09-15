@@ -149,6 +149,12 @@ plain. Check each subject against its verb: if a person doing that verb would be
 perceiving, or possessing, and the subject is a thing, rewrite it. The rule and the repair are in
 `hooks/rules.md`. Run this one on chat replies too, not only on published prose.
 
+**Reordering is editing.** After moving a paragraph or a sentence, run the whole scan again from the
+top rather than over the moved part: a pronoun that sat next to its noun when the sentence was
+written is now several nouns away from it, and a clause added during the move has never been read
+at all. One epigram reached a draft the user had already approved that way, and a "Those are" was
+left pointing at the wrong sentence by an insertion just ahead of it.
+
 ## 7. Log a word the user flags
 
 When the user calls something jargon, or rewrites a phrase of yours into plainer English, add it to
@@ -202,6 +208,8 @@ thing instead of abstracting it. Banned in chat replies, not only in published p
   the literal sense and is fine; a "configuration channel" is not idiomatic software engineering.
 - Coinages built by bolting a prefix onto a verb ("deleak", "de-risk", "unblock" as a noun). If the
   word isn't already English, say what actually happens: "remove the coupling", "cut the risk".
+- Intensifiers—drop them: "Gradle's own" is "Gradle's". The bare noun or verb makes the same claim,
+  and the intensifier reads as the writer leaning on it.
 
 This list is the live one. It grows here when the user flags a word.
 
@@ -235,6 +243,22 @@ Matching a document already full of the construction is not a defence for new te
 rewritten as the plain fact it stands for. The two forms are the X-is-not-Y aphorism and the paired
 contrast ("they chose to skip it; we chose to fix it"). The pull is strongest in a document whose
 own subject is rules, where an aphorism reads as authority.
+
+**Every pronoun resolves.** Each "it", "this", and "that" points at one named thing the reader can
+find in the same paragraph, and a bare "this" opening a sentence usually stands in for a whole
+preceding idea rather than a noun. Use the concrete noun, or "this PR" when there is none. This is
+the no-back-references rule of §1 at sentence scale, and it is the one most often broken in a long
+draft: six logged corrections on one voice spec ride on it. A wrinkle the rule does not catch: a
+claim can be true of the code and false of the output, so check a resolved claim against what the
+reader will see, not only against the implementation.
+
+**A reversal takes "but".** A clause that reverses the one before it is joined with "but", never
+"and": "the task settings are inherited within a build, but none of them are applied to an included
+build". "And" reads as continuation, so the reader is past the turn before noticing it was one.
+
+**Prefer a finite coordinated clause over a trailing participle**, even at a couple more words:
+"and was closed as not planned", not ", closed as not planned". The participial tail is a compression
+tell; the finite clause reads at speaking pace.
 
 **Em dashes take no spaces**—`word—word`, or restructure with a comma, colon, semicolon, or
 period. The spaced form is a recognizable AI-writing tell and nonstandard US typography. It binds
