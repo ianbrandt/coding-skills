@@ -1,0 +1,95 @@
+# Shared corpus for lint.awk and lint.ps1. One case per line:
+#   <expected group><TAB><text>, with every newline in the text written \n.
+# A "-" group means the text must come back clean. Read by lint-test.sh and
+# lint-test.ps1, so a case added here is checked against both matchers.
+inanimate agency	The build script says the tests pass.
+inanimate agency	The report says everything is fine.
+inanimate agency	The report concluded the build is fine.
+inanimate agency	The stability report stated a regression.
+inanimate agency	The cap is gone, so the report offers the upgrade anyway.
+inanimate agency	so the report is no longer a function of the declarations the build wrote, which the README states plainly.
+-	so the report is no longer a function of the declarations the build wrote.
+inanimate agency	The deprecation message names the replacement id.
+inanimate agency	It exempts a range on the grounds that the rule wants an interval.
+inanimate agency	Recovery runs only when the declared version states a range.
+inanimate agency	the system property, whose place is in the middle, is read second.
+inanimate agency	A module whose version is unset is skipped.
+inanimate agency	The roadmap entry names the file, and the alias, which declares the version, is kept.
+inanimate agency	Its own text says the item is gated.
+inanimate agency	The commit that decides the default lands last.
+inanimate agency	Neither declares a constraint on the classpath.
+-	The user says the build is slow on CI.
+-	The maintainer wrote the original recovery in 2023.
+-	The function returns early when the list is empty, keeping the loop simple.
+-	Gradle flattens the alias to a bare require on the marker.
+-	The claim file is named by the session that holds the lease.
+-	I wrote the fix and we decided to keep the flag off by default.
+-	The value is used only when the declared version is exact.
+-	This keeps the diff small and the behaviour unchanged.
+-	That said, the guard is still worth a test.
+-	The declared bound is a ceiling, not a floor.
+-	The rule stated in the README covers this case.
+-	A reviewer who knows the codebase can confirm this in minutes.
+-	Run the suite before you commit anything.
+-	A session's notes are kept under the scratchpad.
+-	A map holds a value until the loop gives up.
+-	The old names are kept, and the members added last week stay.
+-	The fix holds up well under load.
+-	My first attempt used map notation.
+-	The adversarial pass found two defects.
+-	the file names in the warning are sorted
+-	Two processes hold each other open.
+-	A subagent who asks for the file gets it.
+-	Draft release notes below, followed by the release notes you approved.
+-	The spike notes measured only through 8.14.4.
+-	The verifier claimed the two settings overwrite each other.
+-	Covered by a composite test if Ben asks for a reproducer.
+-	Without that noted, the change surprises every repo.
+-	The API exposes three named endpoints.
+-	Coordinates go in with the pom artifact declared through the block.
+-	One probe for the four claims that need a live run.
+-	Discovered by the platform scan rather than declared, carrying a dynamic version.
+-	The two warning strings and the spec names, 163 lines of README alone.
+-	A scenario column so both unrolled names read correctly.
+-	The likely cause with its one unconfirmed step named, then the fix in two parts.
+-	The ladder the model's own field names imply is three levels.
+-	The three names proposed and declined, with the reasons.
+-	Covered when a CI job fails or Ben asks for a rerun.
+-	I fixed the indentation and wrongly assumed the rest was fine.
+-	A case named `foo` covers the empty list, and a field named "x" holds it.
+inanimate agency	The stability report claimed a regression.
+inanimate agency	The title now names `rejectPreReleases`.
+inanimate agency	The fenced output below it already names the artifact.
+inanimate agency	The body says nothing about the five review commits.
+inanimate agency	The revision that asks for snapshots gets them filtered.
+inanimate agency	The report says, roughly, that the build is fine.
+inanimate agency	The alias, which declares the version, is kept.
+inanimate agency	The build configures the toolchain.
+inanimate agency	The plugins block owns the version.
+inanimate agency	The entry carries both versions.
+inanimate agency	With a `libs.versions.toml` declaring an alias for that plugin id
+inanimate agency	The report says we decided it.
+inanimate agency	The build script says the user wants a refund.
+inanimate agency	That is what the report said.
+inanimate agency	The spec states that the build is fine.
+inanimate agency	The report—from CI says the build is fine.
+-	The customer wants a refund.
+-	The stakeholder decided the scope.
+-	The team, which decided the scope, is small.
+-	The user says we decided it.
+-	The task writes a file and the build fails.
+-	A map holds a value until the loop gives up.
+-	I said "the report says X" and rewrote it.
+-	Inline `the report says` is code, and so is this fence:\n```\nthe report says everything\n```\n
+inanimate agency	Intro.\n```bash\ngit log\nThe report says everything is fine, and this fence is never closed.
+-	A four-backtick wrapper shows a fence:\n````\n```\nthe report says everything\n```\n````\n
+-	I said “the report says X” and moved on.
+inanimate agency	The **report** says everything is fine.
+inanimate agency	The [report](https://x/y) says everything is fine.
+inanimate agency	The release notes, whose format changed, need updates.
+banned word	This fix is not vacuous at all.
+banned word	That channel predates the options.
+-	Post it in the Slack channel and check the array shape.
+spaced em dash	This is one thing — and another.
+-	This is correct—no space here, nothing else flagged.
+-	Headings: ## Title—subtitle

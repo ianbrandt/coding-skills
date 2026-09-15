@@ -32,10 +32,19 @@ agent-facing line, so those files are formatted for whatever a model reads best.
 dependency. A `Stop` hook runs it with `--record` over the final reply and saves what it finds; a
 `UserPromptSubmit` hook runs it with `--emit`, which opens the next turn with those hits and a
 one-line reminder, then clears them; a `PostToolUse` hook on `Write` and `Edit` runs `--nudge`,
-which asks for a re-read when the file just written is prose or holds comments and test names
-(`.md`, `.markdown`, `.txt`, `.kt`, `.kts`, `.java`, `.groovy`, in any letter case). The lint itself is
-[`hooks/lint.awk`](hooks/lint.awk), a pure filter over text, and
-[`hooks/lint-test.sh`](hooks/lint-test.sh) is its self-test.
+which asks for a re-read when the file just written is prose, or is a source file with comments and
+test names in it (`.md`, `.markdown`, `.txt`, `.kt`, `.kts`, `.java`, `.groovy`, in any letter case).
+The lint itself is [`hooks/lint.awk`](hooks/lint.awk), a pure filter over text.
+
+[`hooks/lint.ps1`](hooks/lint.ps1) is the same three modes and the same lint in one PowerShell file,
+for a Windows install where the PowerShell tool is the shell; `ConvertFrom-Json` there replaces
+[`hooks/jsonstr.awk`](hooks/jsonstr.awk). The two matchers are held together by
+[`hooks/lint-corpus.tsv`](hooks/lint-corpus.tsv), 91 cases read by both
+[`hooks/lint-test.sh`](hooks/lint-test.sh) and [`hooks/lint-test.ps1`](hooks/lint-test.ps1), so a
+change to one matcher and not the other fails a test. On every one of those cases the two agreed
+byte for byte, reported example text included, when the port landed. The `.ps1` files are ASCII, with
+every em dash and curly quote written as a `\uXXXX` regex escape, because Windows PowerShell 5.1
+reads a BOM-less file through the ANSI codepage and one pasted em dash corrupts string parsing.
 
 It flags the mechanically detectable subset of the rules: the banned vocabulary, spaced em dashes,
 and an inanimate subject paired with a verb of speech, volition, or cognition. That last set is
@@ -57,17 +66,32 @@ never matched, and a clean reply clears whatever the previous one left pending. 
 judgment to detect stay where they were, in the model's own review passes; the lint is the floor
 under them, and a construction it cannot match mechanically is still a violation.
 
-The hooks run under bash: on macOS and Linux always, and on Windows when Git for Windows is
-installed, which is also what gives Claude Code its Bash tool there. On a native Windows install
-without Git Bash, Claude Code runs hooks in PowerShell, and these three will fail quietly; the
-session-start rules still load, since that hook is a plain `cat`.
+## Which shell runs the hooks
+
+Each of the four command hooks is registered twice, once as a bash script and once as a PowerShell
+one, and [`hooks/shell-owner.ps1`](hooks/shell-owner.ps1) is the test that keeps exactly one of each
+pair emitting. PowerShell takes the hook on Windows when `CLAUDE_CODE_USE_POWERSHELL_TOOL=1`, the
+same setting that makes the PowerShell tool the session's shell, or when there is no Git Bash to run
+the bash script; bash takes it everywhere else, and the mirror of that test sits in the `.sh` files.
+The `defaultShell` setting is not the switch, since it governs input-box `!` commands rather than
+hooks, and the environment variable is what reaches a hook process.
+
+Git Bash's presence is read off the `git` install rather than from a `bash` on the `PATH`. Git for
+Windows leaves `bash.exe` in `bin\`, which is not on the `PATH` at all, and the `bash` that is on the
+`PATH` is WSL, under two names, which cannot run a hook against a Windows path.
+
+The PowerShell side is registered as `pwsh` with an argument list rather than as a shell command, so
+no quoting is involved and a box without PowerShell 7 fails to launch it and falls back to bash. The
+`SessionStart` rules load either way, since that hook is a plain `cat`.
 
 ## The gate at publication
 
 The census behind this plugin found that 101 of 107 corrections landed on text that ships: PR
 bodies, comments, issue bodies, commit messages, docs. A lint over chat never sees those, so a
 `PreToolUse` hook watches the commands that publish them: `git commit` and every `gh pr`,
-`gh issue`, and `gh release` subcommand. It is a prompt-type hook, so a model reads the command,
+`gh issue`, and `gh release` subcommand, through the `Bash` tool and through the `PowerShell` tool
+both. Covering only `Bash` leaves every commit ungated on a Windows session where the PowerShell tool
+is the shell. It is a prompt-type hook, so a model reads the command,
 pulls out the commit message or the title and body, and checks that text against the four
 prohibitions: inanimate agency, spaced em dashes, the banned words, and epigrams. It never judges
 form or length. A violation it can quote comes back as the tool's error, with the sentence and a
@@ -75,19 +99,29 @@ plain rewrite, and the session fixes the text and runs the command again; a comm
 nothing new (`gh pr view`, `gh pr checks`, `--amend --no-edit`, a label change) is let through by the
 prompt, as is a body read from a file path, which the command does not contain.
 
-The `model` field on each handler is set to Sonnet. Claude Code's default for a prompt hook is
-Haiku, which denied 10 of 24 checks on a dozen clean commit messages and then rejected its own
-suggested rewrites, so a session could not commit at all. Sonnet allowed 23 of those 24, and both
-models denied all 16 checks on planted violations.
+The `model` field on each handler is the alias `sonnet` rather than a pinned model id. Claude Code's
+default for a prompt hook is Haiku, which denied 10 of 24 checks on a dozen clean commit messages and
+then rejected its own suggested rewrites, so a session could not commit at all. Sonnet allowed 23 of
+those 24, and both models denied all 16 checks on planted violations.
+
+The alias is what makes that portable. It resolves through `ANTHROPIC_DEFAULT_SONNET_MODEL`, so the
+gate works on a session pointed at a LiteLLM proxy in front of Bedrock or Vertex as well as on a
+first-party one. A pinned `claude-sonnet-5` came back from one such proxy as HTTP 400, `Invalid model
+name passed in model=claude-sonnet-5`, and since the field is a free-form string checked at call time
+rather than at load time, the only symptom was a hook error on every commit.
 
 The cost is one Sonnet call per `git commit` and per `gh pr`, `gh issue`, or `gh release`
 command, read-only ones included, and a few seconds of latency on each. The `if` filter on a hook is
 best-effort: when a command contains `$VAR`, `$()`, or a backtick, Claude Code runs every handler
-whose pattern names a subcommand, so a command such as `cd "$WT" && ./gradlew test` costs the four
-handlers' calls in parallel. That is why the gate is four handlers rather than one per subcommand,
-and why the prompt returns early for a command with nothing to check. A `git -C <literal path>
-commit` does not match `Bash(git commit *)` and is not gated; the `"$WT"` form is, through the
-same fallback.
+whose pattern names a subcommand, so a command such as `cd "$WT" && ./gradlew test` costs those
+handlers' calls in parallel. That is why the gate is one handler per subcommand rather than one for
+every command, and why the prompt returns early for a command with nothing to check. A
+`git -C <literal path> commit` does not match `Bash(git commit *)` and is not gated; the `"$WT"` form
+is, through the same fallback.
+
+An `if` pattern is one permission rule, not a list, so covering four subcommands across two tools
+takes eight handlers with the same prompt in each. Editing that prompt means editing all eight, and
+they have to stay identical.
 
 Nothing else is gated. A `git push` is not read, because a branch name is chosen long before it,
 and a `Write` or `Edit` is nudged rather than blocked, because a file is cheap to fix after the
