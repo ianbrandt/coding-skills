@@ -271,6 +271,10 @@ spaced form before posting and before committing. One exception: never retro-edi
 already-published post to fix them—that churn is itself a signal of AI authorship. Repo content is
 fair game to sweep whole.
 
+**A list of three or more takes the Oxford comma**: "json, xml, html, and plain", never "json, xml,
+html and plain". The same holds before a final "or". It binds on every surface, including log
+messages and code comments, where a terse list is most often written without it.
+
 **The user's private circumstances never enter a public artifact.** Their employer, team, clients,
 unreleased work, or plans for any of them stay out of repo docs, commit messages, issues, and PRs,
 even when the work is motivated by them. State the need the artifact serves, never the private

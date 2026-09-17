@@ -93,3 +93,9 @@ banned word	That channel predates the options.
 spaced em dash	This is one thing — and another.
 -	This is correct—no space here, nothing else flagged.
 -	Headings: ## Title—subtitle
+oxford comma	The built-in formatters are json, xml, html, plain, text and problems.
+oxford comma	Run it on JDK 8, 11, 17 or 21.
+oxford comma	The formatters are `json`, `xml`, `html` and `plain`.
+-	The built-in formatters are json, xml, html, plain, text, and problems.
+-	Run it on JDK 8, 11, 17, or 21.
+-	If it fails, retry and report.

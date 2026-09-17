@@ -33,7 +33,10 @@ $REMINDER = 'Style, for this reply and any prose written to files: an inanimate 
 $NUDGE = "You just wrote prose to a file. Re-read it now for inanimate agency (report/build/entry/declaration as subject of says/gives/owns/configures/carries), spaced em dashes, and banned vocabulary; fix in place before moving on. If this text will publish under the user's name, have a fresh-context subagent sweep it against the rules before hand-over."
 
 # --- patterns (mirrors lint.awk BEGIN) ------------------------------------
-# Three groups. Banned words and spaced em dashes are exact. Inanimate agency is
+# Four groups. Banned words and spaced em dashes are exact. A missing Oxford
+# comma is caught only in a list of single words with two commas before the
+# final "and" or "or" ("json, xml, html and plain"). A multi-word item, or a
+# list with one comma ("a, b and c"), looks too much like a clause to flag. Inanimate agency is
 # precision-first: a determiner-led or pronoun subject followed by a verb of
 # speech, volition, cognition, or configuration (finite, or a participle such as
 # "a file declaring an alias"), with the subject checked against an animate list,
@@ -84,6 +87,7 @@ $RX.Add([regex]::new($SB + $DET + " ($W)?($W)?($W)?" + $PART + ' ')); $KIND.Add(
 $RX_BANNED = [regex]::new($SB + '(load-bearing|vacuous|vacuously|non-vacuous|owe|owes|owed|shape|shapes|slot|slots' +
                           '|channel|channels|deleak|de-risk|derisk)' + $NB)
 $RX_DASH = [regex]::new("[ \t]\u2014|\u2014[ \t]")
+$RX_OXFORD = [regex]::new('(?<![0-9A-Za-z_-])[0-9A-Za-z_-]+, [0-9A-Za-z_-]+, [0-9A-Za-z_-]+ (and|or) [0-9A-Za-z_-]+')
 
 # Subjects that act: people, roles, and the agents and sessions that contain one.
 $ANIMATE = ' i we you he she they user users author authors maintainer maintainers reviewer reviewers' +
@@ -122,9 +126,10 @@ $ADVEXC = ' imply apply reply supply rely comply multiply ally family early only
 $RULE = @{
   'banned word'      = 'that word is banned in prose; use a plain synonym'
   'spaced em dash'   = 'an em dash takes no surrounding spaces: write word' + $EM + 'word, never word ' + $EM + ' word'
+  'oxford comma'     = 'a list of three or more items takes a comma before the final "and" or "or": write a, b, and c'
   'inanimate agency' = 'an inanimate subject must not take a verb of speech, volition, or cognition; say who the real actor is, or rewrite around the act'
 }
-$ORDER = @('banned word', 'spaced em dash', 'inanimate agency')
+$ORDER = @('banned word', 'spaced em dash', 'oxford comma', 'inanimate agency')
 
 function Get-Trimmed([string]$x) { return $x.Trim(@(' ', "`t")) }
 
@@ -255,6 +260,8 @@ function Invoke-Lint([string]$text, [switch]$AsNote) {
     if ($dm.Success) { $found.Add(@('spaced em dash', $dm.Value)) }
     $bm = $RX_BANNED.Match($l)
     if ($bm.Success) { $found.Add(@('banned word', (Get-Trimmed $s.Substring($bm.Index, $bm.Length)))) }
+    $om = $RX_OXFORD.Match($s)
+    if ($om.Success) { $found.Add(@('oxford comma', $om.Value)) }
     $ag = Get-AgencyHit $s $l
     if ($null -ne $ag) { $found.Add(@('inanimate agency', $ag)) }
     foreach ($f in $found) {

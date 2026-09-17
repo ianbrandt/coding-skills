@@ -16,9 +16,9 @@ A `SessionStart` hook injects [`hooks/rules.md`](hooks/rules.md) into every sess
 after `/clear`, compaction, and a fork. A `SubagentStart` hook injects the same file into every
 subagent through [`hooks/rules-context.sh`](hooks/rules-context.sh), since a subagent's report is
 what a later summary is built from. The file is eight named
-anti-patterns, one line and one drafted-to-accepted pair each: inanimate agency, spaced em dashes,
-a banned-vocabulary list, epigrams and paired contrasts, narration, sentence order, coinages, and
-writing for a reader who has read nothing since their last message. Two standing rules follow: a
+anti-patterns, one line and one drafted-to-accepted pair each: inanimate agency, punctuation
+(spaced em dashes and the Oxford comma), a banned-vocabulary list, epigrams and paired contrasts,
+narration, sentence order, coinages, and writing for a reader who has read nothing since their last message. Two standing rules follow: a
 rule broken in a draft is swept across the branch, and the user's private circumstances stay out
 of public artifacts. It runs about 450 words, so it costs roughly 600 tokens per session and per
 subagent, down from about 1,600 words; the reasoning behind each rule, and its edge cases, sit in `write-for-the-reader` §8
@@ -39,7 +39,7 @@ The lint itself is [`hooks/lint.awk`](hooks/lint.awk), a pure filter over text.
 [`hooks/lint.ps1`](hooks/lint.ps1) is the same three modes and the same lint in one PowerShell file,
 for a Windows install where the PowerShell tool is the shell; `ConvertFrom-Json` there replaces
 [`hooks/jsonstr.awk`](hooks/jsonstr.awk). The two matchers are held together by
-[`hooks/lint-corpus.tsv`](hooks/lint-corpus.tsv), 91 cases read by both
+[`hooks/lint-corpus.tsv`](hooks/lint-corpus.tsv), 97 cases read by both
 [`hooks/lint-test.sh`](hooks/lint-test.sh) and [`hooks/lint-test.ps1`](hooks/lint-test.ps1), so a
 change to one matcher and not the other fails a test. On every one of those cases the two agreed
 byte for byte, reported example text included, when the port landed. The `.ps1` files are ASCII, with
@@ -47,7 +47,9 @@ every em dash and curly quote written as a `\uXXXX` regex escape, because Window
 reads a BOM-less file through the ANSI codepage and one pasted em dash corrupts string parsing.
 
 It flags the mechanically detectable subset of the rules: the banned vocabulary, spaced em dashes,
-and an inanimate subject paired with a verb of speech, volition, or cognition. That last set is
+a missing Oxford comma in a list of single words, and an inanimate subject paired with a verb of
+speech, volition, or cognition. The Oxford comma check needs two commas before the final "and" or
+"or", because a one-comma list ("a, b and c") matches too many ordinary clauses. The agency set is
 deliberately narrow. An earlier version also matched possession verbs (holds, carries, keeps) and
 scored about 40% precision on a hand-checked sample, mostly on code mechanics such as a map that
 holds a value; the current set trades recall for a hit the model can act on.

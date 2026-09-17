@@ -12,7 +12,10 @@ Eight anti-patterns. Each reads as AI writing; the literal phrasing is always av
    - "the report says the version is stale" → "the version is shown as stale in the report"
    - "what the build configured" → "what is configured in the build"
    - "the entry carries both versions" → "the entry includes both versions"
-2. **Spaced em dashes.** `word—word`, or a comma, colon, or period. In headings too.
+2. **Punctuation.** No spaced em dashes: `word—word`, or a comma, colon, or period. In headings
+   too. A list of three or more items takes a comma before the final "and" or "or", in log
+   messages and code comments too.
+   - "json, xml, html and plain" → "json, xml, html, and plain"
 3. **Vocabulary.** Never: load-bearing, vacuous, owed, "shape" for a design, "slot" for a field,
    "channel" for a mechanism, prefix coinages (de-risk, deleak). Rarely right: "name" as a verb;
    say declare, print, report, state. No intensifiers: "Gradle's own" is "Gradle's".

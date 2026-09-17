@@ -3,7 +3,10 @@
 # With -v note=1 it prints the note the next turn opens with instead, or
 # nothing when the text is clean. Pure: no files, no environment.
 #
-# Three groups. Banned words and spaced em dashes are exact. Inanimate agency
+# Four groups. Banned words and spaced em dashes are exact. A missing Oxford
+# comma is caught only in a list of single words with two commas before the
+# final "and" or "or" ("json, xml, html and plain"). A multi-word item, or a
+# list with one comma ("a, b and c"), looks too much like a clause to flag. Inanimate agency
 # is precision-first: a determiner-led or pronoun subject followed by a verb of
 # speech, volition, cognition, or configuration (finite, or a participle such as
 # "a file declaring an alias"), with the subject checked against an animate
@@ -47,6 +50,7 @@ BEGIN {
   P_BANNED = SB "(load-bearing|vacuous|vacuously|non-vacuous|owe|owes|owed|shape|shapes|slot|slots" \
              "|channel|channels|deleak|de-risk|derisk)" NB
   P_DASH = "[ \t]—|—[ \t]"
+  P_OXFORD = "(^|[^0-9A-Za-z_-])[0-9A-Za-z_-]+, [0-9A-Za-z_-]+, [0-9A-Za-z_-]+ (and|or) [0-9A-Za-z_-]+"
   # Subjects that act: people, roles, and the agents and sessions that contain one.
   ANIMATE = " i we you he she they user users author authors maintainer maintainers reviewer reviewers" \
             " team teams developer developers dev devs engineer engineers contributor contributors reader" \
@@ -80,8 +84,9 @@ BEGIN {
   PHRASAL = " up way in out back off "
   RULE["banned word"] = "that word is banned in prose; use a plain synonym"
   RULE["spaced em dash"] = "an em dash takes no surrounding spaces: write word—word, never word — word"
+  RULE["oxford comma"] = "a list of three or more items takes a comma before the final \"and\" or \"or\": write a, b, and c"
   RULE["inanimate agency"] = "an inanimate subject must not take a verb of speech, volition, or cognition; say who the real actor is, or rewrite around the act"
-  ORDER[1] = "banned word"; ORDER[2] = "spaced em dash"; ORDER[3] = "inanimate agency"
+  ORDER[1] = "banned word"; ORDER[2] = "spaced em dash"; ORDER[3] = "oxford comma"; ORDER[4] = "inanimate agency"
 }
 { text = text $0 "\n" }
 END {
@@ -93,12 +98,13 @@ END {
     l = tolower(s)
     if (match(s, P_DASH)) hit("spaced em dash", substr(s, RSTART, RLENGTH))
     if (match(l, P_BANNED)) hit("banned word", trim(substr(s, RSTART, RLENGTH)))
+    if (match(s, P_OXFORD)) hit("oxford comma", example(substr(s, RSTART, RLENGTH)))
     agency(s, l)
   }
   if (note) {
     if (total == 0) exit
     print "A house-style lint flagged the previous reply:"
-    for (o = 1; o <= 3; o++) {
+    for (o = 1; o <= 4; o++) {
       g = ORDER[o]
       if (COUNT[g]) printf "- %s x%d, e.g. \"%s\". Rule: %s.\n", g, COUNT[g], EXAMPLE[g], RULE[g]
     }
