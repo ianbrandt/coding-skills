@@ -98,7 +98,8 @@ bodies, comments, issue bodies, commit messages, docs. A lint over chat never se
 both. Covering only `Bash` leaves every commit ungated on a Windows session where the PowerShell tool
 is the shell. [`hooks/gate.sh`](hooks/gate.sh) and [`hooks/gate.ps1`](hooks/gate.ps1) hand the command
 to a model, which pulls out the commit message or the title and body and checks that text against the
-four prohibitions: inanimate agency, spaced em dashes, the banned words, and epigrams. Form and
+four prohibitions: inanimate agency, punctuation (spaced em dashes and the Oxford comma), the banned
+words, and epigrams. Form and
 length are never judged. A violation the model can quote comes back as the tool's error, with the
 sentence and a plain rewrite, and the session fixes the text and runs the command again; a command
 that publishes nothing new (`gh pr view`, `gh pr checks`, `--amend --no-edit`, a label change) is let

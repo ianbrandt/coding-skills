@@ -19,6 +19,8 @@ names, and issue references are exempt.
    shows the version". A program doing its runtime job is not this: a function returns, a task writes
    a file, a build fails.
 2. Spaced em dashes: " — " or " – " anywhere, headings included. Unspaced word—word is fine.
+   Missing Oxford comma: a list of three or more items with no comma before the final "and" or "or",
+   such as "json, xml and html". Two items, or two clauses joined by "and", are not such a list.
 3. Banned words: load-bearing, vacuous, owed, "shape" for a design, "slot" for a field, "channel" for
    a mechanism, and coinages built by bolting a prefix onto a verb (de-risk, deleak).
 4. Epigrams and paired contrasts: a line that would work as a slide title, "not X but Y", or "they
