@@ -48,6 +48,9 @@ during which they were doing something else.
 - **A set the reader has not met takes the bare plural.** "This PR corrects defects found in a
   review", not "the defects". The definite article announces a set already established, which the
   first sentence of a body never has. It binds a title and a branch name as much as a body.
+- **Write the thing, not a reference to it.** "Other than the intersection with the other option"
+  names the topic and leaves the reader to reconstruct it. Put the intersection itself in the
+  sentence. A reference works only where the reader has already been given the thing.
 
 ## 2. Choose the altitude before writing the words
 

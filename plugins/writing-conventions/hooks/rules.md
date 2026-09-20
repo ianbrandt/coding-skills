@@ -50,8 +50,9 @@ Ten anti-patterns. Each reads as AI writing; the literal phrasing is always avai
    fenced block. A list of findings takes no bold, and a fact placed first needs no marking.
    Emphasis elsewhere, bold or italic, is rare and kept for what strongly warrants calling out:
    none of it survives in plain text, it is overused in rendered text, and reaching for it often
-   means the phrasing needs work. A set they have not met takes the bare plural: "defects found
-   in a review", not "the defects".
+   means the phrasing needs work. A set they have not met takes the bare plural, "defects found
+   in a review", not "the defects", and a thing they have not seen is written out rather than
+   pointed at.
 9. **Say it once.** A fact stated as a mechanism is not restated as its consequence, and a reason
    given in one sentence gets no justification clause in the next.
    - "the entry is dropped because nothing in the build requires it, so it no longer appears"
