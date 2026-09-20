@@ -15,15 +15,15 @@ it learns from your edits into the same file when this plugin is installed.
 A `SessionStart` hook injects [`hooks/rules.md`](hooks/rules.md) into every session, including
 after `/clear`, compaction, and a fork. A `SubagentStart` hook injects the same file into every
 subagent through [`hooks/rules-context.sh`](hooks/rules-context.sh), since a subagent's report is
-what a later summary is built from. The file is ten named
+what a later summary is built from. The file is eleven named
 anti-patterns, one line and one drafted-to-accepted pair each: inanimate agency, mechanics
 (spaced em dashes, the Oxford comma, and consistent units), a banned-vocabulary list, epigrams and paired contrasts,
 narration, sentence order, coinages, writing for a reader who has read nothing since their last
-message, saying a fact once, and evidence. Three standing rules follow: a
+message, saying a fact once, evidence, and erring short. Three standing rules follow: a
 rule broken in a draft is swept across the branch, the user's private circumstances stay out
 of public artifacts, and a draft for publication goes in a fenced block with the info string
-`draft`, which is what the `Stop` reader below looks for. It runs about 1,050 words, so it costs
-roughly 1,400 tokens per session and per subagent, against about 1,600 words for the long form; the reasoning behind each rule, and its edge cases, sit in `write-for-the-reader` §8
+`draft`, which is what the `Stop` reader below looks for. It runs about 1,150 words, so it costs
+roughly 1,500 tokens per session and per subagent, against about 1,600 words for the long form; the reasoning behind each rule, and its edge cases, sit in `write-for-the-reader` §8
 and load only when that skill does.
 
 Prohibitions bind everywhere, `SKILL.md` files included, because they are about precision rather
@@ -101,8 +101,9 @@ through the `Bash` tool and through the `PowerShell` tool both. Covering only `B
 is the shell. [`hooks/gate.sh`](hooks/gate.sh) and [`hooks/gate.ps1`](hooks/gate.ps1) hand the command
 to a model, which pulls out the commit message or the title and body and checks that text against the
 four prohibitions: inanimate agency, mechanics (spaced em dashes and the Oxford comma), the banned
-words, and epigrams. Form and
-length are never judged. The model replies `PASS`, `SKIP` for a command that publishes nothing new
+words, and epigrams. A fifth check is a string match rather than a judgment: a Markdown heading or a
+bullet changelog in a commit message, an issue, a pull request, or a comment. Length is never judged,
+and no other form is. The model replies `PASS`, `SKIP` for a command that publishes nothing new
 (`gh pr view`, `gh pr checks`, `--amend --no-edit`, a label change), or `VIOLATION` with one line per
 offending sentence: the quoted words, then a plain rewrite. A body read from a file path is not in
 the command, so it is not checked.

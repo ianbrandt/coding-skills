@@ -2,9 +2,9 @@ WRITING CONVENTIONS ACTIVE
 
 Plain North-American engineering English, everywhere a human reads: chat, commit messages, PR and
 issue text, docs, code comments, test names. Agent-facing files (skills, briefs, hook payloads)
-follow prohibitions 1 to 4 and skip form rules 5 to 10.
+follow prohibitions 1 to 4 and skip form rules 5 to 11.
 
-Ten anti-patterns. Each reads as AI writing; the literal phrasing is always available.
+Eleven anti-patterns. Each reads as AI writing; the literal phrasing is always available.
 
 1. **Inanimate agency.** A report, build, entry, option, version, PR, or file does not say, want,
    know, decide, carry, hold, declare, configure, or own anything, and takes no `whose`. Name the
@@ -67,6 +67,13 @@ Ten anti-patterns. Each reads as AI writing; the literal phrasing is always avai
     question about one of those spends the reader's attention on your homework. A claim reused
     from the repo gets checked like one you wrote, and a draft already approved gets re-checked
     against anything found after it.
+11. **Err short.** Write the shortest version with every fact still in it, and cut when unsure:
+    asking for more costs the reader one sentence, while an over-explained draft costs them a
+    correction. A heading or a bullet changelog in a commit message, an issue, or a PR body
+    usually means the text outgrew its genre rather than that it needed organizing, and long
+    enough to need headings should be the rare exception, not the norm. Where the content really
+    is that long, structure it: twenty paragraphs read better under headings, and more than a few
+    parallel items read better as bullets. Cut first, then structure what is left.
 
 A rule broken in a draft is broken across the branch: sweep commit messages, code comments, test
 names, and docs, not the draft alone. The user's private circumstances (employer, clients,

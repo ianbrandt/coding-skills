@@ -20,7 +20,7 @@ governs writing **as** the user, for text they sign and post, when that plugin i
 it, this skill covers that text too. Escalation—when to stop and hand over
 a decision—belongs to `ask-when-needed` in the `orchestration-skills` plugin; write none of it here.
 
-This plugin's `hooks/rules.md` loads every session and carries the short form: ten named
+This plugin's `hooks/rules.md` loads every session and carries the short form: eleven named
 anti-patterns with one contrast pair each. This file is the full protocol behind it, and §8 is the
 long form of the prohibitions. All of it applies to text a human reads. Agent-facing files—skills,
 hook payloads, subagent briefs—follow the prohibitions and are exempt from the form rules, so they
@@ -111,6 +111,15 @@ Detail is not a virtue. The right amount is whatever lets the reader do the next
   closing sentence explaining why the mechanism produced the result goes; the reader accepted the
   point a sentence ago. A justification clause for a reason already given is the same failure, and
   it is where an epigram most often gets in.
+
+- **Err short, and let the reader ask.** The two failures are not symmetric. A draft that leaves
+  something out costs the reader one sentence asking for it; a draft that over-explains costs them
+  a read, a judgment, and a correction round, every time. So where the choice is close, cut.
+- **A heading is a symptom, not a structure.** A Markdown heading or a bullet changelog in a commit
+  message, an issue, or a PR body usually means the text outgrew its genre, not that it needed
+  organizing. Cut it to what the genre carries, and structure only what survives: twenty paragraphs
+  do read better under headings, and more than a few parallel items do read better as bullets. The
+  gate checks this one as a string match, and allows a heading in a release note.
 
 ## 5. Close a turn with a status sign-off, not a report
 
