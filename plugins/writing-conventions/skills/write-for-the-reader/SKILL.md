@@ -214,6 +214,11 @@ thing instead of abstracting it. Banned in chat replies, not only in published p
   word isn't already English, say what actually happens: "remove the coupling", "cut the risk".
 - Intensifiers—drop them: "Gradle's own" is "Gradle's". The bare noun or verb makes the same claim,
   and the intensifier reads as the writer leaning on it.
+- A deferential frame around a question ("worth your ruling", "I'd defer to you on", "your call").
+  An open question takes a question mark and stands on its own. The frame turns the ask into
+  narration and reads as courtier voice. Offering to do the work is a different act and is not
+  covered here: "I could restore binary compatibility in a v0.58.1" states a capability, and the
+  reader can decline it without a round trip.
 
 This list is the live one. It grows here when the user flags a word.
 
