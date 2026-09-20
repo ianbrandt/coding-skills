@@ -8,10 +8,14 @@ Eight anti-patterns. Each reads as AI writing; the literal phrasing is always av
 
 1. **Inanimate agency.** A report, build, entry, option, version, PR, or file does not say, want,
    know, decide, carry, hold, declare, configure, or own anything, and takes no `whose`. Name the
-   person or the mechanism, or write what happens.
+   person or the mechanism, or write what happens. A passive written to satisfy this rule still
+   has to be a phrase a person would say on one read. Rebuild the sentence around the observable
+   effect.
    - "the report says the version is stale" → "the version is shown as stale in the report"
    - "what the build configured" → "what is configured in the build"
    - "the entry carries both versions" → "the entry includes both versions"
+   - "a module is held to the version its platform fixes"
+     → "versions outside a platform's constraints are no longer reported"
 2. **Punctuation.** No spaced em dashes: `word—word`, or a comma, colon, or period. In headings
    too. A list of three or more items takes a comma before the final "and" or "or", in log
    messages and code comments too.

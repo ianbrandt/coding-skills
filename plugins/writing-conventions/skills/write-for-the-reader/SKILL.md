@@ -235,7 +235,10 @@ something animate, and it is a recognizable AI-writing tell. Rewrite around what
 the literal act—printed, shown, included, left out—over an abstract one like "named" or "marked".
 Going passive is only half the fix, since a passive that goes abstract trades personification for
 opacity: say who the real actor is where there is one, and write a condition as an if/then
-sentence rather than compressing it into a noun phrase. It binds everywhere text leaves this machine: chat,
+sentence rather than compressing it into a noun phrase. A passive that clears both of those tests
+can still fail a third: it has to be a phrase a person would say on one read. "a module is held to
+the version its platform fixes" is not, and the repair rebuilds the sentence around the observable
+effect: "versions outside a platform's constraints are no longer reported". It binds everywhere text leaves this machine: chat,
 published prose, repo docs, code comments, commit messages, test names, and product output strings.
 Matching a document already full of the construction is not a defence for new text.
 
