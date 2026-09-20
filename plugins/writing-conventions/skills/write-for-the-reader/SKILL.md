@@ -168,6 +168,10 @@ Scan sentence form too, not only vocabulary. An epigram—a line that would work
 a rhetorical antithesis ("they chose to skip it; we chose to fix it") are tells at the sentence
 level, and neither trips a word check. Rewrite each as the plain fact it stands for.
 
+**One idea per sentence, 10 to 20 words.** A sentence carrying two subordinate clauses gets split.
+First drafts land at 30 to 40 words, which is the usual reason a paragraph reads as written by a
+model, so the count is worth checking on a paragraph that reads heavy.
+
 **Emphasis is rare, not banned.** This covers `**bold**`, `*italic*`, and `_italic_` alike. A list
 of findings takes none, and a fact placed first needs no marking. Two reasons to keep it rare in
 prose: none of it survives where the text is read plain, in a terminal, a commit message, or a log,
