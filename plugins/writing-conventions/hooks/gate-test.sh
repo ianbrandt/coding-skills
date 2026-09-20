@@ -58,5 +58,9 @@ case $stderr in *'rewrite it'*) ;; *) echo "FAIL violation reason: $stderr"; fai
 # A gate that cannot reach a model must not stop a commit.
 expect 0 yes '' 1 'git commit -m \"Plain message\"'
 expect 0 yes '' 0 'git commit -m \"Plain message\"'
+# Garbage in place of the hook input is not a reason to block either.
+cases=$((cases + 1))
+printf 'not json at all {{{' | bash "$HERE/gate.sh" >/dev/null 2>&1 \
+  || { echo "FAIL garbage input exit $?"; fail=1; }
 
 [ $fail -eq 0 ] && echo "PASS ($cases cases)" || { echo "FAILED"; exit 1; }
