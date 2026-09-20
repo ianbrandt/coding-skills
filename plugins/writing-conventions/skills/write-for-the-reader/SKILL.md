@@ -39,6 +39,10 @@ during which they were doing something else.
   concrete thing it stands for.
 - **Lead with the outcome**, then what is left. A chronology of what you tried is a record of your
   search, not information the reader can act on.
+- **Write the point, do not leave it to be assembled.** Correct facts in the right order still fail
+  when the conclusion drawn from them stays in your head. "Most builds won't need a rule at all" is
+  a bare fact; the point was that nothing has to be migrated to take the improvement up. Ask of
+  each paragraph what the reader is meant to do with it, and write that sentence.
 - **Re-establish the subject at the top of a wrap-up.** One clause naming the repo, branch, or
   feature costs nothing and rescues a reader who has three sessions open.
 - **A set the reader has not met takes the bare plural.** "This PR corrects defects found in a
