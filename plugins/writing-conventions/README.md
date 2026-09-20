@@ -22,8 +22,8 @@ narration, sentence order, coinages, writing for a reader who has read nothing s
 message, saying a fact once, and evidence. Three standing rules follow: a
 rule broken in a draft is swept across the branch, the user's private circumstances stay out
 of public artifacts, and a draft for publication goes in a fenced block with the info string
-`draft`, which is what the `Stop` reader below looks for. It runs about 620 words, so it costs
-roughly 800 tokens per session and per subagent, down from about 1,600 words; the reasoning behind each rule, and its edge cases, sit in `write-for-the-reader` §8
+`draft`, which is what the `Stop` reader below looks for. It runs about 1,050 words, so it costs
+roughly 1,400 tokens per session and per subagent, against about 1,600 words for the long form; the reasoning behind each rule, and its edge cases, sit in `write-for-the-reader` §8
 and load only when that skill does.
 
 Prohibitions bind everywhere, `SKILL.md` files included, because they are about precision rather
