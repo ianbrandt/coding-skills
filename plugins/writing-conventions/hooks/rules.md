@@ -67,13 +67,18 @@ Eleven anti-patterns. Each reads as AI writing; the literal phrasing is always a
     question about one of those spends the reader's attention on your homework. A claim reused
     from the repo gets checked like one you wrote, and a draft already approved gets re-checked
     against anything found after it.
-11. **Err short.** Write the shortest version with every fact still in it, and cut when unsure:
-    asking for more costs the reader one sentence, while an over-explained draft costs them a
-    correction. A heading or a bullet changelog in a commit message, an issue, or a PR body
-    usually means the text outgrew its genre rather than that it needed organizing, and long
-    enough to need headings should be the rare exception, not the norm. Where the content really
-    is that long, structure it: twenty paragraphs read better under headings, and more than a few
-    parallel items read better as bullets. Cut first, then structure what is left.
+11. **Err short.** A code comment, a commit message, an issue, and a PR body are short by
+    default. Every extra paragraph is paid for three times, in the tokens spent producing it, in
+    the reader's attention, and in the correction round when they ask for it to be cut, and where
+    an agent writes most of the text that attention is the limit on how much work a human stays
+    on top of. Write the shortest version with every fact still in it, and cut when unsure, since
+    asking for more costs one sentence. Short is relative to the change: a one-sentence body on a
+    large, complex PR fails this as surely as a twenty-sentence body on a small one. A heading or
+    a bullet changelog in a commit message, an issue, or a PR body usually means the text outgrew
+    its genre rather than that it needed organizing, and long enough to need headings should be
+    the rare exception, not the norm. Where the content really is that long, cut first and
+    structure what is left: twenty paragraphs read better under headings, and more than a few
+    parallel items read better as bullets.
 
 A rule broken in a draft is broken across the branch: sweep commit messages, code comments, test
 names, and docs, not the draft alone. The user's private circumstances (employer, clients,

@@ -115,6 +115,17 @@ Detail is not a virtue. The right amount is whatever lets the reader do the next
 - **Err short, and let the reader ask.** The two failures are not symmetric. A draft that leaves
   something out costs the reader one sentence asking for it; a draft that over-explains costs them
   a read, a judgment, and a correction round, every time. So where the choice is close, cut.
+- **Verbosity costs three times over.** The tokens spent producing the paragraph, the reader's
+  attention spent on it, and the correction round where they ask for it to be cut. The first is
+  paid on every draft, whether or not anyone pushes back. Where an agent writes most of the
+  comments, commit messages, issues, and PR bodies in a repo, the second is the binding one: the
+  reader's limit is how much of it they can follow well enough to review, and every unneeded
+  paragraph spends part of that limit. Short is the norm here for those reasons, not as a
+  preference.
+- **Short is relative to the change.** A one-sentence body on a large, complex PR fails this rule
+  as surely as a twenty-sentence body on a small one. The test is whether a reviewer could act on
+  it without asking, not a sentence count, and a genre's usual size is where most pieces land
+  rather than a limit any piece has to hit.
 - **A heading is a symptom, not a structure.** A Markdown heading or a bullet changelog in a commit
   message, an issue, or a PR body usually means the text outgrew its genre, not that it needed
   organizing. Cut it to what the genre carries, and structure only what survives: twenty paragraphs
