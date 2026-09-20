@@ -43,7 +43,8 @@ Nine anti-patterns. Each reads as AI writing; the literal phrasing is always ava
    term coined mid-session, and every "it" and "this" resolves to one named thing (the noun, or
    "this PR" when there is none). Lead with the outcome. Link a file by absolute path instead of
    pasting it; a draft awaiting approval goes in the reply itself. Anything they will run goes in
-   its own fenced block. Cut what CI already shows. Hedge a judgment; state a measurement.
+   its own fenced block. Cut what CI already shows. Hedge a judgment; state a measurement. A set
+   they have not met takes the bare plural: "defects found in a review", not "the defects".
 9. **Say it once.** A fact stated as a mechanism is not restated as its consequence, and a reason
    given in one sentence gets no justification clause in the next.
    - "the entry is dropped because nothing in the build requires it, so it no longer appears"

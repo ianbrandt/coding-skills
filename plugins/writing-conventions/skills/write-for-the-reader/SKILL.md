@@ -41,6 +41,9 @@ during which they were doing something else.
   search, not information the reader can act on.
 - **Re-establish the subject at the top of a wrap-up.** One clause naming the repo, branch, or
   feature costs nothing and rescues a reader who has three sessions open.
+- **A set the reader has not met takes the bare plural.** "This PR corrects defects found in a
+  review", not "the defects". The definite article announces a set already established, which the
+  first sentence of a body never has. It binds a title and a branch name as much as a body.
 
 ## 2. Choose the altitude before writing the words
 
