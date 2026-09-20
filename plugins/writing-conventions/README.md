@@ -16,8 +16,8 @@ A `SessionStart` hook injects [`hooks/rules.md`](hooks/rules.md) into every sess
 after `/clear`, compaction, and a fork. A `SubagentStart` hook injects the same file into every
 subagent through [`hooks/rules-context.sh`](hooks/rules-context.sh), since a subagent's report is
 what a later summary is built from. The file is ten named
-anti-patterns, one line and one drafted-to-accepted pair each: inanimate agency, punctuation
-(spaced em dashes and the Oxford comma), a banned-vocabulary list, epigrams and paired contrasts,
+anti-patterns, one line and one drafted-to-accepted pair each: inanimate agency, mechanics
+(spaced em dashes, the Oxford comma, and consistent units), a banned-vocabulary list, epigrams and paired contrasts,
 narration, sentence order, coinages, writing for a reader who has read nothing since their last
 message, saying a fact once, and evidence. Three standing rules follow: a
 rule broken in a draft is swept across the branch, the user's private circumstances stay out
@@ -100,7 +100,7 @@ and `gh release` subcommand, and any other command that can publish (see "Other 
 through the `Bash` tool and through the `PowerShell` tool both. Covering only `Bash` leaves every commit ungated on a Windows session where the PowerShell tool
 is the shell. [`hooks/gate.sh`](hooks/gate.sh) and [`hooks/gate.ps1`](hooks/gate.ps1) hand the command
 to a model, which pulls out the commit message or the title and body and checks that text against the
-four prohibitions: inanimate agency, punctuation (spaced em dashes and the Oxford comma), the banned
+four prohibitions: inanimate agency, mechanics (spaced em dashes and the Oxford comma), the banned
 words, and epigrams. Form and
 length are never judged. The model replies `PASS`, `SKIP` for a command that publishes nothing new
 (`gh pr view`, `gh pr checks`, `--amend --no-edit`, a label change), or `VIOLATION` with one line per

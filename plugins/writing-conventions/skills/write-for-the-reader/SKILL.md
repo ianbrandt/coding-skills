@@ -325,6 +325,11 @@ fair game to sweep whole.
 html and plain". The same holds before a final "or". It binds on every surface, including log
 messages and code comments, where a terse list is most often written without it.
 
+**Units stay consistent and idiomatic across a piece.** Pick one form for a quantity and keep it
+in prose and in exhibits alike: `1m5s` beside `65s` in the same set of timings makes the reader
+convert between them to compare two rows. The idiomatic form for the magnitude is the one to pick,
+so seconds below a minute and minutes-and-seconds above one.
+
 **The user's private circumstances never enter a public artifact.** Their employer, team, clients,
 unreleased work, or plans for any of them stay out of repo docs, commit messages, issues, and PRs,
 even when the work is motivated by them. State the need the artifact serves, never the private
