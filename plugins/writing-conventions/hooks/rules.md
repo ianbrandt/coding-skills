@@ -47,8 +47,11 @@ Ten anti-patterns. Each reads as AI writing; the literal phrasing is always avai
    "this PR" when there is none). Lead with the outcome, and write the point rather than leaving
    the reader to assemble it from the facts. Link a file by absolute path instead of pasting it;
    a draft awaiting approval goes in the reply itself. Anything they will run goes in its own
-   fenced block. A set they have not met takes the bare plural: "defects found in a review", not
-   "the defects".
+   fenced block. A list of findings takes no bold, and a fact placed first needs no marking.
+   Emphasis elsewhere, bold or italic, is rare and kept for what strongly warrants calling out:
+   none of it survives in plain text, it is overused in rendered text, and reaching for it often
+   means the phrasing needs work. A set they have not met takes the bare plural: "defects found
+   in a review", not "the defects".
 9. **Say it once.** A fact stated as a mechanism is not restated as its consequence, and a reason
    given in one sentence gets no justification clause in the next.
    - "the entry is dropped because nothing in the build requires it, so it no longer appears"

@@ -165,6 +165,15 @@ Scan sentence form too, not only vocabulary. An epigram—a line that would work
 a rhetorical antithesis ("they chose to skip it; we chose to fix it") are tells at the sentence
 level, and neither trips a word check. Rewrite each as the plain fact it stands for.
 
+**Emphasis is rare, not banned.** This covers `**bold**`, `*italic*`, and `_italic_` alike. A list
+of findings takes none, and a fact placed first needs no marking. Two reasons to keep it rare in
+prose: none of it survives where the text is read plain, in a terminal, a commit message, or a log,
+and in rendered text it is overused to the point of reading as a tell. The bar is something that
+strongly warrants being called out, which is a few times a document rather than a few times a
+paragraph. Below that bar, reaching for it means the phrasing needs work, since the word carrying
+the weight can go at the front of the sentence instead. Heavy bold stays right in an agent-facing
+file, where it shows a model what it must not skip, which is where the form rules stop.
+
 Personification is the third, and the easiest to miss, since every word in the sentence can be
 plain. Check each subject against its verb: if a person doing that verb would be speaking, wanting,
 perceiving, or possessing, and the subject is a thing, rewrite it. The rule and the repair are in
