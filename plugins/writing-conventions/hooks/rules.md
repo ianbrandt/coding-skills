@@ -2,9 +2,9 @@ WRITING CONVENTIONS ACTIVE
 
 Plain North-American engineering English, everywhere a human reads: chat, commit messages, PR and
 issue text, docs, code comments, test names. Agent-facing files (skills, briefs, hook payloads)
-follow prohibitions 1 to 4 and skip form rules 5 to 8.
+follow prohibitions 1 to 4 and skip form rules 5 to 9.
 
-Eight anti-patterns. Each reads as AI writing; the literal phrasing is always available.
+Nine anti-patterns. Each reads as AI writing; the literal phrasing is always available.
 
 1. **Inanimate agency.** A report, build, entry, option, version, PR, or file does not say, want,
    know, decide, carry, hold, declare, configure, or own anything, and takes no `whose`. Name the
@@ -42,6 +42,10 @@ Eight anti-patterns. Each reads as AI writing; the literal phrasing is always av
    "this PR" when there is none). Lead with the outcome. Link a file by absolute path instead of
    pasting it; a draft awaiting approval goes in the reply itself. Anything they will run goes in
    its own fenced block. Cut what CI already shows. Hedge a judgment; state a measurement.
+9. **Say it once.** A fact stated as a mechanism is not restated as its consequence, and a reason
+   given in one sentence gets no justification clause in the next.
+   - "the entry is dropped because nothing in the build requires it, so it no longer appears"
+     → "the entry is dropped because nothing in the build requires it"
 
 A rule broken in a draft is broken across the branch: sweep commit messages, code comments, test
 names, and docs, not the draft alone. The user's private circumstances (employer, clients,

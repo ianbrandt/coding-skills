@@ -15,10 +15,11 @@ it learns from your edits into the same file when this plugin is installed.
 A `SessionStart` hook injects [`hooks/rules.md`](hooks/rules.md) into every session, including
 after `/clear`, compaction, and a fork. A `SubagentStart` hook injects the same file into every
 subagent through [`hooks/rules-context.sh`](hooks/rules-context.sh), since a subagent's report is
-what a later summary is built from. The file is eight named
+what a later summary is built from. The file is nine named
 anti-patterns, one line and one drafted-to-accepted pair each: inanimate agency, punctuation
 (spaced em dashes and the Oxford comma), a banned-vocabulary list, epigrams and paired contrasts,
-narration, sentence order, coinages, and writing for a reader who has read nothing since their last message. Three standing rules follow: a
+narration, sentence order, coinages, writing for a reader who has read nothing since their last
+message, and saying a fact once. Three standing rules follow: a
 rule broken in a draft is swept across the branch, the user's private circumstances stay out
 of public artifacts, and a draft for publication goes in a fenced block with the info string
 `draft`, which is what the `Stop` reader below looks for. It runs about 620 words, so it costs

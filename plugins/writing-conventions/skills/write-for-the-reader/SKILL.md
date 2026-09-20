@@ -20,7 +20,7 @@ governs writing **as** the user, for text they sign and post, when that plugin i
 it, this skill covers that text too. Escalation—when to stop and hand over
 a decision—belongs to `ask-when-needed` in the `orchestration-skills` plugin; write none of it here.
 
-This plugin's `hooks/rules.md` loads every session and carries the short form: eight named
+This plugin's `hooks/rules.md` loads every session and carries the short form: nine named
 anti-patterns with one contrast pair each. This file is the full protocol behind it, and §8 is the
 long form of the prohibitions. All of it applies to text a human reads. Agent-facing files—skills,
 hook payloads, subagent briefs—follow the prohibitions and are exempt from the form rules, so they
@@ -92,6 +92,10 @@ Detail is not a virtue. The right amount is whatever lets the reader do the next
 - **Do not restate the diff**, and do not summarize your own summary. If the code is in the reply or
   one click away in a linked file, a prose walkthrough duplicates it; a closing paragraph that
   repeats the opening one is filler.
+- **Say a fact once.** A mechanism and the consequence that follows from it are one fact, so a
+  closing sentence explaining why the mechanism produced the result goes; the reader accepted the
+  point a sentence ago. A justification clause for a reason already given is the same failure, and
+  it is where an epigram most often gets in.
 
 ## 5. Close a turn with a status sign-off, not a report
 
