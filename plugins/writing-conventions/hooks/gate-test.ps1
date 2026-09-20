@@ -24,7 +24,7 @@ if ($onWindows) {
 @echo off
 >>"%GATE_TEST_MARK%" echo called
 if "%GATE_TEST_FAIL%"=="1" exit /b 1
-if defined GATE_TEST_VERDICT echo %GATE_TEST_VERDICT%
+if exist "%GATE_TEST_VERDICT_FILE%" type "%GATE_TEST_VERDICT_FILE%"
 '@
   $stubPath = Join-Path $scratch 'claude.bat'
 } else {
@@ -32,7 +32,7 @@ if defined GATE_TEST_VERDICT echo %GATE_TEST_VERDICT%
 #!/usr/bin/env bash
 printf 'called\n' >> "$GATE_TEST_MARK"
 [ "$GATE_TEST_FAIL" = 1 ] && exit 1
-printf '%s\n' "$GATE_TEST_VERDICT"
+cat "$GATE_TEST_VERDICT_FILE" 2>/dev/null
 '@
   $stubPath = Join-Path $scratch 'claude'
 }
@@ -45,6 +45,7 @@ $saved = @{
   TOOL  = $env:CLAUDE_CODE_USE_POWERSHELL_TOOL
   MODEL = $env:WRITING_CONVENTIONS_GATE_MODEL
   MARK  = $env:GATE_TEST_MARK
+  FILE  = $env:GATE_TEST_VERDICT_FILE
 }
 try {
   # The owner test in shell-owner.ps1 hands the hook to PowerShell only on Windows
@@ -54,12 +55,15 @@ try {
   $env:CLAUDE_CODE_USE_POWERSHELL_TOOL = '1'
   $env:WRITING_CONVENTIONS_GATE_MODEL = $null
   $env:GATE_TEST_MARK = Join-Path $scratch 'mark'
+  # The stub prints this file. A verdict has several lines and double quotes, which
+  # a .bat `echo` of an environment variable cannot hold.
+  $env:GATE_TEST_VERDICT_FILE = Join-Path $scratch 'verdict'
 
   # Returns @{ Status; Output; Called } for one command text.
   function Invoke-Gate([string]$verdict, [string]$failCall, [string]$cmdText) {
     $ErrorActionPreference = 'Continue'
     [IO.File]::WriteAllText($env:GATE_TEST_MARK, '')
-    $env:GATE_TEST_VERDICT = $verdict
+    [IO.File]::WriteAllText($env:GATE_TEST_VERDICT_FILE, $verdict)
     $env:GATE_TEST_FAIL = $failCall
     $json = @{ tool_input = @{ command = $cmdText } } | ConvertTo-Json -Compress
     $out = $json | pwsh -NoProfile -File $gate 2>&1 | Out-String
@@ -82,21 +86,50 @@ try {
   }
 
   # A command that publishes nothing never reaches the model.
-  Test-Gate 0 $false 'CLEAN' '0' 'Get-ChildItem'
-  Test-Gate 0 $false 'CLEAN' '0' 'git log --grep=commit'
-  Test-Gate 0 $false 'CLEAN' '0' 'gh repo view'
+  Test-Gate 0 $false 'PASS' '0' 'Get-ChildItem'
+  Test-Gate 0 $false 'PASS' '0' 'git log --grep=commit'
+  Test-Gate 0 $false 'PASS' '0' 'gh repo view'
   # The four publishing families do, git -C included: no `if` pattern matches that
   # one, which is why the command text is matched here instead.
-  Test-Gate 0 $true 'CLEAN' '0' 'git commit -m "Plain message"'
-  Test-Gate 0 $true 'CLEAN' '0' 'git -C C:\tmp\wt commit -m "Plain message"'
-  Test-Gate 0 $true 'CLEAN' '0' 'gh pr create --title x --body y'
-  Test-Gate 0 $true 'CLEAN' '0' 'gh issue comment 1 --body y'
-  Test-Gate 0 $true 'CLEAN' '0' 'gh release create v1 --notes y'
-  # A quoted violation blocks the command and comes back as the reason.
-  $cases++
-  $r = Invoke-Gate 'the report says: rewrite it' '0' 'git commit -m "The report says so"'
-  if ($r.Status -ne 2) { Write-Output ("FAIL violation exit " + $r.Status + ", wanted 2"); $fail = 1 }
-  if ($r.Output -notlike '*rewrite it*') { Write-Output ("FAIL violation reason: " + $r.Output); $fail = 1 }
+  Test-Gate 0 $true 'PASS' '0' 'git commit -m "Plain message"'
+  Test-Gate 0 $true 'PASS' '0' 'git -C C:\tmp\wt commit -m "Plain message"'
+  Test-Gate 0 $true 'PASS' '0' 'gh pr create --title x --body y'
+  Test-Gate 0 $true 'PASS' '0' 'gh issue comment 1 --body y'
+  Test-Gate 0 $true 'PASS' '0' 'gh release create v1 --notes y'
+  Test-Gate 0 $true 'SKIP' '0' 'gh pr view 1'
+
+  # Only a finding that quotes the command blocks it, and comes back as the reason.
+  $says = 'git commit -m "The report says so"'
+  # Returns the gate's output, which holds the verified findings.
+  function Test-Blocked([string]$verdict, [string]$cmdText) {
+    $script:cases++
+    $r = Invoke-Gate $verdict '0' $cmdText
+    if ($r.Status -ne 2) { Write-Output ("FAIL exit " + $r.Status + ", wanted 2: " + $verdict); $script:fail = 1 }
+    return $r.Output
+  }
+  $out = Test-Blocked "VIOLATION`n`"The report says so`" -> The version is shown in the report." $says
+  if ($out -notlike '*shown in the report*run the command again*') { Write-Output ("FAIL violation reason: " + $out); $fail = 1 }
+  # A fragment is matched with runs of whitespace collapsed, so a sentence that
+  # wraps in the commit body is still found.
+  $null = Test-Blocked "VIOLATION`n`"The report says so`" -> x" "git commit -m `"Fix it`n`nThe report`n  says so`""
+  # Every fragment of a finding has to be in the command, and the reason leaves out
+  # a finding that is not.
+  $null = Test-Blocked "VIOLATION`n`"The report`" + `"says so`" -> x" $says
+  $out = Test-Blocked "VIOLATION`n`"The build decided`" -> invented`n`"The report says so`" -> real" $says
+  if ($out -like '*invented*') { Write-Output ("FAIL unverified finding in the reason: " + $out); $fail = 1 }
+  Test-Gate 0 $true "VIOLATION`n`"The report`" + `"never appears`" -> x" '0' $says
+  # Anything else lets the command through: a quote that is not in the command, a
+  # verdict line with a second word, a finding that does not parse, prose with no
+  # verdict line, and the reply the gate asked for before this contract.
+  Test-Gate 0 $true "VIOLATION`n`"The build decided`" -> x" '0' $says
+  Test-Gate 0 $true "VIOLATION MAYBE`n`"The report says so`" -> x" '0' $says
+  Test-Gate 0 $true "VIOLATION`nThe report says so: rewrite it" '0' $says
+  Test-Gate 0 $true 'VIOLATION' '0' $says
+  # An empty quote is in every command, so it is not a quote.
+  Test-Gate 0 $true "VIOLATION`n`"`" -> x" '0' $says
+  Test-Gate 0 $true "VIOLATION`n`" -> x" '0' $says
+  Test-Gate 0 $true 'the report says: rewrite it' '0' $says
+  Test-Gate 0 $true 'CLEAN' '0' $says
   # A gate that cannot reach a model must not stop a commit.
   Test-Gate 0 $true '' '1' 'git commit -m "Plain message"'
   Test-Gate 0 $true '' '0' 'git commit -m "Plain message"'
@@ -111,6 +144,7 @@ try {
   $env:CLAUDE_CODE_USE_POWERSHELL_TOOL = $saved.TOOL
   $env:WRITING_CONVENTIONS_GATE_MODEL = $saved.MODEL
   $env:GATE_TEST_MARK = $saved.MARK
+  $env:GATE_TEST_VERDICT_FILE = $saved.FILE
   Remove-Item -LiteralPath $scratch -Recurse -Force -ErrorAction SilentlyContinue
 }
 

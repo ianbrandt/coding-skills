@@ -21,8 +21,8 @@
 # command through.
 #
 # A gate that cannot reach a model must not stop a commit, so every failure path
-# exits 0. Only a violation the model can quote exits 2, which blocks the command
-# and hands the text back to the session.
+# exits 0. Only a finding with its quote in the command exits 2, which blocks the
+# command and hands the text back to the session.
 #
 # ASCII only, so 5.1 cannot mangle it reading a BOM-less file as the ANSI codepage.
 
@@ -62,7 +62,11 @@ try {
   $verdict = ($raw | claude -p --bare --model $model --system-prompt-file $prompt 2>$null | Out-String)
 } catch { exit 0 }
 if ($LASTEXITCODE -ne 0) { exit 0 }
-$verdict = $verdict.Trim()
-if ($verdict -eq '' -or $verdict -match '^CLEAN([^A-Za-z]|$)') { exit 0 }
-[Console]::Error.WriteLine($verdict)
+
+# Get-VerifiedFinding keeps the findings that quote the command. A reply
+# in any other form is a failure path, so it lets the command through as well.
+. (Join-Path $PSScriptRoot 'verdict.ps1')
+$findings = @(Get-VerifiedFinding $verdict @($cmd))
+if ($findings.Count -eq 0) { exit 0 }
+[Console]::Error.WriteLine(($findings -join "`n") + "`nRewrite the quoted text and run the command again.")
 exit 2

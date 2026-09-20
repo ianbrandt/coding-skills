@@ -5,6 +5,9 @@
   case it was added for. A normal install was covered by the Windows run of the self-test.
 - Needs a Windows machine with no Git Bash: check whether the bash-side command hooks print an
   error on every Stop, prompt, and Write/Edit event, and whether `"shell": "bash"` suppresses it.
+- Needs a Windows machine: run `hooks/gate-test.ps1` in `writing-conventions`. The `claude.bat` stub
+  now prints the verdict with `type "%GATE_TEST_VERDICT_FILE%"`, and only the bash stub has been run,
+  under PowerShell 7 on macOS.
 - Needs a machine with an `apiKeyHelper` configured: check whether one in a settings file revives
   `claude -p --bare`. The OAuth half is answered. On an OAuth-only session `--bare` prints
   "Not logged in" in about 0.6s, so the gate fails open and never reaches a model; the README's

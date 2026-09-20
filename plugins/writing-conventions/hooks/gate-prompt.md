@@ -7,7 +7,7 @@ here-string, or `-F -` body for `git commit`; the `--title`, `--body`, and `--no
 from a file path (`-F <path>`, `--body-file <path>`, `--notes-file <path>`) is not in the command, so
 it cannot be checked. If the command publishes no new text (view, list, checks, status, diff,
 `--dry-run`, `--amend --no-edit`, `-C` or `--reuse-message`, `--web`, a label or reviewer change, a
-merge with no body) or you cannot find the text, reply with `CLEAN`.
+merge with no body) or you cannot find the text, reply with the single word `SKIP`.
 
 Check that text, and only that text, against four rules. Code in backticks, quoted text, product
 names, and issue references are exempt.
@@ -26,7 +26,15 @@ names, and issue references are exempt.
 4. Epigrams and paired contrasts: a line that would work as a slide title, "not X but Y", or "they
    chose X; we chose Y".
 
-Reply with the single word `CLEAN` when the text passes, and nothing else. Otherwise reply with one
-line per offending sentence: the quote, then a plain rewrite. Close with a last line telling the
-session to rewrite the text and run the command again. Flag only a violation you can quote, and never
-judge form, length, or content.
+Reply with the single word `PASS` when the text passes, and nothing else. Otherwise the first line
+of the reply is the single word `VIOLATION`, and each line after it is one offending sentence in this
+form, with nothing else in the reply:
+
+"the offending words" -> a plain rewrite
+
+Copy the quoted words exactly as they appear in the command, the shortest run that shows the
+violation, and leave out any stretch that has a double quote or a backslash in it. When the offending
+words are split by text that is not part of the sentence, quote each piece and join the pieces with
+` + `: `"The report " + "says so." -> The version is shown in the report.` A script looks for every
+quoted piece in the command and drops a finding it cannot find, so a paraphrase is wasted. Flag only
+a violation you can quote, and never judge form, length, or content.

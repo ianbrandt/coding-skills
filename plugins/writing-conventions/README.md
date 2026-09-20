@@ -100,10 +100,16 @@ is the shell. [`hooks/gate.sh`](hooks/gate.sh) and [`hooks/gate.ps1`](hooks/gate
 to a model, which pulls out the commit message or the title and body and checks that text against the
 four prohibitions: inanimate agency, punctuation (spaced em dashes and the Oxford comma), the banned
 words, and epigrams. Form and
-length are never judged. A violation the model can quote comes back as the tool's error, with the
-sentence and a plain rewrite, and the session fixes the text and runs the command again; a command
-that publishes nothing new (`gh pr view`, `gh pr checks`, `--amend --no-edit`, a label change) is let
-through, as is a body read from a file path, which the command does not contain.
+length are never judged. The model replies `PASS`, `SKIP` for a command that publishes nothing new
+(`gh pr view`, `gh pr checks`, `--amend --no-edit`, a label change), or `VIOLATION` with one line per
+offending sentence: the quoted words, then a plain rewrite. A body read from a file path is not in
+the command, so it is not checked.
+
+[`hooks/verdict.awk`](hooks/verdict.awk) and [`hooks/verdict.ps1`](hooks/verdict.ps1) look for each
+quote in the command, with runs of whitespace collapsed. A finding with its quote in the command
+comes back as the tool's error, and the session fixes the text and runs the command again. A reply in any other
+form lets the command through, as a failed call does, because the text the model reads can quote an
+untrusted source.
 
 The check runs as one nested `claude -p --bare` call, with
 [`hooks/gate-prompt.md`](hooks/gate-prompt.md) as the system prompt and the hook input as the
@@ -137,8 +143,8 @@ ones included. One hook entry per shell covers all four command families, becaus
 matched in the script rather than through a hook `if` pattern. `git -C <path> commit` is gated that
 way too, and no `Bash(git commit *)` rule matches that form, which is the one a worktree session uses.
 [`hooks/gate-test.sh`](hooks/gate-test.sh) and [`hooks/gate-test.ps1`](hooks/gate-test.ps1) check the
-plumbing offline against a stub `claude` on the PATH: which commands reach the model, the exit codes,
-and the fail-open path.
+plumbing offline against a stub `claude` on the PATH: which commands reach the model, which replies
+block a command, the exit codes, and the fail-open path.
 
 Nothing else is gated. A `git push` is not read, because a branch name is chosen long before it,
 and a `Write` or `Edit` is nudged rather than blocked, because a file is cheap to fix after the

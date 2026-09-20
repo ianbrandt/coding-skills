@@ -21,8 +21,8 @@
 # command through.
 #
 # A gate that cannot reach a model must not stop a commit, so every failure path
-# exits 0. Only a violation the model can quote exits 2, which blocks the command
-# and hands the text back to the session.
+# exits 0. Only a finding with its quote in the command exits 2, which blocks the
+# command and hands the text back to the session.
 
 # One of gate.sh and gate.ps1 runs the check, never both. PowerShell takes the
 # hook on a Windows install where the PowerShell tool is the configured shell. The
@@ -46,8 +46,14 @@ command -v claude >/dev/null 2>&1 || exit 0
 verdict=$(printf '%s' "$input" | claude -p --bare \
   --model "${WRITING_CONVENTIONS_GATE_MODEL:-sonnet}" \
   --system-prompt-file "$HERE/gate-prompt.md" 2>/dev/null) || exit 0
-case $verdict in
-  ''|CLEAN|CLEAN[!A-Za-z]*) exit 0 ;;
-esac
-printf '%s\n' "$verdict" >&2
+
+# verdict.awk keeps the findings that quote the command. A reply in any
+# other form is a failure path, so it lets the command through as well.
+tmp=$(mktemp -d 2>/dev/null) || exit 0
+trap 'rm -rf "$tmp"' EXIT
+printf '%s' "$cmd" > "$tmp/source"
+printf '%s\n' "$verdict" > "$tmp/verdict"
+findings=$(awk -v verdict="$tmp/verdict" -f "$HERE/verdict.awk" "$tmp/source" "$tmp/verdict")
+[ -n "$findings" ] || exit 0
+printf '%s\nRewrite the quoted text and run the command again.\n' "$findings" >&2
 exit 2

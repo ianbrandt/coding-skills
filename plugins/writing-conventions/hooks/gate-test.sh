@@ -40,21 +40,60 @@ expect() {
 }
 
 # A command that publishes nothing never reaches the model.
-expect 0 no CLEAN 0 'ls -la'
-expect 0 no CLEAN 0 'git log --grep=commit'
-expect 0 no CLEAN 0 'gh repo view'
+expect 0 no PASS 0 'ls -la'
+expect 0 no PASS 0 'git log --grep=commit'
+expect 0 no PASS 0 'gh repo view'
 # The four publishing families do, git -C included: no `if` pattern matches that
 # one, which is why the command text is matched here instead.
-expect 0 yes CLEAN 0 'git commit -m \"Plain message\"'
-expect 0 yes CLEAN 0 'git -C /tmp/wt commit -m \"Plain message\"'
-expect 0 yes CLEAN 0 'gh pr create --title x --body y'
-expect 0 yes CLEAN 0 'gh issue comment 1 --body y'
-expect 0 yes CLEAN 0 'gh release create v1 --notes y'
-# A quoted violation blocks the command and comes back as the reason.
-cases=$((cases + 1))
-run 'the report says: rewrite it' 0 'git commit -m \"The report says so\"'
-[ "$status" = 2 ] || { echo "FAIL violation exit $status, wanted 2"; fail=1; }
-case $stderr in *'rewrite it'*) ;; *) echo "FAIL violation reason: $stderr"; fail=1;; esac
+expect 0 yes PASS 0 'git commit -m \"Plain message\"'
+expect 0 yes PASS 0 'git -C /tmp/wt commit -m \"Plain message\"'
+expect 0 yes PASS 0 'gh pr create --title x --body y'
+expect 0 yes PASS 0 'gh issue comment 1 --body y'
+expect 0 yes PASS 0 'gh release create v1 --notes y'
+expect 0 yes SKIP 0 'gh pr view 1'
+
+# Only a finding that quotes the command blocks it, and comes back as the reason.
+says='git commit -m \"The report says so\"'
+# blocked <verdict> <command text>; the verified finding is in $stderr afterwards
+blocked() {
+  cases=$((cases + 1))
+  run "$1" 0 "$2"
+  [ "$status" = 2 ] || { echo "FAIL exit $status, wanted 2: $1"; fail=1; }
+}
+blocked 'VIOLATION
+"The report says so" -> The version is shown in the report.' "$says"
+case $stderr in *'shown in the report'*'run the command again'*) ;; *) echo "FAIL violation reason: $stderr"; fail=1;; esac
+# A fragment is matched with runs of whitespace collapsed, so a sentence that
+# wraps in the commit body is still found.
+blocked 'VIOLATION
+"The report says so" -> x' 'git commit -m \"Fix it\n\nThe report\n  says so\"'
+# Every fragment of a finding has to be in the command, and the reason leaves out
+# a finding that is not.
+blocked 'VIOLATION
+"The report" + "says so" -> x' "$says"
+blocked 'VIOLATION
+"The build decided" -> invented
+"The report says so" -> real' "$says"
+case $stderr in *invented*) echo "FAIL unverified finding in the reason: $stderr"; fail=1;; esac
+expect 0 yes 'VIOLATION
+"The report" + "never appears" -> x' 0 "$says"
+# Anything else lets the command through: a quote that is not in the command, a
+# verdict line with a second word, a finding that does not parse, prose with no
+# verdict line, and the reply the gate asked for before this contract.
+expect 0 yes 'VIOLATION
+"The build decided" -> x' 0 "$says"
+expect 0 yes 'VIOLATION MAYBE
+"The report says so" -> x' 0 "$says"
+expect 0 yes 'VIOLATION
+The report says so: rewrite it' 0 "$says"
+expect 0 yes 'VIOLATION' 0 "$says"
+# An empty quote is in every command, so it is not a quote.
+expect 0 yes 'VIOLATION
+"" -> x' 0 "$says"
+expect 0 yes 'VIOLATION
+" -> x' 0 "$says"
+expect 0 yes 'the report says: rewrite it' 0 "$says"
+expect 0 yes CLEAN 0 "$says"
 # A gate that cannot reach a model must not stop a commit.
 expect 0 yes '' 1 'git commit -m \"Plain message\"'
 expect 0 yes '' 0 'git commit -m \"Plain message\"'
