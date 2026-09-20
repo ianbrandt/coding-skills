@@ -15,13 +15,29 @@ $cases = 0
 
 $scratch = Join-Path ([IO.Path]::GetTempPath()) ("gateps-" + [Guid]::NewGuid().ToString('N'))
 [void](New-Item -ItemType Directory -Path $scratch)
-$stub = @'
+# The stub is named for the platform running the test: a .bat is not resolved as
+# `claude` off Windows, and without this the gate finds the real CLI on the PATH
+# and every case that wants the stub reads as "model not called".
+$onWindows = $PSVersionTable.PSVersion.Major -lt 6 -or $IsWindows
+if ($onWindows) {
+  $stub = @'
 @echo off
 >>"%GATE_TEST_MARK%" echo called
 if "%GATE_TEST_FAIL%"=="1" exit /b 1
 if defined GATE_TEST_VERDICT echo %GATE_TEST_VERDICT%
 '@
-[IO.File]::WriteAllText((Join-Path $scratch 'claude.bat'), $stub, (New-Object System.Text.UTF8Encoding($false)))
+  $stubPath = Join-Path $scratch 'claude.bat'
+} else {
+  $stub = @'
+#!/usr/bin/env bash
+printf 'called\n' >> "$GATE_TEST_MARK"
+[ "$GATE_TEST_FAIL" = 1 ] && exit 1
+printf '%s\n' "$GATE_TEST_VERDICT"
+'@
+  $stubPath = Join-Path $scratch 'claude'
+}
+[IO.File]::WriteAllText($stubPath, $stub, (New-Object System.Text.UTF8Encoding($false)))
+if (-not $onWindows) { & /bin/chmod +x $stubPath }
 
 $saved = @{
   PATH  = $env:PATH
