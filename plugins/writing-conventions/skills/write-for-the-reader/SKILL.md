@@ -20,7 +20,7 @@ governs writing **as** the user, for text they sign and post, when that plugin i
 it, this skill covers that text too. Escalation—when to stop and hand over
 a decision—belongs to `ask-when-needed` in the `orchestration-skills` plugin; write none of it here.
 
-This plugin's `hooks/rules.md` loads every session and carries the short form: nine named
+This plugin's `hooks/rules.md` loads every session and carries the short form: ten named
 anti-patterns with one contrast pair each. This file is the full protocol behind it, and §8 is the
 long form of the prohibitions. All of it applies to text a human reads. Agent-facing files—skills,
 hook payloads, subagent briefs—follow the prohibitions and are exempt from the form rules, so they
