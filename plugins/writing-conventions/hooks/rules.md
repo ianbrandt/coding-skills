@@ -51,9 +51,13 @@ Ten anti-patterns. Each reads as AI writing; the literal phrasing is always avai
    given in one sentence gets no justification clause in the next.
    - "the entry is dropped because nothing in the build requires it, so it no longer appears"
      → "the entry is dropped because nothing in the build requires it"
-10. **Evidence.** Cut what CI already shows. Hedge a judgment, state a measurement, and check
-    before hedging: run history, merged PRs, and a commit log are all measurable from outside, so
-    a question about one of those spends the reader's attention on your homework.
+10. **Evidence.** Cut what the reader can already see, such as an all-green test summary where CI
+    reports the same verdict, or a walkthrough of a diff in the same reply. A local result CI
+    will not show is worth stating. Hedge a judgment, state a measurement, and check before
+    hedging: run history, merged PRs, and a commit log are all measurable from outside, so a
+    question about one of those spends the reader's attention on your homework. A claim reused
+    from the repo gets checked like one you wrote, and a draft already approved gets re-checked
+    against anything found after it.
 
 A rule broken in a draft is broken across the branch: sweep commit messages, code comments, test
 names, and docs, not the draft alone. The user's private circumstances (employer, clients,

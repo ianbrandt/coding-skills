@@ -95,6 +95,11 @@ Detail is not a virtue. The right amount is whatever lets the reader do the next
 - **Do not restate the diff**, and do not summarize your own summary. If the code is in the reply or
   one click away in a linked file, a prose walkthrough duplicates it; a closing paragraph that
   repeats the opening one is filler.
+- **Text already in the repo is not a warrant.** A claim copied from a doc, a comment, or an
+  earlier draft gets checked the way one you wrote does, and the source it came from gets the same
+  fix when the edit lands. An approved draft goes stale the same way: where later work in the
+  session changes the fact, re-check the draft against what was found after it, not only against
+  these rules.
 - **Say a fact once.** A mechanism and the consequence that follows from it are one fact, so a
   closing sentence explaining why the mechanism produced the result goes; the reader accepted the
   point a sentence ago. A justification clause for a reason already given is the same failure, and
