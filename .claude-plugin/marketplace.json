@@ -14,14 +14,14 @@
     {
       "name": "roadmap-skills",
       "source": "./plugins/roadmap-skills",
-      "version": "0.18.0",
+      "version": "0.19.0",
       "description": "Skills for driving a repo's roadmap: claim the next item and build it, for repos you own or upstream OSS projects you contribute to via a fork.",
       "keywords": ["roadmap", "backlog", "worktree", "oss", "contribution"]
     },
     {
       "name": "session-skills",
       "source": "./plugins/session-skills",
-      "version": "0.9.5",
+      "version": "0.10.0",
       "description": "Puts a session in its own git worktree and gets it back out again: adopt the worktree work is already in flight on or open a fresh one, and land the work by what the repo actually is rather than by a declared mode.",
       "keywords": ["worktree", "session", "landing", "wrap-up", "resume"]
     },

@@ -77,6 +77,18 @@ It resolves in-flight work by itself, from the primary checkout, so the snippet 
 path—and a freehand prompt reconstructing that state is how a resume becomes a second branch on
 work already half-built.
 
+## Raise an out-of-scope finding in the reply
+
+Work noticed in passing, a defect outside the current change, a stale doc, a missing test, is
+raised in the reply where it was found. A suggested-task chip is a small pop-up with room for no
+context and no discussion, and in a repo tracking work in a roadmap it is a second queue outside
+that roadmap.
+
+Where the finding should outlive the session, write it down: a repo with a roadmap takes a new
+item under its own ID, and a `TODO.md` takes work needing a machine or an account this session
+does not have. A chip is worth adding only alongside that, never instead of it, and only for
+self-contained work that needs no decision from the user and would start in its own worktree now.
+
 ## The skills behind these rules
 
 `work-in-worktree`—getting the work into the right worktree before touching code, off a

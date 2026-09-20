@@ -58,10 +58,13 @@ which seam.
 ## How it is wired
 
 A `SessionStart` hook injects `hooks/rules.md` into every session, including after `/clear` and
-compaction. It carries two rules the skills can't. One is the session-title suggestion a session
-owes at its end, in a format the user copies in one gesture. The other runs every turn: weigh
+compaction. It carries three rules the skills can't. One is the session-title suggestion a session
+owes at its end, in a format the user copies in one gesture. Another runs every turn: weigh
 continuing this session against handing off to a fresh one, silently, and speak only when a tell
-trips—the unit just landed, the session has been compacted, the next thing is unrelated work. Both
+trips—the unit just landed, the session has been compacted, the next thing is unrelated work. The
+third fires whenever something out of scope turns up: raise it in the reply, write it into the
+repo's roadmap or to-do file where it should outlive the session, and never leave it sitting in a
+task chip on its own. All three
 apply to every session that did real work, including the ones that never open a worktree and so
 never load `land-and-wrap`—which is why they ride a hook rather than a skill, and ship with the
 plugin rather than sitting in a personal global `CLAUDE.md`. No `SubagentStart` hook: a subagent

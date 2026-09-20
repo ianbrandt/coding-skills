@@ -201,6 +201,11 @@ session does at its end. Two things it defers back to this skill:
   (`BUILT-LOCAL` / `DRAFTED` / `FILED` / `PR-READY` / `MERGED-UPSTREAM`). Free-form append, no rigid
   schema. An item that turned out parked or declined moves to the parked or declined file instead.
 
+- **Record what was found in passing.** A defect or a gap noticed while building this item, and
+  outside it, becomes a new item with the next free ID at its priority position, never a fix
+  smuggled into the one in hand. Raise it in the reply as well, since the user may want it
+  discussed or deferred rather than queued.
+
 **The claim is released at session end even when the item isn't finished.** The unfinished item's
 resume record is its branch and worktree, plus its pin in `$ROADMAP`; leave all of it standing and
 name the branch in the wrap-up. The next session's entry point is `/next-roadmap-item <Rn>`, or
