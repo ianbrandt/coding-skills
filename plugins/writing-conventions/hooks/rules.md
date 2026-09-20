@@ -39,6 +39,8 @@ Nine anti-patterns. Each reads as AI writing; the literal phrasing is always ava
      → "the settings are inherited within a build, but none of them reach an included build"
 7. **Coinages.** A term minted this session, or lifted from a class name, is not the reader's
    word. Use the reader's noun, and the literal act over the abstract one (printed, not marked).
+   Take the noun a target document already uses for a concept, take none of its phrasing, and fix
+   an inherited construction at its source rather than copying it forward.
 8. **For the reader.** They have read nothing since their last message: no "as noted above", no
    term coined mid-session, and every "it" and "this" resolves to one named thing (the noun, or
    "this PR" when there is none). Lead with the outcome. Link a file by absolute path instead of

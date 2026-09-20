@@ -147,6 +147,11 @@ needed a definition usually did not need to exist.
 The same scan catches abstraction drift: a sentence about "the approach" or "the mechanism" where
 the concrete noun would fit is a sentence hiding what it is about.
 
+**Take the target document's noun, and none of its phrasing.** Grep the file you are editing for
+how a concept is named there and use that word, so the edit reads as part of the file. Constructions
+are the opposite case: the plainer phrasing wins even in a file full of the other one, and an
+inherited construction gets fixed where it came from rather than copied forward into new text.
+
 Scan sentence form too, not only vocabulary. An epigram—a line that would work as a slide title—and
 a rhetorical antithesis ("they chose to skip it; we chose to fix it") are tells at the sentence
 level, and neither trips a word check. Rewrite each as the plain fact it stands for.
