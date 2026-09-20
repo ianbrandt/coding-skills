@@ -26,7 +26,7 @@ Ten anti-patterns. Each reads as AI writing; the literal phrasing is always avai
    question ("worth your ruling", "I'd defer to you on", "your call"), or a judgment stood in for
    a mechanism's name ("nag" for a deprecation warning). An open question takes a question mark.
    Rarely right: "name" as a verb; say declare, print, report, state. No intensifiers: "Gradle's
-   own" is "Gradle's".
+   own" is "Gradle's". Rewrite the clause rather than swapping in a synonym.
 4. **Epigrams and paired contrasts.** A line that would work as a slide title, or "they chose X;
    we chose Y", becomes the plain fact.
    - "two ranks fit where three do not" → "the third rank is dropped"

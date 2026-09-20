@@ -39,6 +39,12 @@ instead. Check which of those loaded in this session, and follow a pointer rathe
 file; `voice-spec.md` is the positive spec, read on demand. Both are maintained here (§4, §5). With
 no always-on file at all, the prohibitions go in the spec too.
 
+**The spec holds no copy of what the always-on file covers.** This skill augments that file rather
+than standing apart from it, so a rule general enough to bind every surface is routed there and
+deleted from the spec, not kept in both. What stays in the spec is the user's own register and
+their per-genre caps. A duplicated rule drifts: the two copies get edited apart, and the weaker
+one is the one read at drafting time.
+
 ## 1. Read the spec before drafting
 Read `voice-spec.md` end to end, delta log included, and read two or three corpus samples matching
 the genre—as models to imitate, not background.

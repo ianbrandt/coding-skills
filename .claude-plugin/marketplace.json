@@ -35,14 +35,14 @@
     {
       "name": "writing-conventions",
       "source": "./plugins/writing-conventions",
-      "version": "0.33.0",
+      "version": "0.34.0",
       "description": "Always-on rules for plain prose without AI tells—in chat, in repo docs, and in anything published under your name—with a lint that reports each miss in the next turn.",
       "keywords": ["register", "summary", "prose", "style", "lint"]
     },
     {
       "name": "ghostwriting-skills",
       "source": "./plugins/ghostwriting-skills",
-      "version": "0.4.3",
+      "version": "0.5.0",
       "description": "Drafts text that ships under your name—issues, PRs, comments, commit messages, docs—in your voice, from a spec derived from your own writing, and keeps that spec current from your edits.",
       "keywords": ["ghostwriting", "voice", "writing", "style", "pull-request"]
     },

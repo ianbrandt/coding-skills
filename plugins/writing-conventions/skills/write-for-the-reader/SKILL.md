@@ -258,7 +258,11 @@ thing instead of abstracting it. Banned in chat replies, not only in published p
   report's output. Print the mechanism's own name and let the reader judge it. This one binds a
   local note as much as posted text, since the wording in a note is what gets copied into a draft.
 
-This list is the live one. It grows here when the user flags a word.
+This list is the live one. It grows here when the user flags a word. Every entry in it names a
+class, not one word: "heap floor" for a minimum heap and "bucket" for a configuration are the same
+coinage failure as "shape" for a design, and none of the three is fixed by a synonym. Rewrite the
+clause around the plain thing instead, since a swapped word usually leaves the coined idea in
+place.
 
 **"Name" as a verb is uncommon, so it reads as AI writing in most places.** Say "declare", "print",
 "report", "list", "state", or "spell out": "print the file in the warning", not "name the file in
