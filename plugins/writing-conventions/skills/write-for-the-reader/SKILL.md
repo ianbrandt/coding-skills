@@ -237,6 +237,10 @@ thing instead of abstracting it. Banned in chat replies, not only in published p
   covered here: "I could restore binary compatibility in a v0.58.1" states a capability, and the
   reader can decline it without a round trip.
 
+- A judgment stood in for a mechanism's name—"nag" for a deprecation warning, "noise" for a
+  report's output. Print the mechanism's own name and let the reader judge it. This one binds a
+  local note as much as posted text, since the wording in a note is what gets copied into a draft.
+
 This list is the live one. It grows here when the user flags a word.
 
 **"Name" as a verb is uncommon, so it reads as AI writing in most places.** Say "declare", "print",

@@ -21,10 +21,11 @@ Ten anti-patterns. Each reads as AI writing; the literal phrasing is always avai
    messages and code comments too.
    - "json, xml, html and plain" → "json, xml, html, and plain"
 3. **Vocabulary.** Never: load-bearing, vacuous, owed, "shape" for a design, "slot" for a field,
-   "channel" for a mechanism, prefix coinages (de-risk, deleak), or a deferential frame around a
-   question ("worth your ruling", "I'd defer to you on", "your call"). An open question takes a
-   question mark. Rarely right: "name" as a verb; say declare, print, report, state. No
-   intensifiers: "Gradle's own" is "Gradle's".
+   "channel" for a mechanism, prefix coinages (de-risk, deleak), a deferential frame around a
+   question ("worth your ruling", "I'd defer to you on", "your call"), or a judgment stood in for
+   a mechanism's name ("nag" for a deprecation warning). An open question takes a question mark.
+   Rarely right: "name" as a verb; say declare, print, report, state. No intensifiers: "Gradle's
+   own" is "Gradle's".
 4. **Epigrams and paired contrasts.** A line that would work as a slide title, or "they chose X;
    we chose Y", becomes the plain fact.
    - "two ranks fit where three do not" → "the third rank is dropped"
