@@ -25,7 +25,7 @@ VOICE=${VOICE:-${GHOSTWRITING_DIR:-$HOME/.claude/ghostwriting}}
 [ -f "$VOICE/voice-spec.md" ] && echo "spec: $VOICE/voice-spec.md" || echo "MODE=bootstrap"
 ls "$VOICE/corpus" 2>/dev/null || echo "no corpus"
 ```
-- `$VOICE/voice-spec.md`—voice rules, per-genre caps, delta log, procedure.
+- `$VOICE/voice-spec.md`—voice rules, per-genre form, delta log, procedure.
 - `$VOICE/corpus/`—hand-written samples, one file per piece or genre.
 
 Either path may be a symlink into a private repo. The voice data never lives in this skill, in a
@@ -42,7 +42,7 @@ no always-on file at all, the prohibitions go in the spec too.
 **The spec holds no copy of what the always-on file covers.** This skill augments that file rather
 than standing apart from it, so a rule general enough to bind every surface is routed there and
 deleted from the spec, not kept in both. What stays in the spec is the user's own register and
-their per-genre caps. A duplicated rule drifts: the two copies get edited apart, and the weaker
+their per-genre form. A duplicated rule drifts: the two copies get edited apart, and the weaker
 one is the one read at drafting time.
 
 ## 1. Read the spec before drafting
@@ -163,8 +163,8 @@ guessing. One-time setup; afterwards proceed from §1.
 3. **Extract observable regularities**, per genre: sentence length and structure, person and
    hedging, how evidence is carried, openings and closings, formatting habits (headings, bullets,
    emphasis, links), title style, and typical length. Sort each finding by the §0 split as you go.
-4. **Write `voice-spec.md`** with five sections: **Voice** (cross-genre rules), **Per-genre caps**
-   (one entry per genre, size and form), **Contrast pairs** (seeded with one before→after pair
+4. **Write `voice-spec.md`** with five sections: **Voice** (cross-genre rules), **Per-genre form**
+   (one entry per genre: what goes in, in what order, and what never appears), **Contrast pairs** (seeded with one before→after pair
    contrasting a default-register draft with the samples), **Delta log** (starts empty), and
    **Procedure** (§1–§4 in a line each, so the spec stands alone).
 5. **Route the always-on rules** the samples imply: the step-3 prohibitions belong in the always-on
@@ -175,7 +175,7 @@ guessing. One-time setup; afterwards proceed from §1.
 6. **Say what you could not derive.** A genre with no sample gets no entry—don't invent one.
 
 A **seed spec**—a `share-ghostwriting-spec` export—replaces derivation from scratch: copy it in as
-the starting `voice-spec.md`, keep its per-genre caps, refit its Voice placeholder from the user's
+the starting `voice-spec.md`, keep its per-genre form, refit its Voice placeholder from the user's
 samples (steps 1–3), and note in the delta log any seed rule the samples contradict.
 
 One spec describes one person; don't blend samples from several writers.

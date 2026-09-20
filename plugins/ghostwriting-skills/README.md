@@ -6,7 +6,7 @@ register. The skills ship the method; your voice is your own data, and it never 
 
 ## Where your voice data lives
 
-A `voice-spec.md` (voice rules, per-genre caps, a delta log of your edits) and a `corpus/` of your
+A `voice-spec.md` (voice rules, per-genre form, a delta log of your edits) and a `corpus/` of your
 hand-written samples. The directory is asked for when the plugin is enabled (the `voice_dir`
 option); left empty, the skills use `$GHOSTWRITING_DIR`, then `~/.claude/ghostwriting/`. The
 directory can be a symlink into a private repo.
@@ -38,7 +38,7 @@ The drafting protocol and the correction loop it runs inside.
 
 ### `share-ghostwriting-spec`
 
-Exports your spec as an anonymized seed a teammate can bootstrap from. The per-genre caps and
+Exports your spec as an anonymized seed a teammate can bootstrap from. The per-genre form and
 procedure carry over as house style; the delta log and corpus never ship; names, repos, URLs, and
 quoted drafts are scrubbed; and the export is written to a file beside your spec for you to read
 before it goes anywhere. A recipient runs the `ghostwrite` bootstrap with the seed: your caps become
