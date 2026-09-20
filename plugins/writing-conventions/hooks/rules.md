@@ -16,6 +16,8 @@ Ten anti-patterns. Each reads as AI writing; the literal phrasing is always avai
    - "the entry carries both versions" → "the entry includes both versions"
    - "a module is held to the version its platform fixes"
      → "versions outside a platform's constraints are no longer reported"
+   - "a build already on a pre-release is still shown newer ones"
+     → "newer pre-releases are still reported when the current version is itself a pre-release"
 2. **Mechanics.** No spaced em dashes: `word—word`, or a comma, colon, or period. In headings
    too. A list of three or more items takes a comma before the final "and" or "or", in log
    messages and code comments too. Units stay consistent and idiomatic across a piece: `1m5s` and

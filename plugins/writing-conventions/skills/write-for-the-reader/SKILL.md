@@ -284,8 +284,10 @@ the same way**. "the system property, whose place is in the middle" attributes a
 Grammatically it is personification: the subject is given an agent role the verb reserves for
 something animate, and it is a recognizable AI-writing tell. Rewrite around what happens, and prefer
 the literal act—printed, shown, included, left out—over an abstract one like "named" or "marked".
-Going passive is only half the fix, since a passive that goes abstract trades personification for
-opacity: say who the real actor is where there is one, and write a condition as an if/then
+A passive can also keep the personification while hiding it: a build that "is shown" newer versions
+perceives them as surely as one that sees them. Write "newer pre-releases are still reported when
+the current version is itself a pre-release". Going passive is only half the fix for the other
+reason too, since a passive that goes abstract trades personification for opacity: say who the real actor is where there is one, and write a condition as an if/then
 sentence rather than compressing it into a noun phrase. A passive that clears both of those tests
 can still fail a third: it has to be a phrase a person would say on one read. "a module is held to
 the version its platform fixes" is not, and the repair rebuilds the sentence around the observable
