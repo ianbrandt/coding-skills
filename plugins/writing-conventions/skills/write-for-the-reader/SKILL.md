@@ -190,6 +190,11 @@ left pointing at the wrong sentence by an insertion just ahead of it.
 
 ## 7. Log a word the user flags
 
+Check before conceding. When the user calls a word AI-generated, grep the target document for it
+and answer with what you find, rather than swapping it out on the spot. A flagged word that
+survives that check usually means the defect is one line down, in the construction rather than in
+the word.
+
 When the user calls something jargon, or rewrites a phrase of yours into plainer English, add it to
 the Register list in this plugin's `hooks/rules.md`. Log the **rule**, not the instance: the word
 plus the plain alternative that replaces it, one line, in the same form as the entries already
