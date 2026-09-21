@@ -65,8 +65,14 @@ bash	git commit -m 'Use `foo` here'	1:git | 1:git commit | 1:git commit ? | 1:+g
 bash	grep "$(gh issue comment 1 --body 'x')" log.txt	1:grep | 1:grep ? | 1:+grep ? | 1:+grep log.txt | 2:gh | 2:gh issue | 2:gh issue comment | 2:+gh issue | 2:+gh comment | 2:+gh x | 2:+gh issue comment | 2:+gh issue x | 2:+gh issue comment x
 bash	printf '%s' "$(printf x; hg commit -m 'y')"	1:printf | 1:+printf ? | 2:printf | 2:printf x | 2:+printf x | 3:hg | 3:hg commit | 3:hg commit y | 3:+hg commit | 3:+hg y | 3:+hg commit y
 bash	echo "$(git log -1 --format=%s $(git rev-parse HEAD))"	1:echo | 1:echo ? | 1:+echo ? | 2:git | 2:git log | 2:git log ? | 2:+git log | 2:+git ? | 2:+git log ? | 3:git | 3:git rev-parse | 3:git rev-parse HEAD | 3:+git rev-parse | 3:+git HEAD | 3:+git rev-parse HEAD
-bash	echo `date`	1:echo | 2:date
+bash	echo `date`	1:echo | 1:echo ? | 1:+echo ? | 2:date
 bash	echo "`hg commit -m x`"	1:echo | 1:echo ? | 1:+echo ? | 2:hg | 2:hg commit | 2:hg commit x | 2:+hg commit | 2:+hg x | 2:+hg commit x
+# Pass 1 reads a substitution as the one word "$", so the words after it stay
+# with the command around it, and pass 2 reads a process substitution's body.
+bash	git diff $(git merge-base a b) HEAD	1:git | 1:git diff | 1:git diff ? | 1:+git diff | 1:+git ? | 1:+git HEAD | 1:+git diff ? | 1:+git diff HEAD | 2:git | 2:git merge-base | 2:git merge-base a | 2:+git merge-base | 2:+git a | 2:+git b | 2:+git merge-base a | 2:+git merge-base b | 2:+git merge-base a b
+bash	diff <(gh pr view 1) x	1:diff | 1:diff ? | 1:+diff ? | 1:+diff x | 2:gh | 2:gh pr | 2:gh pr view | 2:+gh pr | 2:+gh view | 2:+gh pr view
+bash	tee >(hg commit -m x) < f	1:tee | 1:tee ? | 1:+tee ? | 2:hg | 2:hg commit | 2:hg commit x | 2:+hg commit | 2:+hg x | 2:+hg commit x
+bash	echo $(( $(wc -l < f) + 1 )) done	1:echo | 1:echo ? | 1:+echo ? | 1:+echo done | 2:wc
 # Quotes nested inside a substitution inside quotes are misread, toward the reader.
 bash	echo "$(git commit -m "a; b")"	1:echo | 2:READ | 3:git | 3:git commit | 3:git commit ? | 3:+git commit
 # Heredocs: the body is dropped in both passes.

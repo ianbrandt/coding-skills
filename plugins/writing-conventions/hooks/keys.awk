@@ -55,7 +55,7 @@ END {
   scan(src)
   if (!bad) {
     nseg = 0
-    addsegments(P1)
+    addsegments(collapse(P1))
     subst(P2)
   }
   if (bad) { print "1\tREAD"; exit }
@@ -214,8 +214,10 @@ function quoted1(content) {
 function subst(t,    n, i, j, depth) {
   n = length(t); i = 1
   while (1) {
-    i = nextat(t, i, pwsh ? "\\$\\(" : "\\$\\(|`", n)
+    i = nextat(t, i, pwsh ? "\\$\\(" : "[$<>]\\(|`", n)
     if (i > n) return
+    # $(( )) is arithmetic, with no command in it but a nested $( ).
+    if (substr(t, i, 3) == "$((") { i += 3; continue }
     if (substr(t, i, 1) == "`") {
       j = nextat(t, i + 1, "`", n)
       if (j > n) { bad = 1; return }
@@ -236,10 +238,36 @@ function subst(t,    n, i, j, depth) {
   }
 }
 
+# Pass 1 reads a substitution, $( ) or a backtick pair, as the one word "$", and
+# in bash a process substitution, <( ) or >( ), too. Pass 2 reads its body, and
+# the words after its ")" stay with the command around it: `git diff $(git
+# merge-base a b) HEAD` has no command named HEAD.
+function collapse(t,    n, i, j, k, depth, out) {
+  n = length(t); i = 1; out = ""
+  while (1) {
+    j = nextat(t, i, pwsh ? "[$@]\\(" : "[$<>]\\(|`", n)
+    out = out substr(t, i, j - i)
+    if (j > n) return out
+    if (substr(t, j, 1) == "`") {
+      k = nextat(t, j + 1, "`", n)
+      if (k > n) { bad = 1; return out }
+      out = out "$"; i = k + 1; continue
+    }
+    depth = 1; k = j + 2
+    while (depth > 0) {
+      k = nextat(t, k, "[()]", n)
+      if (k > n) { bad = 1; return out }
+      depth += substr(t, k, 1) == "(" ? 1 : -1
+      k++
+    }
+    out = out "$"; i = k
+  }
+}
+
 function body(b,    keep1, keep2) {
   keep1 = P1; keep2 = P2
   scan(b)
-  if (!bad) addsegments(P1)
+  if (!bad) addsegments(collapse(P1))
   P1 = keep1; P2 = keep2
 }
 
