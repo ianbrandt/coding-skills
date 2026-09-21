@@ -103,8 +103,10 @@ function child(e, key) {
 
 # The keys of an unsettled segment with no answer in the cache, below a parent
 # that is itself unanswered or one that reads them: a DESCEND for a subcommand,
-# a PROJECT for a task name.
-function ask(s,    i, e, task, key, parent, pc) {
+# a PROJECT for a task name. A task runner is one or two words (`make`, `npm
+# run`), so a task name below a longer key is not asked about; if that key is a
+# PROJECT after all, its task names read as doubt.
+function ask(s,    i, e, task, key, parent, pc, pw) {
   for (i = 1; i <= n[s]; i++) {
     e = ent[s, i]
     task = substr(e, 1, 1) == "+"
@@ -112,6 +114,7 @@ function ask(s,    i, e, task, key, parent, pc) {
     if (key ~ / [?!]$/) continue
     if (index(key, " ")) {
       parent = key; sub(/ [^ ]*$/, "", parent)
+      if (task && split(parent, pw, " ") > 2) continue
       pc = cls(parent, 0)
       if (pc != "" && pc != (task ? "PROJECT" : "DESCEND")) continue
     }
