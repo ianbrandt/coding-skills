@@ -16,6 +16,7 @@ cat > "$scratch/claude" <<'STUB'
 printf '%s nested=%s\n' "$*" "$WRITING_CONVENTIONS_NESTED" >> "$GATE_TEST_MARK"
 [ "$GATE_TEST_FAIL" = 1 ] && exit 1
 case " $* " in *' --safe-mode '*) [ "$GATE_TEST_FAIL" = safe ] && exit 1;; esac
+case "$*" in *classify-prompt.md*) printf '%s\n' "$GATE_TEST_CLASS"; exit 0;; esac
 printf '%s\n' "$GATE_TEST_VERDICT"
 STUB
 chmod +x "$scratch/claude"
@@ -133,6 +134,61 @@ export WRITING_CONVENTIONS_NESTED=1
 expect 0 no 'VIOLATION
 "The report says so" -> x' 0 "$says"
 unset WRITING_CONVENTIONS_NESTED
+
+# MCP calls. The trigger is a lookup of the tool name in a per-user cache that a
+# classifier call fills, so no server or tool name is written in the gate.
+export CLAUDE_CONFIG_DIR="$scratch/config"
+# mcp <exit> <classifier calls> <reader calls> <class> <verdict> <hook input>
+mcp() {
+  cases=$((cases + 1))
+  : > "$GATE_TEST_MARK"
+  export GATE_TEST_CLASS="$4" GATE_TEST_VERDICT="$5" GATE_TEST_FAIL=0
+  stderr=$(printf '%s' "$6" | bash "$HERE/gate.sh" 2>&1 >/dev/null)
+  status=$?
+  [ "$status" = "$1" ] || { echo "FAIL exit $status, wanted $1: $6"; fail=1; }
+  c=$(grep -c classify-prompt.md "$GATE_TEST_MARK"); r=$(grep -c gate-prompt.md "$GATE_TEST_MARK")
+  [ "$c $r" = "$2 $3" ] || { echo "FAIL classifier and reader calls $c $r, wanted $2 $3: $6"; fail=1; }
+}
+cachefile() { ls "$CLAUDE_CONFIG_DIR"/writing-conventions/mcp-tools-*.txt; }
+jira='{"tool_name":"mcp__atlassian__createJiraIssue","tool_input":{"projectKey":"PLAT","summary":"Stale check","description":"The report says so."}}'
+bitbucket='{"tool_name":"mcp__bitbucket__create_pull_request","tool_input":{"title":"Fix it","description":"The report says so."}}'
+search='{"tool_name":"mcp__atlassian__searchJiraIssuesUsingJql","tool_input":{"jql":"text ~ \"The report says so.\""}}'
+adf='{"tool_name":"mcp__atlassian__addCommentToJiraIssue","tool_input":{"issueKey":"PLAT-42","body":{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"The report "},{"type":"text","text":"says so.","marks":[{"type":"strong"}]}]}]}}}'
+# A miss calls the classifier once, a repeat does not, and both inputs reach the reader.
+mcp 0 1 1 CAN_PUBLISH PASS "$jira"
+mcp 0 0 1 CAN_PUBLISH PASS "$jira"
+mcp 2 1 1 CAN_PUBLISH 'VIOLATION
+"The report says so." -> x' "$bitbucket"
+case $stderr in *'make the call again'*) ;; *) echo "FAIL MCP reason: $stderr"; fail=1;; esac
+# A tool classified NEVER makes no reader call, then or later.
+mcp 0 1 0 NEVER PASS "$search"
+mcp 0 0 0 NEVER PASS "$search"
+# A sentence that a rich-text format splits across nodes is quoted as its pieces.
+# Nothing is joined, so the whole sentence is in no source.
+mcp 2 1 1 CAN_PUBLISH 'VIOLATION
+"The report " + "says so." -> x' "$adf"
+mcp 0 0 1 CAN_PUBLISH 'VIOLATION
+"The report says so." -> x' "$adf"
+mcp 0 0 1 CAN_PUBLISH 'VIOLATION
+"The build decided" -> x' "$adf"
+# Only the string values of tool_input are reviewed: not a key, not the tool name.
+mcp 0 0 1 CAN_PUBLISH 'VIOLATION
+"issueKey" -> x' "$adf"
+mcp 0 0 1 CAN_PUBLISH 'VIOLATION
+"addCommentToJiraIssue" -> x' "$adf"
+# A value is decoded before it is searched: an escaped quote and an escaped newline.
+mcp 2 0 1 CAN_PUBLISH 'VIOLATION
+"The report says so." -> x' '{"tool_name":"mcp__atlassian__createJiraIssue","tool_input":{"description":"See \"the log\".\nThe report\nsays so."}}'
+# In the cache, a CAN_PUBLISH line for a tool wins over a NEVER line for it, a
+# malformed line is ignored, and a missing file is a miss.
+printf '%s\n' 'mcp__x__post NEVER' 'mcp__x__post CAN_PUBLISH' 'mcp__x__odd MAYBE' 'mcp__x__odd' >> "$(cachefile)"
+mcp 0 0 1 NEVER PASS '{"tool_name":"mcp__x__post","tool_input":{"text":"hi"}}'
+mcp 0 1 1 CAN_PUBLISH PASS '{"tool_name":"mcp__x__odd","tool_input":{"text":"hi"}}'
+rm -f "$(cachefile)"
+mcp 0 1 1 CAN_PUBLISH PASS "$jira"
+# A classifier reply in any other form is doubt: the reader runs and nothing is cached.
+mcp 0 1 1 'It can publish.' PASS '{"tool_name":"mcp__x__vague","tool_input":{"text":"hi"}}'
+mcp 0 1 1 CAN_PUBLISH PASS '{"tool_name":"mcp__x__vague","tool_input":{"text":"hi"}}'
 
 # Garbage in place of the hook input is not a reason to block either.
 cases=$((cases + 1))

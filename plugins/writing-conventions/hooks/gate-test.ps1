@@ -26,6 +26,7 @@ rem One line per call: the arguments, then the marker the gate sets on its child
 >>"%GATE_TEST_MARK%" echo %* nested=%WRITING_CONVENTIONS_NESTED%
 if "%GATE_TEST_FAIL%"=="1" exit /b 1
 if "%GATE_TEST_FAIL%"=="safe" if "%2"=="--safe-mode" exit /b 1
+echo %* | findstr /c:"classify-prompt.md" >nul && (echo %GATE_TEST_CLASS%& exit /b 0)
 if exist "%GATE_TEST_VERDICT_FILE%" type "%GATE_TEST_VERDICT_FILE%"
 '@
   $stubPath = Join-Path $scratch 'claude.bat'
@@ -36,6 +37,7 @@ if exist "%GATE_TEST_VERDICT_FILE%" type "%GATE_TEST_VERDICT_FILE%"
 printf '%s nested=%s\n' "$*" "$WRITING_CONVENTIONS_NESTED" >> "$GATE_TEST_MARK"
 [ "$GATE_TEST_FAIL" = 1 ] && exit 1
 [ "$GATE_TEST_FAIL" = safe ] && [ "$2" = --safe-mode ] && exit 1
+case "$*" in *classify-prompt.md*) printf '%s\n' "$GATE_TEST_CLASS"; exit 0;; esac
 cat "$GATE_TEST_VERDICT_FILE" 2>/dev/null
 '@
   $stubPath = Join-Path $scratch 'claude'
@@ -51,6 +53,8 @@ $saved = @{
   MARK  = $env:GATE_TEST_MARK
   NEST  = $env:WRITING_CONVENTIONS_NESTED
   FILE  = $env:GATE_TEST_VERDICT_FILE
+  CLASS = $env:GATE_TEST_CLASS
+  CONF  = $env:CLAUDE_CONFIG_DIR
 }
 try {
   # The owner test in shell-owner.ps1 hands the hook to PowerShell only on Windows
@@ -174,6 +178,65 @@ try {
   Test-Gate 0 $false $blocking '0' $says
   $env:WRITING_CONVENTIONS_NESTED = $null
 
+  # MCP calls. The trigger is a lookup of the tool name in a per-user cache that a
+  # classifier call fills, so no server or tool name is written in the gate.
+  $env:CLAUDE_CONFIG_DIR = Join-Path $scratch 'config'
+  # Returns the gate's output for one hook input. A failure goes to the host, so that
+  # a caller that drops the output still shows it.
+  function Test-Mcp([int]$wantStatus, [int]$wantClass, [int]$wantReader, [string]$class, [string]$verdict, [string]$hookInput) {
+    $script:cases++
+    $ErrorActionPreference = 'Continue'
+    [IO.File]::WriteAllText($env:GATE_TEST_MARK, '')
+    [IO.File]::WriteAllText($env:GATE_TEST_VERDICT_FILE, $verdict)
+    $env:GATE_TEST_FAIL = '0'
+    $env:GATE_TEST_CLASS = $class
+    $out = $hookInput | pwsh -NoProfile -File $gate 2>&1 | Out-String
+    if ($LASTEXITCODE -ne $wantStatus) {
+      Write-Host ("FAIL exit " + $LASTEXITCODE + ", wanted " + $wantStatus + ": " + $hookInput); $script:fail = 1
+    }
+    $lines = @(Get-Content -LiteralPath $env:GATE_TEST_MARK | Where-Object { $_ -ne '' })
+    $c = @($lines | Where-Object { $_ -like '*classify-prompt.md*' }).Count
+    $r = @($lines | Where-Object { $_ -like '*gate-prompt.md*' }).Count
+    if ($c -ne $wantClass -or $r -ne $wantReader) {
+      Write-Host ("FAIL classifier and reader calls $c $r, wanted $wantClass $wantReader" + ": " + $hookInput); $script:fail = 1
+    }
+    return $out
+  }
+  function Get-CacheFile { (Get-ChildItem (Join-Path $env:CLAUDE_CONFIG_DIR 'writing-conventions') -Filter 'mcp-tools-*.txt')[0].FullName }
+  $jira = '{"tool_name":"mcp__atlassian__createJiraIssue","tool_input":{"projectKey":"PLAT","summary":"Stale check","description":"The report says so."}}'
+  $bitbucket = '{"tool_name":"mcp__bitbucket__create_pull_request","tool_input":{"title":"Fix it","description":"The report says so."}}'
+  $search = '{"tool_name":"mcp__atlassian__searchJiraIssuesUsingJql","tool_input":{"jql":"text ~ \"The report says so.\""}}'
+  $adf = '{"tool_name":"mcp__atlassian__addCommentToJiraIssue","tool_input":{"issueKey":"PLAT-42","body":{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"The report "},{"type":"text","text":"says so.","marks":[{"type":"strong"}]}]}]}}}'
+  $whole = "VIOLATION`n`"The report says so.`" -> x"
+  # A miss calls the classifier once, a repeat does not, and both inputs reach the reader.
+  $null = Test-Mcp 0 1 1 'CAN_PUBLISH' 'PASS' $jira
+  $null = Test-Mcp 0 0 1 'CAN_PUBLISH' 'PASS' $jira
+  $out = Test-Mcp 2 1 1 'CAN_PUBLISH' $whole $bitbucket
+  if ($out -notlike '*make the call again*') { Write-Output ("FAIL MCP reason: " + $out); $fail = 1 }
+  # A tool classified NEVER makes no reader call, then or later.
+  $null = Test-Mcp 0 1 0 'NEVER' 'PASS' $search
+  $null = Test-Mcp 0 0 0 'NEVER' 'PASS' $search
+  # A sentence that a rich-text format splits across nodes is quoted as its pieces.
+  # Nothing is joined, so the whole sentence is in no source.
+  $null = Test-Mcp 2 1 1 'CAN_PUBLISH' "VIOLATION`n`"The report `" + `"says so.`" -> x" $adf
+  $null = Test-Mcp 0 0 1 'CAN_PUBLISH' $whole $adf
+  $null = Test-Mcp 0 0 1 'CAN_PUBLISH' "VIOLATION`n`"The build decided`" -> x" $adf
+  # Only the string values of tool_input are reviewed: not a key, not the tool name.
+  $null = Test-Mcp 0 0 1 'CAN_PUBLISH' "VIOLATION`n`"issueKey`" -> x" $adf
+  $null = Test-Mcp 0 0 1 'CAN_PUBLISH' "VIOLATION`n`"addCommentToJiraIssue`" -> x" $adf
+  # A value is decoded before it is searched: an escaped quote and an escaped newline.
+  $null = Test-Mcp 2 0 1 'CAN_PUBLISH' $whole '{"tool_name":"mcp__atlassian__createJiraIssue","tool_input":{"description":"See \"the log\".\nThe report\nsays so."}}'
+  # In the cache, a CAN_PUBLISH line for a tool wins over a NEVER line for it, a
+  # malformed line is ignored, and a missing file is a miss.
+  Add-Content -LiteralPath (Get-CacheFile) -Value 'mcp__x__post NEVER', 'mcp__x__post CAN_PUBLISH', 'mcp__x__odd MAYBE', 'mcp__x__odd'
+  $null = Test-Mcp 0 0 1 'NEVER' 'PASS' '{"tool_name":"mcp__x__post","tool_input":{"text":"hi"}}'
+  $null = Test-Mcp 0 1 1 'CAN_PUBLISH' 'PASS' '{"tool_name":"mcp__x__odd","tool_input":{"text":"hi"}}'
+  Remove-Item -LiteralPath (Get-CacheFile)
+  $null = Test-Mcp 0 1 1 'CAN_PUBLISH' 'PASS' $jira
+  # A classifier reply in any other form is doubt: the reader runs and nothing is cached.
+  $null = Test-Mcp 0 1 1 'It can publish.' 'PASS' '{"tool_name":"mcp__x__vague","tool_input":{"text":"hi"}}'
+  $null = Test-Mcp 0 1 1 'CAN_PUBLISH' 'PASS' '{"tool_name":"mcp__x__vague","tool_input":{"text":"hi"}}'
+
   # Garbage in place of the hook input is not a reason to block either.
   $cases++
   $ErrorActionPreference = 'Continue'
@@ -187,6 +250,8 @@ try {
   $env:GATE_TEST_MARK = $saved.MARK
   $env:WRITING_CONVENTIONS_NESTED = $saved.NEST
   $env:GATE_TEST_VERDICT_FILE = $saved.FILE
+  $env:GATE_TEST_CLASS = $saved.CLASS
+  $env:CLAUDE_CONFIG_DIR = $saved.CONF
   Remove-Item -LiteralPath $scratch -Recurse -Force -ErrorAction SilentlyContinue
 }
 

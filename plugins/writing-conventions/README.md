@@ -157,9 +157,36 @@ way too, and no `Bash(git commit *)` rule matches that form, which is the one a 
 plumbing offline against a stub `claude` on the PATH: which commands reach the model, which replies
 block a command, the exit codes, and the fail-open path.
 
-Nothing else is gated. A `git push` is not read, because a branch name is chosen long before it,
-and a `Write` or `Edit` is nudged rather than blocked, because a file is cheap to fix after the
-fact and a blocked edit stops the turn.
+### MCP calls
+
+A team that publishes through an MCP server, such as Jira and Bitbucket with no `gh` installed, gets
+the same read. A second `PreToolUse` entry matches `mcp__.*` and runs the same two scripts. No
+server or tool name is written in them. The first call to a tool costs one classifier call, with
+[`hooks/classify-prompt.md`](hooks/classify-prompt.md) as the system prompt: can this tool hand text
+to a human-facing destination? The answer is `CAN_PUBLISH` or `NEVER`, doubt is `CAN_PUBLISH`, and
+a reply in any other form is treated as doubt and not kept. On 30 hand-labeled tools with sample
+inputs (Jira, Confluence, Bitbucket, GitHub, GitLab, Slack, mail, and read-only search and browser
+tools), all 20 publishing tools came back `CAN_PUBLISH` and all 10 others `NEVER`.
+
+The answer is appended as one line, `<tool name> <answer>`, to
+`${CLAUDE_CONFIG_DIR:-~/.claude}/writing-conventions/mcp-tools-<hash>.txt`, where the hash is of the
+classifier prompt, so a changed prompt starts a new file. `gate.sh` and `gate.ps1` hash differently
+and keep separate files. The file is yours to read and edit: for one tool a `CAN_PUBLISH` line wins
+over a `NEVER` line, and a malformed line is ignored. A `NEVER` tool costs no model call after the
+first. A wrong `NEVER` is a lasting gap on that machine until the line is edited.
+
+For a `CAN_PUBLISH` tool the whole `tool_input` goes to the reader, structure included, so text
+split across short fields is read together. A finding has to quote the decoded string values of
+`tool_input`. In a rich-text body such as Atlassian Document Format one sentence can be split
+across text nodes, and the reader quotes it as its pieces, `"The report " + "says so."`; each piece
+is looked for on its own and nothing is joined.
+
+### What is not gated
+
+A shell command outside the four families is not read, so `glab`, `hg`, `svn`, and `jj` publish
+unread. A `git push` is not read, because a branch name is chosen long before it, and a `Write` or
+`Edit` is nudged rather than blocked, because a file is cheap to fix after the fact and a blocked
+edit stops the turn.
 
 Adding a word to the banned list is a plugin release rather than a local edit: an installed session
 reads a version-keyed cache, so the plugin's `version` in `.claude-plugin/marketplace.json` has to

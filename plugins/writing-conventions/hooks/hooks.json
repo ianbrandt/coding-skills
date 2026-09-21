@@ -32,6 +32,25 @@
             "statusMessage": "Checking the text for AI tells..."
           }
         ]
+      },
+      {
+        "matcher": "mcp__.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/gate.sh\"",
+            "shell": "bash",
+            "timeout": 90,
+            "statusMessage": "Checking the text for AI tells..."
+          },
+          {
+            "type": "command",
+            "command": "pwsh",
+            "args": ["-NoProfile", "-File", "${CLAUDE_PLUGIN_ROOT}/hooks/gate.ps1"],
+            "timeout": 90,
+            "statusMessage": "Checking the text for AI tells..."
+          }
+        ]
       }
     ],
     "Stop": [

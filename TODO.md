@@ -7,8 +7,8 @@
   error on every Stop, prompt, and Write/Edit event, and whether `"shell": "bash"` suppresses it.
 - Needs a Windows machine: run `hooks/gate-test.ps1` in `writing-conventions`. The `claude.bat` stub
   now prints the verdict with `type "%GATE_TEST_VERDICT_FILE%"`, records the arguments of each call
-  with `echo %*`, and fails a `--safe-mode` call on request. Only the bash stub has been run, under
-  PowerShell 7 on macOS.
+  with `echo %*`, fails a `--safe-mode` call on request, and answers a classifier call, found with
+  `findstr`, from `%GATE_TEST_CLASS%`. Only the bash stub has been run, under PowerShell 7 on macOS.
 - Needs a machine signed in through a gateway with a key: check that `claude -p --safe-mode --tools=
   --model sonnet 'Reply with exactly the word PASS.'` prints `PASS`, and that the same call with
   `--bare` in place of `--safe-mode` does too, and time both, a failed one included. On a browser
