@@ -29,11 +29,12 @@ the prune that keeps stale worktree registrations and merged branches from accum
 
 How work leaves a worktree, decided by two facts read off the repo instead of a mode declared in a
 file. An `upstream` remote means the repo is a fork of someone else's project: the work never
-merges, never pushes, and nothing at all reaches GitHub—issue and PR text is drafted as local files
-for the user to post. No `upstream` means the repo is theirs, so work fast-forwards into the default
-branch; `origin`'s visibility then decides the push, private going out and public waiting for the
-user's explicit go. Visibility is read from a per-repo `git config` value, with `gh` and `glab` as
-shortcuts on GitHub and GitLab, and the user is asked once when none of them returns a value.
+merges, never pushes, and nothing at all reaches the remote host, whether GitHub, GitLab, or
+Bitbucket—issue and PR text is drafted as local files for the user to post. No `upstream` means the
+repo is theirs, so work fast-forwards into the default branch. The push then depends on `origin`'s
+visibility, going out when private and waiting for the user's explicit go when public. Visibility
+is read from a per-repo `git config` value, with `gh` and `glab` as shortcuts on GitHub and
+GitLab, and the user is asked once when none of them returns a value.
 
 Splitting those two facts apart is what makes "a repo you own with an untracked, local-only roadmap"
 an ordinary combination rather than a special case: only fork-ness stops a merge, and only

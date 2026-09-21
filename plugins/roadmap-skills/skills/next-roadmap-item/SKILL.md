@@ -225,9 +225,9 @@ tracked family. Ambiguous, ask.
 
 ### 7a. Local-only (an OSS fork)
 
-1. **Confirm the fork wiring**: `origin` is your GitHub fork, `upstream` is the real project, ideally
-   with `git remote set-url --push upstream no_push`. If the remotes aren't wired that way, propose
-   the rewiring and ask before touching remotes.
+1. **Confirm the fork wiring**: `origin` is your fork on the remote host, `upstream` is the real
+   project, ideally with `git remote set-url --push upstream no_push`. If the remotes aren't wired
+   that way, propose the rewiring and ask before touching remotes.
 2. **Exclude the local-only artifacts**—per-clone and uncommitted; never touch the tracked
    `.gitignore`:
    ```bash
@@ -240,8 +240,8 @@ tracked family. Ambiguous, ask.
    - a one-line banner: local-only, excluded via `.git/info/exclude`, never commit or push;
    - a **forward-only** note pointing landed work at `ROADMAP-CHANGELOG.local.md`;
    - the fork and upstream remote names;
-   - the **binding guardrails**: `land-and-wrap`'s no-GitHub-writes rule verbatim, and which items
-     require the user present;
+   - the **binding guardrails**: `land-and-wrap`'s no-remote-host-writes rule verbatim, and which
+     items require the user present;
    - a **House style** section distilled from the project's `CONTRIBUTING`, `.editorconfig`, and a
      read of neighboring source—mechanical gate command, comment conventions, test framework and
      naming, commit-message convention, **branch-naming convention** (read recent branch and

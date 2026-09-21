@@ -5,7 +5,8 @@ description: >-
   how work lands from two facts about the repo itself—whether it is a fork of
   someone else's project, and whether its origin is public—rather than from a
   mode someone declared or the backlog it tracks work in: fast-forward into the default branch and push, merge
-  but hold the push for review, or stage locally and touch GitHub not at all.
+  but hold the push for review, or stage locally and write nothing to the
+  remote host.
   Then the wrap-up actions every session runs whether or not the work finished:
   release any lease, stop stray background tasks, leave a resume record. Trigger
   when work is committed and ready to leave its branch, and at the end of any
@@ -36,7 +37,7 @@ echo "origin: ${VIS:-unknown}"
 
 - **A fork** (an `upstream` remote, ideally with `git remote set-url --push upstream no_push`) means
   the work is a contribution to a project you don't own. It **never merges and never pushes**, and
-  **nothing reaches GitHub** (§3).
+  **nothing reaches the remote host** (§3).
 - **No `upstream`** means the repo is yours. Work **fast-forwards into the default branch** (§2).
   Then visibility decides the push: **private pushes; public holds** for the user's explicit go,
   because a public push is published under their name and can't be taken back.
@@ -78,12 +79,14 @@ Follow the repo's end-of-session merge protocol if it has one (a `/land-session`
 4. **Push if private.** On a public repo, present the unpushed range (`origin/main..main`) and stop
    there; the user reads it before it publishes.
 
-## 3. Landing in a fork—nothing to GitHub
+## 3. Landing in a fork—nothing to the remote host
 
 The absolute rule:
 
-> **No GitHub writes of any kind: no push (not even a spike branch to your own fork), no issues, no
-> comments, no PRs, no `gh` write commands. Everything stays local until the user syncs.**
+> **No writes of any kind to the remote host—GitHub, GitLab, Bitbucket, or any other: no push (not
+> even a spike branch to your own fork), no issues, no comments, no PRs or merge requests, no write
+> commands from a host CLI (`gh`, `glab`, or another). Everything stays local until the user
+> syncs.**
 
 1. **Commit atomically on the feature branch**—decomposition-ordered, past-tense, one logical change
    each, in the target project's commit style. The branch and worktree are **left in place** for the

@@ -34,7 +34,7 @@ supplies the list up front and the conductor runs it dry.
 The repo decides how a completed unit is **processed**, by `land-and-wrap`'s two facts. A repo you
 own lands each one serially on the default branch—rebase, mandatory build, fast-forward, and a push
 only if `origin` is private (§2a). A fork of someone else's project stages each one locally and
-**never touches GitHub**; those don't serialize (§2b).
+**writes nothing to the remote host**; those don't serialize (§2b).
 
 ## 0. Arguments
 
@@ -108,8 +108,10 @@ Workflow: the conductor does them inline in the worktree and processes them in t
   retry resets to them; you must NEVER `git merge`, `git push`, rewrite history, or edit the backlog
   files—the conductor owns processing and backlog reconciliation (the unit's own new design or notes
   file is fine);
-- **[on a fork only] NO GitHub writes of any kind**—no push even to the fork, no issues, comments,
-  or PRs, no `gh` write commands; draft any outreach text as local files for the user to post;
+- **[on a fork only] NO writes of any kind to the remote host** (GitHub, GitLab, Bitbucket, or
+  any other)—no push even to the fork, no issues, comments, PRs, or merge requests, no write
+  commands from a host CLI (`gh`, `glab`, or another); draft any outreach text as local files for
+  the user to post;
 - repo conventions apply: test-first, in whatever style guide the repo or the backlog plugin
   supplies, pasted verbatim rather than referenced; delete agent artifacts (think-aloud comments,
   banners, mismatched test names)—cleanup is part of the work, not a later pass;
@@ -164,7 +166,7 @@ Per `land-and-wrap` §2, with these unattended deviations:
   `main` and present the accumulated unpushed range (`origin/main..main`) at stop for the user's
   review-then-push. Then delete the claim; remove the worktree and branch; update the run-state file.
 
-### 2b. A fork—stage locally, nothing to GitHub
+### 2b. A fork—stage locally, nothing to the remote host
 
 Per `land-and-wrap` §3. There is no shared branch, so units do NOT serialize:
 
