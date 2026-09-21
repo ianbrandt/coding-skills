@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# Publication gate: check the human-facing text in a git commit, a gh command, or
-# a call to an MCP tool that can publish, against the four prohibitions, before it
-# is published. bash plus awk only.
+# Publication gate: check the human-facing text in a git commit, a gh command, a
+# call to an MCP tool that can publish, a prose file just written, or a draft the
+# reply puts in a `draft` fence, against the four prohibitions, before it reaches
+# a reader. bash plus awk only.
 #
 # The check runs as one nested `claude -p --safe-mode --tools=` call, with
 # gate-prompt.md as the system prompt, rules.md appended to it so that the rules
@@ -78,13 +79,36 @@ off() {
   sid=$(field session_id | tr -c 'A-Za-z0-9_-' '_')
   mark="${TMPDIR:-/tmp}/claude-gate-off-$sid"
   if [ -n "$sid" ] && [ ! -e "$mark" ] && : > "$mark"; then
-    printf '{"systemMessage":"writing-conventions: model review is off for this session, because the nested claude -p call failed. Commit, PR, MCP, and file text is not being read; the pattern lint on replies still runs."}'
+    printf '{"systemMessage":"writing-conventions: model review is off for this session, because the nested claude -p call failed. Commit, PR, MCP, file, and draft text is not being read; the pattern lint on replies still runs."}'
   fi
   exit 0
 }
 
 tool=$(field tool_name)
 case "$1:$tool" in
+  --stop:*)
+    # A reply the session has tagged as a draft for publication. Only the text
+    # inside a `draft` fence is reviewed, so nothing else in the reply is judged
+    # by the model, and a reply with no such fence costs one awk pass and no
+    # call at all. An untagged draft is read by the reply lint alone.
+    [ "$WRITING_CONVENTIONS_STOP_READER" = 0 ] && exit 0
+    field last_assistant_message | awk -f "$HERE/draft.awk" > "$tmp/text"
+    [ -s "$tmp/text" ] || exit 0
+    # Blocking a reply is bounded per turn, counted in a file named for the
+    # prompt_id, which is the same on every Stop call of one turn. With no
+    # prompt_id nothing can be counted, so nothing is blocked and a call would
+    # buy nothing.
+    pid=$(field prompt_id | tr -c 'A-Za-z0-9_-' '_')
+    [ -n "$pid" ] || exit 0
+    stop="${TMPDIR:-/tmp}/claude-gate-stop-$pid"
+    if [ "$(wc -c < "$tmp/text")" -gt $CAP ]; then
+      head -c $CAP "$tmp/text" > "$tmp/cut" && mv "$tmp/cut" "$tmp/text"
+    fi
+    # The reader is sent the drafts and nothing else. Each one stays a source of
+    # its own, so no finding can quote across two of them.
+    msg=$(tr '\001' '\n' < "$tmp/text")
+    sources() { cat "$tmp/text"; }
+    again='emit the corrected draft' ;;
   --file:Write|--file:Edit)
     # A prose file just written. The nested model has no tools, so this script does
     # the reading, and only of the file the tool wrote. The reader is sent the text
@@ -170,5 +194,17 @@ if [ -z "$again" ]; then
   exit 0
 fi
 [ -n "$findings" ] || exit 0
+if [ -n "$stop" ]; then
+  # A blocked Stop costs a whole re-emitted reply, so a reader that keeps
+  # finding something in each rewrite is stopped after two: the user is told
+  # that review is unresolved, through systemMessage, and the reply stands.
+  n=$(cat "$stop" 2>/dev/null)
+  case $n in ''|*[!0-9]*) n=0 ;; esac
+  if [ "$n" -ge 2 ]; then
+    printf '{"systemMessage":"writing-conventions: the draft in this reply still reads as a violation after two rewrites. Review is unresolved and the reply stands."}'
+    exit 0
+  fi
+  printf '%s' $((n + 1)) > "$stop" 2>/dev/null
+fi
 printf '%s\nRewrite the quoted text and %s.\n' "$findings" "$again" >&2
 exit 2

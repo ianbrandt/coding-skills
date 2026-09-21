@@ -333,6 +333,90 @@ try {
   $env:PATH = $withStub
   $env:TMPDIR = $saved.TMP
 
+  # Stop replies. Only the text a `draft` fence holds is reviewed, and a reply with
+  # no such fence costs no call at all. A blocked reply is re-emitted whole, so the
+  # blocking is counted per turn and stops after two.
+  $env:TMPDIR = Join-Path $scratch 'stoptmp'
+  [void](New-Item -ItemType Directory -Path $env:TMPDIR)
+  $errFile = Join-Path $scratch 'stoperr'
+  $tick = [string][char]0x60
+  $f3 = $tick * 3
+  $f4 = $tick * 4
+  $V = "VIOLATION`n`"The report says so.`" -> The version is shown in the report."
+  $V2 = "VIOLATION`n`"The build decided it.`" -> x"
+  # Afterwards: $out is stdout, $stderr the reason, $sent what the reader was given.
+  function Test-Stop([int]$wantStatus, [bool]$wantCalled, [string]$verdict, [string]$promptId,
+                     [string]$reply, [string]$failCall = '0', [string]$extra = '') {
+    $script:cases++
+    $ErrorActionPreference = 'Continue'
+    [IO.File]::WriteAllText($env:GATE_TEST_MARK, '')
+    [IO.File]::WriteAllText(($env:GATE_TEST_MARK + '.stdin'), '')
+    [IO.File]::WriteAllText($env:GATE_TEST_VERDICT_FILE, $verdict)
+    $env:GATE_TEST_FAIL = $failCall
+    $json = '{"session_id":"stopsess",' + $extra + '"prompt_id":"' + $promptId +
+            '","last_assistant_message":"' + $reply + '"}'
+    $script:out = ($json | & $pwshPath -NoProfile -File $gate '--stop' 2>$errFile | Out-String).Trim()
+    $status = $LASTEXITCODE
+    $script:stderr = [IO.File]::ReadAllText($errFile)
+    $script:sent = [IO.File]::ReadAllText($env:GATE_TEST_MARK + '.stdin')
+    $called = ((Get-Item -LiteralPath $env:GATE_TEST_MARK).Length -gt 0)
+    if ($status -ne $wantStatus) { Write-Output ("FAIL exit $status, wanted $wantStatus" + ": " + $reply); $script:fail = 1 }
+    if ($called -ne $wantCalled) { Write-Output ("FAIL model called=$called, wanted $wantCalled" + ": " + $reply); $script:fail = 1 }
+  }
+  # No fence, and a fence that is not a draft, make no call.
+  Test-Stop 0 $false $V 's01' 'Here it is. The report says so.'
+  Test-Stop 0 $false $V 's02' ('Here it is.\n\n' + $f3 + 'python\nThe report says so.\n' + $f3)
+  # A draft fence is read, and the reader is sent the draft and nothing else.
+  Test-Stop 2 $true $V 's03' ('Outside text.\n\n' + $f3 + 'draft\nThe report says so.\n' + $f3)
+  if ($stderr -notlike '*emit the corrected draft*') { Write-Output ("FAIL stop reason: " + $stderr); $fail = 1 }
+  if ($sent -like '*Outside text*') { Write-Output ("FAIL text outside the fence was sent: " + $sent); $fail = 1 }
+  # A finding that quotes text outside every draft fence is unverified, so prose the
+  # model was never sent cannot block the reply.
+  Test-Stop 0 $true $V 's04' ('The report says so.\n\n' + $f3 + 'draft\nPlain text.\n' + $f3)
+  # A four-backtick fence is closed by its own marker, so a code fence inside a draft
+  # does not end it, and a tilde fence is a fence.
+  Test-Stop 2 $true $V 's05' ($f4 + 'draft\nPlain text.\n\n' + $f3 + 'py\nx = 1\n' + $f3 + '\n\nThe report says so.\n' + $f4)
+  Test-Stop 2 $true $V 's06' '~~~draft\nThe report says so.\n~~~'
+  # Two draft fences are two sources: one quote cannot span both, and a two-fragment
+  # finding that quotes each of them can.
+  $two = $f3 + 'draft\nThe report \n' + $f3 + '\n\nAnd the second:\n\n' + $f3 + 'draft\nsays so.\n' + $f3
+  Test-Stop 0 $true $V 's07' $two
+  Test-Stop 2 $true "VIOLATION`n`"The report`" + `"says so.`" -> x" 's08' $two
+  # A malformed first line never blocks.
+  Test-Stop 0 $true "VIOLATION MAYBE`n`"The report says so.`" -> x" 's09' ($f3 + 'draft\nThe report says so.\n' + $f3)
+  # Two blocks in one turn, then the user is told that review is unresolved. An
+  # unchanged rewrite blocks the second time, and a violation the rewrite introduced
+  # counts as an attempt just the same.
+  $draft1 = $f3 + 'draft\nThe report says so.\n' + $f3
+  $draft2 = $f3 + 'draft\nThe build decided it.\n' + $f3
+  Test-Stop 2 $true $V 's10' $draft1
+  Test-Stop 2 $true $V 's10' $draft1
+  Test-Stop 0 $true $V 's10' $draft1
+  if ($out -notlike '{"systemMessage":"*Review is unresolved*') { Write-Output ("FAIL unresolved notice: " + $out); $fail = 1 }
+  Test-Stop 2 $true $V 's11' $draft1
+  Test-Stop 2 $true $V2 's11' $draft2
+  Test-Stop 0 $true $V2 's11' $draft2
+  if ($out -notlike '*Review is unresolved*') { Write-Output ("FAIL unresolved notice after a new violation: " + $out); $fail = 1 }
+  # The count is per turn, so the next turn starts over.
+  Test-Stop 2 $true $V 's12' $draft1
+  # stop_hook_active is another plugin's flag, and this script keeps its own count.
+  Test-Stop 2 $true $V 's13' $draft1 '0' '"stop_hook_active":true,'
+  # With no prompt_id there is nothing to count with, so nothing is blocked and no
+  # call is made.
+  Test-Stop 0 $false $V '' $draft1
+  # The off switch skips the reader and leaves the reply lint as the only check.
+  $env:WRITING_CONVENTIONS_STOP_READER = '0'
+  try { Test-Stop 0 $false $V 's14' $draft1 }
+  finally { $env:WRITING_CONVENTIONS_STOP_READER = $null }
+  # A reader that cannot run does not block the reply, and says so once.
+  Test-Stop 0 $true $V 's15' $draft1 '1'
+  if ($out -notlike '{"systemMessage":"*model review is off*') { Write-Output ("FAIL stop notice: " + $out); $fail = 1 }
+  # Inside a nested call this entry point does nothing either.
+  $env:WRITING_CONVENTIONS_NESTED = '1'
+  try { Test-Stop 0 $false $V 's16' $draft1 }
+  finally { $env:WRITING_CONVENTIONS_NESTED = $null }
+  $env:TMPDIR = $saved.TMP
+
   # Garbage in place of the hook input is not a reason to block either.
   $cases++
   $ErrorActionPreference = 'Continue'

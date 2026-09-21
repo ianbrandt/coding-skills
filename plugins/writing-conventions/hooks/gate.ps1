@@ -42,6 +42,9 @@ if ($env:WRITING_CONVENTIONS_NESTED) { exit 0 }
 . (Join-Path $PSScriptRoot 'shell-owner.ps1')
 if (-not $PowerShellOwnsHook) { exit 0 }
 
+# The draft-fence scanner, shared with lint.ps1.
+. (Join-Path $PSScriptRoot 'draft.ps1')
+
 # Native stderr under 'Stop' is a terminating error on 5.1 once it is redirected,
 # and the nested call is allowed to fail.
 $ErrorActionPreference = 'Continue'
@@ -57,7 +60,10 @@ $reader = New-Object System.IO.StreamReader([Console]::OpenStandardInput(), $utf
 try { $raw = $reader.ReadToEnd() } finally { $reader.Dispose() }
 $json = $null
 if ($raw.Trim() -ne '') { try { $json = ConvertFrom-Json $raw } catch { $json = $null } }
-if ($null -eq $json -or $null -eq $json.tool_input) { exit 0 }
+$stopMode = ($args.Count -gt 0 -and $args[0] -eq '--stop')
+$fileMode = ($args.Count -gt 0 -and $args[0] -eq '--file')
+if ($null -eq $json) { exit 0 }
+if (-not $stopMode -and $null -eq $json.tool_input) { exit 0 }
 $model = if ($env:WRITING_CONVENTIONS_GATE_MODEL) { $env:WRITING_CONVENTIONS_GATE_MODEL } else { 'sonnet' }
 
 # The reply to one nested call on the hook input, retried once with --bare when the
@@ -89,7 +95,7 @@ function Exit-Off {
     if (-not (Test-Path -LiteralPath $mark)) {
       try {
         [IO.File]::WriteAllText($mark, '')
-        [Console]::Out.Write('{"systemMessage":"writing-conventions: model review is off for this session, because the nested claude -p call failed. Commit, PR, MCP, and file text is not being read; the pattern lint on replies still runs."}')
+        [Console]::Out.Write('{"systemMessage":"writing-conventions: model review is off for this session, because the nested claude -p call failed. Commit, PR, MCP, file, and draft text is not being read; the pattern lint on replies still runs."}')
       } catch { }
     }
   }
@@ -136,9 +142,31 @@ function Get-Excerpt([string]$text, [string]$new) {
 }
 
 $tool = [string]$json.tool_name
-$fileMode = ($args.Count -gt 0 -and $args[0] -eq '--file')
 $unread = ''
-if ($fileMode) {
+$stopState = ''
+if ($stopMode) {
+  # A reply the session has tagged as a draft for publication. Only the text
+  # inside a `draft` fence is reviewed, so nothing else in the reply is judged by
+  # the model, and a reply with no such fence costs one scan and no call at all.
+  # An untagged draft is read by the reply lint alone.
+  if ($env:WRITING_CONVENTIONS_STOP_READER -eq '0') { exit 0 }
+  $found = Get-DraftFence ([string]$json.last_assistant_message)
+  if ($found.Drafts.Count -eq 0) { exit 0 }
+  # Blocking a reply is bounded per turn, counted in a file named for the
+  # prompt_id, which is the same on every Stop call of one turn. With no
+  # prompt_id nothing can be counted, so nothing is blocked and a call would buy
+  # nothing.
+  $promptId = [regex]::Replace([string]$json.prompt_id, '[^A-Za-z0-9_-]', '_')
+  if ($promptId -eq '') { exit 0 }
+  $tmpdir = if ($env:TMPDIR) { $env:TMPDIR } else { [IO.Path]::GetTempPath() }
+  $stopState = Join-Path $tmpdir "claude-gate-stop-$promptId"
+  # The reader is sent the drafts and nothing else. Each one stays a source of
+  # its own, so no finding can quote across two of them.
+  $raw = ($found.Drafts -join "`n")
+  if ($raw.Length -gt $CAP) { $raw = $raw.Substring(0, $CAP) }
+  $sources = @($found.Drafts)
+  $again = 'emit the corrected draft'
+} elseif ($fileMode) {
   # A prose file just written. The nested model has no tools, so this script does the
   # reading, and only of the file the tool wrote. The reader is sent the text under
   # review and not the hook input, which for a Write holds the whole file.
@@ -226,5 +254,20 @@ if ($fileMode) {
   exit 0
 }
 if ($findings.Count -eq 0) { exit 0 }
+if ($stopState -ne '') {
+  # A blocked Stop costs a whole re-emitted reply, so a reader that keeps finding
+  # something in each rewrite is stopped after two: the user is told that review
+  # is unresolved, through systemMessage, and the reply stands.
+  $n = 0
+  if (Test-Path -LiteralPath $stopState) {
+    $seen = ([IO.File]::ReadAllText($stopState)).Trim()
+    if ($seen -match '^[0-9]+$') { $n = [int]$seen }
+  }
+  if ($n -ge 2) {
+    [Console]::Out.Write('{"systemMessage":"writing-conventions: the draft in this reply still reads as a violation after two rewrites. Review is unresolved and the reply stands."}')
+    exit 0
+  }
+  try { [IO.File]::WriteAllText($stopState, [string]($n + 1)) } catch { }
+}
 [Console]::Error.WriteLine(($findings -join "`n") + "`nRewrite the quoted text and $again.")
 exit 2

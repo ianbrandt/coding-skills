@@ -69,6 +69,20 @@
             "args": ["-NoProfile", "-File", "${CLAUDE_PLUGIN_ROOT}/hooks/lint.ps1", "--record"],
             "timeout": 10,
             "statusMessage": "Linting the reply..."
+          },
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/gate.sh\" --stop",
+            "shell": "bash",
+            "timeout": 60,
+            "statusMessage": "Checking the draft for AI tells..."
+          },
+          {
+            "type": "command",
+            "command": "pwsh",
+            "args": ["-NoProfile", "-File", "${CLAUDE_PLUGIN_ROOT}/hooks/gate.ps1", "--stop"],
+            "timeout": 60,
+            "statusMessage": "Checking the draft for AI tells..."
           }
         ]
       }

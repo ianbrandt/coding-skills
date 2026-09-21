@@ -272,6 +272,100 @@ notice '' 1 s4
 PATH=$realpath
 unset TMPDIR
 
+# Stop replies. Only the text a `draft` fence holds is reviewed, and a reply with
+# no such fence costs no call at all. A blocked reply is re-emitted whole, so the
+# blocking is counted per turn and stops after two.
+export TMPDIR="$scratch/stoptmp"; mkdir -p "$TMPDIR"
+V='VIOLATION
+"The report says so." -> The version is shown in the report.'
+V2='VIOLATION
+"The build decided it." -> x'
+# stopcase <exit> <called> <verdict> <prompt_id> <reply, with \n for a newline>
+# Afterwards: $out is stdout, $stderr the reason, $sent what the reader was given.
+stopcase() {
+  cases=$((cases + 1))
+  : > "$GATE_TEST_MARK"; : > "$GATE_TEST_MARK.stdin"
+  export GATE_TEST_VERDICT="$3" GATE_TEST_FAIL="${6:-0}"
+  out=$(printf '{"session_id":"stopsess","prompt_id":"%s","last_assistant_message":"%s"}' "$4" "$5" \
+    | bash "$HERE/gate.sh" --stop 2>"$scratch/err")
+  status=$?
+  stderr=$(cat "$scratch/err"); sent=$(cat "$GATE_TEST_MARK.stdin")
+  called=$([ -s "$GATE_TEST_MARK" ] && echo yes || echo no)
+  [ "$status" = "$1" ] || { echo "FAIL exit $status, wanted $1: $5"; fail=1; }
+  [ "$called" = "$2" ] || { echo "FAIL model called=$called, wanted $2: $5"; fail=1; }
+}
+# No fence, and a fence that is not a draft, make no call.
+stopcase 0 no "$V" s01 'Here it is. The report says so.'
+stopcase 0 no "$V" s02 'Here it is.\n\n```python\nThe report says so.\n```'
+# A draft fence is read, and the reader is sent the draft and nothing else.
+stopcase 2 yes "$V" s03 'Outside text.\n\n```draft\nThe report says so.\n```'
+case $stderr in *'emit the corrected draft'*) ;; *) echo "FAIL stop reason: $stderr"; fail=1;; esac
+case $sent in *'Outside text'*) echo "FAIL text outside the fence was sent: $sent"; fail=1;; esac
+# A finding that quotes text outside every draft fence is unverified, so prose the
+# model was never sent cannot block the reply.
+stopcase 0 yes "$V" s04 'The report says so.\n\n```draft\nPlain text.\n```'
+# A four-backtick fence is closed by its own marker, so a code fence inside a draft
+# does not end it, and a tilde fence is a fence.
+stopcase 2 yes "$V" s05 '````draft\nPlain text.\n\n```py\nx = 1\n```\n\nThe report says so.\n````'
+stopcase 2 yes "$V" s06 '~~~draft\nThe report says so.\n~~~'
+# Two draft fences are two sources: one quote cannot span both, and a two-fragment
+# finding that quotes each of them can.
+two='```draft\nThe report \n```\n\nAnd the second:\n\n```draft\nsays so.\n```'
+stopcase 0 yes "$V" s07 "$two"
+stopcase 2 yes 'VIOLATION
+"The report" + "says so." -> x' s08 "$two"
+# A malformed first line never blocks.
+stopcase 0 yes 'VIOLATION MAYBE
+"The report says so." -> x' s09 '```draft\nThe report says so.\n```'
+# Two blocks in one turn, then the user is told that review is unresolved. An
+# unchanged rewrite blocks the second time, and a violation the rewrite introduced
+# counts as an attempt just the same.
+draft1='```draft\nThe report says so.\n```'
+stopcase 2 yes "$V" s10 "$draft1"
+stopcase 2 yes "$V" s10 "$draft1"
+stopcase 0 yes "$V" s10 "$draft1"
+case $out in '{"systemMessage":"'*'Review is unresolved'*) ;; *) echo "FAIL unresolved notice: $out"; fail=1;; esac
+stopcase 2 yes "$V" s11 "$draft1"
+stopcase 2 yes "$V2" s11 '```draft\nThe build decided it.\n```'
+stopcase 0 yes "$V2" s11 '```draft\nThe build decided it.\n```'
+case $out in *'Review is unresolved'*) ;; *) echo "FAIL unresolved notice after a new violation: $out"; fail=1;; esac
+# The count is per turn, so the next turn starts over.
+stopcase 2 yes "$V" s12 "$draft1"
+# stop_hook_active is another plugin's flag, and this script keeps its own count.
+cases=$((cases + 1))
+: > "$GATE_TEST_MARK"; export GATE_TEST_VERDICT="$V" GATE_TEST_FAIL=0
+printf '{"prompt_id":"s13","stop_hook_active":true,"last_assistant_message":"%s"}' "$draft1" \
+  | bash "$HERE/gate.sh" --stop >/dev/null 2>&1
+[ $? = 2 ] || { echo "FAIL no block with stop_hook_active already true"; fail=1; }
+# With no prompt_id there is nothing to count with, so nothing is blocked and no
+# call is made.
+cases=$((cases + 1))
+: > "$GATE_TEST_MARK"
+printf '{"last_assistant_message":"%s"}' "$draft1" | bash "$HERE/gate.sh" --stop >/dev/null 2>&1
+status=$?
+[ "$status" = 0 ] || { echo "FAIL exit $status with no prompt_id"; fail=1; }
+[ -s "$GATE_TEST_MARK" ] && { echo "FAIL model called with no prompt_id"; fail=1; }
+# The off switch skips the reader and leaves the reply lint as the only check.
+cases=$((cases + 1))
+: > "$GATE_TEST_MARK"
+printf '{"prompt_id":"s14","last_assistant_message":"%s"}' "$draft1" \
+  | WRITING_CONVENTIONS_STOP_READER=0 bash "$HERE/gate.sh" --stop >/dev/null 2>&1
+status=$?
+[ "$status" = 0 ] || { echo "FAIL exit $status with the reader off"; fail=1; }
+[ -s "$GATE_TEST_MARK" ] && { echo "FAIL model called with the reader off"; fail=1; }
+# A reader that cannot run does not block the reply, and says so once.
+stopcase 0 yes "$V" s15 "$draft1" 1
+case $out in '{"systemMessage":"'*'model review is off'*) ;; *) echo "FAIL stop notice: $out"; fail=1;; esac
+# Inside a nested call this entry point does nothing either.
+cases=$((cases + 1))
+: > "$GATE_TEST_MARK"
+printf '{"prompt_id":"s16","last_assistant_message":"%s"}' "$draft1" \
+  | WRITING_CONVENTIONS_NESTED=1 bash "$HERE/gate.sh" --stop >/dev/null 2>&1
+status=$?
+[ "$status" = 0 ] || { echo "FAIL exit $status inside a nested call"; fail=1; }
+[ -s "$GATE_TEST_MARK" ] && { echo "FAIL model called inside a nested call"; fail=1; }
+unset TMPDIR
+
 # Garbage in place of the hook input is not a reason to block either.
 cases=$((cases + 1))
 printf 'not json at all {{{' | bash "$HERE/gate.sh" >/dev/null 2>&1 \
