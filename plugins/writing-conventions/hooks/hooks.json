@@ -130,6 +130,20 @@
             "args": ["-NoProfile", "-File", "${CLAUDE_PLUGIN_ROOT}/hooks/lint.ps1", "--nudge"],
             "timeout": 10,
             "statusMessage": "Checking for a prose write..."
+          },
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/gate.sh\" --file",
+            "shell": "bash",
+            "timeout": 60,
+            "statusMessage": "Checking the file for AI tells..."
+          },
+          {
+            "type": "command",
+            "command": "pwsh",
+            "args": ["-NoProfile", "-File", "${CLAUDE_PLUGIN_ROOT}/hooks/gate.ps1", "--file"],
+            "timeout": 60,
+            "statusMessage": "Checking the file for AI tells..."
           }
         ]
       }

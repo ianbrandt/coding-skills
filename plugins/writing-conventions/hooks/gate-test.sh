@@ -14,6 +14,7 @@ cat > "$scratch/claude" <<'STUB'
 #!/usr/bin/env bash
 # One line per call: the arguments, then the marker the gate sets on its child.
 printf '%s nested=%s\n' "$*" "$WRITING_CONVENTIONS_NESTED" >> "$GATE_TEST_MARK"
+cat > "$GATE_TEST_MARK.stdin"
 [ "$GATE_TEST_FAIL" = 1 ] && exit 1
 case " $* " in *' --safe-mode '*) [ "$GATE_TEST_FAIL" = safe ] && exit 1;; esac
 case "$*" in *classify-prompt.md*) printf '%s\n' "$GATE_TEST_CLASS"; exit 0;; esac
@@ -189,6 +190,58 @@ mcp 0 1 1 CAN_PUBLISH PASS "$jira"
 # A classifier reply in any other form is doubt: the reader runs and nothing is cached.
 mcp 0 1 1 'It can publish.' PASS '{"tool_name":"mcp__x__vague","tool_input":{"text":"hi"}}'
 mcp 0 1 1 CAN_PUBLISH PASS '{"tool_name":"mcp__x__vague","tool_input":{"text":"hi"}}'
+
+# Prose files, after a Write or an Edit. Nothing is blocked: a verified finding
+# comes back as additionalContext, and so does a statement of what was not read.
+# file <reader calls> <pattern for the output> <verdict> <hook input>; the message
+# the reader was sent is in $sent afterwards
+file() {
+  cases=$((cases + 1))
+  : > "$GATE_TEST_MARK"; : > "$GATE_TEST_MARK.stdin"
+  export GATE_TEST_VERDICT="$3" GATE_TEST_FAIL="${5:-0}"
+  out=$(printf '%s' "$4" | bash "$HERE/gate.sh" --file 2>&1)
+  status=$?
+  sent=$(cat "$GATE_TEST_MARK.stdin")
+  [ "$status" = 0 ] || { echo "FAIL exit $status, wanted 0: ${4:0:160}"; fail=1; }
+  r=$(grep -c gate-prompt.md "$GATE_TEST_MARK")
+  [ "$r" = "$1" ] || { echo "FAIL reader calls $r, wanted $1: ${4:0:160}"; fail=1; }
+  case $out in $2) ;; *) echo "FAIL output, wanted $2: ${out:0:300}"; fail=1;; esac
+}
+edit() { printf '{"tool_name":"Edit","tool_input":{"file_path":"%s","old_string":"x","new_string":"%s"}}' "$1" "$2"; }
+doc="$scratch/doc.md"
+printf '# Title\n\nThe report says the version. It is short.\n\nSecond paragraph stays.\n\nThird one here.\n' > "$doc"
+file 1 '' PASS "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"$doc\",\"content\":\"# Title\\n\\nPlain text.\"}}"
+case $sent in *'Plain text.'*) ;; *) echo "FAIL the content was not sent: $sent"; fail=1;; esac
+file 0 '' PASS "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"$scratch/Main.kt\",\"content\":\"// The report says so.\"}}"
+file 1 '{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"\\"Plain text.\\" -> x\\nFix the quoted text in *"}}' 'VIOLATION
+"Plain text." -> x' "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"$scratch/NOTES.RST\",\"content\":\"Plain text.\"}}"
+# A one-word edit is reviewed as the whole paragraphs that hold it, so a finding can
+# quote the sentence around the word, and the rest of the file is not sent.
+file 1 '*The report says the version.*' 'VIOLATION
+"The report says the version." -> x' "$(edit "$doc" says)"
+case $sent in *'It is short.'*) ;; *) echo "FAIL the paragraph was not sent: $sent"; fail=1;; esac
+case $sent in *'Third one'*) echo "FAIL another paragraph was sent: $sent"; fail=1;; esac
+file 1 '' 'VIOLATION
+"Third one here." -> x' "$(edit "$doc" says)"
+# new_string can span paragraphs, and every paragraph it touches is reviewed.
+file 1 '*paragraph stays.*' 'VIOLATION
+"The report says" + "paragraph stays." -> x' "$(edit "$doc" 'It is short.\n\nSecond')"
+# A small edit to a 900 KB file is reviewed by excerpt.
+awk 'BEGIN { for (i = 0; i < 15000; i++) printf "Filler paragraph %d, sixty characters of plain text to pad.\n\n", i; print "The report says so." }' > "$scratch/big.md"
+file 1 '*The report says so.*' 'VIOLATION
+"The report says so." -> x' "$(edit "$scratch/big.md" 'says so')"
+[ ${#sent} -lt 1000 ] || { echo "FAIL ${#sent} characters sent for a small edit"; fail=1; }
+# What is not reviewed is stated: a file over 1 MB is not scanned, so new_string
+# alone is read; a deletion; and the text past the cap.
+cat "$scratch/big.md" "$scratch/big.md" > "$scratch/huge.md"
+file 1 '*says so\\" -> x*over 1 MB*' 'VIOLATION
+"says so" -> x' "$(edit "$scratch/huge.md" 'says so')"
+file 0 '*Not reviewed*deleted*' PASS "$(edit "$doc" '')"
+long=$(awk 'BEGIN { for (i = 0; i < 1000; i++) printf "Sixty characters of plain text, or near enough, to pad it. " }')
+file 1 '*Only the first 50000 characters*' PASS "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"$doc\",\"content\":\"$long\"}}"
+[ ${#sent} -lt 51000 ] || { echo "FAIL ${#sent} characters sent past the cap"; fail=1; }
+# A reader that cannot run says nothing, and the advisory nudge in lint.sh still fires.
+file 2 '' '' "$(edit "$doc" says)" 1
 
 # Garbage in place of the hook input is not a reason to block either.
 cases=$((cases + 1))

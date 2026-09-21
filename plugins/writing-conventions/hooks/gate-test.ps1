@@ -24,6 +24,7 @@ if ($onWindows) {
 @echo off
 rem One line per call: the arguments, then the marker the gate sets on its child.
 >>"%GATE_TEST_MARK%" echo %* nested=%WRITING_CONVENTIONS_NESTED%
+findstr "^" > "%GATE_TEST_MARK%.stdin"
 if "%GATE_TEST_FAIL%"=="1" exit /b 1
 if "%GATE_TEST_FAIL%"=="safe" if "%2"=="--safe-mode" exit /b 1
 echo %* | findstr /c:"classify-prompt.md" >nul && (echo %GATE_TEST_CLASS%& exit /b 0)
@@ -35,6 +36,7 @@ if exist "%GATE_TEST_VERDICT_FILE%" type "%GATE_TEST_VERDICT_FILE%"
 #!/usr/bin/env bash
 # One line per call: the arguments, then the marker the gate sets on its child.
 printf '%s nested=%s\n' "$*" "$WRITING_CONVENTIONS_NESTED" >> "$GATE_TEST_MARK"
+cat > "$GATE_TEST_MARK.stdin"
 [ "$GATE_TEST_FAIL" = 1 ] && exit 1
 [ "$GATE_TEST_FAIL" = safe ] && [ "$2" = --safe-mode ] && exit 1
 case "$*" in *classify-prompt.md*) printf '%s\n' "$GATE_TEST_CLASS"; exit 0;; esac
@@ -236,6 +238,64 @@ try {
   # A classifier reply in any other form is doubt: the reader runs and nothing is cached.
   $null = Test-Mcp 0 1 1 'It can publish.' 'PASS' '{"tool_name":"mcp__x__vague","tool_input":{"text":"hi"}}'
   $null = Test-Mcp 0 1 1 'CAN_PUBLISH' 'PASS' '{"tool_name":"mcp__x__vague","tool_input":{"text":"hi"}}'
+
+  # Prose files, after a Write or an Edit. Nothing is blocked: a verified finding
+  # comes back as additionalContext, and so does a statement of what was not read.
+  # Returns @{ Out; Sent }: the gate's output and the message the reader was sent. A
+  # failure goes to the host, so that a caller that drops the output still shows it.
+  function Test-File([int]$wantReader, [string]$wantLike, [string]$verdict, [string]$hookInput, [string]$failCall = '0') {
+    $script:cases++
+    $ErrorActionPreference = 'Continue'
+    $sentPath = $env:GATE_TEST_MARK + '.stdin'
+    [IO.File]::WriteAllText($env:GATE_TEST_MARK, '')
+    [IO.File]::WriteAllText($sentPath, '')
+    [IO.File]::WriteAllText($env:GATE_TEST_VERDICT_FILE, $verdict)
+    $env:GATE_TEST_FAIL = $failCall
+    $out = ($hookInput | pwsh -NoProfile -File $gate --file 2>&1 | Out-String).Trim()
+    $short = $hookInput.Substring(0, [Math]::Min(160, $hookInput.Length))
+    if ($LASTEXITCODE -ne 0) { Write-Host ("FAIL exit " + $LASTEXITCODE + ", wanted 0: " + $short); $script:fail = 1 }
+    $r = @(Get-Content -LiteralPath $env:GATE_TEST_MARK | Where-Object { $_ -like '*gate-prompt.md*' }).Count
+    if ($r -ne $wantReader) { Write-Host ("FAIL reader calls $r, wanted $wantReader" + ": " + $short); $script:fail = 1 }
+    if (($wantLike -eq '' -and $out -ne '') -or ($wantLike -ne '' -and $out -notlike $wantLike)) {
+      Write-Host ("FAIL output, wanted " + $wantLike + ": " + $out.Substring(0, [Math]::Min(300, $out.Length))); $script:fail = 1
+    }
+    return @{ Out = $out; Sent = [IO.File]::ReadAllText($sentPath) }
+  }
+  function New-Input([string]$tool, [hashtable]$toolInput) { @{ tool_name = $tool; tool_input = $toolInput } | ConvertTo-Json -Compress }
+  function New-Edit([string]$path, [string]$new) { New-Input 'Edit' @{ file_path = $path; old_string = 'x'; new_string = $new } }
+  $doc = Join-Path $scratch 'doc.md'
+  [IO.File]::WriteAllText($doc, "# Title`n`nThe report says the version. It is short.`n`nSecond paragraph stays.`n`nThird one here.`n")
+  $r = Test-File 1 '' 'PASS' (New-Input 'Write' @{ file_path = $doc; content = "# Title`n`nPlain text." })
+  if ($r.Sent -notlike '*Plain text.*') { Write-Output ("FAIL the content was not sent: " + $r.Sent); $fail = 1 }
+  $null = Test-File 0 '' 'PASS' (New-Input 'Write' @{ file_path = (Join-Path $scratch 'Main.kt'); content = '// The report says so.' })
+  $null = Test-File 1 '{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"\"Plain text.\" -> x\nFix the quoted text in *"}}' "VIOLATION`n`"Plain text.`" -> x" (New-Input 'Write' @{ file_path = (Join-Path $scratch 'NOTES.RST'); content = 'Plain text.' })
+  # A one-word edit is reviewed as the whole paragraphs that hold it, so a finding can
+  # quote the sentence around the word, and the rest of the file is not sent.
+  $r = Test-File 1 '*The report says the version.*' "VIOLATION`n`"The report says the version.`" -> x" (New-Edit $doc 'says')
+  if ($r.Sent -notlike '*It is short.*') { Write-Output ("FAIL the paragraph was not sent: " + $r.Sent); $fail = 1 }
+  if ($r.Sent -like '*Third one*') { Write-Output ("FAIL another paragraph was sent: " + $r.Sent); $fail = 1 }
+  $null = Test-File 1 '' "VIOLATION`n`"Third one here.`" -> x" (New-Edit $doc 'says')
+  # new_string can span paragraphs, and every paragraph it touches is reviewed.
+  $null = Test-File 1 '*paragraph stays.*' "VIOLATION`n`"The report says`" + `"paragraph stays.`" -> x" (New-Edit $doc "It is short.`n`nSecond")
+  # A small edit to a 900 KB file is reviewed by excerpt.
+  $sb = New-Object System.Text.StringBuilder
+  foreach ($i in 0..14999) { [void]$sb.Append("Filler paragraph $i, sixty characters of plain text to pad.`n`n") }
+  [void]$sb.Append("The report says so.`n")
+  $big = Join-Path $scratch 'big.md'
+  [IO.File]::WriteAllText($big, $sb.ToString())
+  $r = Test-File 1 '*The report says so.*' "VIOLATION`n`"The report says so.`" -> x" (New-Edit $big 'says so')
+  if ($r.Sent.Length -ge 1000) { Write-Output ("FAIL " + $r.Sent.Length + " characters sent for a small edit"); $fail = 1 }
+  # What is not reviewed is stated: a file over 1 MB is not scanned, so new_string
+  # alone is read; a deletion; and the text past the cap.
+  $huge = Join-Path $scratch 'huge.md'
+  [IO.File]::WriteAllText($huge, $sb.ToString() + $sb.ToString())
+  $null = Test-File 1 '*says so\" -> x*over 1 MB*' "VIOLATION`n`"says so`" -> x" (New-Edit $huge 'says so')
+  $null = Test-File 0 '*Not reviewed*deleted*' 'PASS' (New-Edit $doc '')
+  $long = 'Sixty characters of plain text, or near enough, to pad it. ' * 1000
+  $r = Test-File 1 '*Only the first 50000 characters*' 'PASS' (New-Input 'Write' @{ file_path = $doc; content = $long })
+  if ($r.Sent.Length -ge 51000) { Write-Output ("FAIL " + $r.Sent.Length + " characters sent past the cap"); $fail = 1 }
+  # A reader that cannot run says nothing, and the advisory nudge in lint.ps1 still fires.
+  $null = Test-File 2 '' '' (New-Edit $doc 'says') '1'
 
   # Garbage in place of the hook input is not a reason to block either.
   $cases++

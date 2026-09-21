@@ -86,8 +86,63 @@ function Get-StringValue($node) {
   return @()
 }
 
+$CAP = 50000
+# Text as the additionalContext of a PostToolUse hook. Written as UTF-8 bytes, because
+# 5.1 would encode a pipeline to stdout through the console codepage.
+function Write-Context([string]$text) {
+  if ($text -eq '') { return }
+  $text = [regex]::Replace($text, '[\x01-\x08\x0B-\x1F]', '')
+  $esc = $text.Replace('\', '\\').Replace('"', '\"').Replace("`t", '\t').Replace("`n", '\n')
+  $bytes = $utf8.GetBytes('{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"' + $esc + '"}}')
+  $stdout = [Console]::OpenStandardOutput()
+  $stdout.Write($bytes, 0, $bytes.Length); $stdout.Flush()
+}
+
+# The whole paragraphs, bounded by blank lines, of a file's text that hold $new.
+function Get-Excerpt([string]$text, [string]$new) {
+  $text = $text.Replace("`r", ''); $new = $new.Replace("`r", '').TrimEnd("`n")
+  $bounds = @([regex]::Matches($text, '\n[ \t]*(?=\n)') | ForEach-Object { $_.Index })
+  $keep = New-Object System.Collections.Generic.List[object]
+  $at = $text.IndexOf($new, [StringComparison]::Ordinal)
+  while ($at -ge 0 -and $keep.Count -lt 1000) {
+    $end = $at + $new.Length
+    $a = 0; foreach ($b in $bounds) { if ($b -lt $at) { $a = $b } else { break } }
+    $z = $text.Length; foreach ($b in $bounds) { if ($b -ge $end) { $z = $b; break } }
+    if ($keep.Count -gt 0 -and $a -le $keep[$keep.Count - 1][1]) { $keep[$keep.Count - 1][1] = [Math]::Max($z, $keep[$keep.Count - 1][1]) }
+    else { $keep.Add(@($a, $z)) }
+    $at = $text.IndexOf($new, $end, [StringComparison]::Ordinal)
+  }
+  return (@($keep | ForEach-Object { $text.Substring($_[0], $_[1] - $_[0]).Trim("`n") }) -join "`n`n")
+}
+
 $tool = [string]$json.tool_name
-if ($tool -like 'mcp__*') {
+$fileMode = ($args.Count -gt 0 -and $args[0] -eq '--file')
+$unread = ''
+if ($fileMode) {
+  # A prose file just written. The nested model has no tools, so this script does the
+  # reading, and only of the file the tool wrote. The reader is sent the text under
+  # review and not the hook input, which for a Write holds the whole file.
+  $path = [string]$json.tool_input.file_path
+  if ($tool -cne 'Write' -and $tool -cne 'Edit') { exit 0 }
+  if (-not [regex]::IsMatch($path.ToLowerInvariant(), '\.(md|markdown|txt|adoc|rst)$')) { exit 0 }
+  if ($tool -ceq 'Write') { $text = [string]$json.tool_input.content }
+  else {
+    $new = [string]$json.tool_input.new_string
+    if ($new.Trim() -eq '') { Write-Context "Not reviewed: this edit to $path only deleted text."; exit 0 }
+    $text = ''
+    try {
+      if ((Get-Item -LiteralPath $path -ErrorAction Stop).Length -le 1048576) { $text = Get-Excerpt ([IO.File]::ReadAllText($path, $utf8)) $new }
+      else { $unread = "Only the new text was reviewed, not the sentences around it: $path is over 1 MB or could not be read." }
+    } catch { $unread = "Only the new text was reviewed, not the sentences around it: $path is over 1 MB or could not be read." }
+    if ($text -eq '') { $text = $new }
+  }
+  if ($text.Length -gt $CAP) {
+    $text = $text.Substring(0, $CAP)
+    $unread = "Only the first $CAP characters of the text were reviewed."
+  }
+  $raw = "File: $path`n`n$text"
+  $sources = @($text)
+} elseif ($tool -like 'mcp__*') {
   # Whether an MCP tool can publish is asked of a model once per tool and kept in a
   # per-user file, one line per answer, so no server or tool name is written here.
   # The file is outside the plugin's directory, which is per version, and is named
@@ -141,6 +196,15 @@ if ($null -eq $verdict) { exit 0 }
 # in any other form is a failure path, so it lets the command through as well.
 . (Join-Path $PSScriptRoot 'verdict.ps1')
 $findings = @(Get-VerifiedFinding $verdict $sources)
+if ($fileMode) {
+  # A file is cheap to fix after the fact and a blocked edit stops the turn, so this
+  # path hands the findings back and blocks nothing.
+  $lines = @()
+  if ($findings.Count -gt 0) { $lines += $findings; $lines += "Fix the quoted text in $path." }
+  if ($unread -ne '') { $lines += $unread }
+  Write-Context ($lines -join "`n")
+  exit 0
+}
 if ($findings.Count -eq 0) { exit 0 }
 [Console]::Error.WriteLine(($findings -join "`n") + "`nRewrite the quoted text and $again.")
 exit 2

@@ -49,15 +49,63 @@ command -v claude >/dev/null 2>&1 || exit 0
 # hook input, retried once with --bare when the first call exits non-zero.
 ask() { call --safe-mode "$@" || call --bare "$@"; }
 call() {
-  printf '%s' "$input" | WRITING_CONVENTIONS_NESTED=1 claude -p "$1" --tools= \
+  printf '%s' "${msg:-$input}" | WRITING_CONVENTIONS_NESTED=1 claude -p "$1" --tools= \
     --model "${WRITING_CONVENTIONS_GATE_MODEL:-sonnet}" \
     --system-prompt-file "$HERE/$2" \
     ${3:+--append-system-prompt-file "$HERE/$3"} 2>/dev/null
 }
 
-tool=$(printf '%s' "$input" | awk -v key=tool_name -f "$HERE/jsonstr.awk")
-case "$tool" in
-  mcp__*)
+tmp=$(mktemp -d 2>/dev/null) || exit 0
+trap 'rm -rf "$tmp"' EXIT
+CAP=50000
+
+# field <key>: one string field of the hook input, decoded
+field() { printf '%s' "$input" | awk -v key="$1" -f "$HERE/jsonstr.awk"; }
+# context: stdin as the additionalContext of a PostToolUse hook, JSON-escaped.
+# The text is split and joined, because what a backslash means in the replacement
+# of a gsub differs from one awk to the next.
+context() {
+  awk 'function rep(s, from, to,    n, a, i, out) { n = split(s, a, from); out = a[1]; for (i = 2; i <= n; i++) out = out to a[i]; return out }
+    { gsub(/[\001-\010\013-\037]/, ""); text = text (NR > 1 ? "\\n" : "") rep(rep(rep($0, "\\", "\\\\"), "\"", "\\\""), "\t", "\\t") }
+    END { if (text != "") printf "{\"hookSpecificOutput\":{\"hookEventName\":\"PostToolUse\",\"additionalContext\":\"%s\"}}", text }'
+}
+
+tool=$(field tool_name)
+case "$1:$tool" in
+  --file:Write|--file:Edit)
+    # A prose file just written. The nested model has no tools, so this script does
+    # the reading, and only of the file the tool wrote. The reader is sent the text
+    # under review and not the hook input, which for a Write holds the whole file.
+    path=$(field file_path)
+    case "$(printf '%s' "$path" | tr 'A-Z' 'a-z')" in
+      *.md|*.markdown|*.txt|*.adoc|*.rst) ;;
+      *) exit 0 ;;
+    esac
+    unread=
+    if [ "$tool" = Write ]; then
+      field content > "$tmp/text"
+    else
+      field new_string > "$tmp/new"
+      if ! grep -q '[^[:space:]]' "$tmp/new"; then
+        printf 'Not reviewed: this edit to %s only deleted text.\n' "$path" | context
+        exit 0
+      elif [ ! -f "$path" ] || [ "$(wc -c < "$path")" -gt 1048576 ]; then
+        cp "$tmp/new" "$tmp/text"
+        unread="Only the new text was reviewed, not the sentences around it: $path is over 1 MB or could not be read."
+      else
+        awk -v cap=$CAP -f "$HERE/excerpt.awk" "$tmp/new" "$path" > "$tmp/text"
+        [ -s "$tmp/text" ] || cp "$tmp/new" "$tmp/text"
+      fi
+    fi
+    if [ "$(wc -c < "$tmp/text")" -gt $CAP ]; then
+      head -c $CAP "$tmp/text" > "$tmp/cut" && mv "$tmp/cut" "$tmp/text"
+      unread="Only the first $CAP characters of the text were reviewed."
+    fi
+    msg=$(printf 'File: %s\n\n' "$path"; cat "$tmp/text")
+    sources() { cat "$tmp/text"; }
+    again= ;;
+  --file:*) exit 0 ;;
+  :mcp__*)
     # Whether an MCP tool can publish is asked of a model once per tool and kept in
     # a per-user file, one line per answer, so no server or tool name is written
     # here. The file is outside the plugin's directory, which is per version, and is
@@ -96,13 +144,18 @@ case "$tool" in
 esac
 verdict=$(ask gate-prompt.md rules.md) || exit 0
 
-# verdict.awk keeps the findings that quote the command. A reply in any
+# verdict.awk keeps the findings that quote the text under review. A reply in any
 # other form is a failure path, so it lets the command through as well.
-tmp=$(mktemp -d 2>/dev/null) || exit 0
-trap 'rm -rf "$tmp"' EXIT
 sources > "$tmp/source"
 printf '%s\n' "$verdict" > "$tmp/verdict"
 findings=$(awk -v verdict="$tmp/verdict" -f "$HERE/verdict.awk" "$tmp/source" "$tmp/verdict")
+if [ -z "$again" ]; then
+  # A file is cheap to fix after the fact and a blocked edit stops the turn, so
+  # this path hands the findings back and blocks nothing.
+  { [ -z "$findings" ] || printf '%s\nFix the quoted text in %s.\n' "$findings" "$path"
+    [ -z "$unread" ] || printf '%s\n' "$unread"; } | context
+  exit 0
+fi
 [ -n "$findings" ] || exit 0
 printf '%s\nRewrite the quoted text and %s.\n' "$findings" "$again" >&2
 exit 2

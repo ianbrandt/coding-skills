@@ -181,12 +181,31 @@ split across short fields is read together. A finding has to quote the decoded s
 across text nodes, and the reader quotes it as its pieces, `"The report " + "says so."`; each piece
 is looked for on its own and nothing is joined.
 
+### Prose files
+
+A `Write` or `Edit` to a `.md`, `.markdown`, `.txt`, `.adoc`, or `.rst` file gets the same read
+after the fact, from a `PostToolUse` entry that runs the gate scripts with `--file`. Nothing is
+blocked, because a file is cheap to fix and a blocked edit stops the turn: a verified finding comes
+back as `additionalContext`, and the session fixes the file in place. The advisory nudge on
+`Write|Edit` is unchanged and still fires for the same files, so a session in which the reader
+cannot run keeps it. A source file gets the nudge only.
+
+The nested model has no tools, so the script reads, and only the file the tool just wrote. For a
+`Write` the text under review is `content`. For an `Edit` it is the whole paragraphs, bounded by
+blank lines, that hold `new_string` in the edited file
+([`hooks/excerpt.awk`](hooks/excerpt.awk)): replacing "includes" with "says" in "The report includes
+the version." makes a violation that the one word does not show. The size of the excerpt follows
+the edit and not the file, so a release note added to a large changelog is read. The reader is sent
+that text and the file path, not the hook input.
+
+What is not read is stated in the same feedback: text past the first 50,000 characters, an `Edit`
+that only deletes, and the sentences around an `Edit` to a file over 1 MB, where `new_string` alone
+is read. A draft written to a file with a shell redirect is not read at all.
+
 ### What is not gated
 
 A shell command outside the four families is not read, so `glab`, `hg`, `svn`, and `jj` publish
-unread. A `git push` is not read, because a branch name is chosen long before it, and a `Write` or
-`Edit` is nudged rather than blocked, because a file is cheap to fix after the fact and a blocked
-edit stops the turn.
+unread. A `git push` is not read, because a branch name is chosen long before it.
 
 Adding a word to the banned list is a plugin release rather than a local edit: an installed session
 reads a version-keyed cache, so the plugin's `version` in `.claude-plugin/marketplace.json` has to
