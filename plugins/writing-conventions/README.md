@@ -222,13 +222,15 @@ reply is re-emitted whole. The blocking is counted in a file named for the turn'
 it stops after two; the third time, the user is told that review is unresolved, and the reply
 stands. `WRITING_CONVENTIONS_STOP_READER=0` turns the reader off.
 
-Tagging keeps this cheap; that was measured before any of it was built, at n = 12 per arm with
-`claude -p --model sonnet`. With the draft named only as a by-product of a coding task, a drafting
-skill fired on 3 of 12 runs. Of the 9 replies that included a draft, 6 were in a plain fence, 2 in a
-blockquote, and 1 between `---` rules. A plain fence of 8 words or more also trips on 4 of 12
-ordinary replies. With the tagging rule loaded, 11 of 11 drafts were tagged and 0 of 12 ordinary
-replies used the tag. A draft the session does not tag is not read by the model at all; the reply
-lint is all that sees it.
+Tagging keeps this cheap, and the rate was measured before any of it was built and again with the
+rule text that ships, at n = 12 per arm with `claude -p --model sonnet` and the draft named only as
+a by-product of a coding task. With no rule, a drafting skill fired on 3 of 12 runs, and of the 9
+replies that included a draft, 6 were in a plain fence, 2 in a blockquote, and 1 between `---`
+rules; a plain fence of 8 words or more also trips on 4 of 12 ordinary replies. With the rule text
+that ships, 8 of the 9 replies that included a draft tagged it, and 0 of 12 ordinary replies used
+the tag while 11 of them carried some other fence. The miss gave review feedback as the body of the
+reply rather than as a block. A draft the session does not tag is not read by the model at all; the
+reply lint is all that sees it.
 
 Both matchers drop every closed fenced block before matching, so `--record` unwraps the `draft`
 fences first ([`hooks/draft.awk`](hooks/draft.awk), [`hooks/draft.ps1`](hooks/draft.ps1), the same
