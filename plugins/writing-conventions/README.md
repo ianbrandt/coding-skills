@@ -111,7 +111,7 @@ comes back as the tool's error, and the session fixes the text and runs the comm
 form lets the command through, as a failed call does, because the text the model reads can quote an
 untrusted source.
 
-The check runs as one nested `claude -p --bare` call, with
+The check runs as one nested `claude -p --safe-mode --tools=` call, with
 [`hooks/gate-prompt.md`](hooks/gate-prompt.md) as the system prompt and the hook input as the
 message. Which model answers comes from `WRITING_CONVENTIONS_GATE_MODEL`, or from the `sonnet` alias
 when that is unset; set it in the `env` block of a settings file to any id the session's endpoint
@@ -131,12 +131,22 @@ Sonnet is the default because Claude Code's own default for a check like this is
 session could not commit at all. Sonnet allowed 23 of those 24, and both models denied all 16 checks
 on planted violations.
 
-`--bare` skips hooks, plugins, LSP, and CLAUDE.md discovery, so one check costs about 2k tokens and 4
-to 10 seconds, and the gate cannot fire inside its own nested session. The same call without it costs
-48k tokens and about 11 seconds. The tradeoff is authentication: under `--bare` the nested call takes
+`--safe-mode` starts the nested call with no CLAUDE.md, skills, plugins, hooks, or MCP servers and
+keeps the normal sign-in, so the check works on a browser sign-in as well as with a key. `--tools=`
+leaves the nested model no tools, and the default tool definitions are most of the call: one check
+was 1.9k input tokens and 3.3 to 3.8 seconds with it, and 26k tokens with `--safe-mode` alone. The
+flag is `--tools=` and not `--tools ""` because PowerShell can drop an empty argument on the way to
+`claude`.
+
+`--safe-mode` has not been checked on an install that signs in through a gateway with a key, so a
+call that exits non-zero is retried once with `--bare` in its place. `--bare` takes
 `ANTHROPIC_API_KEY`, an `apiKeyHelper` from a settings file, or a third-party provider's own
-credentials, and a session signed in through OAuth alone has none of those. Every failure path exits
-0, so a gate that cannot reach a model lets the command through instead of blocking it.
+credentials, and prints "Not logged in" on a browser sign-in. Every failure path exits 0, so a gate
+that cannot reach a model lets the command through instead of blocking it.
+
+Managed policy settings still apply under `--safe-mode`, so a copy of the gate registered that way
+would run inside its own nested call. The scripts set `WRITING_CONVENTIONS_NESTED=1` on that call,
+and each exits at once when the variable is set.
 
 The cost is one call per `git commit` and per `gh pr`, `gh issue`, or `gh release` command, read-only
 ones included. One hook entry per shell covers all four command families, because the command text is

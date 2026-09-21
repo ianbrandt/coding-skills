@@ -22,16 +22,20 @@ $onWindows = $PSVersionTable.PSVersion.Major -lt 6 -or $IsWindows
 if ($onWindows) {
   $stub = @'
 @echo off
->>"%GATE_TEST_MARK%" echo called
+rem One line per call: the arguments, then the marker the gate sets on its child.
+>>"%GATE_TEST_MARK%" echo %* nested=%WRITING_CONVENTIONS_NESTED%
 if "%GATE_TEST_FAIL%"=="1" exit /b 1
+if "%GATE_TEST_FAIL%"=="safe" if "%2"=="--safe-mode" exit /b 1
 if exist "%GATE_TEST_VERDICT_FILE%" type "%GATE_TEST_VERDICT_FILE%"
 '@
   $stubPath = Join-Path $scratch 'claude.bat'
 } else {
   $stub = @'
 #!/usr/bin/env bash
-printf 'called\n' >> "$GATE_TEST_MARK"
+# One line per call: the arguments, then the marker the gate sets on its child.
+printf '%s nested=%s\n' "$*" "$WRITING_CONVENTIONS_NESTED" >> "$GATE_TEST_MARK"
 [ "$GATE_TEST_FAIL" = 1 ] && exit 1
+[ "$GATE_TEST_FAIL" = safe ] && [ "$2" = --safe-mode ] && exit 1
 cat "$GATE_TEST_VERDICT_FILE" 2>/dev/null
 '@
   $stubPath = Join-Path $scratch 'claude'
@@ -45,6 +49,7 @@ $saved = @{
   TOOL  = $env:CLAUDE_CODE_USE_POWERSHELL_TOOL
   MODEL = $env:WRITING_CONVENTIONS_GATE_MODEL
   MARK  = $env:GATE_TEST_MARK
+  NEST  = $env:WRITING_CONVENTIONS_NESTED
   FILE  = $env:GATE_TEST_VERDICT_FILE
 }
 try {
@@ -54,6 +59,7 @@ try {
   $env:OS = 'Windows_NT'
   $env:CLAUDE_CODE_USE_POWERSHELL_TOOL = '1'
   $env:WRITING_CONVENTIONS_GATE_MODEL = $null
+  $env:WRITING_CONVENTIONS_NESTED = $null
   $env:GATE_TEST_MARK = Join-Path $scratch 'mark'
   # The stub prints this file. A verdict has several lines and double quotes, which
   # a .bat `echo` of an environment variable cannot hold.
@@ -133,6 +139,40 @@ try {
   # A gate that cannot reach a model must not stop a commit.
   Test-Gate 0 $true '' '1' 'git commit -m "Plain message"'
   Test-Gate 0 $true '' '0' 'git commit -m "Plain message"'
+
+  # The reader call. `--tools=` is one argument, because PowerShell can drop an empty
+  # one, and the marker is set on the child so that a copy of this hook registered by
+  # managed policy, which `--safe-mode` does not turn off, exits inside the nested call.
+  # Checks the calls of the last run against one wildcard pattern per call.
+  function Test-Calls([string[]]$want) {
+    $script:cases++
+    $lines = @(Get-Content -LiteralPath $env:GATE_TEST_MARK | Where-Object { $_.Trim() -ne '' })
+    if ($lines.Count -ne $want.Count) {
+      Write-Output ("FAIL " + ($lines -join ' | ') + ", wanted " + $want.Count + " calls"); $script:fail = 1; return
+    }
+    for ($i = 0; $i -lt $want.Count; $i++) {
+      if ($lines[$i] -notlike $want[$i]) { Write-Output ("FAIL call " + ($i + 1) + ": " + $lines[$i]); $script:fail = 1 }
+    }
+  }
+  $blocking = "VIOLATION`n`"The report says so`" -> x"
+  $null = Invoke-Gate 'PASS' '0' $says
+  Test-Calls @('*--safe-mode --tools= --model*nested=1*')
+  if ((Get-Content -Raw -LiteralPath $env:GATE_TEST_MARK) -like '*--bare*') { Write-Output 'FAIL --bare on a first call'; $fail = 1 }
+  # A call that exits non-zero is retried once with --bare, and that verdict counts.
+  $r = Invoke-Gate $blocking 'safe' $says
+  if ($r.Status -ne 2) { Write-Output ("FAIL exit " + $r.Status + ", wanted 2 from the --bare retry"); $fail = 1 }
+  Test-Calls @('*--safe-mode --tools= *nested=1*', '*--bare --tools= --model*nested=1*')
+  $r = Invoke-Gate '' '1' $says
+  if ($r.Status -ne 0) { Write-Output ("FAIL exit " + $r.Status + ", wanted 0 with both calls failing"); $fail = 1 }
+  Test-Calls @('*--safe-mode*', '*--bare*')
+  # A reply in the wrong form from a call that exited 0 is not retried.
+  $null = Invoke-Gate 'the report says: rewrite it' '0' $says
+  Test-Calls @('*--safe-mode*')
+  # Inside a nested call the gate does nothing, whatever the reader would have said.
+  $env:WRITING_CONVENTIONS_NESTED = '1'
+  Test-Gate 0 $false $blocking '0' $says
+  $env:WRITING_CONVENTIONS_NESTED = $null
+
   # Garbage in place of the hook input is not a reason to block either.
   $cases++
   $ErrorActionPreference = 'Continue'
@@ -144,6 +184,7 @@ try {
   $env:CLAUDE_CODE_USE_POWERSHELL_TOOL = $saved.TOOL
   $env:WRITING_CONVENTIONS_GATE_MODEL = $saved.MODEL
   $env:GATE_TEST_MARK = $saved.MARK
+  $env:WRITING_CONVENTIONS_NESTED = $saved.NEST
   $env:GATE_TEST_VERDICT_FILE = $saved.FILE
   Remove-Item -LiteralPath $scratch -Recurse -Force -ErrorAction SilentlyContinue
 }

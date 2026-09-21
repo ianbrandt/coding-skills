@@ -2,10 +2,15 @@
 # Publication gate for a Windows install where the PowerShell tool is the shell.
 # gate.sh is the same gate; gate-prompt.md is the one copy of the check itself.
 #
-# The check runs as one nested `claude -p --bare` call, with gate-prompt.md as the
-# system prompt and the hook input as the message. `--bare` skips hooks, plugins,
-# LSP, and CLAUDE.md discovery, which keeps the call to about 2k tokens and a few
-# seconds, and rules out this hook firing inside its own nested session.
+# The check runs as one nested `claude -p --safe-mode --tools=` call, with
+# gate-prompt.md as the system prompt and the hook input as the message.
+# `--safe-mode` starts the call with no CLAUDE.md, skills, plugins, hooks, or MCP
+# servers and keeps the normal sign-in, so it works on a browser sign-in as well as
+# with a key. With `--tools=` the nested model has no tools, and the default tool
+# definitions are 24k of the 26k input tokens of a call without it: with it a call
+# is about 2k tokens and a few seconds. It is written as one argument because
+# Windows PowerShell drops an empty argument to a native command, and PowerShell 7
+# does the same for a .cmd or .bat launcher.
 #
 # The model comes from WRITING_CONVENTIONS_GATE_MODEL, or the `sonnet` alias when
 # that is unset. Set it in the `env` block of a settings file to any id the
@@ -15,16 +20,21 @@
 # hook resolves nothing: `"model": "sonnet"` there reaches the API verbatim and
 # comes back as HTTP 400, which is why the check runs out here instead.
 #
-# Under `--bare` the nested call authenticates with ANTHROPIC_API_KEY, an
-# apiKeyHelper, or a third-party provider's own credentials. A session signed in
-# through OAuth alone has none of those, so the call fails and the gate lets the
-# command through.
+# `--safe-mode` has not been checked on an install that signs in through a gateway
+# with a key (see TODO.md), so a call that exits non-zero is retried once with
+# `--bare`, which is known to work there and prints "Not logged in" on a browser
+# sign-in.
 #
 # A gate that cannot reach a model must not stop a commit, so every failure path
 # exits 0. Only a finding with its quote in the command exits 2, which blocks the
 # command and hands the text back to the session.
 #
 # ASCII only, so 5.1 cannot mangle it reading a BOM-less file as the ANSI codepage.
+
+# Managed policy settings still apply under `--safe-mode`, so a copy of this hook
+# registered that way runs inside the nested call. The call below sets this marker
+# for its child, and nothing here is worth doing for the reader's own session.
+if ($env:WRITING_CONVENTIONS_NESTED) { exit 0 }
 
 # One of gate.ps1 and gate.sh runs the check, never both; shell-owner.ps1 is the
 # test, and the mirror of it sits in gate.sh.
@@ -58,9 +68,13 @@ if (-not (Get-Command claude -ErrorAction SilentlyContinue)) { exit 0 }
 $model = if ($env:WRITING_CONVENTIONS_GATE_MODEL) { $env:WRITING_CONVENTIONS_GATE_MODEL } else { 'sonnet' }
 $prompt = Join-Path $PSScriptRoot 'gate-prompt.md'
 $verdict = ''
+$env:WRITING_CONVENTIONS_NESTED = '1'
 try {
-  $verdict = ($raw | claude -p --bare --model $model --system-prompt-file $prompt 2>$null | Out-String)
-} catch { exit 0 }
+  foreach ($mode in '--safe-mode', '--bare') {
+    $verdict = ($raw | claude -p $mode --tools= --model $model --system-prompt-file $prompt 2>$null | Out-String)
+    if ($LASTEXITCODE -eq 0) { break }
+  }
+} catch { exit 0 } finally { $env:WRITING_CONVENTIONS_NESTED = $null }
 if ($LASTEXITCODE -ne 0) { exit 0 }
 
 # Get-VerifiedFinding keeps the findings that quote the command. A reply

@@ -6,10 +6,12 @@
 - Needs a Windows machine with no Git Bash: check whether the bash-side command hooks print an
   error on every Stop, prompt, and Write/Edit event, and whether `"shell": "bash"` suppresses it.
 - Needs a Windows machine: run `hooks/gate-test.ps1` in `writing-conventions`. The `claude.bat` stub
-  now prints the verdict with `type "%GATE_TEST_VERDICT_FILE%"`, and only the bash stub has been run,
-  under PowerShell 7 on macOS.
-- Needs a machine with an `apiKeyHelper` configured: check whether one in a settings file revives
-  `claude -p --bare`. The OAuth half is answered. On an OAuth-only session `--bare` prints
-  "Not logged in" in about 0.6s, so the gate fails open and never reaches a model; the README's
-  "about 2k tokens and 4 to 10 seconds" was measured on a LiteLLM proxy in front of Bedrock and does
-  not describe an OAuth install. See `spike-notes.local/gate-generalization-probes.md`.
+  now prints the verdict with `type "%GATE_TEST_VERDICT_FILE%"`, records the arguments of each call
+  with `echo %*`, and fails a `--safe-mode` call on request. Only the bash stub has been run, under
+  PowerShell 7 on macOS.
+- Needs a machine signed in through a gateway with a key: check that `claude -p --safe-mode --tools=
+  --model sonnet 'Reply with exactly the word PASS.'` prints `PASS`, and that the same call with
+  `--bare` in place of `--safe-mode` does too, and time both, a failed one included. On a browser
+  sign-in the first call takes about 3.5 s at about 1.9k input tokens and the second prints "Not
+  logged in". When both work through the gateway, the `--bare` retry in `gate.sh` and `gate.ps1` can
+  be deleted.

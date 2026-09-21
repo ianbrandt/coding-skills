@@ -12,13 +12,15 @@ trap 'rm -rf "$scratch"' EXIT
 
 cat > "$scratch/claude" <<'STUB'
 #!/usr/bin/env bash
-printf 'called\n' >> "$GATE_TEST_MARK"
+# One line per call: the arguments, then the marker the gate sets on its child.
+printf '%s nested=%s\n' "$*" "$WRITING_CONVENTIONS_NESTED" >> "$GATE_TEST_MARK"
 [ "$GATE_TEST_FAIL" = 1 ] && exit 1
+case " $* " in *' --safe-mode '*) [ "$GATE_TEST_FAIL" = safe ] && exit 1;; esac
 printf '%s\n' "$GATE_TEST_VERDICT"
 STUB
 chmod +x "$scratch/claude"
 PATH="$scratch:$PATH"
-unset CLAUDE_CODE_USE_POWERSHELL_TOOL WRITING_CONVENTIONS_GATE_MODEL
+unset CLAUDE_CODE_USE_POWERSHELL_TOOL WRITING_CONVENTIONS_GATE_MODEL WRITING_CONVENTIONS_NESTED
 export GATE_TEST_MARK="$scratch/mark"
 
 # run <verdict> <fail> <command text>; sets $status, $stderr, and $called
@@ -97,6 +99,40 @@ expect 0 yes CLEAN 0 "$says"
 # A gate that cannot reach a model must not stop a commit.
 expect 0 yes '' 1 'git commit -m \"Plain message\"'
 expect 0 yes '' 0 'git commit -m \"Plain message\"'
+
+# The reader call. `--tools=` is one argument, because PowerShell can drop an empty
+# one, and the marker is set on the child so that a copy of this hook registered by
+# managed policy, which `--safe-mode` does not turn off, exits inside the nested call.
+# calls <count> <pattern for call 1> [<pattern for call 2>], against the last run
+calls() {
+  cases=$((cases + 1))
+  [ "$(wc -l < "$GATE_TEST_MARK" | tr -d ' ')" = "$1" ] || { echo "FAIL $(cat "$GATE_TEST_MARK"), wanted $1 calls"; fail=1; }
+  n=0
+  while IFS= read -r line; do
+    n=$((n + 1)); eval "want=\${$((n + 1))}"
+    case $line in $want) ;; *) echo "FAIL call $n: $line"; fail=1;; esac
+  done < "$GATE_TEST_MARK"
+}
+run PASS 0 "$says"
+calls 1 '*--safe-mode --tools= --model*nested=1'
+case $(cat "$GATE_TEST_MARK") in *--bare*) echo 'FAIL --bare on a first call'; fail=1;; esac
+# A call that exits non-zero is retried once with --bare, and that verdict counts.
+run 'VIOLATION
+"The report says so" -> x' safe "$says"
+[ "$status" = 2 ] || { echo "FAIL exit $status, wanted 2 from the --bare retry"; fail=1; }
+calls 2 '*--safe-mode --tools= *nested=1' '*--bare --tools= --model*nested=1'
+run '' 1 "$says"
+[ "$status" = 0 ] || { echo "FAIL exit $status, wanted 0 with both calls failing"; fail=1; }
+calls 2 '*--safe-mode*' '*--bare*'
+# A reply in the wrong form from a call that exited 0 is not retried.
+run 'the report says: rewrite it' 0 "$says"
+calls 1 '*--safe-mode*'
+# Inside a nested call the gate does nothing, whatever the reader would have said.
+export WRITING_CONVENTIONS_NESTED=1
+expect 0 no 'VIOLATION
+"The report says so" -> x' 0 "$says"
+unset WRITING_CONVENTIONS_NESTED
+
 # Garbage in place of the hook input is not a reason to block either.
 cases=$((cases + 1))
 printf 'not json at all {{{' | bash "$HERE/gate.sh" >/dev/null 2>&1 \
