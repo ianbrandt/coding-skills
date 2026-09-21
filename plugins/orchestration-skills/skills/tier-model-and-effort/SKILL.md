@@ -70,6 +70,14 @@ announce. Only a Workflow's `agent(..., {model, effort})` sets both. A stage tha
 different effort is itself a reason to reach for a Workflow; a stage that only needs a different
 model is fine on `Agent`. Never announce an effort setting you have no way to apply.
 
+**A delegated call to another CLI is a third case.** A second provider's CLI, or a nested
+`claude -p`, reads its own configuration, and the host session cannot see what is set in it. Its
+default effort may sit below the session's, and it may report no observed model at all. So pass
+model and effort explicitly on every such call, and log the requested pair and the observed pair
+separately: when the CLI reports nothing, the requested pair is the only record of what ran, and
+that should be recorded in the log. In one session a second provider's default effort was `low`,
+and a plan review would have run at that effort had the runner call not passed `--effort high`.
+
 **Announce each stage's tier in the message that launches it.** An up-front plan is worth
 writing—it tells the user what a run will cost before it starts—but nothing later checks it, and a
 plan written before the stages are known describes stages that never happen. So plan only what you
