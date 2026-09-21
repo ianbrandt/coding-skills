@@ -6,16 +6,26 @@
 #
 #   Get-CommandKey $command bash     the command from the Bash tool
 #   Get-CommandKey $command pwsh     the same, from the PowerShell tool
+#   Get-CommandKey $command bash -Files    the body files instead of the keys (below)
 # The return value is a string array, one element per output line, each line
 # "<segment number>`t<entry>". See keys.awk's header comment for what a
 # segment and an entry are, and for the sentence rule behind 0<TAB>PROSE: the
 # rules here are the same rules, ported one awk function to one function below.
 #
+# With -Files the output is instead one line per operand of a body-file flag in
+# a git commit or a gh pr, issue, or release command, "<cd>`t<operand>", where
+# <cd> is 1 when the command may run it in another directory than the one it
+# starts in: git -C, or cd and the like anywhere in the command. See
+# Invoke-BodyFiles below for the flags, per command. An operand of "-" is
+# stdin, which is the heredoc already in the command, and is left out. A
+# command that cannot be split returns one line, 1`t"", when it has a
+# body-file flag at all, so that the gate reports it.
+#
 # ASCII only, so 5.1 cannot mangle it reading a BOM-less file as the ANSI
 # codepage. PowerShell's -match and -replace operators fold case, so every
 # pattern below runs through a case-sensitive [regex] object instead.
 
-function Get-CommandKey([string]$command, [string]$mode) {
+function Get-CommandKey([string]$command, [string]$mode, [switch]$Files) {
   $pwshMode = ($mode -eq 'pwsh')
   $ctx = if ($pwshMode) { $script:CtxPwsh } else { $script:CtxBash }
   $lines = New-Object System.Collections.Generic.List[string]
@@ -23,6 +33,11 @@ function Get-CommandKey([string]$command, [string]$mode) {
 
   $st = @{
     Bad       = $false
+    Files     = [bool]$Files
+    # The body-file operands found so far, each @{ Op; Cwd }, and whether any
+    # segment of the command changes directory.
+    BF        = (New-Object System.Collections.Generic.List[object])
+    CHDIR     = $false
     SegText   = (New-Object System.Collections.Generic.List[string])
     # A plain @{} hashtable compares string keys case-insensitively, which
     # would conflate "grep -i null" and "grep -i NULL" as the same cached
@@ -36,7 +51,21 @@ function Get-CommandKey([string]$command, [string]$mode) {
     Invoke-Subst $r.P2 $ctx $st
   }
   if ($st.Bad) {
+    if ($st.Files) {
+      if ($command -cmatch '(^|[ \t])(-[A-Za-z]*F|--(body-|notes-)?file)') { [void]$lines.Add('1' + "`t" + '""') }
+      return $lines.ToArray()
+    }
     [void]$lines.Add("1`tREAD")
+    return $lines.ToArray()
+  }
+
+  if ($st.Files) {
+    $seenbf = New-Object 'System.Collections.Generic.HashSet[string]'
+    foreach ($bf in $st.BF) {
+      if (-not $seenbf.Add($bf.Op)) { continue }
+      $cd = if ($st.CHDIR -or $bf.Cwd) { 1 } else { 0 }
+      [void]$lines.Add("$cd`t$($bf.Op)")
+    }
     return $lines.ToArray()
   }
 
@@ -152,10 +181,81 @@ function HereTest([string]$s, [int]$i) {
 }
 
 # An escaped character outside quotes is literal: whitespace, a separator, or
-# a quote becomes "_" so that it neither splits nor quotes anything.
-function EscapedChar([string]$d) {
-  if ($d.Length -eq 1 -and $script:EscapedSet.Contains($d[0])) { return '_' }
+# a quote becomes "_" so that it neither splits nor quotes anything, and "*"
+# in files mode, so that a body-file path with one in it reads as no literal
+# path.
+function EscapedChar([string]$d, [bool]$filesMode) {
+  if ($d.Length -eq 1 -and $script:EscapedSet.Contains($d[0])) { return $(if ($filesMode) { '*' } else { '_' }) }
   return $d
+}
+
+# Files mode, for one simple command: add the operand of its body-file flag to
+# $st.BF, with Cwd set where git -C, --work-tree, or GIT_WORK_TREE runs the
+# command elsewhere, or set $st.CHDIR when the command changes directory. git
+# and gh each read only the last such flag. A flag that is not written down
+# here takes no value, and in a cluster of one-letter flags, a letter that
+# takes a value takes the rest of the word or, when there is none, the next
+# word. git's -S and -u take only a value in the same word. $w is 0-based; $j below stays numbered as keys.awk's
+# 1-based w[] would, and is only ever used to index $w through "$w[$j - 1]".
+function Invoke-BodyFiles($w, [int]$m, $st) {
+  if ($w[0].ToLowerInvariant() -match '^(cd|chdir|pushd|popd|sl|set-location|push-location|pop-location)$') { $st.CHDIR = $true; return }
+  $cwd = [bool]$st.SEGWT; $opt = ''; $eq = $false; $found = $false; $last = ''
+  if ($w[0] -ceq 'git') {
+    for ($j = 2; $j -le $m -and $w[$j - 1] -match '^-'; $j++) {
+      if ($w[$j - 1] -ceq '-C' -or $w[$j - 1] -cmatch '^--work-tree(=|$)') { $cwd = $true }
+      if ($w[$j - 1] -cmatch '^(-C|-c|--git-dir|--work-tree|--namespace|--config-env|--attr-source)$') { $j++ }
+    }
+    if ($j -gt $m -or $w[$j - 1] -cne 'commit') { return }
+    $vshort = 'mFCct'; $opt = 'Su'
+    $vlong = ' --message --file --reuse-message --reedit-message --fixup --squash --author --date --cleanup --template --trailer --pathspec-from-file '
+    # git takes an unambiguous prefix of a long flag, and --fi is ambiguous.
+    $bflag = ' --file --fil '
+  } elseif ($w[0] -ceq 'gh' -and $m -ge 3 -and $w[1] -cmatch '^(pr|issue|release)$' -and $w[2] -cmatch '^[a-z]') {
+    $j = 3; $eq = $true
+    # From `gh <noun> <verb> --help`, gh 2.101, for every verb with a body flag,
+    # and -R, --repo, on all of them.
+    $v = $w[1] + ' ' + $w[2]
+    $vshort = switch -CaseSensitive ($v) {
+      'pr create' { 'aBbFHlmprTt' } 'pr edit' { 'BbFmt' } 'pr merge' { 'AbFt' }
+      'pr revert' { 'bFt' } 'issue create' { 'abFlmpTt' } 'issue edit' { 'bFmt' }
+      default { if ($w[1] -ceq 'release') { 'nFt' } else { 'bF' } }
+    }
+    $vshort += 'R'
+    $vlong = ' --add-assignee --add-blocked-by --add-blocking --add-label --add-project --add-reviewer --add-sub-issue --assignee --attach --author-email --base --blocked-by --blocking --body --body-file --discussion-category --head --label --match-head-commit --milestone --notes --notes-file --notes-start-tag --parent --project --recover --remove-assignee --remove-blocked-by --remove-blocking --remove-label --remove-project --remove-reviewer --remove-sub-issue --repo --reviewer --subject --tag --target --template --title --type '
+    $bflag = ' --body-file --notes-file '
+  } else { return }
+  for ($j++; $j -le $m; $j++) {
+    $x = $w[$j - 1]
+    if ($x -ceq '--') { break }
+    if ($x -cnotmatch '^-.') { continue }
+    if ($x.StartsWith('--')) {
+      $k = $x.IndexOf('=')
+      $name = if ($k -ge 0) { $x.Substring(0, $k) } else { $x }
+      if ($bflag.Contains(" $name ")) {
+        if ($k -ge 0) { $last = $x.Substring($k + 1); $found = $true }
+        elseif ($j -lt $m) { $j++; $last = $w[$j - 1]; $found = $true }
+      } elseif ($k -lt 0 -and $vlong.Contains(" $x ")) { $j++ }
+      continue
+    }
+    for ($k = 2; $k -le $x.Length; $k++) {
+      $c = $x.Substring($k - 1, 1)
+      if ($opt.Contains($c)) { break }
+      if (-not $vshort.Contains($c)) { continue }
+      $rest = $x.Substring($k)
+      # gh drops the "=" in -F=file, and git keeps it as part of the name.
+      if ($c -ceq 'F') {
+        if ($rest -ne '') { if ($eq) { $rest = $rest -creplace '^=', '' }; $last = $rest; $found = $true }
+        elseif ($j -lt $m) { $j++; $last = $w[$j - 1]; $found = $true }
+      } elseif ($rest -eq '') { $j++ }
+      break
+    }
+  }
+  if ($found) { AddBody $st $last $cwd }
+}
+
+function AddBody($st, [string]$op, [bool]$cwd) {
+  if ($op -eq '-' -or $op -eq '') { return }
+  [void]$st.BF.Add(@{ Op = $op; Cwd = $cwd })
 }
 
 # Pass 1's view of a quoted span.
@@ -256,23 +356,23 @@ function Invoke-Segment([string]$text, $ctx, $st) {
     if ($null -ne $cached) { [void]$st.SegText.Add($cached) }
     return
   }
-  $result = Invoke-SegmentCompute $text $ctx
+  $result = Invoke-SegmentCompute $text $ctx $st
   $st.SegCache[$text] = $result
   if ($null -ne $result) { [void]$st.SegText.Add($result) }
 }
 
 # Returns the segtext entry for $text ("READ" or the joined entry lines), or
 # $null when the segment adds nothing (leading syntax only, or a header word).
-function Invoke-SegmentCompute([string]$text, $ctx) {
+function Invoke-SegmentCompute([string]$text, $ctx, $st) {
   $parts = $script:ReWordSplit.Split($text)
   $w = New-Object System.Collections.Generic.List[string]
   $w.AddRange($parts)
   if ($w.Count -gt 0 -and $w[0] -eq '') { $w.RemoveAt(0) }
   if ($w.Count -gt 0 -and $w[$w.Count - 1] -eq '') { $w.RemoveAt($w.Count - 1) }
   $m = $w.Count
-  $k = 0
+  $k = 0; $st.SEGWT = $false
   while ($k -lt $m) {
-    if ($script:ReAssignWord.IsMatch($w[$k])) { $k++; continue }
+    if ($script:ReAssignWord.IsMatch($w[$k])) { if ($w[$k].StartsWith('GIT_WORK_TREE=', [StringComparison]::Ordinal)) { $st.SEGWT = $true }; $k++; continue }
     if ($script:ReRedirPrefix.IsMatch($w[$k])) {
       if ($script:ReRedirFull.IsMatch($w[$k])) { $k += 2 } else { $k += 1 }
       continue
@@ -308,6 +408,7 @@ function Invoke-SegmentCompute([string]$text, $ctx) {
   $w = $w.GetRange($k, $m - $k)
   $m = $w.Count
   $first = $w[0]
+  if ($st.Files) { Invoke-BodyFiles $w $m $st }
 
   if ($first -eq '""' -or -not ($first -eq '[' -or $first -eq '[[' -or (IsAllCharsIn $first $ctx.NameCharSet))) {
     return 'READ'
@@ -542,7 +643,7 @@ function Invoke-Scan([string]$s, $ctx, $st) {
       $i += 2
       if ($d -eq "`n") { [void]$p1.Append(' '); [void]$p2.Append(' ') }
       elseif ($d -ne '') {
-        $e = EscapedChar $d
+        $e = EscapedChar $d $st.Files
         [void]$p1.Append($e)
         if (@('$', '`', '\', '"', "'") -contains $d) { [void]$p2.Append('_') } else { [void]$p2.Append($e) }
       }

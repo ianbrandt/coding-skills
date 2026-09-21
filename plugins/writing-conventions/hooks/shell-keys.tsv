@@ -116,3 +116,72 @@ pwsh	$b = @"\n$(hg commit -m x)\n"@	1:READ
 pwsh	Write-Output "$(gh issue comment 1 --body x)"	1:Write-Output | 1:Write-Output ? | 1:+Write-Output ? | 2:gh | 2:gh issue | 2:gh issue comment | 2:+gh issue | 2:+gh comment | 2:+gh x | 2:+gh issue comment | 2:+gh issue x | 2:+gh issue comment x
 pwsh	$b = @"\nno end	1:READ
 pwsh	echo `date`	1:echo | 1:echo date | 1:+echo date
+# Body files. With the mode suffix "files", the extractor runs with files=1 and
+# prints the operand of each body-file flag in a git commit or a gh pr, issue, or
+# release command instead of keys, one line each: 1 when the command may change
+# directory first (cd and the like anywhere in it, or git -C), else 0, then the
+# operand. An operand of "-" is the command's own stdin and is left out.
+bashfiles	git commit -F msg.txt	0:msg.txt
+bashfiles	git commit --file=msg.txt	0:msg.txt
+bashfiles	git commit --file msg.txt -a	0:msg.txt
+bashfiles	git commit -Fmsg.txt	0:msg.txt
+bashfiles	git commit -aF msg.txt	0:msg.txt
+bashfiles	git commit -m "Fix it" -F msg.txt	0:msg.txt
+bashfiles	git commit -m x src/a.kt -F msg.txt	0:msg.txt
+bashfiles	git commit -m x	-
+bashfiles	git log -F x	-
+# A flag's value is never a flag, even one that reads as -F, and nothing after -- is.
+bashfiles	git commit -m '-F' private.txt	-
+bashfiles	git commit -am "--file" private.txt	-
+bashfiles	git commit --author -F x.txt	-
+bashfiles	git commit -- -F x.txt	-
+bashfiles	git commit -F - <<'EOF'\nThe body.\nEOF	-
+bashfiles	git commit -F	-
+# The working directory.
+bashfiles	git -C sub commit -F msg.txt	1:msg.txt
+bashfiles	git -c user.name=x commit -F msg.txt	0:msg.txt
+bashfiles	cd sub && git commit -F msg.txt	1:msg.txt
+bashfiles	git commit -F msg.txt; pushd ..	1:msg.txt
+# An operand that is not a literal path is still printed, and the gate reports it.
+bashfiles	git commit -F "my msg.txt"	0:""
+bashfiles	git commit -F my\ msg.txt	0:my*msg.txt
+bashfiles	git commit -F "$T/m.txt"	0:$T/m.txt
+# gh, per subcommand: -m is --merge in pr merge and --milestone elsewhere, and -p
+# is --prerelease in a release.
+bashfiles	git commit -F m.txt && gh pr create --title x --body-file pr.md	0:m.txt | 0:pr.md
+bashfiles	gh pr merge 5 -m -F m.txt	0:m.txt
+bashfiles	gh pr create -m -F m.txt	-
+bashfiles	gh release create v1 -p -F notes.md	0:notes.md
+bashfiles	gh release edit v1 --notes-file=notes.md	0:notes.md
+bashfiles	gh issue comment 5 --body-file c.md	0:c.md
+bashfiles	gh api repos/x -F body=@x.md	-
+bashfiles	echo "$(gh issue create -F b.md)"	0:b.md
+bashfiles	git commit -F m.txt && git commit --amend -F m.txt	0:m.txt
+# git and gh read the last body flag. git keeps the "=" of -F=x and takes a
+# prefix of --file; gh drops it. git's -S takes only an attached value.
+bashfiles	git commit -F a.txt -F b.txt	0:b.txt
+bashfiles	git commit -F a.txt --file=- <<'EOF'\nThe body.\nEOF	-
+bashfiles	git commit -F=msg.txt	0:=msg.txt
+bashfiles	gh pr create -F=pr.md	0:pr.md
+bashfiles	git commit --fil msg.txt	0:msg.txt
+bashfiles	git commit --fil=msg.txt	0:msg.txt
+bashfiles	git commit -SF msg.txt	-
+bashfiles	git commit -uF msg.txt	-
+# A letter takes a value in one gh verb and none in another.
+bashfiles	gh pr review 5 -a -F r.md	0:r.md
+bashfiles	gh pr review 5 -r -F r.md	0:r.md
+bashfiles	gh pr merge 5 -a -F m.md	0:m.md
+bashfiles	gh pr create -a me -F p.md	0:p.md
+# git --work-tree and GIT_WORK_TREE move the directory a relative path resolves in.
+bashfiles	git --work-tree=wt commit -F msg.txt	1:msg.txt
+bashfiles	git --work-tree wt commit -F msg.txt	1:msg.txt
+bashfiles	GIT_WORK_TREE=wt git commit -F msg.txt	1:msg.txt
+bashfiles	git --git-dir=wt/.git commit -F msg.txt	0:msg.txt
+# A command that cannot be split has its body files reported as not read, when
+# it has a body-file flag at all.
+bashfiles	git commit -F m.txt -m "open	1:""
+bashfiles	git commit -m "open	-
+pwshfiles	git commit -F msg.txt	0:msg.txt
+pwshfiles	Set-Location sub; git commit -F msg.txt	1:msg.txt
+pwshfiles	git commit -F "$env:TEMP\m.txt"	0:$env:TEMP\m.txt
+pwshfiles	git commit -F C:\work\m.txt	0:C:\work\m.txt

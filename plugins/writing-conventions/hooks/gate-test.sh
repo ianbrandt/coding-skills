@@ -15,7 +15,8 @@ trap 'rm -rf "$scratch"' EXIT
 while IFS="$(printf '\t')" read -r mode cmd want; do
   case "$mode" in ""|"#"*) continue;; esac
   cases=$((cases + 1))
-  got=$(printf '%s' "$cmd" | sed 's/\\n/\n/g; s/\\t/\t/g' | awk -v mode="$mode" -f "$HERE/keys.awk" \
+  files=0; case $mode in *files) files=1 ;; esac
+  got=$(printf '%s' "$cmd" | sed 's/\\n/\n/g; s/\\t/\t/g' | awk -v mode="${mode%files}" -v files=$files -f "$HERE/keys.awk" \
     | awk -F '\t' '{ printf "%s%s:%s", (NR > 1 ? " | " : ""), $1, $2 }')
   [ "${got:--}" = "$want" ] || { printf 'FAIL keys %s: %s\n  wanted %s\n  got    %s\n' "$mode" "$cmd" "$want" "${got:--}"; fail=1; }
 done < "$HERE/shell-keys.tsv"

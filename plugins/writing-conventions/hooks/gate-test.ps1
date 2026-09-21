@@ -22,7 +22,10 @@ foreach ($rawLine in Get-Content -LiteralPath (Join-Path $here 'shell-keys.tsv')
   if ($fields.Count -lt 3) { continue }
   $cases++
   $cmd = $fields[1] -creplace '\\n', "`n" -creplace '\\t', "`t"
-  $out = Get-CommandKey $cmd $fields[0]
+  $mode = $fields[0]
+  $files = $mode.EndsWith('files')
+  if ($files) { $mode = $mode.Substring(0, $mode.Length - 5) }
+  $out = Get-CommandKey $cmd $mode -Files:$files
   if ($out.Count -eq 0) {
     $got = '-'
   } else {

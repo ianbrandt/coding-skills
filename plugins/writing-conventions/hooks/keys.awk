@@ -2,6 +2,7 @@
 # command can publish, with no command name written down here.
 #   awk -v mode=bash -f keys.awk     the command on stdin, from the Bash tool
 #   awk -v mode=pwsh -f keys.awk     the same, from the PowerShell tool
+#   awk -v files=1 ...               the body files instead of the keys (below)
 # keys.ps1 is the same extractor, and shell-keys.tsv is the fixture both are
 # tested against, so a rule changed here is changed there in the same commit.
 #
@@ -18,6 +19,15 @@
 # comes first when there is a sentence in the command: a capitalized word, at
 # least four more words, and a last word ending in ".", "!", or "?". The gate
 # reads a RUNS_CODE command, an interpreter or curl, only with that line.
+#
+# With files=1 the output is instead one line per operand of a body-file flag in
+# a git commit or a gh pr, issue, or release command, <cd><TAB><operand>, where
+# <cd> is 1 when the command may run it in another directory than the one it
+# starts in: git -C, or cd and the like anywhere in the command. The flags are
+# written down here, per command, because a word is an operand only when no
+# earlier flag takes it as its value. An operand of "-" is stdin, which is the
+# heredoc already in the command, and is left out. A command that cannot be split
+# prints 1<TAB>"" when it has a body-file flag at all, so that the gate reports it.
 #
 # The rules are a character loop with no grammar, so that keys.ps1 can follow it
 # line for line. The text is read twice. Pass 1 drops heredoc bodies and turns a
@@ -57,6 +67,11 @@ END {
     nseg = 0
     addsegments(collapse(P1))
     subst(P2)
+  }
+  if (files) {
+    if (bad) { if (src ~ /(^|[ \t])(-[A-Za-z]*F|--(body-|notes-)?file)/) print "1\t\"\""; exit }
+    for (i = 1; i <= NBF; i++) if (!seenbf[BF[i]]++) print (CHDIR || BC[i]) "\t" BF[i]
+    exit
   }
   if (bad) { print "1\tREAD"; exit }
   n = 0
@@ -199,8 +214,75 @@ function here(s, i,    rest) {
 }
 
 # An escaped character outside quotes is literal: whitespace, a separator, or a
-# quote becomes "_" so that it neither splits nor quotes anything.
-function escaped(d) { return index(" \t;&|(){}<>'\"`#$\\", d) ? "_" : d }
+# quote becomes "_" so that it neither splits nor quotes anything, and "*" with
+# files=1, so that a body-file path with one in it reads as no literal path.
+function escaped(d) { return index(" \t;&|(){}<>'\"`#$\\", d) ? (files ? "*" : "_") : d }
+
+# Files mode, for one simple command: add the operand of its body-file flag to
+# BF[], with NBF of them and BC[] set where git -C, --work-tree, or
+# GIT_WORK_TREE runs the command elsewhere, or set CHDIR when the command
+# changes directory. git and gh each read only the last such flag. A flag that
+# is not written down here takes no value, and in a cluster of one-letter flags,
+# a letter that takes a value takes the rest of the word or, when there is none,
+# the next word. git's -S and -u take only a value in the same word.
+function bodyfiles(w, m,    j, x, c, k, name, rest, cwd, vshort, vlong, bflag, opt, eq, v, last, found) {
+  if (tolower(w[1]) ~ /^(cd|chdir|pushd|popd|sl|set-location|push-location|pop-location)$/) { CHDIR = 1; return }
+  cwd = SEGWT; opt = ""; eq = 0; found = 0
+  if (w[1] == "git") {
+    for (j = 2; j <= m && w[j] ~ /^-/; j++) {
+      if (w[j] == "-C" || w[j] ~ /^--work-tree(=|$)/) cwd = 1
+      if (w[j] ~ /^(-C|-c|--git-dir|--work-tree|--namespace|--config-env|--attr-source)$/) j++
+    }
+    if (j > m || w[j] != "commit") return
+    vshort = "mFCct"; opt = "Su"
+    vlong = " --message --file --reuse-message --reedit-message --fixup --squash --author --date --cleanup --template --trailer --pathspec-from-file "
+    # git takes an unambiguous prefix of a long flag, and --fi is ambiguous.
+    bflag = " --file --fil "
+  } else if (w[1] == "gh" && m >= 3 && w[2] ~ /^(pr|issue|release)$/ && w[3] ~ /^[a-z]/) {
+    j = 3; eq = 1
+    # From `gh <noun> <verb> --help`, gh 2.101, for every verb with a body flag,
+    # and -R, --repo, on all of them.
+    v = w[2] " " w[3]
+    vshort = v == "pr create" ? "aBbFHlmprTt" : v == "pr edit" ? "BbFmt" : v == "pr merge" ? "AbFt" \
+      : v == "pr revert" ? "bFt" : v == "issue create" ? "abFlmpTt" : v == "issue edit" ? "bFmt" \
+      : w[2] == "release" ? "nFt" : "bF"
+    vshort = vshort "R"
+    vlong = " --add-assignee --add-blocked-by --add-blocking --add-label --add-project --add-reviewer --add-sub-issue --assignee --attach --author-email --base --blocked-by --blocking --body --body-file --discussion-category --head --label --match-head-commit --milestone --notes --notes-file --notes-start-tag --parent --project --recover --remove-assignee --remove-blocked-by --remove-blocking --remove-label --remove-project --remove-reviewer --remove-sub-issue --repo --reviewer --subject --tag --target --template --title --type "
+    bflag = " --body-file --notes-file "
+  } else return
+  for (j++; j <= m; j++) {
+    x = w[j]
+    if (x == "--") break
+    if (x !~ /^-./) continue
+    if (x ~ /^--/) {
+      k = index(x, "=")
+      name = k ? substr(x, 1, k - 1) : x
+      if (index(bflag, " " name " ")) {
+        if (k) { last = substr(x, k + 1); found = 1 }
+        else if (j < m) { last = w[++j]; found = 1 }
+      } else if (!k && index(vlong, " " x " ")) j++
+      continue
+    }
+    for (k = 2; k <= length(x); k++) {
+      c = substr(x, k, 1)
+      if (index(opt, c)) break
+      if (!index(vshort, c)) continue
+      rest = substr(x, k + 1)
+      # gh drops the "=" in -F=file, and git keeps it as part of the name.
+      if (c == "F") {
+        if (rest != "") { if (eq) sub(/^=/, "", rest); last = rest; found = 1 }
+        else if (j < m) { last = w[++j]; found = 1 }
+      } else if (rest == "") j++
+      break
+    }
+  }
+  if (found) addbody(last, cwd)
+}
+
+function addbody(op, cwd) {
+  if (op == "-" || op == "") return
+  NBF++; BF[NBF] = op; BC[NBF] = cwd
+}
 
 # Pass 1's view of a quoted span.
 function quoted1(content) {
@@ -299,9 +381,9 @@ function segment(text,    w, m, k, first, rest, e, pos, d, lo, hi, x, cnt, nk, k
   m = split(text, w, /[ \t\r]+/)
   if (m && w[1] == "") { for (k = 1; k < m; k++) w[k] = w[k + 1]; m-- }
   if (m && w[m] == "") m--
-  k = 1
+  k = 1; SEGWT = 0
   while (k <= m) {
-    if (w[k] ~ /^[A-Za-z_][A-Za-z0-9_]*=/) { k++; continue }
+    if (w[k] ~ /^[A-Za-z_][A-Za-z0-9_]*=/) { if (w[k] ~ /^GIT_WORK_TREE=/) SEGWT = 1; k++; continue }
     if (w[k] ~ /^[0-9]*[<>]/) { k += (w[k] ~ /^[0-9]*[<>]+$/) ? 2 : 1; continue }
     if (w[k] in shellword) { k++; continue }
     if (w[k] in wrapper) { k++; while (k <= m && w[k] ~ /^-/) k++; continue }
@@ -321,6 +403,7 @@ function segment(text,    w, m, k, first, rest, e, pos, d, lo, hi, x, cnt, nk, k
   for (d = k; d <= m; d++) w[d - k + 1] = w[d]
   m = m - k + 1
   first = w[1]
+  if (files) bodyfiles(w, m)
   nseg++
   if (first == "\"\"" || !(first == "[" || first == "[[" || first ~ namechars)) {
     segtext[nseg] = "READ"; return
