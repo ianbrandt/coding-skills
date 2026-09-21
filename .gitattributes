@@ -1,0 +1,7 @@
+# Every tracked file is LF in the working copy as well as in the index, whatever
+# core.autocrlf is set to. With core.autocrlf=true and no setting here, a Windows
+# checkout is CRLF, and a `\r` at the end of each line reaches the shell hooks and
+# their awk helpers as data: `while IFS= read -r` in gate-test.sh compares a line
+# of shell-keys.tsv against a `\r`-free expectation and reports a mismatch between
+# two strings that print the same.
+* text=auto eol=lf
