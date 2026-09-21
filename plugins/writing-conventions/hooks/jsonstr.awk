@@ -5,7 +5,8 @@
 # handled; \uXXXX is decoded for the code points a reply is likely to carry and
 # replaced with "?" otherwise (the hook inputs are written by JSON.stringify,
 # which leaves non-ASCII text unescaped, so the table is rarely reached).
-# The value is found with one regex match and decoded with one split, so the
+# The value is found with one regex match and decoded with one split, and each
+# piece is printed as it is decoded rather than appended to one string, so the
 # cost is linear in the size of the input.
 #
 # With -v under=<key> in place of key: print every string value, at any depth,
@@ -22,7 +23,7 @@ END {
   }
   if (i == 0) exit
   if (!match(rest, /^([^"\\]|\\.)*"/)) exit
-  printf "%s", decode(substr(rest, 1, RLENGTH - 1))
+  decode(substr(rest, 1, RLENGTH - 1))
 }
 # ponytail: each token copies the rest of the input, so the cost is input size
 # times token count. Walk by offset if a very large rich-text body is ever slow.
@@ -33,26 +34,29 @@ function values(rest,    tok, iskey, depth, inside) {
     if (tok == "}" || tok == "]") { if (--depth < 2 && inside) return; continue }
     iskey = match(rest, /^[ \t\r\n]*:/)
     if (inside && depth < 2) return
-    if (inside && !iskey) printf "%s\n\001\n", decode(substr(tok, 2, length(tok) - 2))
+    if (inside && !iskey) { decode(substr(tok, 2, length(tok) - 2)); printf "\n\001\n" }
     else if (iskey && depth == 1 && tok == "\"" under "\"") inside = 1
   }
 }
-function decode(raw,    n, seg, out, j, s, c) {
-  n = split(raw, seg, /\\/)
-  out = seg[1]
+# Prints the decoded string. Two forms are quadratic in the escape count of a
+# long reply: appending every piece to one returned string, and splitting on the
+# regex /\\/ in the BWK awk macOS ships. A one-character string separator is
+# taken literally, which POSIX requires, and does not go through the regex engine.
+function decode(raw,    n, seg, j, s, c) {
+  n = split(raw, seg, "\\")
+  printf "%s", seg[1]
   for (j = 2; j <= n; j++) {
     s = seg[j]
-    if (s == "") { out = out "\\"; j++; if (j <= n) out = out seg[j]; continue }
+    if (s == "") { printf "\\"; j++; if (j <= n) printf "%s", seg[j]; continue }
     c = substr(s, 1, 1); s = substr(s, 2)
-    if (c == "n") out = out "\n" s
-    else if (c == "t") out = out "\t" s
-    else if (c == "r") out = out "\r" s
-    else if (c == "b") out = out "\b" s
-    else if (c == "f") out = out "\f" s
-    else if (c == "u") out = out uni(substr(s, 1, 4)) substr(s, 5)
-    else out = out c s
+    if (c == "n") printf "\n%s", s
+    else if (c == "t") printf "\t%s", s
+    else if (c == "r") printf "\r%s", s
+    else if (c == "b") printf "\b%s", s
+    else if (c == "f") printf "\f%s", s
+    else if (c == "u") printf "%s%s", uni(substr(s, 1, 4)), substr(s, 5)
+    else printf "%s%s", c, s
   }
-  return out
 }
 function uni(h) {
   h = tolower(h)
