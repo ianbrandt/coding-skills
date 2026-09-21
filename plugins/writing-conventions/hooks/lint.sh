@@ -29,6 +29,10 @@ NUDGE='You just wrote prose to a file. Re-read it now for inanimate agency (repo
 
 case "$mode" in
   --record)
+    # Managed policy settings still apply under `--safe-mode`, so a copy of this
+    # hook registered that way runs inside the gate's nested call. That call sets
+    # this marker on its child, and a reply written for the gate is not linted.
+    [ -z "$WRITING_CONVENTIONS_NESTED" ] || exit 0
     note=$(printf '%s' "$input" | awk -v key=last_assistant_message -f "$HERE/jsonstr.awk" \
       | awk -v note=1 -f "$HERE/lint.awk")
     if [ -n "$note" ]; then printf '%s\n' "$note" > "$state"; elif [ "$state" != /dev/null ]; then rm -f "$state"; fi

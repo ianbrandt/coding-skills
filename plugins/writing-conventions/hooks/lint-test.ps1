@@ -84,6 +84,16 @@ try {
   $out3 = Invoke-Hook '--emit' '{"session_id":"selftest"}'
   if ($out3 -like '*flagged*') { Write-Output 'FAIL clean record did not clear'; $fail = 1 }
 
+  # Inside the gate's nested reader call nothing is recorded, so a reply written
+  # for the reader cannot overwrite this session's note.
+  $cases++
+  $env:WRITING_CONVENTIONS_NESTED = '1'
+  try { [void](Invoke-Hook '--record' '{"session_id":"selftest","last_assistant_message":"This shape is vacuous."}') }
+  finally { $env:WRITING_CONVENTIONS_NESTED = $null }
+  if ((Invoke-Hook '--emit' '{"session_id":"selftest"}') -like '*flagged*') {
+    Write-Output 'FAIL nested record saved a note'; $fail = 1
+  }
+
   $cases++
   $n = Invoke-Hook '--nudge' '{"tool_name":"Write","tool_input":{"file_path":"/tmp/draft.md","content":"x"}}'
   if ($n -notlike '{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"You just wrote prose*') {

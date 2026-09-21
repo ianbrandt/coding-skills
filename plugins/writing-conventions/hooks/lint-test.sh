@@ -47,6 +47,14 @@ printf '{"session_id":"selftest","last_assistant_message":"This shape is vacuous
 printf '{"session_id":"selftest","last_assistant_message":"Plain prose."}' | bash "$HERE/lint.sh" --record
 out3=$(printf '{"session_id":"selftest"}' | bash "$HERE/lint.sh" --emit)
 case "$out3" in *"flagged"*) echo "FAIL clean record did not clear"; fail=1;; esac
+# Inside the gate's nested reader call nothing is recorded, so a reply written
+# for the reader cannot overwrite this session's note.
+cases=$((cases + 1))
+printf '{"session_id":"selftest","last_assistant_message":"This shape is vacuous."}' \
+  | WRITING_CONVENTIONS_NESTED=1 bash "$HERE/lint.sh" --record
+case "$(printf '{"session_id":"selftest"}' | bash "$HERE/lint.sh" --emit)" in
+  *flagged*) echo "FAIL nested record saved a note"; fail=1;;
+esac
 cases=$((cases + 1))
 n=$(printf '{"tool_name":"Write","tool_input":{"file_path":"/tmp/draft.md","content":"x"}}' | bash "$HERE/lint.sh" --nudge)
 case "$n" in '{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"You just wrote prose'*) ;; *) echo "FAIL nudge: $n"; fail=1;; esac

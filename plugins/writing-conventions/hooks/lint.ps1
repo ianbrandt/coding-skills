@@ -328,6 +328,10 @@ try {
 
   switch ($mode) {
     '--record' {
+      # Managed policy settings still apply under `--safe-mode`, so a copy of this
+      # hook registered that way runs inside the gate's nested call. That call sets
+      # this marker on its child, and a reply written for the gate is not linted.
+      if ($env:WRITING_CONVENTIONS_NESTED) { break }
       $note = Invoke-Lint (Get-Field $json 'last_assistant_message') -AsNote
       if ($sid -ne '') {
         if ($note -ne '') { [IO.File]::WriteAllText($state, $note + "`n", $utf8) }
