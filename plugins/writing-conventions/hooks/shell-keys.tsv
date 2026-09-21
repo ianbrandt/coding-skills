@@ -9,7 +9,7 @@
 # names below each key, which only a PROJECT class reads.
 bash	ls -la	1:ls
 bash	git status	1:git | 1:git status | 1:+git status
-bash	git commit -m "Fix the thing"	1:git | 1:git commit | 1:+git commit
+bash	git commit -m "Fix the thing"	1:git | 1:git commit | 1:git commit ? | 1:+git commit
 bash	git -C "$WT" status	1:git | 1:git status | 1:+git status
 bash	git -C status commit	1:git | 1:git status | 1:git commit | 1:git status commit | 1:+git status | 1:+git commit | 1:+git status commit
 bash	svn --config-dir info --username status commit	1:svn | 1:svn info | 1:svn status | 1:svn commit | 1:svn info status | 1:svn info commit | 1:svn status commit | 1:+svn info | 1:+svn status | 1:+svn commit | 1:+svn info status | 1:+svn info commit | 1:+svn status commit | 1:+svn info status commit
@@ -22,11 +22,17 @@ bash	make a b c d e f g h i	1:make | 1:make a | 1:make a b | 1:+make ! | 1:+make
 bash	hg "$verb" -m x	1:hg | 1:hg ? | 1:+hg ? | 1:+hg x
 bash	make check "$task"	1:make | 1:make check | 1:make check ? | 1:+make check | 1:+make ? | 1:+make check ?
 bash	ls "$dir"	1:ls | 1:ls ? | 1:+ls ?
-bash	python3 -c 'print(1)'	1:python3
-# A word directly after a flag is read as that flag's value when it cannot be
-# read as a name, so it adds no marker.
-bash	git log --format "%h %s"	1:git | 1:git log | 1:+git log
-bash	./gradlew test --tests "*Foo*"	1:./gradlew | 1:./gradlew test | 1:+./gradlew test
+bash	python3 -c 'print(1)'	1:python3 | 1:python3 ?
+# A word directly after a flag may be that flag's value, so it adds the marker
+# only when no name follows at that depth, and never among task names.
+bash	git log --format "%h %s"	1:git | 1:git log | 1:git log ? | 1:+git log
+bash	./gradlew test --tests "*Foo*"	1:./gradlew | 1:./gradlew test | 1:./gradlew test ? | 1:+./gradlew test
+# Unless no name follows at that depth, when it may be the subcommand itself.
+bash	hg -v "$verb"	1:hg | 1:hg ?
+bash	hg -q "$verb" --message=text	1:hg | 1:hg ?
+# Wrappers that run the command after them are dropped, with their operand.
+bash	timeout 60 hg commit -m x	1:hg | 1:hg commit | 1:hg commit x | 1:+hg commit | 1:+hg x | 1:+hg commit x
+bash	setsid hg commit -m x	1:hg | 1:hg commit | 1:hg commit x | 1:+hg commit | 1:+hg x | 1:+hg commit x
 # Paths as the first word are keys as written.
 bash	./gradlew build --info	1:./gradlew | 1:./gradlew build | 1:+./gradlew build
 bash	"$WT"/gradlew check	1:$WT/gradlew | 1:$WT/gradlew check | 1:+$WT/gradlew check
@@ -54,7 +60,7 @@ bash	echo ${HOME}/x	1:echo | 1:echo ? | 1:+echo ?
 bash	cp x.{txt,md} y	1:cp | 1:+cp y
 # Single-quoted text is skipped when looking for substitutions: a commit
 # message's Markdown backticks are not commands.
-bash	git commit -m 'Use `foo` here'	1:git | 1:git commit | 1:+git commit
+bash	git commit -m 'Use `foo` here'	1:git | 1:git commit | 1:git commit ? | 1:+git commit
 # A substitution inside double quotes is read (R8).
 bash	grep "$(gh issue comment 1 --body 'x')" log.txt	1:grep | 1:grep ? | 1:+grep ? | 1:+grep log.txt | 2:gh | 2:gh issue | 2:gh issue comment | 2:+gh issue | 2:+gh comment | 2:+gh x | 2:+gh issue comment | 2:+gh issue x | 2:+gh issue comment x
 bash	printf '%s' "$(printf x; hg commit -m 'y')"	1:printf | 1:+printf ? | 2:printf | 2:printf x | 2:+printf x | 3:hg | 3:hg commit | 3:hg commit y | 3:+hg commit | 3:+hg y | 3:+hg commit y
@@ -62,7 +68,7 @@ bash	echo "$(git log -1 --format=%s $(git rev-parse HEAD))"	1:echo | 1:echo ? | 
 bash	echo `date`	1:echo | 2:date
 bash	echo "`hg commit -m x`"	1:echo | 1:echo ? | 1:+echo ? | 2:hg | 2:hg commit | 2:hg commit x | 2:+hg commit | 2:+hg x | 2:+hg commit x
 # Quotes nested inside a substitution inside quotes are misread, toward the reader.
-bash	echo "$(git commit -m "a; b")"	1:echo | 2:READ | 3:git | 3:git commit | 3:+git commit
+bash	echo "$(git commit -m "a; b")"	1:echo | 2:READ | 3:git | 3:git commit | 3:git commit ? | 3:+git commit
 # Heredocs: the body is dropped in both passes.
 bash	cat <<'EOF'\nhg commit -m "it's"\nEOF	1:cat
 bash	cat <<EOF\nplain text, it's fine\nEOF\nls	1:cat | 2:ls
@@ -82,12 +88,12 @@ bash	echo "$(date"	1:READ
 bash	echo "a ` b"	1:READ
 # A sentence in the command adds 0:PROSE: six words or more, the first
 # capitalized and the last ending in ".", "!", or "?".
-bash	curl -d '{"body":"The report says so and more."}' https://x	0:PROSE | 1:curl
-bash	python3 -c 'print("Done, all six words are here!")'	0:PROSE | 1:python3
-bash	python3 -c 'print("Only five words here.")'	1:python3
-bash	python3 -c 'print("the lower case start of this one.")'	1:python3
+bash	curl -d '{"body":"The report says so and more."}' https://x	0:PROSE | 1:curl | 1:curl ?
+bash	python3 -c 'print("Done, all six words are here!")'	0:PROSE | 1:python3 | 1:python3 ?
+bash	python3 -c 'print("Only five words here.")'	1:python3 | 1:python3 ?
+bash	python3 -c 'print("the lower case start of this one.")'	1:python3 | 1:python3 ?
 bash	echo "The report says so and more.\"	0:PROSE | 1:READ
-pwsh	Invoke-RestMethod -Body 'We moved the build to Gradle nine.'	0:PROSE | 1:Invoke-RestMethod
+pwsh	Invoke-RestMethod -Body 'We moved the build to Gradle nine.'	0:PROSE | 1:Invoke-RestMethod | 1:Invoke-RestMethod ?
 # PowerShell.
 pwsh	Get-ChildItem -Recurse | Select-Object Name	1:Get-ChildItem | 2:Select-Object | 2:Select-Object Name | 2:+Select-Object Name
 pwsh	& "C:\Tools\X.exe" run	1:C:\Tools\X.exe | 1:C:\Tools\X.exe run | 1:+C:\Tools\X.exe run

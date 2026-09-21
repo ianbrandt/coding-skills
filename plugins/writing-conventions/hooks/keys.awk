@@ -40,8 +40,12 @@ END {
   namechars = pwsh ? "^[A-Za-z0-9._+:/$\\\\-]+$" : "^[A-Za-z0-9._+:/$-]+$"
   split("! if then elif else fi do done while until time esac { }", a, " ")
   for (i in a) shellword[a[i]] = 1
-  split("env sudo nice nohup exec command builtin", a, " ")
+  # Wrappers that run the command after them: the first set takes only flags, and
+  # the second one operand too, as in `timeout 60 hg commit`.
+  split("env sudo doas nice nohup exec command builtin setsid stdbuf setarch unbuffer catchsegv", a, " ")
   for (i in a) wrapper[a[i]] = 1
+  split("timeout flock chrt taskset", a, " ")
+  for (i in a) wrapper1[a[i]] = 1
   split("for case select in", a, " ")
   for (i in a) header[a[i]] = 1
 
@@ -273,6 +277,7 @@ function segment(text,    w, m, k, first, rest, e, pos, d, lo, hi, x, cnt, nk, k
     if (w[k] ~ /^[0-9]*[<>]/) { k += (w[k] ~ /^[0-9]*[<>]+$/) ? 2 : 1; continue }
     if (w[k] in shellword) { k++; continue }
     if (w[k] in wrapper) { k++; while (k <= m && w[k] ~ /^-/) k++; continue }
+    if (w[k] in wrapper1) { k++; while (k <= m && w[k] ~ /^-/) k++; if (k <= m) k++; continue }
     if (pwsh && w[k] == ".") { k++; continue }
     if (pwsh && w[k] ~ /^\$[A-Za-z_][A-Za-z0-9_:]*([-+*\/]?=.*)?$/) {
       # $x = <expression>: a command when the expression starts with a name.
@@ -320,18 +325,23 @@ function segment(text,    w, m, k, first, rest, e, pos, d, lo, hi, x, cnt, nk, k
 # CP[] with NC of them. A word is a candidate position while every word before
 # it is a flag, a redirection, or a word directly after a flag with no "=",
 # which may be that flag's value. A word that cannot be read as a name gives
-# "?", unless it is directly after such a flag.
-function cands(w, m, from,    j, prevflag, x) {
-  NC = 0; prevflag = 0; j = from
+# "?". Directly after such a flag it gives "?" only when no name is found at this
+# depth: `git -C "$WT" status` has a subcommand, and `hg -v "$verb"` does not.
+function cands(w, m, from,    j, prevflag, x, held, named) {
+  NC = 0; prevflag = 0; j = from; held = 0; named = 0
   while (j <= m) {
     x = w[j]
     if (x ~ /^-/) { prevflag = (x !~ /=/); j++; continue }
     if (x ~ /^[0-9]*[<>]/) { j += (x ~ /^[0-9]*[<>]+$/) ? 2 : 1; prevflag = 0; continue }
-    if (x ~ /^[A-Za-z:][A-Za-z0-9_:.-]*$/) { NC++; CW[NC] = x; CP[NC] = j }
-    else if (!prevflag && unreadable(x)) { NC++; CW[NC] = "?"; CP[NC] = j }
-    if (!prevflag) return
+    if (x ~ /^[A-Za-z:][A-Za-z0-9_:.-]*$/) { NC++; CW[NC] = x; CP[NC] = j; named = 1 }
+    else if (unreadable(x)) {
+      if (!prevflag) { NC++; CW[NC] = "?"; CP[NC] = j }
+      else if (!held) held = j
+    }
+    if (!prevflag) break
     prevflag = 0; j++
   }
+  if (held && !named) { NC++; CW[NC] = "?"; CP[NC] = held }
 }
 
 # Every later word under key that reads as a name, flags and redirections
