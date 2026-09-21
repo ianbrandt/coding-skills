@@ -88,19 +88,12 @@ BEGIN {
   RULE["inanimate agency"] = "an inanimate subject must not take a verb of speech, volition, or cognition; say who the real actor is, or rewrite around the act"
   ORDER[1] = "banned word"; ORDER[2] = "spaced em dash"; ORDER[3] = "oxford comma"; ORDER[4] = "inanimate agency"
 }
-{ text = text $0 "\n" }
+# One line at a time: a newline always ends a sentence, and none of the
+# reductions in prose() reach across one. Appending every line to one string
+# copies the text once per line, which is quadratic in a long reply.
+{ fenced($0) }
 END {
-  text = strip_code(text)
-  n = split(text, sentences, /[.!?;:]+[ \t\n]+|\n+/)
-  for (k = 1; k <= n; k++) {
-    s = sentences[k]
-    if (s ~ /^[ \t]*$/) continue
-    l = tolower(s)
-    if (match(s, P_DASH)) hit("spaced em dash", substr(s, RSTART, RLENGTH))
-    if (match(l, P_BANNED)) hit("banned word", trim(substr(s, RSTART, RLENGTH)))
-    if (match(s, P_OXFORD)) hit("oxford comma", example(substr(s, RSTART, RLENGTH)))
-    agency(s, l)
-  }
+  if (fence != "") for (i = 1; i <= nheld; i++) prose(HELD[i])
   if (note) {
     if (total == 0) exit
     print "A house-style lint flagged the previous reply:"
@@ -171,29 +164,38 @@ function agency(s, l,   p, pos, rest, start, len, span, after, after2, verb, m, 
 }
 # Fenced blocks are dropped by matching the opening marker (three or more of
 # the same character, closed by at least as many); a fence left open at the end
-# of the text is treated as prose, so a truncated reply is still linted. Inline
-# code, straight or curly double-quoted text, and markdown emphasis or link
-# syntax around a word are reduced so the sentence keeps its grammar.
-function strip_code(t,   out, n, i, lines, fence, held) {
-  n = split(t, lines, "\n"); out = ""; fence = ""; held = ""
-  for (i = 1; i <= n; i++) {
-    if (match(lines[i], /^[ \t]*(`{3,}|~{3,})/)) {
-      m = substr(lines[i], RSTART, RLENGTH); sub(/^[ \t]+/, "", m)
-      if (fence == "") { fence = m; held = lines[i] "\n"; continue }
-      if (substr(m, 1, 1) == substr(fence, 1, 1) && length(m) >= length(fence)) { fence = ""; held = ""; continue }
-    }
-    if (fence != "") { held = held lines[i] "\n"; continue }
-    out = out lines[i] "\n"
+# of the text is treated as prose, so a truncated reply is still linted.
+function fenced(x,   m) {
+  if (match(x, /^[ \t]*(`{3,}|~{3,})/)) {
+    m = substr(x, RSTART, RLENGTH); sub(/^[ \t]+/, "", m)
+    if (fence == "") { fence = m; nheld = 0; HELD[++nheld] = x; return }
+    if (substr(m, 1, 1) == substr(fence, 1, 1) && length(m) >= length(fence)) { fence = ""; nheld = 0; return }
   }
-  if (fence != "") out = out held
-  gsub(/`[^`\n]*`/, "CODE", out)
-  gsub(/"[^"\n]*"/, "QUOTE", out)
-  gsub(/“[^”\n]*”/, "QUOTE", out)
-  gsub(/\]\([^)\n]*\)/, "", out)
-  gsub(/[*\[]+/, "", out)
+  if (fence != "") { HELD[++nheld] = x; return }
+  prose(x)
+}
+# Inline code, straight or curly double-quoted text, and markdown emphasis or
+# link syntax around a word are reduced so the sentence keeps its grammar. The
+# sentence break before a newline is taken off the end of the line first.
+function prose(x,   n, k, s, l, sentences) {
+  gsub(/`[^`]*`/, "CODE", x)
+  gsub(/"[^"]*"/, "QUOTE", x)
+  gsub(/“[^”]*”/, "QUOTE", x)
+  gsub(/\]\([^)]*\)/, "", x)
+  gsub(/[*\[]+/, "", x)
   # literal senses stay: a Slack or byte channel, an array shape, a time slot
-  gsub(/[Ss]lack channel|[Mm]essage channel|[Bb]yte channel|[Rr]elease channel|[Aa]rray shape|[Tt]ensor shape|[Tt]imetable slot|[Tt]ime slot/, "LITERAL", out)
-  return out
+  gsub(/[Ss]lack channel|[Mm]essage channel|[Bb]yte channel|[Rr]elease channel|[Aa]rray shape|[Tt]ensor shape|[Tt]imetable slot|[Tt]ime slot/, "LITERAL", x)
+  sub(/[.!?;:]+[ \t]*$/, "", x)
+  n = split(x, sentences, /[.!?;:]+[ \t]+/)
+  for (k = 1; k <= n; k++) {
+    s = sentences[k]
+    if (s ~ /^[ \t]*$/) continue
+    l = tolower(s)
+    if (match(s, P_DASH)) hit("spaced em dash", substr(s, RSTART, RLENGTH))
+    if (match(l, P_BANNED)) hit("banned word", trim(substr(s, RSTART, RLENGTH)))
+    if (match(s, P_OXFORD)) hit("oxford comma", example(substr(s, RSTART, RLENGTH)))
+    agency(s, l)
+  }
 }
 function trim(x) { sub(/^[ \t]+/, "", x); sub(/[ \t]+$/, "", x); return x }
 # The reported text starts and ends on a word, so a multibyte boundary character
