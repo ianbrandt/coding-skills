@@ -397,5 +397,8 @@ unset TMPDIR
 cases=$((cases + 1))
 printf 'not json at all {{{' | bash "$HERE/gate.sh" >/dev/null 2>&1 \
   || { echo "FAIL garbage input exit $?"; fail=1; }
+cases=$((cases + 1))
+printf 'not json at all {{{' | bash "$HERE/gate.sh" --stop >/dev/null 2>&1 \
+  || { echo "FAIL garbage input on --stop exit $?"; fail=1; }
 
 [ $fail -eq 0 ] && echo "PASS ($cases cases)" || { echo "FAILED"; exit 1; }

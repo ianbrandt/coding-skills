@@ -1,5 +1,10 @@
 # To do
 
+- After the next `writing-conventions` update reaches a session: the `mcp__.*` and the `Stop` hook
+  entries have never fired through the harness, only through the self-tests and direct calls. Make
+  one Jira or browser MCP call and read `~/.claude/writing-conventions/mcp-tools-*.txt`, and put a
+  fence tagged `draft` with a planted violation in one reply and check that the turn continues with
+  the draft rewritten.
 - Needs a Windows machine with git installed as a shim, by scoop or as a portable install: check
   that the `git --exec-path` lookup in `shell-owner.ps1` still lands on the Git root, which is the
   case it was added for. A normal install was covered by the Windows run of the self-test.

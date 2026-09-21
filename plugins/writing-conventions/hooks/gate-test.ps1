@@ -452,6 +452,9 @@ try {
   $ErrorActionPreference = 'Continue'
   $null = 'not json at all {{{' | pwsh -NoProfile -File $gate 2>&1
   if ($LASTEXITCODE -ne 0) { Write-Output 'FAIL garbage input exit'; $fail = 1 }
+  $cases++
+  $null = 'not json at all {{{' | pwsh -NoProfile -File $gate '--stop' 2>&1
+  if ($LASTEXITCODE -ne 0) { Write-Output 'FAIL garbage input on --stop exit'; $fail = 1 }
 } finally {
   $env:PATH = $saved.PATH
   $env:OS = $saved.OS
