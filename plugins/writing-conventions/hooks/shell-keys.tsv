@@ -80,6 +80,14 @@ bash	echo 'abc	1:READ
 bash	cat <<EOF\nbody	1:READ
 bash	echo "$(date"	1:READ
 bash	echo "a ` b"	1:READ
+# A sentence in the command adds 0:PROSE: six words or more, the first
+# capitalized and the last ending in ".", "!", or "?".
+bash	curl -d '{"body":"The report says so and more."}' https://x	0:PROSE | 1:curl
+bash	python3 -c 'print("Done, all six words are here!")'	0:PROSE | 1:python3
+bash	python3 -c 'print("Only five words here.")'	1:python3
+bash	python3 -c 'print("the lower case start of this one.")'	1:python3
+bash	echo "The report says so and more.\"	0:PROSE | 1:READ
+pwsh	Invoke-RestMethod -Body 'We moved the build to Gradle nine.'	0:PROSE | 1:Invoke-RestMethod
 # PowerShell.
 pwsh	Get-ChildItem -Recurse | Select-Object Name	1:Get-ChildItem | 2:Select-Object | 2:Select-Object Name | 2:+Select-Object Name
 pwsh	& "C:\Tools\X.exe" run	1:C:\Tools\X.exe | 1:C:\Tools\X.exe run | 1:+C:\Tools\X.exe run
