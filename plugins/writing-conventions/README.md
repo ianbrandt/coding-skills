@@ -94,9 +94,9 @@ runs there. A Windows box with neither PowerShell 7 nor Git Bash gets no command
 
 The census behind this plugin found that 101 of 107 corrections landed on text that ships: PR
 bodies, comments, issue bodies, commit messages, docs. A lint over chat never sees those, so a
-`PreToolUse` hook watches the commands that publish them: `git commit` and every `gh pr`,
-`gh issue`, and `gh release` subcommand, through the `Bash` tool and through the `PowerShell` tool
-both. Covering only `Bash` leaves every commit ungated on a Windows session where the PowerShell tool
+`PreToolUse` hook watches the commands that publish them: `git commit`, every `gh pr`, `gh issue`,
+and `gh release` subcommand, and any other command that can publish (see "Other shell commands"),
+through the `Bash` tool and through the `PowerShell` tool both. Covering only `Bash` leaves every commit ungated on a Windows session where the PowerShell tool
 is the shell. [`hooks/gate.sh`](hooks/gate.sh) and [`hooks/gate.ps1`](hooks/gate.ps1) hand the command
 to a model, which pulls out the commit message or the title and body and checks that text against the
 four prohibitions: inanimate agency, punctuation (spaced em dashes and the Oxford comma), the banned
@@ -162,6 +162,52 @@ way too, and no `Bash(git commit *)` rule matches that form, which is the one a 
 [`hooks/gate-test.sh`](hooks/gate-test.sh) and [`hooks/gate-test.ps1`](hooks/gate-test.ps1) check the
 plumbing offline against a stub `claude` on the PATH: which commands reach the model, which replies
 block a command, the exit codes, and the fail-open path.
+
+Each nested call gets at most 60 seconds, less when the hook is short of time, and none starts with
+under 15 seconds left. A call past its limit is killed with its children, is not retried with
+`--bare`, and counts as a failed call. Each hook keeps 15 seconds of its timeout for that cleanup.
+
+### Other shell commands
+
+Any other command goes to the reader when the classifier model answers that it can publish. That
+way `hg commit`, `svn commit`, `jj describe`, `glab mr create`, and a CLI nobody here has heard of
+are read like `git commit`, with no command name written in the scripts.
+[`hooks/keys.awk`](hooks/keys.awk) and [`hooks/keys.ps1`](hooks/keys.ps1) split the command into
+keys: each simple command's first word, up to two subcommand candidates after it, and the words after
+each key in case it is a task runner. A substitution inside double quotes counts as a command, and
+single-quoted text and heredoc bodies do not. Both scripts are tested against
+[`hooks/shell-keys.tsv`](hooks/shell-keys.tsv).
+
+Each key has one of five classes: `NEVER`, `CAN_PUBLISH`, `DESCEND` when the answer depends on the
+subcommand (`git`, `hg`), `PROJECT` when the words after it are the project's own task names
+(`make`, `npm run`, `./gradlew`), or `RUNS_CODE` for an interpreter or `curl`. Keys with no class
+cost one classifier call for the whole command, with
+[`hooks/classify-command.md`](hooks/classify-command.md) as the prompt. A key missing from the reply
+is doubt: it reads as `CAN_PUBLISH` and is not kept. A command with keys that are all `NEVER` makes
+no call.
+
+The answers are appended to
+`${CLAUDE_CONFIG_DIR:-~/.claude}/writing-conventions/shell-commands-<hash>.txt`, one line each:
+`<scope><TAB><class><TAB><key>`. The scope is `*` for a key every project shares, or the project
+directory for a task name or a program run by path. The file is yours to read and edit, and for one
+key a `CAN_PUBLISH` line wins over the other classes.
+
+The four command families above reach the reader whatever is in the file, so a wrong `NEVER` can
+lose new coverage but never theirs. A quote left open, or a word that cannot be read as a name in a
+subcommand position, such as `hg "$verb"`, sends the command to the reader. A `RUNS_CODE` command is
+read only when it contains a sentence: six or more words, the first capitalized and the last ending
+in `.`, `!`, or `?`. Interpreters run in about 16% of commands on the machine this was measured on,
+and a short message posted through `curl` or a script is not read. A body passed by file path is not
+read either. `WRITING_CONVENTIONS_SHELL_CLASSIFIER=0` turns this off and leaves the four families.
+A command can need two calls, so the shell hooks' timeout is 180 seconds.
+
+Replayed from an empty cache over 122,260 shell commands from one machine's history, 3.6% of
+commands made a classifier call and 9.5% reached the reader, against 4.1% for the four families
+alone. Of the rest, 1.8% were `python3` with a sentence in the code, 1.7% were programs run by path
+that the classifier did not know, 0.9% were `git merge`, `rebase`, `tag`, and `cherry-pick`, and
+0.5% were commands the scripts could not read. Planted inanimate-agency sentences in `hg commit`,
+`svn commit`, `jj describe`, and `glab mr create` were each blocked, and clean messages in the same
+four went through.
 
 ### MCP calls
 
