@@ -32,7 +32,8 @@ file. An `upstream` remote means the repo is a fork of someone else's project: t
 merges, never pushes, and nothing at all reaches GitHub—issue and PR text is drafted as local files
 for the user to post. No `upstream` means the repo is theirs, so work fast-forwards into the default
 branch; `origin`'s visibility then decides the push, private going out and public waiting for the
-user's explicit go.
+user's explicit go. Visibility is read from a per-repo `git config` value, with `gh` and `glab` as
+shortcuts on GitHub and GitLab, and the user is asked once when none of them returns a value.
 
 Splitting those two facts apart is what makes "a repo you own with an untracked, local-only roadmap"
 an ordinary combination rather than a special case: only fork-ness stops a merge, and only

@@ -26,7 +26,12 @@ Read them off the repo; don't take them from a mode someone declared in a file.
 
 ```bash
 git remote get-url upstream >/dev/null 2>&1 && echo "fork"        # someone else's project
-gh repo view --json isPrivate -q .isPrivate                       # origin's visibility
+URL=$(git remote get-url origin)
+vis() { tr '[:upper:]' '[:lower:]' | grep -xE 'public|private|internal'; }   # drops CLI error text
+VIS=$(git config --get session-skills.originVisibility | vis)     # set once per clone
+[ -n "$VIS" ] || VIS=$(gh repo view "$URL" --json visibility -q .visibility 2>/dev/null | vis)
+[ -n "$VIS" ] || VIS=$(glab repo view "$URL" -F json --jq .visibility 2>/dev/null | vis)
+echo "origin: ${VIS:-unknown}"
 ```
 
 - **A fork** (an `upstream` remote, ideally with `git remote set-url --push upstream no_push`) means
@@ -36,8 +41,17 @@ gh repo view --json isPrivate -q .isPrivate                       # origin's vis
   Then visibility decides the push: **private pushes; public holds** for the user's explicit go,
   because a public push is published under their name and can't be taken back.
 
-If `gh` isn't available or errors, treat the repo as public and hold the push—the safe direction of
-a wrong guess.
+The per-repo `git config` value comes first and works on any host. `gh` and `glab` are only
+shortcuts, for a GitHub and a GitLab `origin`, and each is skipped when it is not installed or not
+signed in to that host. A Bitbucket `origin` depends on the config value. With no value from any of
+the three, **ask the user once** and record the reply, so no later session asks again:
+
+```bash
+git config session-skills.originVisibility private                # or public
+```
+
+Until the value is known, treat the repo as public and hold the push—the safe direction of a wrong
+guess. Only `private` pushes; `internal` and anything else hold.
 
 These are independent of the backlog. A repo you own can track its work in an untracked, local-only
 roadmap and still merge into its own default branch; that combination is ordinary, not a deviation.
