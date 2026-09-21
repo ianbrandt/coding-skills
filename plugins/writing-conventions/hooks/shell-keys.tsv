@@ -1,0 +1,97 @@
+# Shared fixture for keys.awk and keys.ps1. One case per line:
+#   <mode><TAB><command><TAB><expected keys>
+# The mode is bash or pwsh. In the command, \n is a newline and \t a tab. The
+# expected keys are the extractor's output lines, each written <segment>:<entry>
+# and joined with " | ", or "-" for no output. Read by gate-test.sh and
+# gate-test.ps1, so a case added here is checked against both extractors.
+#
+# Plain commands: the first word, then the subcommand candidates, then the task
+# names below each key, which only a PROJECT class reads.
+bash	ls -la	1:ls
+bash	git status	1:git | 1:git status | 1:+git status
+bash	git commit -m "Fix the thing"	1:git | 1:git commit | 1:+git commit
+bash	git -C "$WT" status	1:git | 1:git status | 1:+git status
+bash	git -C status commit	1:git | 1:git status | 1:git commit | 1:git status commit | 1:+git status | 1:+git commit | 1:+git status commit
+bash	svn --config-dir info --username status commit	1:svn | 1:svn info | 1:svn status | 1:svn commit | 1:svn info status | 1:svn info commit | 1:svn status commit | 1:+svn info | 1:+svn status | 1:+svn commit | 1:+svn info status | 1:+svn info commit | 1:+svn status commit | 1:+svn info status commit
+bash	gh pr create --title x --body y	1:gh | 1:gh pr | 1:gh pr create | 1:+gh pr | 1:+gh create | 1:+gh x | 1:+gh y | 1:+gh pr create | 1:+gh pr x | 1:+gh pr y | 1:+gh pr create x | 1:+gh pr create y
+# More than 4 candidates at one depth is READ rather than a dropped key.
+bash	git -a a -b b -c c -d d -e e x	1:READ
+# More than 8 task names below one key: only a PROJECT key reads the "!".
+bash	make a b c d e f g h i	1:make | 1:make a | 1:make a b | 1:+make ! | 1:+make a b | 1:+make a c | 1:+make a d | 1:+make a e | 1:+make a f | 1:+make a g | 1:+make a h | 1:+make a i | 1:+make a b c | 1:+make a b d | 1:+make a b e | 1:+make a b f | 1:+make a b g | 1:+make a b h | 1:+make a b i
+# A word that cannot be read as a name adds the marker "?" at its depth.
+bash	hg "$verb" -m x	1:hg | 1:hg ? | 1:+hg ? | 1:+hg x
+bash	make check "$task"	1:make | 1:make check | 1:make check ? | 1:+make check | 1:+make ? | 1:+make check ?
+bash	ls "$dir"	1:ls | 1:ls ? | 1:+ls ?
+bash	python3 -c 'print(1)'	1:python3
+# A word directly after a flag is read as that flag's value when it cannot be
+# read as a name, so it adds no marker.
+bash	git log --format "%h %s"	1:git | 1:git log | 1:+git log
+bash	./gradlew test --tests "*Foo*"	1:./gradlew | 1:./gradlew test | 1:+./gradlew test
+# Paths as the first word are keys as written.
+bash	./gradlew build --info	1:./gradlew | 1:./gradlew build | 1:+./gradlew build
+bash	"$WT"/gradlew check	1:$WT/gradlew | 1:$WT/gradlew check | 1:+$WT/gradlew check
+# A quoted or odd first word goes to the reader.
+bash	"my tool" run	1:READ
+bash	a,b c	1:READ
+bash	[ -f x ] && echo y	1:[ | 1:[ x | 1:+[ x | 2:echo | 2:echo y | 2:+echo y
+# Leading assignments, redirections, shell words, and wrappers are dropped.
+bash	FOO=1 sudo -E env BAR=2 nohup git push	1:git | 1:git push | 1:+git push
+bash	if git diff --quiet; then echo same; fi	1:git | 1:git diff | 1:+git diff | 2:echo | 2:echo same | 2:+echo same
+bash	for f in a b; do rm "$f"; done	1:rm | 1:rm ? | 1:+rm ?
+bash	2>/dev/null ls	1:ls
+bash	echo x > out.txt	1:echo | 1:echo x | 1:+echo x
+bash	x="$(date)"	1:date
+# Comments, with a quote in them.
+bash	ls # don't do this	1:ls
+bash	ls\n# it's a comment\npwd	1:ls | 2:pwd
+bash	echo a#b	1:echo
+# Separators, and the redirections that are not separators.
+bash	ls foo 2>&1 | grep bar	1:ls | 1:ls foo | 1:+ls foo | 2:grep | 2:grep bar | 2:+grep bar
+bash	make build &> log.txt	1:make | 1:make build | 1:+make build
+bash	a && b || c; d & e	1:a | 2:b | 3:c | 4:d | 5:e
+bash	{ ls; pwd; }	1:ls | 2:pwd
+bash	echo ${HOME}/x	1:echo | 1:echo ? | 1:+echo ?
+bash	cp x.{txt,md} y	1:cp | 1:+cp y
+# Single-quoted text is skipped when looking for substitutions: a commit
+# message's Markdown backticks are not commands.
+bash	git commit -m 'Use `foo` here'	1:git | 1:git commit | 1:+git commit
+# A substitution inside double quotes is read (R8).
+bash	grep "$(gh issue comment 1 --body 'x')" log.txt	1:grep | 1:grep ? | 1:+grep ? | 1:+grep log.txt | 2:gh | 2:gh issue | 2:gh issue comment | 2:+gh issue | 2:+gh comment | 2:+gh x | 2:+gh issue comment | 2:+gh issue x | 2:+gh issue comment x
+bash	printf '%s' "$(printf x; hg commit -m 'y')"	1:printf | 1:+printf ? | 2:printf | 2:printf x | 2:+printf x | 3:hg | 3:hg commit | 3:hg commit y | 3:+hg commit | 3:+hg y | 3:+hg commit y
+bash	echo "$(git log -1 --format=%s $(git rev-parse HEAD))"	1:echo | 1:echo ? | 1:+echo ? | 2:git | 2:git log | 2:git log ? | 2:+git log | 2:+git ? | 2:+git log ? | 3:git | 3:git rev-parse | 3:git rev-parse HEAD | 3:+git rev-parse | 3:+git HEAD | 3:+git rev-parse HEAD
+bash	echo `date`	1:echo | 2:date
+bash	echo "`hg commit -m x`"	1:echo | 1:echo ? | 1:+echo ? | 2:hg | 2:hg commit | 2:hg commit x | 2:+hg commit | 2:+hg x | 2:+hg commit x
+# Quotes nested inside a substitution inside quotes are misread, toward the reader.
+bash	echo "$(git commit -m "a; b")"	1:echo | 2:READ | 3:git | 3:git commit | 3:+git commit
+# Heredocs: the body is dropped in both passes.
+bash	cat <<'EOF'\nhg commit -m "it's"\nEOF	1:cat
+bash	cat <<EOF\nplain text, it's fine\nEOF\nls	1:cat | 2:ls
+bash	cat <<-EOF\n\tbody\n\tEOF\nls	1:cat | 2:ls
+bash	git commit -F- <<'EOF'\nThe report says so.\nEOF	1:git | 1:git commit | 1:+git commit
+bash	cat <<EOF | grep x\nbody\nEOF	1:cat | 2:grep | 2:grep x | 2:+grep x
+bash	echo "<<EOF" x	1:echo | 1:echo ? | 1:+echo ? | 1:+echo x
+# An expanding heredoc with a substitution in it is READ (R21-15).
+bash	cat <<EOF\n$(hg commit -m x)\nEOF	1:READ
+bash	cat <<EOF\n'$(hg commit -m x)'\nEOF	1:READ
+bash	cat <<EOF\nuse `foo`\nEOF	1:READ
+# Unbalanced input is READ.
+bash	echo "abc	1:READ
+bash	echo 'abc	1:READ
+bash	cat <<EOF\nbody	1:READ
+bash	echo "$(date"	1:READ
+bash	echo "a ` b"	1:READ
+# PowerShell.
+pwsh	Get-ChildItem -Recurse | Select-Object Name	1:Get-ChildItem | 2:Select-Object | 2:Select-Object Name | 2:+Select-Object Name
+pwsh	& "C:\Tools\X.exe" run	1:C:\Tools\X.exe | 1:C:\Tools\X.exe run | 1:+C:\Tools\X.exe run
+pwsh	. ./script.ps1 -Force	1:./script.ps1
+pwsh	Write-Output a`\nb	1:Write-Output | 1:Write-Output a | 1:Write-Output a b | 1:+Write-Output a | 1:+Write-Output b | 1:+Write-Output a b
+pwsh	Write-Output 'it''s'	1:Write-Output
+pwsh	Write-Output "say ""hi"" now"	1:Write-Output | 1:Write-Output ? | 1:+Write-Output ?
+pwsh	$x = Get-Content f	1:Get-Content | 1:Get-Content f | 1:+Get-Content f
+pwsh	$x = "a b"; ls	1:ls
+pwsh	$body = @"\nThe report says so.\n"@\ngh pr create --body $body	1:gh | 1:gh pr | 1:gh pr create | 1:+gh pr | 1:+gh create | 1:+gh pr create
+pwsh	$b = @'\n$(hg commit -m x)\n'@\nls	1:ls
+pwsh	$b = @"\n$(hg commit -m x)\n"@	1:READ
+pwsh	Write-Output "$(gh issue comment 1 --body x)"	1:Write-Output | 1:Write-Output ? | 1:+Write-Output ? | 2:gh | 2:gh issue | 2:gh issue comment | 2:+gh issue | 2:+gh comment | 2:+gh x | 2:+gh issue comment | 2:+gh issue x | 2:+gh issue comment x
+pwsh	$b = @"\nno end	1:READ
+pwsh	echo `date`	1:echo | 1:echo date | 1:+echo date

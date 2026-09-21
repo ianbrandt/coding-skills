@@ -10,6 +10,16 @@ fail=0; cases=0
 scratch=$(mktemp -d)
 trap 'rm -rf "$scratch"' EXIT
 
+# keys.awk against the fixture it shares with keys.ps1. \n and \t in a command
+# are a newline and a tab, and the output lines are joined as the fixture writes them.
+while IFS="$(printf '\t')" read -r mode cmd want; do
+  case "$mode" in ""|"#"*) continue;; esac
+  cases=$((cases + 1))
+  got=$(printf '%s' "$cmd" | sed 's/\\n/\n/g; s/\\t/\t/g' | awk -v mode="$mode" -f "$HERE/keys.awk" \
+    | awk -F '\t' '{ printf "%s%s:%s", (NR > 1 ? " | " : ""), $1, $2 }')
+  [ "${got:--}" = "$want" ] || { printf 'FAIL keys %s: %s\n  wanted %s\n  got    %s\n' "$mode" "$cmd" "$want" "${got:--}"; fail=1; }
+done < "$HERE/shell-keys.tsv"
+
 cat > "$scratch/claude" <<'STUB'
 #!/usr/bin/env bash
 # One line per call: the arguments, then the marker the gate sets on its child.
