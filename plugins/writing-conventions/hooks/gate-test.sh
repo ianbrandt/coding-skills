@@ -31,12 +31,25 @@ if [ -n "$GATE_TEST_SLEEP" ]; then sleep "$GATE_TEST_SLEEP" & echo $! > "$GATE_T
 [ "$GATE_TEST_FAIL" = 1 ] && exit 1
 case " $* " in *' --safe-mode '*) [ "$GATE_TEST_FAIL" = safe ] && exit 1;; esac
 case "$*" in *classify-prompt.md*) printf '%s\n' "$GATE_TEST_CLASS"; exit 0;; esac
+# The shell classifier: each key after the blank line that GATE_TEST_KEYS has a
+# line for, key=CLASS, is answered with a tab, and GATE_TEST_RAW replaces the reply.
+case "$*" in *classify-command.md*)
+  [ -n "$GATE_TEST_RAW" ] && { printf '%s\n' "$GATE_TEST_RAW"; exit 0; }
+  printf '%s\n' "$GATE_TEST_KEYS" | awk 'FNR == NR { i = index($0, "="); if (i) c[substr($0, 1, i - 1)] = substr($0, i + 1); next }
+    body && ($0 in c) { printf "%s\t%s\n", $0, c[$0] } $0 == "" { body = 1 }' - "$GATE_TEST_MARK.stdin"
+  exit 0;;
+esac
 printf '%s\n' "$GATE_TEST_VERDICT"
 STUB
 chmod +x "$scratch/claude"
 PATH="$scratch:$PATH"
-unset CLAUDE_CODE_USE_POWERSHELL_TOOL WRITING_CONVENTIONS_GATE_MODEL WRITING_CONVENTIONS_NESTED \
-  WRITING_CONVENTIONS_GATE_DEADLINE GATE_TEST_SLEEP
+unset CLAUDE_CODE_USE_POWERSHELL_TOOL WRITING_CONVENTIONS_GATE_MODEL WRITING_CONVENTIONS_NESTED CLAUDE_PROJECT_DIR \
+  WRITING_CONVENTIONS_GATE_DEADLINE GATE_TEST_SLEEP GATE_TEST_RAW GATE_TEST_KEYS
+# No test reads or writes the user's own caches.
+export CLAUDE_CONFIG_DIR="$scratch/config"
+# The cases up to the shell classifier's own section are for the four command
+# families that reach the reader whatever is cached.
+export WRITING_CONVENTIONS_SHELL_CLASSIFIER=0
 export GATE_TEST_MARK="$scratch/mark"
 
 # run <verdict> <fail> <command text>; sets $status, $stderr, and $called
@@ -405,6 +418,80 @@ printf '{"prompt_id":"s16","last_assistant_message":"%s"}' "$draft1" \
 status=$?
 [ "$status" = 0 ] || { echo "FAIL exit $status inside a nested call"; fail=1; }
 [ -s "$GATE_TEST_MARK" ] && { echo "FAIL model called inside a nested call"; fail=1; }
+unset TMPDIR
+
+# The shell classifier. Any command outside the four families is split into keys,
+# and a key the cache has no answer for costs one classifier call for the whole
+# command. A key below a task runner is kept per project.
+unset WRITING_CONVENTIONS_SHELL_CLASSIFIER
+export CLAUDE_CONFIG_DIR="$scratch/shellconfig" TMPDIR="$scratch/shelltmp"; mkdir -p "$TMPDIR"
+# shcase <exit> <classifier calls> <reader calls> <command, JSON-escaped> [<cwd>]
+shcase() {
+  cases=$((cases + 1))
+  : > "$GATE_TEST_MARK"
+  export GATE_TEST_VERDICT="${GATE_TEST_VERDICT:-PASS}" GATE_TEST_FAIL=0
+  out=$(printf '{"session_id":"%s","cwd":"%s","tool_name":"Bash","tool_input":{"command":"%s"}}' \
+    "${SID:-shell}" "${5:-/proj/a}" "$4" | bash "$HERE/gate.sh" 2>"$scratch/err")
+  status=$?
+  stderr=$(cat "$scratch/err")
+  c=$(grep -c classify-command.md "$GATE_TEST_MARK"); r=$(grep -c gate-prompt.md "$GATE_TEST_MARK")
+  [ "$status" = "$1" ] || { echo "FAIL exit $status, wanted $1: $4"; fail=1; }
+  [ "$c $r" = "$2 $3" ] || { echo "FAIL classifier and reader calls $c $r, wanted $2 $3: $4"; fail=1; }
+}
+shcache() { cat "$CLAUDE_CONFIG_DIR"/writing-conventions/shell-commands-*.txt 2>/dev/null; }
+tab=$(printf '\t')
+# A cold key costs one call, and its answer is kept; the same command again costs none.
+GATE_TEST_KEYS='ls=NEVER' shcase 0 1 0 'ls -la'
+case $(shcache) in "*${tab}NEVER${tab}ls") ;; *) echo "FAIL cache after ls: $(shcache)"; fail=1;; esac
+case $(cat "$GATE_TEST_MARK.stdin") in 'ls -la'*'ls') ;; *) echo "FAIL classifier message: $(cat "$GATE_TEST_MARK.stdin")"; fail=1;; esac
+shcase 0 0 0 'ls -la'
+# A publishing command no name was written for reaches the reader, and each
+# answered key is kept, a task name in the project's scope as well.
+GATE_TEST_KEYS='hg=DESCEND
+hg commit=CAN_PUBLISH' shcase 0 1 1 'hg commit -m \"Fix it\"'
+[ "$(shcache | grep -c 'hg')" = 3 ] || { echo "FAIL cache after hg: $(shcache)"; fail=1; }
+shcase 0 0 1 'hg commit -m \"Fix it\"'
+GATE_TEST_VERDICT='VIOLATION
+"The report says so" -> x' shcase 2 0 1 'hg commit -m \"The report says so\"'
+# Below a cached DESCEND, only the subcommand is asked about.
+GATE_TEST_KEYS='hg log=NEVER' shcase 0 1 0 'hg log'
+case $(cat "$GATE_TEST_MARK.stdin") in *"
+hg log") ;; *) echo "FAIL classifier message for hg log: $(cat "$GATE_TEST_MARK.stdin")"; fail=1;; esac
+shcase 0 0 0 'hg log'
+# A classifier reply in any other form is doubt: the reader runs and nothing is kept.
+before=$(shcache)
+GATE_TEST_RAW='It can publish.' shcase 0 1 1 'jj describe -m x'
+[ "$(shcache)" = "$before" ] || { echo "FAIL a malformed reply was cached: $(shcache)"; fail=1; }
+# The four families reach the reader whatever is cached.
+printf '*\tNEVER\tgit\n*\tNEVER\tgit commit\n' >> "$(ls "$CLAUDE_CONFIG_DIR"/writing-conventions/shell-commands-*.txt)"
+shcase 0 0 1 'git commit -m x'
+shcase 0 0 1 'git commit -F msg.txt'
+# A task name is kept for its project only, and a task runner with no task, or
+# with one task that is not NEVER, reaches the reader.
+GATE_TEST_KEYS='make=PROJECT
+make check=NEVER' shcase 0 1 0 'make check' /proj/a
+shcase 0 0 0 'make check' /proj/a
+GATE_TEST_KEYS='make check=NEVER' shcase 0 1 0 'make check' /proj/b
+shcase 0 0 1 'make' /proj/a
+shcase 0 1 1 'make check publish' /proj/a
+# A word that cannot be read as a name reaches the reader below DESCEND or PROJECT,
+# and changes nothing below NEVER or RUNS_CODE.
+shcase 0 0 1 'hg \"$verb\" -m x'
+shcase 0 0 1 'make check \"$task\"' /proj/a
+shcase 0 0 0 'ls \"$dir\"'
+GATE_TEST_KEYS='python3=RUNS_CODE' shcase 0 1 0 "python3 -c 'print(1)'"
+shcase 0 0 0 "python3 -c 'print(1)'"
+shcase 0 0 1 "python3 -c 'print(\"The report says so and more.\")'"
+# A substitution in an expanding heredoc body, and a quoted first word, reach the
+# reader with no lookup.
+shcase 0 0 1 "cat <<EOF\n'\$(hg commit -m x)'\nEOF"
+shcase 0 0 1 '\"my tool\" run'
+# The off switch returns the trigger to the four families.
+WRITING_CONVENTIONS_SHELL_CLASSIFIER=0 GATE_TEST_KEYS='svn=DESCEND' shcase 0 0 0 'svn commit -m x'
+# A classifier call that cannot run lets the command through and says so once.
+PATH=/usr/bin:/bin SID=shell-off shcase 0 0 0 'svn commit -m x'
+case $out in '{"systemMessage":"'*'model review is off'*) ;; *) echo "FAIL no notice without claude: $out"; fail=1;; esac
+
 unset TMPDIR
 
 # The time budget. A call past its limit is killed with its children, is not

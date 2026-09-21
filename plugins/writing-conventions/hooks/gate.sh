@@ -63,7 +63,7 @@ ask() {
 # hooks.json, so that a killed call, the cleanup, and the notice fit inside it;
 # gate-test.sh checks the two agree. macOS has no `timeout`, so the call runs in a
 # process group of its own, and a watcher kills the group at the limit.
-DEADLINES='shell=45 mcp=75 file=45 stop=45'
+DEADLINES='shell=165 mcp=75 file=45 stop=45'
 call() {
   lim=$((deadline - SECONDS - 10))
   [ $lim -gt 60 ] && lim=60
@@ -112,6 +112,41 @@ off() {
     printf '{"systemMessage":"writing-conventions: model review is off for this session, because the nested claude -p call failed. Commit, PR, MCP, file, and draft text is not being read; the pattern lint on replies still runs."}'
   fi
   exit 0
+}
+
+# shellclass: return when the command in $cmd goes to the reader, and exit 0 when
+# it does not. Any other command is split into keys by keys.awk and walked
+# through a per-user cache of answers from a classifier call, so no command name
+# beyond the four families is written here. The cache is read and written like
+# the MCP cache below, one line per answer, <scope><TAB><class><TAB><key>, and a
+# key below a task runner or under a path is kept per project. One call answers
+# every key the cache has no line for, and a key it leaves out, or answers in any
+# other form, is doubt: it reads as CAN_PUBLISH and is not kept.
+shellclass() {
+  mode=bash; [ "$tool" = PowerShell ] && mode=pwsh
+  printf '%s' "$cmd" | awk -v mode=$mode -f "$HERE/keys.awk" > "$tmp/keys"
+  proj=${CLAUDE_PROJECT_DIR:-$(field cwd)}
+  dir="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/writing-conventions"
+  cache="$dir/shell-commands-$(cksum < "$HERE/classify-command.md" | awk '{print $1}').txt"
+  [ -f "$cache" ] && known=$cache || known=/dev/null
+  walk=$(awk -v keys="$tmp/keys" -v scope="${proj:-/}" -f "$HERE/walk.awk" "$known")
+  case $walk in READER) return ;; SAFE) exit 0 ;; esac
+  printf '%s\n' "$walk" | awk -F '\t' '$1 == "ASK"' > "$tmp/ask"
+  msg=$(printf '%s\n\n' "$cmd"; awk -F '\t' '!seen[$3]++ { print $3 }' "$tmp/ask")
+  reply=$(ask classify-command.md) || off
+  msg=
+  printf '%s\n' "$reply" | awk -F '\t' -v OFS='\t' '
+    FNR == NR { want[$3] = want[$3] SUBSEP $2; next }
+    match($0, /[ \t]+(NEVER|CAN_PUBLISH|DESCEND|PROJECT|RUNS_CODE)\r?$/) {
+      key = substr($0, 1, RSTART - 1); c = substr($0, RSTART); gsub(/[ \t\r]/, "", c)
+      if (!(key in want)) next
+      n = split(substr(want[key], 2), sc, SUBSEP)
+      for (i = 1; i <= n; i++) print sc[i], c, key
+      delete want[key]
+    }' "$tmp/ask" - > "$tmp/answers"
+  [ -s "$tmp/answers" ] && mkdir -p "$dir" && cat "$tmp/answers" >> "$cache"
+  walk=$(awk -v keys="$tmp/keys" -v scope="${proj:-/}" -v final=1 -f "$HERE/walk.awk" "$known" "$tmp/answers")
+  [ "$walk" = SAFE ] && exit 0
 }
 
 tool=$(field tool_name)
@@ -202,13 +237,15 @@ case "$1:$tool" in
     sources() { printf '%s' "$input" | awk -v under=tool_input -f "$HERE/jsonstr.awk"; }
     again='make the call again' ;;
   *)
-    # Matching the command text here rather than through a hook `if` pattern covers
-    # `git -C <path> commit`, which no `Bash(git commit *)` rule matches, and keeps one
-    # copy of the prompt instead of one per subcommand per tool.
+    # Four command families always reach the reader, whatever is cached, so a
+    # wrong NEVER from the classifier can never lose them. Matching the command
+    # text here rather than through a hook `if` pattern covers `git -C <path>
+    # commit`, which no `Bash(git commit *)` rule matches.
     cmd=$(printf '%s' "$input" | awk -v key=command -f "$HERE/jsonstr.awk")
     case "$cmd" in
       *"git commit"*|*"git -C"*commit*|*"gh pr "*|*"gh issue "*|*"gh release "*) ;;
-      *) exit 0 ;;
+      *) [ "$WRITING_CONVENTIONS_SHELL_CLASSIFIER" = 0 ] && exit 0
+         shellclass ;;
     esac
     sources() { printf '%s' "$cmd"; }
     again='run the command again' ;;
