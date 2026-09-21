@@ -45,15 +45,45 @@ if [ "$OS" = Windows_NT ] && [ "$CLAUDE_CODE_USE_POWERSHELL_TOOL" = 1 ] \
 HERE=$(cd "$(dirname "$0")" && pwd)
 input=$(cat)
 
-# ask <system prompt> [<file appended to it>]: the reply to one nested call on the
-# hook input, retried once with --bare when the first call exits non-zero. With no
-# `claude` on the path there is no call, which is the same failure.
-ask() { command -v claude >/dev/null 2>&1 || return 1; call --safe-mode "$@" || call --bare "$@"; }
+# ask <system prompt> [<file appended to it>]: the reply to one nested call on
+# $msg, or on the hook input when $msg is empty, retried once with --bare when the
+# first call exits non-zero. A call that was killed at its time limit, or not
+# started for lack of time, is not retried. With no `claude` on the path there is
+# no call, which is the same failure.
+ask() {
+  command -v claude >/dev/null 2>&1 || return 1
+  call --safe-mode "$@"; rc=$?
+  [ $rc = 0 ] && return 0
+  [ $rc = 124 ] && return 1
+  call --bare "$@"
+}
+# A command can need a classifier call and then a reader call, so each call gets
+# the smaller of 60 seconds and the time left less 10, and none starts with under
+# 15. The deadline for each branch is 15 seconds short of its hook timeout in
+# hooks.json, so that a killed call, the cleanup, and the notice fit inside it;
+# gate-test.sh checks the two agree. macOS has no `timeout`, so the call runs in a
+# process group of its own, and a watcher kills the group at the limit.
+DEADLINES='shell=45 mcp=75 file=45 stop=45'
 call() {
-  printf '%s' "${msg:-$input}" | WRITING_CONVENTIONS_NESTED=1 claude -p "$1" --tools= \
+  lim=$((deadline - SECONDS - 10))
+  [ $lim -gt 60 ] && lim=60
+  [ $lim -ge 15 ] || return 124
+  printf '%s' "${msg:-$input}" > "$tmp/in"
+  rm -f "$tmp/killed"
+  set -m
+  WRITING_CONVENTIONS_NESTED=1 claude -p "$1" --tools= \
     --model "${WRITING_CONVENTIONS_GATE_MODEL:-sonnet}" \
     --system-prompt-file "$HERE/$2" \
-    ${3:+--append-system-prompt-file "$HERE/$3"} 2>/dev/null
+    ${3:+--append-system-prompt-file "$HERE/$3"} < "$tmp/in" > "$tmp/out" 2>/dev/null &
+  pid=$!
+  (sleep $lim; : > "$tmp/killed"; kill -TERM -- -$pid; sleep 2; kill -KILL -- -$pid) >/dev/null 2>&1 &
+  watch=$!
+  set +m
+  { wait $pid; rc=$?; } 2>/dev/null
+  kill -- -$watch 2>/dev/null
+  [ -e "$tmp/killed" ] && return 124
+  [ $rc = 0 ] && cat "$tmp/out"
+  return $rc
 }
 
 tmp=$(mktemp -d 2>/dev/null) || exit 0
@@ -85,6 +115,10 @@ off() {
 }
 
 tool=$(field tool_name)
+case "$1:$tool" in --stop:*) b=stop ;; --file:*) b=file ;; :mcp__*) b=mcp ;; *) b=shell ;; esac
+for d in $DEADLINES; do case $d in "$b="*) deadline=${d#*=} ;; esac; done
+# The self-test sets a short deadline, to reach a time limit in seconds.
+deadline=${WRITING_CONVENTIONS_GATE_DEADLINE:-$deadline}
 case "$1:$tool" in
   --stop:*)
     # A reply the session has tagged as a draft for publication. Only the text

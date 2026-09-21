@@ -25,6 +25,9 @@ cat > "$scratch/claude" <<'STUB'
 # One line per call: the arguments, then the marker the gate sets on its child.
 printf '%s nested=%s\n' "$*" "$WRITING_CONVENTIONS_NESTED" >> "$GATE_TEST_MARK"
 cat > "$GATE_TEST_MARK.stdin"
+# A call past its time limit: the sleep is a child, so that killing the stub
+# alone would leave it running.
+if [ -n "$GATE_TEST_SLEEP" ]; then sleep "$GATE_TEST_SLEEP" & echo $! > "$GATE_TEST_MARK.sleep"; wait; fi
 [ "$GATE_TEST_FAIL" = 1 ] && exit 1
 case " $* " in *' --safe-mode '*) [ "$GATE_TEST_FAIL" = safe ] && exit 1;; esac
 case "$*" in *classify-prompt.md*) printf '%s\n' "$GATE_TEST_CLASS"; exit 0;; esac
@@ -32,7 +35,8 @@ printf '%s\n' "$GATE_TEST_VERDICT"
 STUB
 chmod +x "$scratch/claude"
 PATH="$scratch:$PATH"
-unset CLAUDE_CODE_USE_POWERSHELL_TOOL WRITING_CONVENTIONS_GATE_MODEL WRITING_CONVENTIONS_NESTED
+unset CLAUDE_CODE_USE_POWERSHELL_TOOL WRITING_CONVENTIONS_GATE_MODEL WRITING_CONVENTIONS_NESTED \
+  WRITING_CONVENTIONS_GATE_DEADLINE GATE_TEST_SLEEP
 export GATE_TEST_MARK="$scratch/mark"
 
 # run <verdict> <fail> <command text>; sets $status, $stderr, and $called
@@ -401,6 +405,34 @@ printf '{"prompt_id":"s16","last_assistant_message":"%s"}' "$draft1" \
 status=$?
 [ "$status" = 0 ] || { echo "FAIL exit $status inside a nested call"; fail=1; }
 [ -s "$GATE_TEST_MARK" ] && { echo "FAIL model called inside a nested call"; fail=1; }
+unset TMPDIR
+
+# The time budget. A call past its limit is killed with its children, is not
+# retried with --bare, and lets the command through with the notice. The deadline
+# is set short so that the limit is 17 seconds rather than 60.
+export TMPDIR="$scratch/budgettmp"; mkdir -p "$TMPDIR"
+cases=$((cases + 1))
+: > "$GATE_TEST_MARK"
+export GATE_TEST_VERDICT=PASS GATE_TEST_FAIL=0
+out=$(printf '%s' '{"session_id":"slow","tool_input":{"command":"git commit -m x"}}' \
+  | GATE_TEST_SLEEP=40 WRITING_CONVENTIONS_GATE_DEADLINE=27 bash "$HERE/gate.sh" 2>/dev/null)
+[ $? = 0 ] || { echo "FAIL exit $? after a kill"; fail=1; }
+[ "$(wc -l < "$GATE_TEST_MARK" | tr -d ' ')" = 1 ] || { echo "FAIL a killed call was retried: $(cat "$GATE_TEST_MARK")"; fail=1; }
+case $out in '{"systemMessage":"'*'model review is off'*) ;; *) echo "FAIL no notice after a kill: $out"; fail=1;; esac
+kill -0 "$(cat "$GATE_TEST_MARK.sleep")" 2>/dev/null && { echo "FAIL the call's child outlived the kill"; fail=1; }
+# A call with under 15 seconds left is not started, on the MCP branch as well.
+cases=$((cases + 1))
+: > "$GATE_TEST_MARK"
+out=$(printf '%s' '{"session_id":"late","tool_name":"mcp__x__late","tool_input":{"text":"hi"}}' \
+  | WRITING_CONVENTIONS_GATE_DEADLINE=20 bash "$HERE/gate.sh" 2>/dev/null)
+[ $? = 0 ] && [ ! -s "$GATE_TEST_MARK" ] || { echo "FAIL a call started with under 15 seconds left"; fail=1; }
+case $out in '{"systemMessage":"'*) ;; *) echo "FAIL no notice for a call not started: $out"; fail=1;; esac
+# Each branch's deadline is its hook timeout in hooks.json less 15 seconds.
+cases=$((cases + 1))
+want=$(awk '/"matcher"/ { m = $0 } /gate\.(sh|ps1)/ { b = /--stop/ ? "stop" : /--file/ ? "file" : m ~ /mcp/ ? "mcp" : "shell" }
+  /"timeout"/ && b { gsub(/[^0-9]/, ""); print b "=" $0 - 15; b = "" }' "$HERE/hooks.json" | sort -u | tr '\n' ' ')
+have=$(sed -n "s/^DEADLINES='\(.*\)'$/\1/p" "$HERE/gate.sh" | tr ' ' '\n' | sort | tr '\n' ' ')
+[ "$want" = "$have" ] || { echo "FAIL deadlines in gate.sh [$have], from hooks.json [$want]"; fail=1; }
 unset TMPDIR
 
 # Garbage in place of the hook input is not a reason to block either.
