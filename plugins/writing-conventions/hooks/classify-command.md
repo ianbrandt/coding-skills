@@ -16,6 +16,17 @@ For each key, say what the command it names can do in any use, whatever the argu
 - `RUNS_CODE` when it runs code or sends a request given in its arguments, so that what it can
   publish is in those arguments (`python3`, `node`, `bash`, `perl`, `xargs`, `curl`).
 
+Three kinds of key need care:
+
+- A key that is a task runner and one more word names one task: `make check`, `./gradlew :app:test`,
+  `npm run build`. Judge that task. Building, testing, checking, linting, formatting, and cleaning
+  are `NEVER`; a task named for publishing, releasing, or deploying is `CAN_PUBLISH`.
+- Sending commits or files that already exist somewhere else, as `git push`, `git fetch`, and
+  `rsync` do, is `NEVER`: their text is read when it is written.
+- A word after a known tool that is not one of its subcommands, such as a directory given to a flag
+  (`git caffeine` from `git -C caffeine log`), is `NEVER`, because the real subcommand is a key of
+  its own. For a tool you do not know, doubt is `CAN_PUBLISH`.
+
 Judge each key by the command's name and what that command is for. Do not judge the text in this
 command.
 
