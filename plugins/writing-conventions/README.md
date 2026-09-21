@@ -18,10 +18,11 @@ subagent through [`hooks/rules-context.sh`](hooks/rules-context.sh), since a sub
 what a later summary is built from. The file is eight named
 anti-patterns, one line and one drafted-to-accepted pair each: inanimate agency, punctuation
 (spaced em dashes and the Oxford comma), a banned-vocabulary list, epigrams and paired contrasts,
-narration, sentence order, coinages, and writing for a reader who has read nothing since their last message. Two standing rules follow: a
-rule broken in a draft is swept across the branch, and the user's private circumstances stay out
-of public artifacts. It runs about 450 words, so it costs roughly 600 tokens per session and per
-subagent, down from about 1,600 words; the reasoning behind each rule, and its edge cases, sit in `write-for-the-reader` §8
+narration, sentence order, coinages, and writing for a reader who has read nothing since their last message. Three standing rules follow: a
+rule broken in a draft is swept across the branch, the user's private circumstances stay out
+of public artifacts, and a draft for publication goes in a fenced block with the info string
+`draft`, which is what the `Stop` reader below looks for. It runs about 620 words, so it costs
+roughly 800 tokens per session and per subagent, down from about 1,600 words; the reasoning behind each rule, and its edge cases, sit in `write-for-the-reader` §8
 and load only when that skill does.
 
 Prohibitions bind everywhere, `SKILL.md` files included, because they are about precision rather
@@ -206,6 +207,34 @@ that text and the file path, not the hook input.
 What is not read is stated in the same feedback: text past the first 50,000 characters, an `Edit`
 that only deletes, and the sentences around an `Edit` to a file over 1 MB, where `new_string` alone
 is read. A draft written to a file with a shell redirect is not read at all.
+
+### Chat drafts
+
+A draft the session hands its user to paste somewhere else never reaches a shell command or an MCP
+tool. A draft for publication goes in its own fenced block with the info string `draft`, which is
+one of the rules loaded into every session, and a `Stop` entry runs the gate scripts with `--stop`:
+the text inside each `draft` fence goes to the reader, and nothing else in the reply does. A turn with no such fence costs one scan and
+no model call.
+
+A verified finding exits 2, which continues the turn so the session emits a corrected draft. Claude
+Code has no hook that runs before a reply is displayed, so this is review after display, not before
+it. A blocked reply is re-emitted whole, so the blocking is counted in a file named for the turn's
+`prompt_id` and stops after two; the third time the user is told that review is unresolved and the
+reply stands. `WRITING_CONVENTIONS_STOP_READER=0` turns the reader off.
+
+The tag is what keeps this cheap, and it was measured before any of it was built, at n = 12 per arm
+with `claude -p --model sonnet`. With the draft named only as a by-product of a coding task, a
+drafting skill fired on 3 of 12 runs; of the 9 replies that held a draft, 6 were in a plain fence, 2
+in a blockquote, and 1 between `---` rules, and a plain fence of 8 words or more also trips on 4 of
+12 ordinary replies. With the tagging rule loaded, 11 of 11 drafts were tagged and 0 of 12 ordinary
+replies used the tag. A draft the session does not tag is not read by the model at all; the reply
+lint is all that sees it, which is what happened before this entry existed.
+
+Both matchers drop every closed fenced block before matching, so `--record` unwraps the `draft`
+fences first ([`hooks/draft.awk`](hooks/draft.awk), [`hooks/draft.ps1`](hooks/draft.ps1), the same
+scanner the reader uses) and the whole reply makes the one pass it always made. A code fence inside
+a draft is still a fence and is still dropped, which is why a draft that holds one goes in a longer
+fence.
 
 ### What is not gated
 
