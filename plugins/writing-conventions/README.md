@@ -311,8 +311,7 @@ in a longer fence.
 
 ### What is not gated
 
-A shell command outside the four families is not read, so `glab`, `hg`, `svn`, and `jj` publish
-unread. A `git push` is not read, because a branch name is chosen long before it.
+A `git push` is not read, because a branch name is chosen long before it.
 
 Adding a word to the banned list is a plugin release rather than a local edit: an installed session
 reads a version-keyed cache, so the plugin's `version` in `.claude-plugin/marketplace.json` has to
