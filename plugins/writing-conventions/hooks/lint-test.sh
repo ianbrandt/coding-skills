@@ -55,6 +55,31 @@ printf '{"session_id":"selftest","last_assistant_message":"This shape is vacuous
 case "$(printf '{"session_id":"selftest"}' | bash "$HERE/lint.sh" --emit)" in
   *flagged*) echo "FAIL nested record saved a note"; fail=1;;
 esac
+# A draft fence is unwrapped before the lint, so the check that is left when the
+# model reader cannot run still reads the draft. Every other fence is still
+# dropped, a code fence inside a draft included, and the reader's own off switch
+# does not reach the lint.
+# recnote <the reply, with \n for a newline>: the note --record saved for it
+recnote() {
+  printf '{"session_id":"selftest","last_assistant_message":"%s"}' "$1" | bash "$HERE/lint.sh" --record
+  printf '{"session_id":"selftest"}' | bash "$HERE/lint.sh" --emit
+}
+cases=$((cases + 1))
+case "$(recnote 'Here it is.\n\n```draft\nThis shape is vacuous.\n```\n')" in
+  *"banned word x1"*) ;; *) echo "FAIL no note for a draft fence"; fail=1;;
+esac
+cases=$((cases + 1))
+case "$(recnote 'Here it is.\n\n```python\nThis shape is vacuous.\n```\n')" in
+  *flagged*) echo "FAIL note for a python fence"; fail=1;;
+esac
+cases=$((cases + 1))
+case "$(recnote 'Here it is.\n\n````draft\nPlain text.\n\n```python\nThis shape is vacuous.\n```\n````\n')" in
+  *flagged*) echo "FAIL note for a python fence inside a draft fence"; fail=1;;
+esac
+cases=$((cases + 1))
+case "$(WRITING_CONVENTIONS_STOP_READER=0 recnote 'Here it is.\n\n```draft\nThis shape is vacuous.\n```\n')" in
+  *"banned word x1"*) ;; *) echo "FAIL no note with the reader off"; fail=1;;
+esac
 cases=$((cases + 1))
 n=$(printf '{"tool_name":"Write","tool_input":{"file_path":"/tmp/draft.md","content":"x"}}' | bash "$HERE/lint.sh" --nudge)
 case "$n" in '{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"You just wrote prose'*) ;; *) echo "FAIL nudge: $n"; fail=1;; esac

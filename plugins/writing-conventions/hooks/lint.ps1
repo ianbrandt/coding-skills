@@ -26,6 +26,9 @@ if (-not $LintPs1LoadOnly) {
   if (-not $PowerShellOwnsHook) { exit 0 }
 }
 
+# The draft-fence scanner, shared with gate.ps1.
+. (Join-Path $PSScriptRoot 'draft.ps1')
+
 $ErrorActionPreference = 'Stop'
 $EM = [char]0x2014
 
@@ -332,7 +335,13 @@ try {
       # hook registered that way runs inside the gate's nested call. That call sets
       # this marker on its child, and a reply written for the gate is not linted.
       if ($env:WRITING_CONVENTIONS_NESTED) { break }
-      $note = Invoke-Lint (Get-Field $json 'last_assistant_message') -AsNote
+      # Remove-CodeSpans drops every closed fence, so a draft moved into a
+      # `draft` fence would lose the one check that is left when the model
+      # reader cannot run. Get-DraftFence takes the fence lines of a draft block
+      # off first and leaves its text in place, and the whole reply makes the one
+      # pass it always made.
+      $reply = (Get-DraftFence (Get-Field $json 'last_assistant_message')).Unwrapped
+      $note = Invoke-Lint $reply -AsNote
       if ($sid -ne '') {
         if ($note -ne '') { [IO.File]::WriteAllText($state, $note + "`n", $utf8) }
         elseif (Test-Path -LiteralPath $state) { Remove-Item -LiteralPath $state -Force }

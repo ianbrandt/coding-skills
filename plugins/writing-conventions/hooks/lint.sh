@@ -33,7 +33,12 @@ case "$mode" in
     # hook registered that way runs inside the gate's nested call. That call sets
     # this marker on its child, and a reply written for the gate is not linted.
     [ -z "$WRITING_CONVENTIONS_NESTED" ] || exit 0
+    # lint.awk drops every closed fence, so a draft moved into a `draft` fence
+    # would lose the one check that is left when the model reader cannot run.
+    # draft.awk takes the fence lines of a draft block off first and leaves its
+    # text in place, and the whole reply makes the one pass it always made.
     note=$(printf '%s' "$input" | awk -v key=last_assistant_message -f "$HERE/jsonstr.awk" \
+      | awk -v unwrap=1 -f "$HERE/draft.awk" \
       | awk -v note=1 -f "$HERE/lint.awk")
     if [ -n "$note" ]; then printf '%s\n' "$note" > "$state"; elif [ "$state" != /dev/null ]; then rm -f "$state"; fi
     ;;

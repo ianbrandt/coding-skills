@@ -94,6 +94,36 @@ try {
     Write-Output 'FAIL nested record saved a note'; $fail = 1
   }
 
+  # A draft fence is unwrapped before the lint, so the check that is left when
+  # the model reader cannot run still reads the draft. Every other fence is
+  # still dropped, a code fence inside a draft included, and the reader's own
+  # off switch does not reach the lint.
+  # The note --record saved for one reply, whose \n are newlines.
+  function Get-RecordedNote([string]$reply) {
+    [void](Invoke-Hook '--record' ('{"session_id":"selftest","last_assistant_message":"' + $reply + '"}'))
+    return (Invoke-Hook '--emit' '{"session_id":"selftest"}')
+  }
+  $tick = [string][char]0x60
+  $f3 = $tick * 3
+  $f4 = $tick * 4
+  $cases++
+  if ((Get-RecordedNote ('Here it is.\n\n' + $f3 + 'draft\nThis shape is vacuous.\n' + $f3 + '\n')) -notlike '*banned word x1*') {
+    Write-Output 'FAIL no note for a draft fence'; $fail = 1
+  }
+  $cases++
+  if ((Get-RecordedNote ('Here it is.\n\n' + $f3 + 'python\nThis shape is vacuous.\n' + $f3 + '\n')) -like '*flagged*') {
+    Write-Output 'FAIL note for a python fence'; $fail = 1
+  }
+  $cases++
+  if ((Get-RecordedNote ('Here it is.\n\n' + $f4 + 'draft\nPlain text.\n\n' + $f3 + 'python\nThis shape is vacuous.\n' + $f3 + '\n' + $f4 + '\n')) -like '*flagged*') {
+    Write-Output 'FAIL note for a python fence inside a draft fence'; $fail = 1
+  }
+  $cases++
+  $env:WRITING_CONVENTIONS_STOP_READER = '0'
+  try { $off = Get-RecordedNote ('Here it is.\n\n' + $f3 + 'draft\nThis shape is vacuous.\n' + $f3 + '\n') }
+  finally { $env:WRITING_CONVENTIONS_STOP_READER = $null }
+  if ($off -notlike '*banned word x1*') { Write-Output 'FAIL no note with the reader off'; $fail = 1 }
+
   $cases++
   $n = Invoke-Hook '--nudge' '{"tool_name":"Write","tool_input":{"file_path":"/tmp/draft.md","content":"x"}}'
   if ($n -notlike '{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"You just wrote prose*') {
