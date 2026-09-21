@@ -29,7 +29,6 @@ cat > "$GATE_TEST_MARK.stdin"
 # alone would leave it running.
 if [ -n "$GATE_TEST_SLEEP" ]; then sleep "$GATE_TEST_SLEEP" & echo $! > "$GATE_TEST_MARK.sleep"; wait; fi
 [ "$GATE_TEST_FAIL" = 1 ] && exit 1
-case " $* " in *' --safe-mode '*) [ "$GATE_TEST_FAIL" = safe ] && exit 1;; esac
 case "$*" in *classify-prompt.md*) printf '%s\n' "$GATE_TEST_CLASS"; exit 0;; esac
 # The shell classifier: each key after the blank line that GATE_TEST_KEYS has a
 # line for, key=CLASS, is answered with a tab, and GATE_TEST_RAW replaces the reply.
@@ -132,7 +131,7 @@ expect 0 yes '' 0 'git commit -m \"Plain message\"'
 # The reader call. `--tools=` is one argument, because PowerShell can drop an empty
 # one, and the marker is set on the child so that a copy of this hook registered by
 # managed policy, which `--safe-mode` does not turn off, exits inside the nested call.
-# calls <count> <pattern for call 1> [<pattern for call 2>], against the last run
+# calls <count> <pattern per call>..., against the last run
 calls() {
   cases=$((cases + 1))
   [ "$(wc -l < "$GATE_TEST_MARK" | tr -d ' ')" = "$1" ] || { echo "FAIL $(cat "$GATE_TEST_MARK"), wanted $1 calls"; fail=1; }
@@ -143,19 +142,10 @@ calls() {
   done < "$GATE_TEST_MARK"
 }
 run PASS 0 "$says"
-# The rules reach the reader from rules.md, appended to gate-prompt.md, on both calls.
+# The rules reach the reader from rules.md, appended to gate-prompt.md.
 calls 1 '*--safe-mode --tools= --model*gate-prompt.md --append-system-prompt-file *rules.md nested=1'
-case $(cat "$GATE_TEST_MARK") in *--bare*) echo 'FAIL --bare on a first call'; fail=1;; esac
-# A call that exits non-zero is retried once with --bare, and that verdict counts.
-run 'VIOLATION
-"The report says so" -> x' safe "$says"
-[ "$status" = 2 ] || { echo "FAIL exit $status, wanted 2 from the --bare retry"; fail=1; }
-calls 2 '*--safe-mode --tools= *nested=1' '*--bare --tools= --model*--append-system-prompt-file *rules.md nested=1'
 run '' 1 "$says"
-[ "$status" = 0 ] || { echo "FAIL exit $status, wanted 0 with both calls failing"; fail=1; }
-calls 2 '*--safe-mode*' '*--bare*'
-# A reply in the wrong form from a call that exited 0 is not retried.
-run 'the report says: rewrite it' 0 "$says"
+[ "$status" = 0 ] || { echo "FAIL exit $status, wanted 0 with the call failing"; fail=1; }
 calls 1 '*--safe-mode*'
 # Inside a nested call the gate does nothing, whatever the reader would have said.
 export WRITING_CONVENTIONS_NESTED=1
@@ -268,7 +258,7 @@ long=$(awk 'BEGIN { for (i = 0; i < 1000; i++) printf "Sixty characters of plain
 file 1 '*Only the first 50000 characters*' PASS "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"$doc\",\"content\":\"$long\"}}"
 [ ${#sent} -lt 51000 ] || { echo "FAIL ${#sent} characters sent past the cap"; fail=1; }
 # A reader that cannot run says nothing, and the advisory nudge in lint.sh still fires.
-file 2 '' '' "$(edit "$doc" says)" 1
+file 1 '' '' "$(edit "$doc" says)" 1
 
 # The first time in a session that a check cannot run, the user is told once, through
 # systemMessage, which the user is shown and the model is not. The marker is a file
@@ -494,9 +484,9 @@ case $out in '{"systemMessage":"'*'model review is off'*) ;; *) echo "FAIL no no
 
 unset TMPDIR
 
-# The time budget. A call past its limit is killed with its children, is not
-# retried with --bare, and lets the command through with the notice. The deadline
-# is set short so that the limit is 17 seconds rather than 60.
+# The time budget. A call past its limit is killed with its children and lets the
+# command through with the notice. The deadline is set short so that the limit is
+# 17 seconds rather than 60.
 export TMPDIR="$scratch/budgettmp"; mkdir -p "$TMPDIR"
 cases=$((cases + 1))
 : > "$GATE_TEST_MARK"
@@ -504,7 +494,7 @@ export GATE_TEST_VERDICT=PASS GATE_TEST_FAIL=0
 out=$(printf '%s' '{"session_id":"slow","tool_input":{"command":"git commit -m x"}}' \
   | GATE_TEST_SLEEP=40 WRITING_CONVENTIONS_GATE_DEADLINE=27 bash "$HERE/gate.sh" 2>/dev/null)
 [ $? = 0 ] || { echo "FAIL exit $? after a kill"; fail=1; }
-[ "$(wc -l < "$GATE_TEST_MARK" | tr -d ' ')" = 1 ] || { echo "FAIL a killed call was retried: $(cat "$GATE_TEST_MARK")"; fail=1; }
+[ "$(wc -l < "$GATE_TEST_MARK" | tr -d ' ')" = 1 ] || { echo "FAIL calls after a kill: $(cat "$GATE_TEST_MARK")"; fail=1; }
 case $out in '{"systemMessage":"'*'model review is off'*) ;; *) echo "FAIL no notice after a kill: $out"; fail=1;; esac
 kill -0 "$(cat "$GATE_TEST_MARK.sleep")" 2>/dev/null && { echo "FAIL the call's child outlived the kill"; fail=1; }
 # A call with under 15 seconds left is not started, on the MCP branch as well.

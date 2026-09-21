@@ -56,7 +56,6 @@ rem A call past its time limit: ping is a child, so that killing the stub alone
 rem would leave it running.
 if not "%GATE_TEST_SLEEP%"=="" ping -n %GATE_TEST_SLEEP% 127.0.0.1 >nul
 if "%GATE_TEST_FAIL%"=="1" exit /b 1
-if "%GATE_TEST_FAIL%"=="safe" if "%2"=="--safe-mode" exit /b 1
 echo %* | findstr /c:"classify-prompt.md" >nul && (echo %GATE_TEST_CLASS%& exit /b 0)
 echo %* | findstr /c:"classify-command.md" >nul && (type "%GATE_TEST_KEYS_FILE%" 2>nul& exit /b 0)
 if exist "%GATE_TEST_VERDICT_FILE%" type "%GATE_TEST_VERDICT_FILE%"
@@ -72,7 +71,6 @@ cat > "$GATE_TEST_MARK.stdin"
 # alone would leave it running.
 if [ -n "$GATE_TEST_SLEEP" ]; then sleep "$GATE_TEST_SLEEP" & echo $! > "$GATE_TEST_MARK.sleep"; wait; fi
 [ "$GATE_TEST_FAIL" = 1 ] && exit 1
-[ "$GATE_TEST_FAIL" = safe ] && [ "$2" = --safe-mode ] && exit 1
 case "$*" in *classify-prompt.md*) printf '%s\n' "$GATE_TEST_CLASS"; exit 0;; esac
 case "$*" in *classify-command.md*) cat "$GATE_TEST_KEYS_FILE" 2>/dev/null; exit 0;; esac
 cat "$GATE_TEST_VERDICT_FILE" 2>/dev/null
@@ -212,18 +210,10 @@ try {
   }
   $blocking = "VIOLATION`n`"The report says so`" -> x"
   $null = Invoke-Gate 'PASS' '0' $says
-  # The rules reach the reader from rules.md, appended to gate-prompt.md, on both calls.
+  # The rules reach the reader from rules.md, appended to gate-prompt.md.
   Test-Calls @('*--safe-mode --tools= --model*gate-prompt.md --append-system-prompt-file *rules.md nested=1*')
-  if ((Get-Content -Raw -LiteralPath $env:GATE_TEST_MARK) -like '*--bare*') { Write-Output 'FAIL --bare on a first call'; $fail = 1 }
-  # A call that exits non-zero is retried once with --bare, and that verdict counts.
-  $r = Invoke-Gate $blocking 'safe' $says
-  if ($r.Status -ne 2) { Write-Output ("FAIL exit " + $r.Status + ", wanted 2 from the --bare retry"); $fail = 1 }
-  Test-Calls @('*--safe-mode --tools= *nested=1*', '*--bare --tools= --model*--append-system-prompt-file *rules.md nested=1*')
   $r = Invoke-Gate '' '1' $says
-  if ($r.Status -ne 0) { Write-Output ("FAIL exit " + $r.Status + ", wanted 0 with both calls failing"); $fail = 1 }
-  Test-Calls @('*--safe-mode*', '*--bare*')
-  # A reply in the wrong form from a call that exited 0 is not retried.
-  $null = Invoke-Gate 'the report says: rewrite it' '0' $says
+  if ($r.Status -ne 0) { Write-Output ("FAIL exit " + $r.Status + ", wanted 0 with the call failing"); $fail = 1 }
   Test-Calls @('*--safe-mode*')
   # Inside a nested call the gate does nothing, whatever the reader would have said.
   $env:WRITING_CONVENTIONS_NESTED = '1'
@@ -345,7 +335,7 @@ try {
   $r = Test-File 1 '*Only the first 50000 characters*' 'PASS' (New-Input 'Write' @{ file_path = $doc; content = $long })
   if ($r.Sent.Length -ge 51000) { Write-Output ("FAIL " + $r.Sent.Length + " characters sent past the cap"); $fail = 1 }
   # A reader that cannot run says nothing, and the advisory nudge in lint.ps1 still fires.
-  $null = Test-File 2 '' '' (New-Edit $doc 'says') '1'
+  $null = Test-File 1 '' '' (New-Edit $doc 'says') '1'
 
   # The first time in a session that a check cannot run, the user is told once, through
   # systemMessage, which the user is shown and the model is not. The marker is a file
@@ -581,9 +571,9 @@ try {
   finally { $env:PATH = $scratch + [IO.Path]::PathSeparator + $saved.PATH }
   if ($script:shellOut -notlike '{"systemMessage":"*model review is off*') { Write-Output ("FAIL no notice without claude: " + $script:shellOut); $fail = 1 }
 
-  # The time budget. A call past its limit is killed with its children, is not
-  # retried with --bare, and lets the command through with the notice. The
-  # deadline is set short so that the limit is 17 seconds rather than 60.
+  # The time budget. A call past its limit is killed with its children and lets
+  # the command through with the notice. The deadline is set short so that the
+  # limit is 17 seconds rather than 60.
   $env:TMPDIR = Join-Path $scratch 'budgettmp'
   [void](New-Item -ItemType Directory -Path $env:TMPDIR)
   $cases++
@@ -599,7 +589,7 @@ try {
   } finally { $env:GATE_TEST_SLEEP = $null; $env:WRITING_CONVENTIONS_GATE_DEADLINE = $null }
   if ($status -ne 0) { Write-Output "FAIL exit $status after a kill"; $fail = 1 }
   $lines = @(Get-Content -LiteralPath $env:GATE_TEST_MARK | Where-Object { $_ -ne '' })
-  if ($lines.Count -ne 1) { Write-Output ("FAIL a killed call was retried: " + ($lines -join ' | ')); $fail = 1 }
+  if ($lines.Count -ne 1) { Write-Output ("FAIL calls after a kill: " + ($lines -join ' | ')); $fail = 1 }
   if ($out -notlike '{"systemMessage":"*model review is off*') { Write-Output "FAIL no notice after a kill: $out"; $fail = 1 }
   if (-not $onWindows) {
     $sleeper = [int](Get-Content -LiteralPath ($env:GATE_TEST_MARK + '.sleep'))

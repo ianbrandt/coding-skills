@@ -142,13 +142,10 @@ was 1.9k input tokens and 3.3 to 3.8 seconds with it, and 26k tokens with `--saf
 flag is `--tools=` and not `--tools ""` because PowerShell can drop an empty argument on the way to
 `claude`.
 
-`--safe-mode` has not been checked on an install that signs in through a gateway with a key, so a
-call that exits non-zero is retried once with `--bare` in its place. `--bare` takes
-`ANTHROPIC_API_KEY`, an `apiKeyHelper` from a settings file, or a third-party provider's own
-credentials, and prints "Not logged in" on a browser sign-in. Every failure path exits 0, so a gate
-that cannot reach a model lets the command through instead of blocking it.
+Every failure path exits 0, so a gate that cannot reach a model lets the command through instead of
+blocking it.
 
-The first time in a session that both calls fail, or that `claude` is not on the path, the user is
+The first time in a session that the call fails, or that `claude` is not on the path, the user is
 told once that model review is off, through the hook's `systemMessage`, which is shown to the user
 and not to the model. The marker is a file in the temporary directory, named for the session id. A
 reply from a call that exited 0 is not such a failure, whatever its form.
@@ -166,8 +163,8 @@ plumbing offline against a stub `claude` on the PATH: which commands reach the m
 block a command, the exit codes, and the fail-open path.
 
 Each nested call gets at most 60 seconds, less when the hook is short of time, and none starts with
-under 15 seconds left. A call past its limit is killed with its children, is not retried with
-`--bare`, and counts as a failed call. Each hook keeps 15 seconds of its timeout for that cleanup.
+under 15 seconds left. A call past its limit is killed with its children and counts as a failed
+call. 15 seconds of each hook's timeout is reserved for that cleanup.
 
 ### Other shell commands
 

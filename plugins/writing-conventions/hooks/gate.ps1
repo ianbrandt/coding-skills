@@ -21,11 +21,6 @@
 # hook resolves nothing: `"model": "sonnet"` there reaches the API verbatim and
 # comes back as HTTP 400, which is why the check runs out here instead.
 #
-# `--safe-mode` has not been checked on an install that signs in through a gateway
-# with a key (see TODO.md), so a call that exits non-zero is retried once with
-# `--bare`, which is known to work there and prints "Not logged in" on a browser
-# sign-in.
-#
 # A gate that cannot reach a model must not stop a commit, so every failure path
 # exits 0. Only a finding with its quote in the command exits 2, which blocks the
 # command and hands the text back to the session.
@@ -81,22 +76,18 @@ if ($stopMode) { $branch = 'stop' } elseif ($fileMode) { $branch = 'file' } else
 $deadline = $Deadlines[$branch]
 if ($env:WRITING_CONVENTIONS_GATE_DEADLINE) { $deadline = [int]$env:WRITING_CONVENTIONS_GATE_DEADLINE }
 
-# The reply to one nested call on $message, the hook input by default, retried
-# once with --bare when the first call exits non-zero, or $null when both do. A
-# call that was killed at its time limit, or not started for lack of time, is not
-# retried. With no `claude` on the path there is no call, which is the same
-# failure.
+# The reply to one nested call on $message, the hook input by default, or $null
+# when the call exits non-zero, was killed at its time limit, or was not started
+# for lack of time. With no `claude` on the path there is no call, which is the
+# same failure.
 function Invoke-Model([string]$promptFile, [string]$appendFile, [string]$message = $raw) {
   $exe = @(Get-Command claude -CommandType Application -ErrorAction SilentlyContinue)
   if ($exe.Count -eq 0) { return $null }
   $more = @()
   if ($appendFile) { $more = @('--append-system-prompt-file', (Join-Path $PSScriptRoot $appendFile)) }
-  foreach ($mode in '--safe-mode', '--bare') {
-    $argv = @('-p', $mode, '--tools=', '--model', $model, '--system-prompt-file', (Join-Path $PSScriptRoot $promptFile)) + $more
-    $r = Invoke-Claude $exe[0].Source $argv $message
-    if ($r.Code -eq 0) { return $r.Out }
-    if ($r.Killed) { return $null }
-  }
+  $argv = @('-p', '--safe-mode', '--tools=', '--model', $model, '--system-prompt-file', (Join-Path $PSScriptRoot $promptFile)) + $more
+  $r = Invoke-Claude $exe[0].Source $argv $message
+  if ($r.Code -eq 0) { return $r.Out }
   return $null
 }
 
@@ -105,7 +96,7 @@ function Invoke-Model([string]$promptFile, [string]$appendFile, [string]$message
 # codepage, and a .cmd or .bat launcher runs through cmd.exe.
 function Invoke-Claude([string]$path, [string[]]$argv, [string]$message) {
   $limit = [Math]::Min(60, $deadline - [int]$clock.Elapsed.TotalSeconds - 10)
-  if ($limit -lt 15) { return @{ Killed = $true } }
+  if ($limit -lt 15) { return @{ Code = 1 } }
   $line = (@($argv | ForEach-Object { Format-Argument $_ }) -join ' ')
   $psi = New-Object System.Diagnostics.ProcessStartInfo
   if ($path -match '\.(cmd|bat)$') {
@@ -136,7 +127,7 @@ function Invoke-Claude([string]$path, [string[]]$argv, [string]$message) {
       elseif ($env:OS -eq 'Windows_NT') { & taskkill.exe /T /F /PID $p.Id 2>$null | Out-Null }
       else { $p.Kill() }
     } catch { }
-    return @{ Killed = $true }
+    return @{ Code = 1 }
   }
   $p.WaitForExit()
   return @{ Code = $p.ExitCode; Out = $out.Result }

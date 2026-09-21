@@ -22,11 +22,6 @@
 # hook resolves nothing: `"model": "sonnet"` there reaches the API verbatim and
 # comes back as HTTP 400, which is why the check runs out here instead.
 #
-# `--safe-mode` has not been checked on an install that signs in through a gateway
-# with a key (see TODO.md), so a call that exits non-zero is retried once with
-# `--bare`, which is known to work there and prints "Not logged in" on a browser
-# sign-in.
-#
 # A gate that cannot reach a model must not stop a commit, so every failure path
 # exits 0. Only a finding with its quote in the text under review exits 2, which
 # blocks the command or the call and hands the text back to the session.
@@ -46,16 +41,12 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 input=$(cat)
 
 # ask <system prompt> [<file appended to it>]: the reply to one nested call on
-# $msg, or on the hook input when $msg is empty, retried once with --bare when the
-# first call exits non-zero. A call that was killed at its time limit, or not
-# started for lack of time, is not retried. With no `claude` on the path there is
-# no call, which is the same failure.
+# $msg, or on the hook input when $msg is empty, and non-zero when the call exits
+# non-zero, was killed at its time limit, or was not started for lack of time.
+# With no `claude` on the path there is no call, which is the same failure.
 ask() {
   command -v claude >/dev/null 2>&1 || return 1
-  call --safe-mode "$@"; rc=$?
-  [ $rc = 0 ] && return 0
-  [ $rc = 124 ] && return 1
-  call --bare "$@"
+  call --safe-mode "$@"
 }
 # A command can need a classifier call and then a reader call, so each call gets
 # the smaller of 60 seconds and the time left less 10, and none starts with under
