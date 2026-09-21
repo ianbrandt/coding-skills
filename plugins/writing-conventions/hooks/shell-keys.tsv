@@ -80,6 +80,7 @@ bash	cat <<'EOF'\nhg commit -m "it's"\nEOF	1:cat
 bash	cat <<EOF\nplain text, it's fine\nEOF\nls	1:cat | 2:ls
 bash	cat <<-EOF\n\tbody\n\tEOF\nls	1:cat | 2:ls
 bash	git commit -F- <<'EOF'\nThe report says so.\nEOF	1:git | 1:git commit | 1:+git commit
+bash	cat <<EOF\neof\nhg commit -m x\nEOF	1:cat
 bash	cat <<EOF | grep x\nbody\nEOF	1:cat | 2:grep | 2:grep x | 2:+grep x
 bash	echo "<<EOF" x	1:echo | 1:echo ? | 1:+echo ? | 1:+echo x
 # An expanding heredoc with a substitution in it is READ (R21-15).

@@ -15,6 +15,35 @@ $cases = 0
 
 $scratch = Join-Path ([IO.Path]::GetTempPath()) ("gateps-" + [Guid]::NewGuid().ToString('N'))
 [void](New-Item -ItemType Directory -Path $scratch)
+# keys.ps1 against the fixture it shares with keys.awk. \n and \t in a command
+# are a newline and a tab, and the output lines are joined as the fixture writes them.
+. (Join-Path $here 'keys.ps1')
+foreach ($rawLine in Get-Content -LiteralPath (Join-Path $here 'shell-keys.tsv')) {
+  if ($rawLine -eq '' -or $rawLine.StartsWith('#')) { continue }
+  $fields = $rawLine -split "`t"
+  if ($fields.Count -lt 3) { continue }
+  $cases++
+  $cmd = $fields[1] -creplace '\\n', "`n" -creplace '\\t', "`t"
+  $out = Get-CommandKey $cmd $fields[0]
+  if ($out.Count -eq 0) {
+    $got = '-'
+  } else {
+    $parts = foreach ($line in $out) {
+      $idx = $line.IndexOf("`t")
+      $line.Substring(0, $idx) + ':' + $line.Substring($idx + 1)
+    }
+    $got = $parts -join ' | '
+  }
+  if ($got -cne $fields[2]) {
+    Write-Output ("FAIL keys " + $fields[0] + ": " + $fields[1])
+    Write-Output ("  wanted " + $fields[2])
+    Write-Output ("  got    " + $got)
+    $fail = 1
+  }
+}
+
+$scratch = Join-Path ([IO.Path]::GetTempPath()) ("gateps-" + [Guid]::NewGuid().ToString('N'))
+[void](New-Item -ItemType Directory -Path $scratch)
 # The stub is named for the platform running the test: a .bat is not resolved as
 # `claude` off Windows, and without this the gate finds the real CLI on the PATH
 # and every case that wants the stub reads as "model not called".
