@@ -42,8 +42,10 @@ if ($env:WRITING_CONVENTIONS_NESTED) { exit 0 }
 . (Join-Path $PSScriptRoot 'shell-owner.ps1')
 if (-not $PowerShellOwnsHook) { exit 0 }
 
-# The draft-fence scanner, shared with lint.ps1.
+# The draft-fence scanner, shared with lint.ps1, and the shell command splitter,
+# the same as keys.awk.
 . (Join-Path $PSScriptRoot 'draft.ps1')
+. (Join-Path $PSScriptRoot 'keys.ps1')
 
 # Native stderr under 'Stop' is a terminating error on 5.1 once it is redirected,
 # and the nested call is allowed to fail.
@@ -66,21 +68,84 @@ if ($null -eq $json) { exit 0 }
 if (-not $stopMode -and $null -eq $json.tool_input) { exit 0 }
 $model = if ($env:WRITING_CONVENTIONS_GATE_MODEL) { $env:WRITING_CONVENTIONS_GATE_MODEL } else { 'sonnet' }
 
-# The reply to one nested call on the hook input, retried once with --bare when the
-# first call exits non-zero, or $null when both do. With no `claude` on the path
-# there is no call, which is the same failure.
-function Invoke-Model([string]$promptFile, [string]$appendFile) {
-  if (-not (Get-Command claude -ErrorAction SilentlyContinue)) { return $null }
+# A command can need a classifier call and then a reader call, so each call gets
+# the smaller of 60 seconds and the time left less 10, and none starts with under
+# 15. The deadline for each branch is 15 seconds short of its hook timeout in
+# hooks.json, so that a killed call, the cleanup, and the notice fit inside it;
+# gate-test.ps1 checks the two agree. The self-test sets a short deadline, to
+# reach a time limit in seconds.
+$Deadlines = @{ shell = 165; mcp = 75; file = 45; stop = 45 }
+$clock = [Diagnostics.Stopwatch]::StartNew()
+$branch = 'shell'
+if ($stopMode) { $branch = 'stop' } elseif ($fileMode) { $branch = 'file' } elseif ([string]$json.tool_name -like 'mcp__*') { $branch = 'mcp' }
+$deadline = $Deadlines[$branch]
+if ($env:WRITING_CONVENTIONS_GATE_DEADLINE) { $deadline = [int]$env:WRITING_CONVENTIONS_GATE_DEADLINE }
+
+# The reply to one nested call on $message, the hook input by default, retried
+# once with --bare when the first call exits non-zero, or $null when both do. A
+# call that was killed at its time limit, or not started for lack of time, is not
+# retried. With no `claude` on the path there is no call, which is the same
+# failure.
+function Invoke-Model([string]$promptFile, [string]$appendFile, [string]$message = $raw) {
+  $exe = @(Get-Command claude -CommandType Application -ErrorAction SilentlyContinue)
+  if ($exe.Count -eq 0) { return $null }
   $more = @()
   if ($appendFile) { $more = @('--append-system-prompt-file', (Join-Path $PSScriptRoot $appendFile)) }
-  $env:WRITING_CONVENTIONS_NESTED = '1'
-  try {
-    foreach ($mode in '--safe-mode', '--bare') {
-      $reply = ($raw | claude -p $mode --tools= --model $model --system-prompt-file (Join-Path $PSScriptRoot $promptFile) @more 2>$null | Out-String)
-      if ($LASTEXITCODE -eq 0) { return $reply }
-    }
-  } catch { } finally { $env:WRITING_CONVENTIONS_NESTED = $null }
+  foreach ($mode in '--safe-mode', '--bare') {
+    $argv = @('-p', $mode, '--tools=', '--model', $model, '--system-prompt-file', (Join-Path $PSScriptRoot $promptFile)) + $more
+    $r = Invoke-Claude $exe[0].Source $argv $message
+    if ($r.Code -eq 0) { return $r.Out }
+    if ($r.Killed) { return $null }
+  }
   return $null
+}
+
+# One call, killed with its process tree at its time limit. The message is written
+# to stdin as UTF-8 bytes, because 5.1 would encode it through the console
+# codepage, and a .cmd or .bat launcher runs through cmd.exe.
+function Invoke-Claude([string]$path, [string[]]$argv, [string]$message) {
+  $limit = [Math]::Min(60, $deadline - [int]$clock.Elapsed.TotalSeconds - 10)
+  if ($limit -lt 15) { return @{ Killed = $true } }
+  $line = (@($argv | ForEach-Object { Format-Argument $_ }) -join ' ')
+  $psi = New-Object System.Diagnostics.ProcessStartInfo
+  if ($path -match '\.(cmd|bat)$') {
+    $psi.FileName = $env:ComSpec
+    $psi.Arguments = '/d /s /c "' + (Format-Argument $path) + ' ' + $line + '"'
+  } else {
+    $psi.FileName = $path
+    $psi.Arguments = $line
+  }
+  $psi.UseShellExecute = $false
+  $psi.RedirectStandardInput = $true
+  $psi.RedirectStandardOutput = $true
+  $psi.RedirectStandardError = $true
+  $psi.StandardOutputEncoding = $utf8
+  $psi.EnvironmentVariables['WRITING_CONVENTIONS_NESTED'] = '1'
+  try { $p = [System.Diagnostics.Process]::Start($psi) } catch { return @{ Code = 1 } }
+  $out = $p.StandardOutput.ReadToEndAsync()
+  [void]$p.StandardError.ReadToEndAsync()
+  try {
+    $bytes = $utf8.GetBytes($message)
+    $p.StandardInput.BaseStream.Write($bytes, 0, $bytes.Length)
+    $p.StandardInput.Close()
+  } catch { }
+  if (-not $p.WaitForExit($limit * 1000)) {
+    # Kill(true) takes the children too, and is missing from the .NET that 5.1 runs on.
+    try {
+      if ($p.GetType().GetMethod('Kill', [type[]]@([bool]))) { $p.Kill($true) }
+      elseif ($env:OS -eq 'Windows_NT') { & taskkill.exe /T /F /PID $p.Id 2>$null | Out-Null }
+      else { $p.Kill() }
+    } catch { }
+    return @{ Killed = $true }
+  }
+  $p.WaitForExit()
+  return @{ Code = $p.ExitCode; Out = $out.Result }
+}
+
+# One argument quoted as the C runtime splits a command line.
+function Format-Argument([string]$a) {
+  if ($a -ne '' -and $a -notmatch '[\s"]') { return $a }
+  return '"' + (($a -replace '(\\*)"', '$1$1\"') -replace '(\\+)$', '$1$1') + '"'
 }
 
 # The exit for a check that could not run. The user is told the first time in a
@@ -139,6 +204,154 @@ function Get-Excerpt([string]$text, [string]$new) {
     $at = $text.IndexOf($new, $end, [StringComparison]::Ordinal)
   }
   return (@($keep | ForEach-Object { $text.Substring($_[0], $_[1] - $_[0]).Trim("`n") }) -join "`n`n")
+}
+
+# walk.awk, in PowerShell: READER, SAFE, or ASK followed by one
+# "ASK<TAB><scope><TAB><key>" line per key the cache has no answer for. With
+# $final a key with no answer reads as CAN_PUBLISH. walk.awk's header has the
+# rules.
+function Invoke-Walk([string[]]$keys, [string[]]$cache, [string]$scope, [bool]$final) {
+  $names = @('', 'NEVER', 'DESCEND', 'PROJECT', 'RUNS_CODE', 'CAN_PUBLISH')
+  $rank = New-Object 'System.Collections.Generic.Dictionary[string,int]'
+  for ($i = 1; $i -le 5; $i++) { $rank[$names[$i]] = $i }
+  $best = New-Object 'System.Collections.Generic.Dictionary[string,int]'
+  foreach ($line in $cache) {
+    $f = $line.Split("`t")
+    if ($f.Count -ne 3 -or ($f[0] -cne '*' -and $f[0] -cne $scope) -or -not $rank.ContainsKey($f[1])) { continue }
+    $k = $f[0] + "`t" + $f[2]
+    if (-not $best.ContainsKey($k) -or $rank[$f[1]] -gt $best[$k]) { $best[$k] = $rank[$f[1]] }
+  }
+  $ent = New-Object 'System.Collections.Generic.Dictionary[int,System.Collections.Generic.List[string]]'
+  $prose = $false; $nseg = 0
+  foreach ($line in $keys) {
+    $f = $line.Split("`t")
+    if ($f[0] -ceq '0') { if ($f[1] -ceq 'PROSE') { $prose = $true }; continue }
+    $s = [int]$f[0]
+    if ($s -gt $nseg) { $nseg = $s }
+    if (-not $ent.ContainsKey($s)) { $ent[$s] = New-Object 'System.Collections.Generic.List[string]' }
+    $ent[$s].Add($f[1])
+  }
+  function ScopeOf([string]$key, [bool]$task) {
+    if ($task) { return $scope }
+    if ($key.Split(' ')[0] -match '[/$\\]') { return $scope }
+    return '*'
+  }
+  function ClassOf([string]$key, [bool]$task) {
+    $k = (ScopeOf $key $task) + "`t" + $key
+    if ($best.ContainsKey($k)) { return $names[$best[$k]] }
+    if ($final) { return 'CAN_PUBLISH' }
+    return ''
+  }
+  # Whether e is key and one more word.
+  function IsChild([string]$e, [string]$key) {
+    return $e.StartsWith($key + ' ', [StringComparison]::Ordinal) -and $e.Substring($key.Length + 1).IndexOf(' ') -lt 0
+  }
+  function Walk-Node([int]$s, [string]$key, [int]$d, [bool]$task) {
+    $c = ClassOf $key $task
+    if ($c -eq '') { return 'UNKNOWN' }
+    if ($c -ceq 'NEVER') { return 'SAFE' }
+    if ($c -ceq 'CAN_PUBLISH' -or $task) { return 'READER' }
+    if ($c -ceq 'RUNS_CODE') { if ($prose) { return 'READER' } else { return 'SAFE' } }
+    $res = 'SAFE'
+    if ($c -ceq 'DESCEND') {
+      if ($d -ge 3 -or $ent[$s].Contains($key + ' ?')) { return 'READER' }
+      foreach ($e in $ent[$s]) {
+        if ($e.StartsWith('+') -or -not (IsChild $e $key) -or $e -ceq ($key + ' ?')) { continue }
+        $r = Walk-Node $s $e ($d + 1) $false
+        if ($r -ceq 'READER') { return $r }
+        if ($r -ceq 'UNKNOWN') { $res = $r }
+      }
+      return $res
+    }
+    # PROJECT
+    if ($ent[$s].Contains('+' + $key + ' ?') -or $ent[$s].Contains('+' + $key + ' !')) { return 'READER' }
+    $kids = 0
+    foreach ($e in $ent[$s]) {
+      if (-not $e.StartsWith('+') -or -not (IsChild $e.Substring(1) $key)) { continue }
+      $kids++
+      $r = Walk-Node $s $e.Substring(1) ($d + 1) $true
+      if ($r -ceq 'READER') { return $r }
+      if ($r -ceq 'UNKNOWN') { $res = $r }
+    }
+    if ($kids -gt 0) { return $res }
+    return 'READER'
+  }
+  $unknown = New-Object System.Collections.Generic.List[int]
+  for ($s = 1; $s -le $nseg; $s++) {
+    if (-not $ent.ContainsKey($s)) { continue }
+    if ($ent[$s].Contains('READ')) { return 'READER' }
+    $r = Walk-Node $s $ent[$s][0] 1 $false
+    if ($r -ceq 'READER') { return 'READER' }
+    if ($r -ceq 'UNKNOWN') { $unknown.Add($s) }
+  }
+  # The keys of an unsettled segment with no answer in the cache, below a parent
+  # that is itself unanswered or one that reads them, and no task name below a
+  # key of three words.
+  $asked = New-Object System.Collections.Generic.List[string]
+  $done = New-Object 'System.Collections.Generic.HashSet[string]'
+  foreach ($s in $unknown) {
+    foreach ($e in $ent[$s]) {
+      $task = $e.StartsWith('+')
+      $key = $e; if ($task) { $key = $e.Substring(1) }
+      if ($key -match ' [?!]$') { continue }
+      $sp = $key.LastIndexOf(' ')
+      if ($task -and $key.Split(' ').Count -gt 3) { continue }
+      if ($sp -ge 0) {
+        $pc = ClassOf $key.Substring(0, $sp) $false
+        $want = 'DESCEND'; if ($task) { $want = 'PROJECT' }
+        if ($pc -ne '' -and $pc -cne $want) { continue }
+      }
+      if ((ClassOf $key $task) -ne '') { continue }
+      $sc = ScopeOf $key $task
+      if (-not $done.Add($sc + "`t" + $key)) { continue }
+      $asked.Add("ASK`t$sc`t$key")
+    }
+  }
+  if ($asked.Count -eq 0) { return 'SAFE' }
+  return (@('ASK') + $asked.ToArray())
+}
+
+# Return when the command in $cmd goes to the reader, and exit 0 when it does not:
+# gate.sh's shellclass, which has the reasons. keys.ps1 splits the command, and the
+# cache is named for a hash of classify-command.md, as the MCP cache is.
+function Test-ShellCommand {
+  $mode = 'bash'; if ($tool -ceq 'PowerShell') { $mode = 'pwsh' }
+  $keys = @(@(Get-CommandKey $cmd $mode) -join "`n" -split "`n" | Where-Object { $_ -ne '' })
+  $proj = $env:CLAUDE_PROJECT_DIR
+  if (-not $proj) { $proj = [string]$json.cwd }
+  if (-not $proj) { $proj = '/' }
+  $base = if ($env:CLAUDE_CONFIG_DIR) { $env:CLAUDE_CONFIG_DIR } else { Join-Path $HOME '.claude' }
+  $dir = Join-Path $base 'writing-conventions'
+  $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $PSScriptRoot 'classify-command.md')).Hash.Substring(0, 10).ToLower()
+  $cache = Join-Path $dir "shell-commands-$hash.txt"
+  $known = @()
+  if (Test-Path -LiteralPath $cache) { $known = @([IO.File]::ReadAllLines($cache, $utf8)) }
+  $walk = @(Invoke-Walk $keys $known $proj $false)
+  if ($walk[0] -ceq 'READER') { return }
+  if ($walk[0] -ceq 'SAFE') { exit 0 }
+  $want = New-Object 'System.Collections.Generic.Dictionary[string,System.Collections.Generic.List[string]]'
+  foreach ($a in $walk[1..($walk.Count - 1)]) {
+    $f = $a.Split("`t")
+    if (-not $want.ContainsKey($f[2])) { $want[$f[2]] = New-Object System.Collections.Generic.List[string] }
+    $want[$f[2]].Add($f[1])
+  }
+  $reply = Invoke-Model 'classify-command.md' '' ($cmd + "`n`n" + (@($want.Keys) -join "`n"))
+  if ($null -eq $reply) { Exit-Off }
+  $answers = New-Object System.Collections.Generic.List[string]
+  foreach ($line in ($reply -split "`n")) {
+    $m = [regex]::Match($line, '^(.*?)[ \t]+(NEVER|CAN_PUBLISH|DESCEND|PROJECT|RUNS_CODE)\r?$')
+    if (-not $m.Success -or -not $want.ContainsKey($m.Groups[1].Value)) { continue }
+    foreach ($sc in $want[$m.Groups[1].Value]) { $answers.Add($sc + "`t" + $m.Groups[2].Value + "`t" + $m.Groups[1].Value) }
+    [void]$want.Remove($m.Groups[1].Value)
+  }
+  if ($answers.Count -gt 0) {
+    try {
+      [void](New-Item -ItemType Directory -Force -Path $dir)
+      [IO.File]::AppendAllText($cache, (($answers -join "`n") + "`n"), $utf8)
+    } catch { }
+  }
+  $walk = @(Invoke-Walk $keys ($known + $answers.ToArray()) $proj $true)
+  if ($walk[0] -ceq 'SAFE') { exit 0 }
 }
 
 $tool = [string]$json.tool_name
@@ -238,10 +451,14 @@ if ($stopMode) {
   $again = 'make the call again'
 } else {
   $cmd = [string]$json.tool_input.command
-  # Matching the command text here rather than through a hook `if` pattern covers
-  # `git -C <path> commit`, which no `PowerShell(git commit *)` rule matches, and
-  # keeps one copy of the prompt instead of one per subcommand per tool.
-  if ($cmd -notmatch 'git commit|git -C.*commit|gh pr |gh issue |gh release ') { exit 0 }
+  # Four command families always reach the reader, whatever is cached, so a wrong
+  # NEVER from the classifier can never lose them. Matching the command text here
+  # rather than through a hook `if` pattern covers `git -C <path> commit`, which no
+  # `PowerShell(git commit *)` rule matches.
+  if ($cmd -notmatch 'git commit|git -C.*commit|gh pr |gh issue |gh release ') {
+    if ($env:WRITING_CONVENTIONS_SHELL_CLASSIFIER -eq '0') { exit 0 }
+    Test-ShellCommand
+  }
   $sources = @($cmd)
   $again = 'run the command again'
 }

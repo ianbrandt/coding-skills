@@ -13,8 +13,6 @@ $gate = Join-Path $here 'gate.ps1'
 $fail = 0
 $cases = 0
 
-$scratch = Join-Path ([IO.Path]::GetTempPath()) ("gateps-" + [Guid]::NewGuid().ToString('N'))
-[void](New-Item -ItemType Directory -Path $scratch)
 # keys.ps1 against the fixture it shares with keys.awk. \n and \t in a command
 # are a newline and a tab, and the output lines are joined as the fixture writes them.
 . (Join-Path $here 'keys.ps1')
@@ -54,9 +52,13 @@ if ($onWindows) {
 rem One line per call: the arguments, then the marker the gate sets on its child.
 >>"%GATE_TEST_MARK%" echo %* nested=%WRITING_CONVENTIONS_NESTED%
 findstr "^" > "%GATE_TEST_MARK%.stdin"
+rem A call past its time limit: ping is a child, so that killing the stub alone
+rem would leave it running.
+if not "%GATE_TEST_SLEEP%"=="" ping -n %GATE_TEST_SLEEP% 127.0.0.1 >nul
 if "%GATE_TEST_FAIL%"=="1" exit /b 1
 if "%GATE_TEST_FAIL%"=="safe" if "%2"=="--safe-mode" exit /b 1
 echo %* | findstr /c:"classify-prompt.md" >nul && (echo %GATE_TEST_CLASS%& exit /b 0)
+echo %* | findstr /c:"classify-command.md" >nul && (type "%GATE_TEST_KEYS_FILE%" 2>nul& exit /b 0)
 if exist "%GATE_TEST_VERDICT_FILE%" type "%GATE_TEST_VERDICT_FILE%"
 '@
   $stubPath = Join-Path $scratch 'claude.bat'
@@ -66,9 +68,13 @@ if exist "%GATE_TEST_VERDICT_FILE%" type "%GATE_TEST_VERDICT_FILE%"
 # One line per call: the arguments, then the marker the gate sets on its child.
 printf '%s nested=%s\n' "$*" "$WRITING_CONVENTIONS_NESTED" >> "$GATE_TEST_MARK"
 cat > "$GATE_TEST_MARK.stdin"
+# A call past its time limit: the sleep is a child, so that killing the stub
+# alone would leave it running.
+if [ -n "$GATE_TEST_SLEEP" ]; then sleep "$GATE_TEST_SLEEP" & echo $! > "$GATE_TEST_MARK.sleep"; wait; fi
 [ "$GATE_TEST_FAIL" = 1 ] && exit 1
 [ "$GATE_TEST_FAIL" = safe ] && [ "$2" = --safe-mode ] && exit 1
 case "$*" in *classify-prompt.md*) printf '%s\n' "$GATE_TEST_CLASS"; exit 0;; esac
+case "$*" in *classify-command.md*) cat "$GATE_TEST_KEYS_FILE" 2>/dev/null; exit 0;; esac
 cat "$GATE_TEST_VERDICT_FILE" 2>/dev/null
 '@
   $stubPath = Join-Path $scratch 'claude'
@@ -87,6 +93,9 @@ $saved = @{
   CLASS = $env:GATE_TEST_CLASS
   CONF  = $env:CLAUDE_CONFIG_DIR
   TMP   = $env:TMPDIR
+  PROJ  = $env:CLAUDE_PROJECT_DIR
+  SHELL = $env:WRITING_CONVENTIONS_SHELL_CLASSIFIER
+  DEAD  = $env:WRITING_CONVENTIONS_GATE_DEADLINE
 }
 try {
   # The owner test in shell-owner.ps1 hands the hook to PowerShell only on Windows
@@ -100,6 +109,17 @@ try {
   # The stub prints this file. A verdict has several lines and double quotes, which
   # a .bat `echo` of an environment variable cannot hold.
   $env:GATE_TEST_VERDICT_FILE = Join-Path $scratch 'verdict'
+  # The shell classifier's reply, one key<TAB>class line per key; the gate keeps
+  # only the lines for keys it asked about.
+  $env:GATE_TEST_KEYS_FILE = Join-Path $scratch 'keys'
+  $env:CLAUDE_PROJECT_DIR = $null
+  $env:WRITING_CONVENTIONS_GATE_DEADLINE = $null
+  $env:GATE_TEST_SLEEP = $null
+  # No test reads or writes the user's own caches.
+  $env:CLAUDE_CONFIG_DIR = Join-Path $scratch 'config'
+  # The cases up to the shell classifier's own section are for the four command
+  # families that reach the reader whatever is cached.
+  $env:WRITING_CONVENTIONS_SHELL_CLASSIFIER = '0'
 
   # Returns @{ Status; Output; Called } for one command text.
   function Invoke-Gate([string]$verdict, [string]$failCall, [string]$cmdText) {
@@ -476,6 +496,147 @@ try {
   finally { $env:WRITING_CONVENTIONS_NESTED = $null }
   $env:TMPDIR = $saved.TMP
 
+  # The shell classifier. Any command outside the four families is split into
+  # keys, and a key the cache has no answer for costs one classifier call for the
+  # whole command. A key below a task runner is kept per project.
+  $env:WRITING_CONVENTIONS_SHELL_CLASSIFIER = $null
+  $env:CLAUDE_CONFIG_DIR = Join-Path $scratch 'shellconfig'
+  $env:TMPDIR = Join-Path $scratch 'shelltmp'
+  [void](New-Item -ItemType Directory -Path $env:TMPDIR)
+  $script:shellOut = ''
+  function Test-Shell([int]$wantStatus, [int]$wantClass, [int]$wantReader, [string]$cmdText,
+                      [string]$cwd = '/proj/a', [string]$keys = '', [string]$verdict = 'PASS', [string]$sid = 'shell') {
+    $script:cases++
+    $ErrorActionPreference = 'Continue'
+    [IO.File]::WriteAllText($env:GATE_TEST_MARK, '')
+    [IO.File]::WriteAllText($env:GATE_TEST_VERDICT_FILE, $verdict)
+    [IO.File]::WriteAllText($env:GATE_TEST_KEYS_FILE, $keys)
+    $env:GATE_TEST_FAIL = '0'
+    $json = @{ session_id = $sid; cwd = $cwd; tool_name = 'PowerShell'; tool_input = @{ command = $cmdText } } | ConvertTo-Json -Compress
+    $script:shellOut = ($json | pwsh -NoProfile -File $gate 2>$null | Out-String).Trim()
+    if ($LASTEXITCODE -ne $wantStatus) {
+      Write-Output ("FAIL exit " + $LASTEXITCODE + ", wanted " + $wantStatus + ": " + $cmdText); $script:fail = 1
+    }
+    $lines = @(Get-Content -LiteralPath $env:GATE_TEST_MARK | Where-Object { $_ -ne '' })
+    $c = @($lines | Where-Object { $_ -like '*classify-command.md*' }).Count
+    $r = @($lines | Where-Object { $_ -like '*gate-prompt.md*' }).Count
+    if ($c -ne $wantClass -or $r -ne $wantReader) {
+      Write-Output ("FAIL classifier and reader calls $c $r, wanted $wantClass $wantReader" + ": " + $cmdText); $script:fail = 1
+    }
+  }
+  function Get-ShellCache {
+    $d = Join-Path $env:CLAUDE_CONFIG_DIR 'writing-conventions'
+    if (-not (Test-Path -LiteralPath $d)) { return '' }
+    return (@(Get-ChildItem $d -Filter 'shell-commands-*.txt' | ForEach-Object { [IO.File]::ReadAllText($_.FullName) }) -join '')
+  }
+  # A cold key costs one call, and its answer is kept; the same command again costs none.
+  Test-Shell 0 1 0 'Get-ChildItem -Recurse' -keys "Get-ChildItem`tNEVER`n"
+  if ((Get-ShellCache) -cne "*`tNEVER`tGet-ChildItem`n") { Write-Output ("FAIL cache after Get-ChildItem: " + (Get-ShellCache)); $fail = 1 }
+  Test-Shell 0 0 0 'Get-ChildItem -Recurse'
+  # A publishing command no name was written for reaches the reader, and each
+  # answered key is kept, a task name in the project's scope as well.
+  Test-Shell 0 1 1 'hg commit -m "Fix it"' -keys "hg`tDESCEND`nhg commit`tCAN_PUBLISH`n"
+  $n = @((Get-ShellCache) -split "`n" | Where-Object { $_ -like '*hg*' }).Count
+  if ($n -ne 3) { Write-Output ("FAIL cache after hg: " + (Get-ShellCache)); $fail = 1 }
+  Test-Shell 0 0 1 'hg commit -m "Fix it"'
+  Test-Shell 2 0 1 'hg commit -m "The report says so"' -verdict "VIOLATION`n`"The report says so`" -> x"
+  # Below a cached DESCEND, only the subcommand is asked about.
+  Test-Shell 0 1 0 'hg log' -keys "hg log`tNEVER`n"
+  Test-Shell 0 0 0 'hg log'
+  # A classifier reply in any other form is doubt: the reader runs and nothing is kept.
+  $before = Get-ShellCache
+  Test-Shell 0 1 1 'jj describe -m x' -keys "It can publish.`n"
+  if ((Get-ShellCache) -cne $before) { Write-Output ("FAIL a malformed reply was cached: " + (Get-ShellCache)); $fail = 1 }
+  # The four families reach the reader whatever is cached.
+  $cacheFile = @(Get-ChildItem (Join-Path $env:CLAUDE_CONFIG_DIR 'writing-conventions') -Filter 'shell-commands-*.txt')[0].FullName
+  [IO.File]::AppendAllText($cacheFile, "*`tNEVER`tgit`n*`tNEVER`tgit commit`n")
+  Test-Shell 0 0 1 'git commit -m x'
+  Test-Shell 0 0 1 'git commit -F msg.txt'
+  # A task name is kept for its project only, and a task runner with no task, or
+  # with one task that is not NEVER, reaches the reader.
+  Test-Shell 0 1 0 'make check' -keys "make`tPROJECT`nmake check`tNEVER`n"
+  Test-Shell 0 0 0 'make check'
+  Test-Shell 0 1 0 'make check' -cwd '/proj/b' -keys "make check`tNEVER`n"
+  Test-Shell 0 0 1 'make'
+  Test-Shell 0 1 1 'make check publish'
+  # A word that cannot be read as a name reaches the reader below DESCEND or
+  # PROJECT, and changes nothing below NEVER or RUNS_CODE.
+  Test-Shell 0 0 1 'hg "$verb" -m x'
+  Test-Shell 0 0 1 'make check "$task"'
+  Test-Shell 0 1 0 'ls "$dir"' -keys "ls`tNEVER`n"
+  Test-Shell 0 1 0 "python3 -c 'print(1)'" -keys "python3`tRUNS_CODE`n"
+  Test-Shell 0 0 0 "python3 -c 'print(1)'"
+  Test-Shell 0 0 1 "python3 -c 'print(`"The report says so and more.`")'"
+  # A substitution in an expanding here-string, and a quoted first word, reach the
+  # reader with no lookup.
+  Test-Shell 0 0 1 "`$b = @`"`n`$(hg commit -m x)`n`"@"
+  Test-Shell 0 0 1 '"my tool" run'
+  # The off switch returns the trigger to the four families.
+  $env:WRITING_CONVENTIONS_SHELL_CLASSIFIER = '0'
+  try { Test-Shell 0 0 0 'svn commit -m x' -keys "svn`tDESCEND`n" }
+  finally { $env:WRITING_CONVENTIONS_SHELL_CLASSIFIER = $null }
+  # A classifier call that cannot run lets the command through and says so once.
+  $env:PATH = [IO.Path]::GetDirectoryName($pwshPath)
+  try { Test-Shell 0 0 0 'svn commit -m x' -sid 'shell-off' }
+  finally { $env:PATH = $scratch + [IO.Path]::PathSeparator + $saved.PATH }
+  if ($script:shellOut -notlike '{"systemMessage":"*model review is off*') { Write-Output ("FAIL no notice without claude: " + $script:shellOut); $fail = 1 }
+
+  # The time budget. A call past its limit is killed with its children, is not
+  # retried with --bare, and lets the command through with the notice. The
+  # deadline is set short so that the limit is 17 seconds rather than 60.
+  $env:TMPDIR = Join-Path $scratch 'budgettmp'
+  [void](New-Item -ItemType Directory -Path $env:TMPDIR)
+  $cases++
+  $ErrorActionPreference = 'Continue'
+  [IO.File]::WriteAllText($env:GATE_TEST_MARK, '')
+  [IO.File]::WriteAllText($env:GATE_TEST_VERDICT_FILE, 'PASS')
+  $env:GATE_TEST_FAIL = '0'
+  $env:GATE_TEST_SLEEP = '40'
+  $env:WRITING_CONVENTIONS_GATE_DEADLINE = '27'
+  try {
+    $out = ('{"session_id":"slow","tool_input":{"command":"git commit -m x"}}' | pwsh -NoProfile -File $gate 2>$null | Out-String).Trim()
+    $status = $LASTEXITCODE
+  } finally { $env:GATE_TEST_SLEEP = $null; $env:WRITING_CONVENTIONS_GATE_DEADLINE = $null }
+  if ($status -ne 0) { Write-Output "FAIL exit $status after a kill"; $fail = 1 }
+  $lines = @(Get-Content -LiteralPath $env:GATE_TEST_MARK | Where-Object { $_ -ne '' })
+  if ($lines.Count -ne 1) { Write-Output ("FAIL a killed call was retried: " + ($lines -join ' | ')); $fail = 1 }
+  if ($out -notlike '{"systemMessage":"*model review is off*') { Write-Output "FAIL no notice after a kill: $out"; $fail = 1 }
+  if (-not $onWindows) {
+    $sleeper = [int](Get-Content -LiteralPath ($env:GATE_TEST_MARK + '.sleep'))
+    if (Get-Process -Id $sleeper -ErrorAction SilentlyContinue) { Write-Output "FAIL the call's child outlived the kill"; $fail = 1 }
+  }
+  # A call with under 15 seconds left is not started, on the MCP branch as well.
+  $cases++
+  [IO.File]::WriteAllText($env:GATE_TEST_MARK, '')
+  $env:WRITING_CONVENTIONS_GATE_DEADLINE = '20'
+  try {
+    $out = ('{"session_id":"late","tool_name":"mcp__x__late","tool_input":{"text":"hi"}}' | pwsh -NoProfile -File $gate 2>$null | Out-String).Trim()
+    $status = $LASTEXITCODE
+  } finally { $env:WRITING_CONVENTIONS_GATE_DEADLINE = $null }
+  if ($status -ne 0 -or (Get-Item -LiteralPath $env:GATE_TEST_MARK).Length -gt 0) { Write-Output 'FAIL a call started with under 15 seconds left'; $fail = 1 }
+  if ($out -notlike '{"systemMessage":"*') { Write-Output "FAIL no notice for a call not started: $out"; $fail = 1 }
+  # Each branch's deadline is its hook timeout in hooks.json less 15 seconds.
+  $cases++
+  $want = @{}
+  $hooksJson = Get-Content -Raw -LiteralPath (Join-Path $here 'hooks.json') | ConvertFrom-Json
+  foreach ($event in 'PreToolUse', 'Stop', 'PostToolUse') {
+    foreach ($group in $hooksJson.hooks.$event) {
+      foreach ($h in $group.hooks) {
+        if (-not (@($h.args) -like '*gate.ps1')) { continue }
+        $b = if (@($h.args) -contains '--stop') { 'stop' } elseif (@($h.args) -contains '--file') { 'file' } elseif ($group.matcher -like 'mcp*') { 'mcp' } else { 'shell' }
+        $want[$b] = [int]$h.timeout - 15
+      }
+    }
+  }
+  $have = @{}
+  $m = [regex]::Match((Get-Content -Raw -LiteralPath $gate), '\$Deadlines = @\{ ([^}]*) \}')
+  foreach ($pair in ($m.Groups[1].Value -split ';')) { $kv = $pair.Trim() -split ' = '; if ($kv.Count -eq 2) { $have[$kv[0]] = [int]$kv[1] } }
+  $wantText = (@($want.Keys | Sort-Object | ForEach-Object { "$_=" + $want[$_] }) -join ' ')
+  $haveText = (@($have.Keys | Sort-Object | ForEach-Object { "$_=" + $have[$_] }) -join ' ')
+  if ($wantText -cne $haveText -or $haveText -eq '') { Write-Output "FAIL deadlines in gate.ps1 [$haveText], from hooks.json [$wantText]"; $fail = 1 }
+  $env:TMPDIR = $saved.TMP
+  $env:WRITING_CONVENTIONS_SHELL_CLASSIFIER = '0'
+
   # Garbage in place of the hook input is not a reason to block either.
   $cases++
   $ErrorActionPreference = 'Continue'
@@ -495,6 +656,11 @@ try {
   $env:GATE_TEST_CLASS = $saved.CLASS
   $env:CLAUDE_CONFIG_DIR = $saved.CONF
   $env:TMPDIR = $saved.TMP
+  $env:CLAUDE_PROJECT_DIR = $saved.PROJ
+  $env:WRITING_CONVENTIONS_SHELL_CLASSIFIER = $saved.SHELL
+  $env:WRITING_CONVENTIONS_GATE_DEADLINE = $saved.DEAD
+  $env:GATE_TEST_KEYS_FILE = $null
+  $env:GATE_TEST_SLEEP = $null
   Remove-Item -LiteralPath $scratch -Recurse -Force -ErrorAction SilentlyContinue
 }
 
