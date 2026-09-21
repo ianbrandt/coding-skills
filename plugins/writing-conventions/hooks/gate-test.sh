@@ -356,6 +356,33 @@ status=$?
 # A reader that cannot run does not block the reply, and says so once.
 stopcase 0 yes "$V" s15 "$draft1" 1
 case $out in '{"systemMessage":"'*'model review is off'*) ;; *) echo "FAIL stop notice: $out"; fail=1;; esac
+# The cap comes off the drafts before the reader is sent them and before a finding
+# is checked, so a quote from past it is a quote of text that was never reviewed.
+pad=$(awk 'BEGIN { for (i = 0; i < 1000; i++) printf "Sixty characters of plain text, or near enough, to pad it. " }')
+stopcase 0 yes "$V2" s17 '```draft\n'"$pad"'\nThe build decided it.\n```'
+[ ${#sent} -lt 51000 ] || { echo "FAIL ${#sent} characters sent past the cap"; fail=1; }
+stopcase 2 yes "$V2" s18 '```draft\nThe build decided it.\n\n'"$pad"'\n```'
+
+# A closing fence takes no info string, so a line inside a draft that starts with
+# the marker and goes on does not end the draft, and what follows is still read.
+stopcase 2 yes "$V2" s19 '```draft\nThe report says so.\n``` and more\nThe build decided it.\n```'
+# The count has to fail open. A state file that cannot be written would otherwise
+# leave the count at nothing and block every Stop call of the turn.
+mkdir -p "$TMPDIR/claude-gate-stop-s20"
+stopcase 0 yes "$V" s20 "$draft1"
+case $out in *'could not be written'*) ;; *) echo "FAIL no notice for an unwritable count: $out"; fail=1;; esac
+# A count file another program wrote is not room for another block.
+printf ' 2 \n' > "$TMPDIR/claude-gate-stop-s21"
+stopcase 0 yes "$V" s21 "$draft1"
+case $out in *'after two rewrites'*) ;; *) echo "FAIL no notice for a padded count: $out"; fail=1;; esac
+printf 'abc' > "$TMPDIR/claude-gate-stop-s22"
+stopcase 0 yes "$V" s22 "$draft1"
+case $out in *'after two rewrites'*) ;; *) echo "FAIL no notice for a garbage count: $out"; fail=1;; esac
+
+# A draft left open at the end of the reply runs to the end.
+stopcase 2 yes "$V" s23 'x\n```draft\nThe report says so.\n'
+case $sent in 'The report says so.'*) ;; *) echo "FAIL unterminated draft sent as [$sent]"; fail=1;; esac
+
 # Inside a nested call this entry point does nothing either.
 cases=$((cases + 1))
 : > "$GATE_TEST_MARK"

@@ -198,13 +198,24 @@ if [ -n "$stop" ]; then
   # A blocked Stop costs a whole re-emitted reply, so a reader that keeps
   # finding something in each rewrite is stopped after two: the user is told
   # that review is unresolved, through systemMessage, and the reply stands.
+  # Anything in the file other than 0 or 1 counts as two, so a file another
+  # program wrote cannot be read as room for another block.
   n=$(cat "$stop" 2>/dev/null)
-  case $n in ''|*[!0-9]*) n=0 ;; esac
+  case $n in '') n=0 ;; 0|1) ;; *) n=2 ;; esac
   if [ "$n" -ge 2 ]; then
     printf '{"systemMessage":"writing-conventions: the draft in this reply still reads as a violation after two rewrites. Review is unresolved and the reply stands."}'
     exit 0
   fi
-  printf '%s' $((n + 1)) > "$stop" 2>/dev/null
+  # A count that cannot be kept is no count at all, and blocking on it would
+  # re-emit the reply on every Stop call of the turn: an unwritable temporary
+  # directory, a prompt_id too long for a filename, or something else already at
+  # the path. So the write is read back, and a failure lets the reply stand. The
+  # subshell keeps the shell's own redirection error out of the reason text.
+  ( printf '%s' $((n + 1)) > "$stop" ) 2>/dev/null
+  if [ "$(cat "$stop" 2>/dev/null)" != "$((n + 1))" ]; then
+    printf '{"systemMessage":"writing-conventions: the draft in this reply reads as a violation, and the count that bounds a second look could not be written to %s. Review is unresolved and the reply stands."}' "${TMPDIR:-/tmp}"
+    exit 0
+  fi
 fi
 printf '%s\nRewrite the quoted text and %s.\n' "$findings" "$again" >&2
 exit 2

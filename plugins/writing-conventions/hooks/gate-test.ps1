@@ -411,6 +411,36 @@ try {
   # A reader that cannot run does not block the reply, and says so once.
   Test-Stop 0 $true $V 's15' $draft1 '1'
   if ($out -notlike '{"systemMessage":"*model review is off*') { Write-Output ("FAIL stop notice: " + $out); $fail = 1 }
+  # The cap comes off the drafts before the reader is sent them and before a
+  # finding is checked, so a quote from past it is a quote of text that was never
+  # reviewed.
+  $pad = ('Sixty characters of plain text, or near enough, to pad it. ' * 1000)
+  Test-Stop 0 $true $V2 's17' ($f3 + 'draft\n' + $pad + '\nThe build decided it.\n' + $f3)
+  if ($sent.Length -ge 51000) { Write-Output ("FAIL " + $sent.Length + " characters sent past the cap"); $fail = 1 }
+  Test-Stop 2 $true $V2 's18' ($f3 + 'draft\nThe build decided it.\n\n' + $pad + '\n' + $f3)
+
+  # A closing fence takes no info string, so a line inside a draft that starts
+  # with the marker and goes on does not end the draft, and what follows is still
+  # read.
+  Test-Stop 2 $true $V2 's19' ($f3 + 'draft\nThe report says so.\n' + $f3 + ' and more\nThe build decided it.\n' + $f3)
+  # The count has to fail open. A state file that cannot be written would
+  # otherwise leave the count at nothing and block every Stop call of the turn.
+  [void](New-Item -ItemType Directory -Path (Join-Path $env:TMPDIR 'claude-gate-stop-s20'))
+  Test-Stop 0 $true $V 's20' $draft1
+  if ($out -notlike '*could not be written*') { Write-Output ("FAIL no notice for an unwritable count: " + $out); $fail = 1 }
+  # A count file another program wrote is not room for another block.
+  [IO.File]::WriteAllText((Join-Path $env:TMPDIR 'claude-gate-stop-s21'), " 2 `n")
+  Test-Stop 0 $true $V 's21' $draft1
+  if ($out -notlike '*after two rewrites*') { Write-Output ("FAIL no notice for a padded count: " + $out); $fail = 1 }
+  [IO.File]::WriteAllText((Join-Path $env:TMPDIR 'claude-gate-stop-s22'), 'abc')
+  Test-Stop 0 $true $V 's22' $draft1
+  if ($out -notlike '*after two rewrites*') { Write-Output ("FAIL no notice for a garbage count: " + $out); $fail = 1 }
+
+  # A draft left open at the end of the reply runs to the end.
+  Test-Stop 2 $true $V 's23' ('x\n' + $f3 + 'draft\nThe report says so.\n')
+  if ($sent -notlike 'The report says so.*') { Write-Output ("FAIL unterminated draft sent as [" + $sent + "]"); $fail = 1 }
+  if ($sent.Trim("`n") -ne 'The report says so.') { Write-Output ("FAIL unterminated draft has trailing lines: [" + $sent + "]"); $fail = 1 }
+
   # Inside a nested call this entry point does nothing either.
   $env:WRITING_CONVENTIONS_NESTED = '1'
   try { Test-Stop 0 $false $V 's16' $draft1 }

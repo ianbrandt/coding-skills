@@ -161,10 +161,18 @@ if ($stopMode) {
   $tmpdir = if ($env:TMPDIR) { $env:TMPDIR } else { [IO.Path]::GetTempPath() }
   $stopState = Join-Path $tmpdir "claude-gate-stop-$promptId"
   # The reader is sent the drafts and nothing else. Each one stays a source of
-  # its own, so no finding can quote across two of them.
-  $raw = ($found.Drafts -join "`n")
-  if ($raw.Length -gt $CAP) { $raw = $raw.Substring(0, $CAP) }
-  $sources = @($found.Drafts)
+  # its own, so no finding can quote across two of them. The cap is taken off the
+  # drafts before either use, because a quote from past it was never reviewed;
+  # gate.sh cuts the one file that the message and the sources both come from.
+  $kept = New-Object System.Collections.Generic.List[string]
+  $room = $CAP
+  foreach ($d in $found.Drafts) {
+    if ($room -le 0) { break }
+    if ($d.Length -gt $room) { $kept.Add($d.Substring(0, $room)); $room = 0 }
+    else { $kept.Add($d); $room -= $d.Length }
+  }
+  $raw = ($kept -join "`n")
+  $sources = @($kept)
   $again = 'emit the corrected draft'
 } elseif ($fileMode) {
   # A prose file just written. The nested model has no tools, so this script does the
@@ -258,16 +266,34 @@ if ($stopState -ne '') {
   # A blocked Stop costs a whole re-emitted reply, so a reader that keeps finding
   # something in each rewrite is stopped after two: the user is told that review
   # is unresolved, through systemMessage, and the reply stands.
+  # Anything in the file other than 0 or 1 counts as two, so a file another
+  # program wrote cannot be read as room for another block.
   $n = 0
-  if (Test-Path -LiteralPath $stopState) {
-    $seen = ([IO.File]::ReadAllText($stopState)).Trim()
-    if ($seen -match '^[0-9]+$') { $n = [int]$seen }
+  # A directory at the path is not a count; the write below is what fails on it.
+  if (Test-Path -LiteralPath $stopState -PathType Leaf) {
+    $n = 2
+    try {
+      $seen = [IO.File]::ReadAllText($stopState)
+      if ($seen -ceq '0') { $n = 0 } elseif ($seen -ceq '1') { $n = 1 }
+    } catch { }
   }
   if ($n -ge 2) {
     [Console]::Out.Write('{"systemMessage":"writing-conventions: the draft in this reply still reads as a violation after two rewrites. Review is unresolved and the reply stands."}')
     exit 0
   }
-  try { [IO.File]::WriteAllText($stopState, [string]($n + 1)) } catch { }
+  # A count that cannot be kept is no count at all, and blocking on it would
+  # re-emit the reply on every Stop call of the turn: an unwritable temporary
+  # directory, a prompt_id too long for a filename, or something else already at
+  # the path. So the write is read back, and a failure lets the reply stand.
+  $kept = $false
+  try {
+    [IO.File]::WriteAllText($stopState, [string]($n + 1))
+    $kept = ([IO.File]::ReadAllText($stopState) -ceq [string]($n + 1))
+  } catch { $kept = $false }
+  if (-not $kept) {
+    [Console]::Out.Write('{"systemMessage":"writing-conventions: the draft in this reply reads as a violation, and the count that bounds a second look could not be written to ' + $tmpdir + '. Review is unresolved and the reply stands."}')
+    exit 0
+  }
 }
 [Console]::Error.WriteLine(($findings -join "`n") + "`nRewrite the quoted text and $again.")
 exit 2

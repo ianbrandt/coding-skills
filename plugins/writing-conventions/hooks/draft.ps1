@@ -7,10 +7,15 @@
 #
 # A block opens on three or more backticks or tildes with `draft` as the info
 # string, and closes on the first later fence of the same character that is at
-# least as long, which is the rule Remove-CodeSpans in lint.ps1 uses. A code
-# fence inside a draft therefore has to be shorter or of the other character,
-# which is what rules.md asks for. A block left open at the end runs to the end.
-# An empty block is no draft.
+# least as long and has nothing after it. A code fence inside a draft therefore
+# has to be shorter or of the other character, which is what rules.md asks for.
+# A block left open at the end runs to the end. An empty block is no draft.
+#
+# Remove-CodeSpans in lint.ps1 closes on a marker whatever follows it. The
+# difference shows only on a line like "``` and more" inside a draft: here the
+# draft runs past it, which is CommonMark's rule and reviews more text, and after
+# the unwrap that line opens a fence Remove-CodeSpans never closes, which it
+# keeps as prose.
 #
 # ASCII only, so 5.1 cannot mangle it reading a BOM-less file as the ANSI codepage.
 function Get-DraftFence([string]$text) {
@@ -19,7 +24,11 @@ function Get-DraftFence([string]$text) {
   $buf = New-Object System.Text.StringBuilder
   $fence = ''
   $draft = $false
-  foreach ($line in $text.Split("`n")) {
+  # A trailing newline ends the last line rather than starting an empty one, as
+  # it does for awk, so the text of a draft left open at the end matches.
+  $lines = $text.Split("`n")
+  if ($lines.Length -gt 1 -and $lines[$lines.Length - 1] -eq '') { $lines = $lines[0..($lines.Length - 2)] }
+  foreach ($line in $lines) {
     $fm = [regex]::Match($line, '^[ \t]*(`{3,}|~{3,})')
     if ($fm.Success) {
       $mk = [regex]::Replace($fm.Value, '^[ \t]+', '')
@@ -28,7 +37,8 @@ function Get-DraftFence([string]$text) {
         $fence = $mk
         $draft = ($info -ceq 'draft' -or $info -cmatch '^draft[ \t]')
         if ($draft) { [void]$buf.Clear(); continue }
-      } elseif ($mk[0] -eq $fence[0] -and $mk.Length -ge $fence.Length) {
+      } elseif ($mk[0] -eq $fence[0] -and $mk.Length -ge $fence.Length -and
+                $line.Substring($fm.Length) -match '^[ \t\r]*$') {
         $fence = ''
         if ($draft) {
           $draft = $false

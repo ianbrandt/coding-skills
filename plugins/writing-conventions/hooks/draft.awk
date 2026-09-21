@@ -9,10 +9,14 @@
 #                                 removed, everything else unchanged
 # A block opens on three or more backticks or tildes with `draft` as the info
 # string, and closes on the first later fence of the same character that is at
-# least as long, which is the rule lint.awk's strip_code uses. A code fence
-# inside a draft therefore has to be shorter or of the other character, which is
-# what rules.md asks for. A block left open at the end runs to the end. An
-# empty block is no draft.
+# least as long and has nothing after it. A code fence inside a draft therefore
+# has to be shorter or of the other character, which is what rules.md asks for.
+# A block left open at the end runs to the end. An empty block is no draft.
+#
+# lint.awk's strip_code closes on a marker whatever follows it. The difference
+# shows only on a line like "``` and more" inside a draft: here the draft runs
+# past it, which is CommonMark's rule and reviews more text, and after the unwrap
+# that line opens a fence strip_code never closes, which it keeps as prose.
 {
   line = $0
   if (match(line, /^[ \t]*(`{3,}|~{3,})/)) {
@@ -23,7 +27,8 @@
       fence = m
       draft = (info == "draft" || info ~ /^draft[ \t]/)
       if (draft) { buf = ""; next }
-    } else if (substr(m, 1, 1) == substr(fence, 1, 1) && length(m) >= length(fence)) {
+    } else if (substr(m, 1, 1) == substr(fence, 1, 1) && length(m) >= length(fence) \
+               && substr(line, RSTART + RLENGTH) ~ /^[ \t\r]*$/) {
       fence = ""
       if (draft) { draft = 0; flush(); next }
     }
