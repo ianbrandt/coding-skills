@@ -3,7 +3,8 @@
 # gate.sh is the same gate; gate-prompt.md is the one copy of the check itself.
 #
 # The check runs as one nested `claude -p --safe-mode --tools=` call, with
-# gate-prompt.md as the system prompt and the hook input as the message.
+# gate-prompt.md as the system prompt, rules.md appended to it so that the rules
+# are written down once, and the hook input as the message.
 # `--safe-mode` starts the call with no CLAUDE.md, skills, plugins, hooks, or MCP
 # servers and keeps the normal sign-in, so it works on a browser sign-in as well as
 # with a key. With `--tools=` the nested model has no tools, and the default tool
@@ -67,11 +68,12 @@ if (-not (Get-Command claude -ErrorAction SilentlyContinue)) { exit 0 }
 
 $model = if ($env:WRITING_CONVENTIONS_GATE_MODEL) { $env:WRITING_CONVENTIONS_GATE_MODEL } else { 'sonnet' }
 $prompt = Join-Path $PSScriptRoot 'gate-prompt.md'
+$rules = Join-Path $PSScriptRoot 'rules.md'
 $verdict = ''
 $env:WRITING_CONVENTIONS_NESTED = '1'
 try {
   foreach ($mode in '--safe-mode', '--bare') {
-    $verdict = ($raw | claude -p $mode --tools= --model $model --system-prompt-file $prompt 2>$null | Out-String)
+    $verdict = ($raw | claude -p $mode --tools= --model $model --system-prompt-file $prompt --append-system-prompt-file $rules 2>$null | Out-String)
     if ($LASTEXITCODE -eq 0) { break }
   }
 } catch { exit 0 } finally { $env:WRITING_CONVENTIONS_NESTED = $null }

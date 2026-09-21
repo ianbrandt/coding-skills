@@ -156,12 +156,13 @@ try {
   }
   $blocking = "VIOLATION`n`"The report says so`" -> x"
   $null = Invoke-Gate 'PASS' '0' $says
-  Test-Calls @('*--safe-mode --tools= --model*nested=1*')
+  # The rules reach the reader from rules.md, appended to gate-prompt.md, on both calls.
+  Test-Calls @('*--safe-mode --tools= --model*gate-prompt.md --append-system-prompt-file *rules.md nested=1*')
   if ((Get-Content -Raw -LiteralPath $env:GATE_TEST_MARK) -like '*--bare*') { Write-Output 'FAIL --bare on a first call'; $fail = 1 }
   # A call that exits non-zero is retried once with --bare, and that verdict counts.
   $r = Invoke-Gate $blocking 'safe' $says
   if ($r.Status -ne 2) { Write-Output ("FAIL exit " + $r.Status + ", wanted 2 from the --bare retry"); $fail = 1 }
-  Test-Calls @('*--safe-mode --tools= *nested=1*', '*--bare --tools= --model*nested=1*')
+  Test-Calls @('*--safe-mode --tools= *nested=1*', '*--bare --tools= --model*--append-system-prompt-file *rules.md nested=1*')
   $r = Invoke-Gate '' '1' $says
   if ($r.Status -ne 0) { Write-Output ("FAIL exit " + $r.Status + ", wanted 0 with both calls failing"); $fail = 1 }
   Test-Calls @('*--safe-mode*', '*--bare*')

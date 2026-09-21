@@ -3,7 +3,8 @@
 # against the four prohibitions before it is published. bash plus awk only.
 #
 # The check runs as one nested `claude -p --safe-mode --tools=` call, with
-# gate-prompt.md as the system prompt and the hook input as the message.
+# gate-prompt.md as the system prompt, rules.md appended to it so that the rules
+# are written down once, and the hook input as the message.
 # `--safe-mode` starts the call with no CLAUDE.md, skills, plugins, hooks, or MCP
 # servers and keeps the normal sign-in, so it works on a browser sign-in as well as
 # with a key. With `--tools=` the nested model has no tools, and the default tool
@@ -56,7 +57,8 @@ command -v claude >/dev/null 2>&1 || exit 0
 reader() {
   printf '%s' "$input" | WRITING_CONVENTIONS_NESTED=1 claude -p "$1" --tools= \
     --model "${WRITING_CONVENTIONS_GATE_MODEL:-sonnet}" \
-    --system-prompt-file "$HERE/gate-prompt.md" 2>/dev/null
+    --system-prompt-file "$HERE/gate-prompt.md" \
+    --append-system-prompt-file "$HERE/rules.md" 2>/dev/null
 }
 verdict=$(reader --safe-mode) || verdict=$(reader --bare) || exit 0
 

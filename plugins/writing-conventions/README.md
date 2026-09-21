@@ -113,7 +113,8 @@ untrusted source.
 
 The check runs as one nested `claude -p --safe-mode --tools=` call, with
 [`hooks/gate-prompt.md`](hooks/gate-prompt.md) as the system prompt and the hook input as the
-message. Which model answers comes from `WRITING_CONVENTIONS_GATE_MODEL`, or from the `sonnet` alias
+message. [`hooks/rules.md`](hooks/rules.md) is appended to that prompt, so a word added to the rules
+is checked at the gate with no second edit. Which model answers comes from `WRITING_CONVENTIONS_GATE_MODEL`, or from the `sonnet` alias
 when that is unset; set it in the `env` block of a settings file to any id the session's endpoint
 serves.
 

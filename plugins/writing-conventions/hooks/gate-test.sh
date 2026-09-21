@@ -114,13 +114,14 @@ calls() {
   done < "$GATE_TEST_MARK"
 }
 run PASS 0 "$says"
-calls 1 '*--safe-mode --tools= --model*nested=1'
+# The rules reach the reader from rules.md, appended to gate-prompt.md, on both calls.
+calls 1 '*--safe-mode --tools= --model*gate-prompt.md --append-system-prompt-file *rules.md nested=1'
 case $(cat "$GATE_TEST_MARK") in *--bare*) echo 'FAIL --bare on a first call'; fail=1;; esac
 # A call that exits non-zero is retried once with --bare, and that verdict counts.
 run 'VIOLATION
 "The report says so" -> x' safe "$says"
 [ "$status" = 2 ] || { echo "FAIL exit $status, wanted 2 from the --bare retry"; fail=1; }
-calls 2 '*--safe-mode --tools= *nested=1' '*--bare --tools= --model*nested=1'
+calls 2 '*--safe-mode --tools= *nested=1' '*--bare --tools= --model*--append-system-prompt-file *rules.md nested=1'
 run '' 1 "$says"
 [ "$status" = 0 ] || { echo "FAIL exit $status, wanted 0 with both calls failing"; fail=1; }
 calls 2 '*--safe-mode*' '*--bare*'
