@@ -630,6 +630,124 @@ try {
   $env:TMPDIR = $saved.TMP
   $env:WRITING_CONVENTIONS_SHELL_CLASSIFIER = '0'
 
+  # A body passed by path. The gate reads the file and sends it after the hook
+  # input, and a finding may quote it. A file that is not read is listed back
+  # to the session, in the block reason or as additionalContext.
+  $bodyProj = Join-Path $scratch 'bodyproj'
+  $bodySub = Join-Path $bodyProj 'sub'
+  [void](New-Item -ItemType Directory -Force -Path $bodySub)
+  [void](New-Item -ItemType Directory -Force -Path (Join-Path $scratch 'bodytmp'))
+  [IO.File]::WriteAllText((Join-Path $bodyProj 'msg.txt'), "Fix it`n`nThe report says so.`n")
+  [IO.File]::WriteAllText((Join-Path $bodySub 'msg.txt'), "Fix it`n`nPlain text.`n")
+  [IO.File]::WriteAllText((Join-Path $bodySub 'pr.md'), "Plain PR text.`n")
+  $bodyLink = Join-Path $bodyProj 'link.txt'
+  $haveSymlink = $true
+  try { [void](New-Item -ItemType SymbolicLink -Path $bodyLink -Target (Join-Path $bodyProj 'msg.txt') -ErrorAction Stop) }
+  catch { $haveSymlink = $false } # a symlink needs a privilege this host may not grant; the case below is skipped rather than failed
+
+  # Test-Body <exit> <reader calls> <command> [<cwd>] [<verdict>]: $script:out
+  # holds stdout, $script:stderr the reason, and $script:sent what the reader
+  # was sent. The verdict is written fresh to its file on every call, so that
+  # one case's does not reach the next.
+  function Test-Body([int]$wantStatus, [int]$wantReader, [string]$cmdText, [string]$cwd = $bodyProj, [string]$verdict = 'PASS') {
+    $script:cases++
+    $ErrorActionPreference = 'Continue'
+    [IO.File]::WriteAllText($env:GATE_TEST_MARK, '')
+    [IO.File]::WriteAllText(($env:GATE_TEST_MARK + '.stdin'), '')
+    [IO.File]::WriteAllText($env:GATE_TEST_VERDICT_FILE, $verdict)
+    $env:GATE_TEST_FAIL = '0'
+    $errFile = Join-Path $scratch 'bodyerr'
+    $json = @{ session_id = 'body'; cwd = $cwd; tool_name = 'Bash'; tool_input = @{ command = $cmdText } } | ConvertTo-Json -Compress
+    # On Windows GetTempPath() reads TMP and TEMP rather than TMPDIR, and the
+    # scratch directory is under the real one, so all three point at bodytmp.
+    $prevProj = $env:CLAUDE_PROJECT_DIR; $prevTmp = $env:TMPDIR; $prevTemp = $env:TEMP; $prevTmp2 = $env:TMP
+    $env:CLAUDE_PROJECT_DIR = $bodyProj
+    $env:TMPDIR = $env:TEMP = $env:TMP = Join-Path $scratch 'bodytmp'
+    try {
+      $script:out = ($json | & $pwshPath -NoProfile -File $gate 2>$errFile | Out-String).Trim()
+      $status = $LASTEXITCODE
+    } finally { $env:CLAUDE_PROJECT_DIR = $prevProj; $env:TMPDIR = $prevTmp; $env:TEMP = $prevTemp; $env:TMP = $prevTmp2 }
+    $script:stderr = [IO.File]::ReadAllText($errFile)
+    $r = @(Get-Content -LiteralPath $env:GATE_TEST_MARK | Where-Object { $_ -like '*gate-prompt.md*' }).Count
+    if ("$status $r" -ne "$wantStatus $wantReader") {
+      Write-Output ("FAIL exit and reader calls $status $r, wanted $wantStatus $wantReader" + ": " + $cmdText); $script:fail = 1
+    }
+  }
+  function Test-BodySent([string]$wantLike) {
+    $sent = [IO.File]::ReadAllText($env:GATE_TEST_MARK + '.stdin')
+    if ($sent -notlike $wantLike) { Write-Output ("FAIL reader was sent: " + $sent); $script:fail = 1 }
+  }
+  function Test-NotRead([string]$op, [string]$why) {
+    if ((($script:out) + ($script:stderr)) -notlike "*body in $op was not read: $why*") {
+      Write-Output ("FAIL no not-read line for $op ($why): " + $script:out + $script:stderr); $script:fail = 1
+    }
+  }
+  $bodyV = "VIOLATION`n`"The report says so.`" -> x"
+  Test-Body 2 1 'git commit -F msg.txt' $bodyProj $bodyV
+  Test-BodySent '*"session_id"*File: msg.txt*The report says so.*'
+  # Relative to the directory the command starts in, not the project.
+  Test-Body 0 1 'git commit -F msg.txt' $bodySub $bodyV
+  Test-BodySent '*Plain text.*'
+  Test-Body 0 1 ('git commit -F ' + $bodyProj + '/msg.txt && gh pr create --title x --body-file sub/pr.md')
+  Test-BodySent ('*File: ' + $bodyProj + '/msg.txt*The report says so.*File: sub/pr.md*Plain PR text.*')
+  # Each check that fails leaves the file unread and says why.
+  Test-Body 0 1 'printf x > msg.txt && git commit -F msg.txt'
+  Test-NotRead 'msg.txt' 'the command names it more than once'
+  if ([IO.File]::ReadAllText($env:GATE_TEST_MARK + '.stdin') -like '*File:*') { Write-Output 'FAIL a file written by the command was read'; $fail = 1 }
+  if ($script:out -notlike '{"hookSpecificOutput":{"hookEventName":"PreToolUse","additionalContext":"*') { Write-Output ("FAIL not-read list is not additionalContext: " + $script:out); $fail = 1 }
+  Test-Body 0 1 'printf x > ./msg.txt && git commit -F msg.txt'
+  Test-NotRead 'msg.txt' 'the command names it more than once'
+  Test-Body 0 1 'cd sub && git commit -F msg.txt'
+  Test-NotRead 'msg.txt' 'the command may change directory first'
+  Test-Body 0 1 'git -C sub commit -F msg.txt'
+  Test-NotRead 'msg.txt' 'the command may change directory first'
+  Test-Body 0 1 'git commit -F "$HOME/m.txt"'
+  Test-NotRead '$HOME/m.txt' 'it is not a literal path'
+  if ($haveSymlink) {
+    Test-Body 0 1 'git commit -F link.txt'
+    Test-NotRead 'link.txt' 'it is not a regular file'
+  }
+  Test-Body 0 1 'git commit -F nothere.txt'
+  Test-NotRead 'nothere.txt' 'it is not a regular file'
+  Test-Body 0 1 'git commit -F sub'
+  Test-NotRead 'sub' 'it is not a regular file'
+  # A file the hook cannot open. chmod is not on Windows, and root reads any
+  # file, so the case runs only where the mode takes.
+  $locked = Join-Path $bodyProj 'locked.txt'
+  [IO.File]::WriteAllText($locked, "x`n")
+  if (Get-Command chmod -ErrorAction SilentlyContinue) {
+    & chmod 000 $locked
+    $lockedOpen = $true
+    try { [IO.File]::OpenRead($locked).Dispose() } catch { $lockedOpen = $false }
+    if (-not $lockedOpen) {
+      Test-Body 0 1 'git commit -F locked.txt'
+      Test-NotRead 'locked.txt' 'it cannot be read'
+    }
+    & chmod 600 $locked
+  }
+  [IO.File]::WriteAllText((Join-Path $bodyProj 'big.txt'), ('a' * 1048577))
+  Test-Body 0 1 'git commit -F big.txt'
+  Test-NotRead 'big.txt' 'it is over 1 MB'
+  [IO.File]::WriteAllBytes((Join-Path $bodyProj 'bin.txt'), [byte[]]@(97, 0, 98))
+  Test-Body 0 1 'git commit -F bin.txt'
+  Test-NotRead 'bin.txt' 'it is not text'
+  foreach ($i in 1..5) { [IO.File]::WriteAllText((Join-Path $bodyProj "b$i.md"), "Body $i.`n") }
+  Test-Body 0 1 'gh pr comment 1 -F b1.md; gh pr comment 1 -F b2.md; gh pr comment 1 -F b3.md; gh pr comment 1 -F b4.md; gh pr comment 1 -F b5.md'
+  Test-BodySent '*Body 4.*'
+  Test-NotRead 'b5.md' 'the gate reads at most 4 body files'
+  # Outside the project and the temporary directories. Where the scratch
+  # directory is itself under /tmp, there is no outside to test.
+  if ($bodyProj -notlike '/tmp/*' -and $bodyProj -notlike '/private/tmp/*') {
+    $outDir = Join-Path $scratch 'bodyout'
+    [void](New-Item -ItemType Directory -Force -Path $outDir)
+    [IO.File]::WriteAllText((Join-Path $outDir 'm.txt'), "Plain.`n")
+    Test-Body 0 1 ('git commit -F ' + $outDir + '/m.txt')
+    Test-NotRead ($outDir + '/m.txt') 'it is outside the project'
+  }
+  # A finding that quotes the not-read reason still blocks, and the list follows it.
+  Test-Body 2 1 'git commit -F msg.txt -m "The report says so." && cat msg.txt' $bodyProj $bodyV
+  Test-NotRead 'msg.txt' 'the command names it more than once'
+
   # Garbage in place of the hook input is not a reason to block either.
   $cases++
   $ErrorActionPreference = 'Continue'

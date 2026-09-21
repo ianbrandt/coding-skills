@@ -83,13 +83,13 @@ CAP=50000
 
 # field <key>: one string field of the hook input, decoded
 field() { printf '%s' "$input" | awk -v key="$1" -f "$HERE/jsonstr.awk"; }
-# context: stdin as the additionalContext of a PostToolUse hook, JSON-escaped.
-# The text is split and joined, because what a backslash means in the replacement
-# of a gsub differs from one awk to the next.
+# context [<event>]: stdin as the additionalContext of a PostToolUse hook, or of
+# the event given, JSON-escaped. The text is split and joined, because what a
+# backslash means in the replacement of a gsub differs from one awk to the next.
 context() {
-  awk 'function rep(s, from, to,    n, a, i, out) { n = split(s, a, from); out = a[1]; for (i = 2; i <= n; i++) out = out to a[i]; return out }
+  awk -v ev="${1:-PostToolUse}" 'function rep(s, from, to,    n, a, i, out) { n = split(s, a, from); out = a[1]; for (i = 2; i <= n; i++) out = out to a[i]; return out }
     { gsub(/[\001-\010\013-\037]/, ""); text = text (NR > 1 ? "\\n" : "") rep(rep(rep($0, "\\", "\\\\"), "\"", "\\\""), "\t", "\\t") }
-    END { if (text != "") printf "{\"hookSpecificOutput\":{\"hookEventName\":\"PostToolUse\",\"additionalContext\":\"%s\"}}", text }'
+    END { if (text != "") printf "{\"hookSpecificOutput\":{\"hookEventName\":\"%s\",\"additionalContext\":\"%s\"}}", ev, text }'
 }
 
 # off: the exit for a check that could not run. The user is told the first time in a
@@ -138,6 +138,65 @@ shellclass() {
   [ -s "$tmp/answers" ] && mkdir -p "$dir" && cat "$tmp/answers" >> "$cache"
   walk=$(awk -v keys="$tmp/keys" -v scope="${proj:-/}" -v final=1 -f "$HERE/walk.awk" "$known" "$tmp/answers")
   [ "$walk" = SAFE ] && exit 0
+}
+
+# bodies: copy each file the command in $cmd passes a commit, PR, issue, or
+# release body in to $tmp/body.<n>, and add a line to $unread for each one that
+# is not read. keys.awk finds the files, from the flags written down there, and
+# the reader never chooses one. A file is read only when the text on disk is
+# the text the command will publish, as far as a script can tell: a literal path
+# that no other word of the command names, since a command that writes the file
+# first publishes other text; relative to the directory the command starts in,
+# with no cd and no git -C; a readable regular file, not a link, in the project
+# or a temporary directory; and at most 1 MB with no NUL in its first 8 KB. Up to 4
+# files are read, with $CAP characters in all.
+bodies() {
+  base=$(field cwd); base=${base:-$PWD}
+  m=bash; [ "$tool" = PowerShell ] && m=pwsh
+  printf '%s' "$cmd" | awk -v mode=$m -v files=1 -f "$HERE/keys.awk" > "$tmp/files"
+  n=0; total=0
+  while IFS="$(printf '\t')" read -r moved op; do
+    why=
+    case $op in
+      ''|*[!A-Za-z0-9._/+@,:=-]*) why='it is not a literal path' ;;
+      /*) path=$op ;;
+      *) path=$base/$op; [ "$moved" = 1 ] && why='the command may change directory first' ;;
+    esac
+    if [ -z "$why" ] && [ "$(printf '%s' "$cmd" | awk -v b="${op##*/}" '{ t = t $0 "\n" }
+         END { while (i = index(t, b)) { n++; t = substr(t, i + length(b)) } print n + 0 }')" -gt 1 ]; then
+      why='the command names it more than once, so it may write the file before reading it'
+    fi
+    if [ -z "$why" ]; then
+      if [ -L "$path" ] || [ ! -f "$path" ]; then
+        why='it is not a regular file'
+      elif [ ! -r "$path" ]; then
+        why='it cannot be read'
+      else
+        dir=$(cd "$(dirname "$path")" && pwd -P)
+        why='it is outside the project and the temporary directory'
+        for r in "${CLAUDE_PROJECT_DIR:-$base}" "${TMPDIR:-/tmp}" /tmp; do
+          r=$(cd "$r" 2>/dev/null && pwd -P) || continue
+          case "$dir/" in "${r%/}"/*) why= ;; esac
+        done
+        size=$(wc -c < "$path")
+        if [ -n "$why" ]; then :
+        elif [ "$size" -gt 1048576 ]; then why='it is over 1 MB'
+        elif [ "$(head -c 8192 "$path" | tr -d '\000' | wc -c)" -ne "$(head -c 8192 "$path" | wc -c)" ]; then why='it is not text'
+        elif [ $n -ge 4 ] || [ $((total + size)) -gt $CAP ]; then why="the gate reads at most 4 body files and $CAP characters"
+        fi
+      fi
+    fi
+    if [ -n "$why" ]; then
+      unread="${unread}The body in $op was not read: $why.
+"
+    else
+      n=$((n + 1)); total=$((total + size))
+      cp "$path" "$tmp/body.$n"; printf '%s' "$op" > "$tmp/name.$n"
+    fi
+  done < "$tmp/files"
+  [ $n = 0 ] && return
+  msg=$(printf '%s' "$input"; i=1
+    while [ $i -le $n ]; do printf '\n\nFile: %s\n\n' "$(cat "$tmp/name.$i")"; cat "$tmp/body.$i"; i=$((i + 1)); done)
 }
 
 tool=$(field tool_name)
@@ -238,6 +297,8 @@ case "$1:$tool" in
       *) [ "$WRITING_CONVENTIONS_SHELL_CLASSIFIER" = 0 ] && exit 0
          shellclass ;;
     esac
+    unread=
+    bodies
     sources() { printf '%s' "$cmd"; }
     again='run the command again' ;;
 esac
@@ -247,7 +308,9 @@ verdict=$(ask gate-prompt.md rules.md) || off
 # other form is a failure path, so it lets the command through as well.
 sources > "$tmp/source"
 printf '%s\n' "$verdict" > "$tmp/verdict"
-findings=$(awk -v verdict="$tmp/verdict" -f "$HERE/verdict.awk" "$tmp/source" "$tmp/verdict")
+set -- "$tmp/source"
+for f in "$tmp"/body.*; do [ -e "$f" ] && set -- "$@" "$f"; done
+findings=$(awk -v verdict="$tmp/verdict" -f "$HERE/verdict.awk" "$@" "$tmp/verdict")
 if [ -z "$again" ]; then
   # A file is cheap to fix after the fact and a blocked edit stops the turn, so
   # this path hands the findings back and blocks nothing.
@@ -255,7 +318,10 @@ if [ -z "$again" ]; then
     [ -z "$unread" ] || printf '%s\n' "$unread"; } | context
   exit 0
 fi
-[ -n "$findings" ] || exit 0
+if [ -z "$findings" ]; then
+  [ -z "$unread" ] || printf '%s' "$unread" | context PreToolUse
+  exit 0
+fi
 if [ -n "$stop" ]; then
   # A blocked Stop costs a whole re-emitted reply, so a reader that keeps
   # finding something in each rewrite is stopped after two: the user is told
@@ -279,5 +345,5 @@ if [ -n "$stop" ]; then
     exit 0
   fi
 fi
-printf '%s\nRewrite the quoted text and %s.\n' "$findings" "$again" >&2
+printf '%s\nRewrite the quoted text and %s.\n%s' "$findings" "$again" "$unread" >&2
 exit 2

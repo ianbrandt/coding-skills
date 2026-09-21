@@ -196,9 +196,35 @@ lose new coverage but never theirs. A quote left open, or a word that cannot be 
 subcommand position, such as `hg "$verb"`, sends the command to the reader. A `RUNS_CODE` command is
 read only when it contains a sentence: six or more words, the first capitalized and the last ending
 in `.`, `!`, or `?`. Interpreters run in about 16% of commands on the machine this was measured on,
-and a short message posted through `curl` or a script is not read. A body passed by file path is not
-read either. `WRITING_CONVENTIONS_SHELL_CLASSIFIER=0` turns this off and leaves the four families.
-A command can need two calls, so the shell hooks' timeout is 180 seconds.
+and a short message posted through `curl` or a script is not read.
+`WRITING_CONVENTIONS_SHELL_CLASSIFIER=0` turns this off and leaves the four families. A command can
+need two calls, so the shell hooks' timeout is 180 seconds.
+
+A body passed by file path is read by the script, for the four families only: `git commit -F` or
+`--file`, and `-F`, `--body-file`, or `--notes-file` on `gh pr`, `gh issue`, and `gh release`. The
+flags that take a value are listed per command in `keys.awk` and `keys.ps1`, from each command's
+`--help`, so that `git commit -m '-F' notes.txt` reads no file. The reader is sent each file after the
+hook input, under a `File: <path>` line, and a finding may quote it. A file is read only when the
+text on disk is the text the command will publish, as far as a script can tell:
+
+- The path is literal, with no variable, glob, `~`, or quoted space in it.
+- No other word of the command includes its file name, since a command that writes the file first
+  publishes different text from what is in the file now.
+- A relative path resolves against the hook's `cwd`, and the command has no `cd`, `pushd`,
+  `Set-Location`, `git -C`, `git --work-tree`, or `GIT_WORK_TREE` in it.
+- It is a readable regular file, not a link, inside the project or a temporary directory, at most
+  1 MB, with no NUL byte in its first 8 KB.
+
+Where one command passes two body flags, only the last one is read, as git and gh do. Up to 4 files
+are read per command, 50,000 characters in all. Each file that is not read is listed back to the
+session with the reason, in the block reason or as `additionalContext`.
+
+The test by file name has two known costs. A command that rewrites the file without naming it, such
+as `make notes && gh release create v1 -F notes.md`, has the old text read. A command that names
+the file again only to delete it, such as `git commit -F msg.txt && rm msg.txt`, has no file read.
+A body flag is not found at all after a wrapper that takes a value (`sudo -u me`, `nice -n 5`) or
+in a program called by path (`/usr/bin/git`), and nothing is reported for it. A body file for any
+other command, such as `hg commit -l`, is not read.
 
 Replayed from an empty cache over 122,260 shell commands from one machine's history, 3.6% of
 commands made a classifier call and 9.5% reached the reader, against 4.1% for the four families

@@ -513,6 +513,89 @@ have=$(sed -n "s/^DEADLINES='\(.*\)'$/\1/p" "$HERE/gate.sh" | tr ' ' '\n' | sort
 [ "$want" = "$have" ] || { echo "FAIL deadlines in gate.sh [$have], from hooks.json [$want]"; fail=1; }
 unset TMPDIR
 
+# A body passed by path. The gate reads the file and sends it after the hook
+# input, and a finding may quote it. A file that is not read is listed back to
+# the session, in the block reason or as additionalContext.
+proj=$(cd "$scratch" && pwd -P)/proj
+mkdir -p "$proj/sub" "$scratch/tmpd"
+printf 'Fix it\n\nThe report says so.\n' > "$proj/msg.txt"
+printf 'Fix it\n\nPlain text.\n' > "$proj/sub/msg.txt"
+printf 'Plain PR text.\n' > "$proj/sub/pr.md"
+ln -s "$proj/msg.txt" "$proj/link.txt"
+# body <exit> <reader calls> <command> [<cwd>]; stdout in $out, stderr in $stderr
+body() {
+  cases=$((cases + 1))
+  : > "$GATE_TEST_MARK"; : > "$GATE_TEST_MARK.stdin"
+  export GATE_TEST_FAIL=0
+  # The verdict goes to the child only, so that one case's does not reach the next.
+  out=$(printf '{"session_id":"body","cwd":"%s","tool_name":"Bash","tool_input":{"command":"%s"}}' "${4:-$proj}" "$3" \
+    | GATE_TEST_VERDICT="${GATE_TEST_VERDICT:-PASS}" CLAUDE_PROJECT_DIR="$proj" TMPDIR="$scratch/tmpd" WRITING_CONVENTIONS_SHELL_CLASSIFIER=0 bash "$HERE/gate.sh" 2>"$scratch/err")
+  status=$?
+  stderr=$(cat "$scratch/err")
+  r=$(grep -c gate-prompt.md "$GATE_TEST_MARK")
+  [ "$status $r" = "$1 $2" ] || { echo "FAIL exit and reader calls $status $r, wanted $1 $2: $3"; fail=1; }
+}
+# sent <pattern>: the text the reader was sent matches
+sent() { case $(cat "$GATE_TEST_MARK.stdin") in $1) ;; *) echo "FAIL reader was sent: $(cat "$GATE_TEST_MARK.stdin")"; fail=1;; esac; }
+notread() { case "$out$stderr" in *"body in $1 was not read: $2"*) ;; *) echo "FAIL no not-read line for $1 ($2): $out$stderr"; fail=1;; esac; }
+GATE_TEST_VERDICT='VIOLATION
+"The report says so." -> x' body 2 1 'git commit -F msg.txt'
+sent '{"session_id"*File: msg.txt*The report says so.*'
+# Relative to the directory the command starts in, not the project.
+GATE_TEST_VERDICT='VIOLATION
+"The report says so." -> x' body 0 1 'git commit -F msg.txt' "$proj/sub"
+sent '*Plain text.*'
+body 0 1 "git commit -F $proj/msg.txt && gh pr create --title x --body-file sub/pr.md"
+sent "*File: $proj/msg.txt*The report says so.*File: sub/pr.md*Plain PR text.*"
+# Each check that fails leaves the file unread and says why.
+body 0 1 'printf x > msg.txt && git commit -F msg.txt'
+notread msg.txt 'the command names it more than once'
+case $(cat "$GATE_TEST_MARK.stdin") in *File:*) echo "FAIL a file written by the command was read"; fail=1;; esac
+case $out in '{"hookSpecificOutput":{"hookEventName":"PreToolUse","additionalContext":"'*) ;; *) echo "FAIL not-read list is not additionalContext: $out"; fail=1;; esac
+body 0 1 'printf x > ./msg.txt && git commit -F msg.txt'
+notread msg.txt 'the command names it more than once'
+body 0 1 'cd sub && git commit -F msg.txt'
+notread msg.txt 'the command may change directory first'
+body 0 1 'git -C sub commit -F msg.txt'
+notread msg.txt 'the command may change directory first'
+body 0 1 'git commit -F \"$HOME/m.txt\"'
+notread '$HOME/m.txt' 'it is not a literal path'
+body 0 1 'git commit -F link.txt'
+notread link.txt 'it is not a regular file'
+body 0 1 'git commit -F nothere.txt'
+notread nothere.txt 'it is not a regular file'
+body 0 1 'git commit -F sub'
+notread sub 'it is not a regular file'
+printf 'x\n' > "$proj/locked.txt" && chmod 000 "$proj/locked.txt"
+# root reads any file, so the case has nothing to show there.
+if [ ! -r "$proj/locked.txt" ]; then
+  body 0 1 'git commit -F locked.txt'
+  notread locked.txt 'it cannot be read'
+fi
+chmod 600 "$proj/locked.txt"
+head -c 1048577 /dev/zero | tr '\0' a > "$proj/big.txt"
+body 0 1 'git commit -F big.txt'
+notread big.txt 'it is over 1 MB'
+printf 'a\0b' > "$proj/bin.txt"
+body 0 1 'git commit -F bin.txt'
+notread bin.txt 'it is not text'
+for i in 1 2 3 4 5; do printf 'Body %s.\n' $i > "$proj/b$i.md"; done
+body 0 1 'gh pr comment 1 -F b1.md; gh pr comment 1 -F b2.md; gh pr comment 1 -F b3.md; gh pr comment 1 -F b4.md; gh pr comment 1 -F b5.md'
+sent '*Body 4.*'
+notread b5.md 'the gate reads at most 4 body files'
+# Outside the project and the temporary directories. Where the scratch directory
+# is itself under /tmp, as on Linux, there is no outside to test.
+case $proj in /tmp/*|/private/tmp/*) ;; *)
+  mkdir -p "$scratch/out" && printf 'Plain.\n' > "$scratch/out/m.txt"
+  body 0 1 "git commit -F $(cd "$scratch/out" && pwd -P)/m.txt"
+  notread "$(cd "$scratch/out" && pwd -P)/m.txt" 'it is outside the project' ;;
+esac
+# A finding that quotes the not-read reason still blocks, and the list follows it.
+GATE_TEST_VERDICT='VIOLATION
+"The report says so." -> x' body 2 1 'git commit -F msg.txt -m \"The report says so.\" && cat msg.txt'
+notread msg.txt 'the command names it more than once'
+unset GATE_TEST_VERDICT
+
 # Garbage in place of the hook input is not a reason to block either.
 cases=$((cases + 1))
 printf 'not json at all {{{' | bash "$HERE/gate.sh" >/dev/null 2>&1 \

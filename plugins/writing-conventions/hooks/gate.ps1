@@ -169,13 +169,14 @@ function Get-StringValue($node) {
 }
 
 $CAP = 50000
-# Text as the additionalContext of a PostToolUse hook. Written as UTF-8 bytes, because
-# 5.1 would encode a pipeline to stdout through the console codepage.
-function Write-Context([string]$text) {
+# Text as the additionalContext of a PostToolUse hook, or of the event given.
+# Written as UTF-8 bytes, because 5.1 would encode a pipeline to stdout through
+# the console codepage.
+function Write-Context([string]$text, [string]$eventName = 'PostToolUse') {
   if ($text -eq '') { return }
   $text = [regex]::Replace($text, '[\x01-\x08\x0B-\x1F]', '')
   $esc = $text.Replace('\', '\\').Replace('"', '\"').Replace("`t", '\t').Replace("`n", '\n')
-  $bytes = $utf8.GetBytes('{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"' + $esc + '"}}')
+  $bytes = $utf8.GetBytes('{"hookSpecificOutput":{"hookEventName":"' + $eventName + '","additionalContext":"' + $esc + '"}}')
   $stdout = [Console]::OpenStandardOutput()
   $stdout.Write($bytes, 0, $bytes.Length); $stdout.Flush()
 }
@@ -345,6 +346,104 @@ function Test-ShellCommand {
   if ($walk[0] -ceq 'SAFE') { exit 0 }
 }
 
+# Get-Bodies: gate.sh's bodies, in PowerShell. Returns @{ Unread; Texts; Names },
+# one entry of Texts/Names per body file read, in order, and one line of Unread
+# per file that was not. keys.ps1 finds the files the command in $cmd passes a
+# commit, PR, issue, or release body in, from the flags written down there, and
+# the reader never chooses one. A file is read only when the text on disk is the
+# text the command will publish, as far as a script can tell: a literal path
+# that no other word of the command names, since a command that writes the file
+# first publishes other text; relative to the directory the command starts in,
+# with no cd and no git -C; a readable regular file, not a link, in the project
+# or a temporary directory; and at most 1 MB with no NUL in its first 8 KB. Up to 4
+# files are read, with $CAP characters in all.
+#
+# A drive prefix such as C:\ counts as a path being absolute, alongside a
+# leading "/" or "\", and the literal-path check allows "\" as well as "/",
+# since a command reaching this script may be Windows-style. A link is found
+# through its ReparsePoint attribute rather than by resolving the directory
+# chain the way gate.sh's `pwd -P` does.
+function Get-Bodies([string]$cmdText) {
+  $base = [string]$json.cwd
+  if ($base -eq '') { $base = (Get-Location).Path }
+  $mode = 'bash'; if ($tool -ceq 'PowerShell') { $mode = 'pwsh' }
+  $files = @(Get-CommandKey $cmdText $mode -Files | Where-Object { $_ -ne '' })
+  $roots = New-Object System.Collections.Generic.List[string]
+  $roots.Add($(if ($env:CLAUDE_PROJECT_DIR) { $env:CLAUDE_PROJECT_DIR } else { $base }))
+  foreach ($r in $env:TEMP, $env:TMPDIR, [IO.Path]::GetTempPath()) { if ($r) { $roots.Add($r) } }
+  if (Test-Path -LiteralPath '/tmp') { $roots.Add('/tmp') }
+  $rootFull = @($roots | ForEach-Object { try { [IO.Path]::GetFullPath($_).TrimEnd('/', '\') } catch { $null } } | Where-Object { $_ })
+
+  $unread = New-Object System.Collections.Generic.List[string]
+  $texts = New-Object System.Collections.Generic.List[string]
+  $names = New-Object System.Collections.Generic.List[string]
+  $n = 0; $total = 0
+  foreach ($line in $files) {
+    $tab = $line.IndexOf("`t")
+    $moved = $line.Substring(0, $tab)
+    $op = $line.Substring($tab + 1)
+    $why = ''
+    $path = ''
+    if ($op -eq '' -or $op -cnotmatch '^[A-Za-z0-9._/+@,:=\\-]+$') {
+      $why = 'it is not a literal path'
+    } elseif ($op.StartsWith('/') -or $op.StartsWith('\') -or $op -cmatch '^[A-Za-z]:\\') {
+      $path = $op
+    } else {
+      $path = Join-Path $base $op
+      if ($moved -ceq '1') { $why = 'the command may change directory first' }
+    }
+    if ($why -eq '') {
+      $baseName = $op -replace '^.*[/\\]', ''
+      $count = 0; $at = 0
+      while (($at = $cmdText.IndexOf($baseName, $at, [StringComparison]::Ordinal)) -ge 0) { $count++; $at += $baseName.Length }
+      if ($count -gt 1) { $why = 'the command names it more than once, so it may write the file before reading it' }
+    }
+    $size = 0
+    if ($why -eq '') {
+      $item = $null
+      try { $item = Get-Item -LiteralPath $path -ErrorAction Stop } catch { }
+      $isLink = $null -ne $item -and (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0)
+      $canRead = $false
+      if ($null -ne $item -and -not $item.PSIsContainer) {
+        try { [IO.File]::OpenRead($item.FullName).Dispose(); $canRead = $true } catch { }
+      }
+      if ($isLink -or $null -eq $item -or $item.PSIsContainer) {
+        $why = 'it is not a regular file'
+      } elseif (-not $canRead) {
+        $why = 'it cannot be read'
+      } else {
+        $full = [IO.Path]::GetFullPath($path)
+        $inside = $false
+        foreach ($r in $rootFull) {
+          if ($full -ceq $r -or $full.StartsWith($r + '/', [StringComparison]::Ordinal) -or $full.StartsWith($r + '\', [StringComparison]::Ordinal)) { $inside = $true; break }
+        }
+        if (-not $inside) {
+          $why = 'it is outside the project and the temporary directory'
+        } else {
+          $size = $item.Length
+          if ($size -gt 1048576) { $why = 'it is over 1 MB' }
+          else {
+            $bytes = [IO.File]::ReadAllBytes($full)
+            $headLen = [Math]::Min(8192, $bytes.Length)
+            $hasNul = $false
+            for ($bi = 0; $bi -lt $headLen; $bi++) { if ($bytes[$bi] -eq 0) { $hasNul = $true; break } }
+            if ($hasNul) { $why = 'it is not text' }
+            elseif ($n -ge 4 -or ($total + $size) -gt $CAP) { $why = "the gate reads at most 4 body files and $CAP characters" }
+          }
+        }
+      }
+    }
+    if ($why -ne '') {
+      $unread.Add("The body in $op was not read: $why.")
+    } else {
+      $n++; $total += $size
+      $texts.Add([IO.File]::ReadAllText($full, $utf8))
+      $names.Add($op)
+    }
+  }
+  return @{ Unread = $unread.ToArray(); Texts = $texts.ToArray(); Names = $names.ToArray() }
+}
+
 $tool = [string]$json.tool_name
 $unread = ''
 $stopState = ''
@@ -450,7 +549,15 @@ if ($stopMode) {
     if ($env:WRITING_CONVENTIONS_SHELL_CLASSIFIER -eq '0') { exit 0 }
     Test-ShellCommand
   }
-  $sources = @($cmd)
+  $bodies = Get-Bodies $cmd
+  $unread = ($bodies.Unread -join "`n")
+  if ($bodies.Texts.Count -gt 0) {
+    $parts = New-Object System.Collections.Generic.List[string]
+    [void]$parts.Add($raw)
+    for ($bi = 0; $bi -lt $bodies.Texts.Count; $bi++) { [void]$parts.Add('File: ' + $bodies.Names[$bi] + "`n`n" + $bodies.Texts[$bi]) }
+    $raw = ($parts -join "`n`n").TrimEnd("`n")
+  }
+  $sources = @($cmd) + $bodies.Texts
   $again = 'run the command again'
 }
 $verdict = Invoke-Model 'gate-prompt.md' 'rules.md'
@@ -469,7 +576,10 @@ if ($fileMode) {
   Write-Context ($lines -join "`n")
   exit 0
 }
-if ($findings.Count -eq 0) { exit 0 }
+if ($findings.Count -eq 0) {
+  if ($unread -ne '') { Write-Context $unread 'PreToolUse' }
+  exit 0
+}
 if ($stopState -ne '') {
   # A blocked Stop costs a whole re-emitted reply, so a reader that keeps finding
   # something in each rewrite is stopped after two: the user is told that review
@@ -503,5 +613,7 @@ if ($stopState -ne '') {
     exit 0
   }
 }
-[Console]::Error.WriteLine(($findings -join "`n") + "`nRewrite the quoted text and $again.")
+$reason = ($findings -join "`n") + "`nRewrite the quoted text and $again."
+if ($unread -ne '') { $reason += "`n$unread" }
+[Console]::Error.WriteLine($reason)
 exit 2
