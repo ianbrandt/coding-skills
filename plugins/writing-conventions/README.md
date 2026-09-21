@@ -145,6 +145,11 @@ call that exits non-zero is retried once with `--bare` in its place. `--bare` ta
 credentials, and prints "Not logged in" on a browser sign-in. Every failure path exits 0, so a gate
 that cannot reach a model lets the command through instead of blocking it.
 
+The first time in a session that both calls fail, or that `claude` is not on the path, the user is
+told once that model review is off, through the hook's `systemMessage`, which is shown to the user
+and not to the model. The marker is a file in the temporary directory, named for the session id. A
+reply from a call that exited 0 is not such a failure, whatever its form.
+
 Managed policy settings still apply under `--safe-mode`, so a copy of the gate registered that way
 would run inside its own nested call. The scripts set `WRITING_CONVENTIONS_NESTED=1` on that call,
 and each exits at once when the variable is set.

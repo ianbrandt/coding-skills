@@ -243,6 +243,35 @@ file 1 '*Only the first 50000 characters*' PASS "{\"tool_name\":\"Write\",\"tool
 # A reader that cannot run says nothing, and the advisory nudge in lint.sh still fires.
 file 2 '' '' "$(edit "$doc" says)" 1
 
+# The first time in a session that a check cannot run, the user is told once, through
+# systemMessage, which the user is shown and the model is not. The marker is a file
+# named for the session, so another session gets its own notice, and input with no
+# session id gets none, because nothing could stop it repeating.
+export TMPDIR="$scratch/tmp"; mkdir -p "$TMPDIR"
+# notice <pattern for stdout> <fail> <session id> [<command text>]
+notice() {
+  cases=$((cases + 1))
+  export GATE_TEST_VERDICT=PASS GATE_TEST_FAIL="$2"
+  out=$(printf '{"session_id":"%s","tool_input":{"command":"%s"}}' "$3" "${4:-git commit -m x}" | bash "$HERE/gate.sh" 2>/dev/null)
+  status=$?
+  [ "$status" = 0 ] || { echo "FAIL exit $status, wanted 0: notice $2 $3"; fail=1; }
+  case $out in $1) ;; *) echo "FAIL notice for $2 $3, wanted $1: $out"; fail=1;; esac
+}
+notice '{"systemMessage":"*model review is off*"}' 1 s1
+notice '' 1 s1
+notice '{"systemMessage":"*"}' 1 s2
+# A session in which the retry succeeded gets none, and neither does a passing one.
+notice '' safe s3
+notice '' 0 s3
+notice '' 1 ''
+# No `claude` on the path is the same failure, but only for a command that needed it.
+realpath=$PATH; PATH=/usr/bin:/bin
+notice '' 1 s4 'ls -la'
+notice '{"systemMessage":"*"}' 1 s4
+notice '' 1 s4
+PATH=$realpath
+unset TMPDIR
+
 # Garbage in place of the hook input is not a reason to block either.
 cases=$((cases + 1))
 printf 'not json at all {{{' | bash "$HERE/gate.sh" >/dev/null 2>&1 \

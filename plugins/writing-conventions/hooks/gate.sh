@@ -44,10 +44,10 @@ if [ "$OS" = Windows_NT ] && [ "$CLAUDE_CODE_USE_POWERSHELL_TOOL" = 1 ] \
 HERE=$(cd "$(dirname "$0")" && pwd)
 input=$(cat)
 
-command -v claude >/dev/null 2>&1 || exit 0
 # ask <system prompt> [<file appended to it>]: the reply to one nested call on the
-# hook input, retried once with --bare when the first call exits non-zero.
-ask() { call --safe-mode "$@" || call --bare "$@"; }
+# hook input, retried once with --bare when the first call exits non-zero. With no
+# `claude` on the path there is no call, which is the same failure.
+ask() { command -v claude >/dev/null 2>&1 || return 1; call --safe-mode "$@" || call --bare "$@"; }
 call() {
   printf '%s' "${msg:-$input}" | WRITING_CONVENTIONS_NESTED=1 claude -p "$1" --tools= \
     --model "${WRITING_CONVENTIONS_GATE_MODEL:-sonnet}" \
@@ -68,6 +68,19 @@ context() {
   awk 'function rep(s, from, to,    n, a, i, out) { n = split(s, a, from); out = a[1]; for (i = 2; i <= n; i++) out = out to a[i]; return out }
     { gsub(/[\001-\010\013-\037]/, ""); text = text (NR > 1 ? "\\n" : "") rep(rep(rep($0, "\\", "\\\\"), "\"", "\\\""), "\t", "\\t") }
     END { if (text != "") printf "{\"hookSpecificOutput\":{\"hookEventName\":\"PostToolUse\",\"additionalContext\":\"%s\"}}", text }'
+}
+
+# off: the exit for a check that could not run. The user is told the first time in a
+# session, through systemMessage, which the user is shown and the model is not. The
+# marker is a file named for the session, as the note in lint.sh is, and with no
+# session id there is no marker, so nothing is said rather than said every time.
+off() {
+  sid=$(field session_id | tr -c 'A-Za-z0-9_-' '_')
+  mark="${TMPDIR:-/tmp}/claude-gate-off-$sid"
+  if [ -n "$sid" ] && [ ! -e "$mark" ] && : > "$mark"; then
+    printf '{"systemMessage":"writing-conventions: model review is off for this session, because the nested claude -p call failed. Commit, PR, MCP, and file text is not being read; the pattern lint on replies still runs."}'
+  fi
+  exit 0
 }
 
 tool=$(field tool_name)
@@ -117,7 +130,7 @@ case "$1:$tool" in
     class=$(awk -v t="$tool" 'NF == 2 && $1 == t { if ($2 == "CAN_PUBLISH") p = 1; if ($2 == "NEVER") n = 1 }
       END { if (p) print "CAN_PUBLISH"; else if (n) print "NEVER" }' "$cache" 2>/dev/null)
     if [ -z "$class" ]; then
-      class=$(ask classify-prompt.md) || exit 0
+      class=$(ask classify-prompt.md) || off
       class=$(printf '%s\n' "$class" | awk 'NF { sub(/\r$/, ""); print; exit }')
       # A reply in any other form is doubt, which reads as CAN_PUBLISH and is not kept.
       case "$class" in
@@ -142,7 +155,7 @@ case "$1:$tool" in
     sources() { printf '%s' "$cmd"; }
     again='run the command again' ;;
 esac
-verdict=$(ask gate-prompt.md rules.md) || exit 0
+verdict=$(ask gate-prompt.md rules.md) || off
 
 # verdict.awk keeps the findings that quote the text under review. A reply in any
 # other form is a failure path, so it lets the command through as well.

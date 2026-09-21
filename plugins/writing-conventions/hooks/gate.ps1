@@ -58,12 +58,13 @@ try { $raw = $reader.ReadToEnd() } finally { $reader.Dispose() }
 $json = $null
 if ($raw.Trim() -ne '') { try { $json = ConvertFrom-Json $raw } catch { $json = $null } }
 if ($null -eq $json -or $null -eq $json.tool_input) { exit 0 }
-if (-not (Get-Command claude -ErrorAction SilentlyContinue)) { exit 0 }
 $model = if ($env:WRITING_CONVENTIONS_GATE_MODEL) { $env:WRITING_CONVENTIONS_GATE_MODEL } else { 'sonnet' }
 
 # The reply to one nested call on the hook input, retried once with --bare when the
-# first call exits non-zero, or $null when both do.
+# first call exits non-zero, or $null when both do. With no `claude` on the path
+# there is no call, which is the same failure.
 function Invoke-Model([string]$promptFile, [string]$appendFile) {
+  if (-not (Get-Command claude -ErrorAction SilentlyContinue)) { return $null }
   $more = @()
   if ($appendFile) { $more = @('--append-system-prompt-file', (Join-Path $PSScriptRoot $appendFile)) }
   $env:WRITING_CONVENTIONS_NESTED = '1'
@@ -74,6 +75,25 @@ function Invoke-Model([string]$promptFile, [string]$appendFile) {
     }
   } catch { } finally { $env:WRITING_CONVENTIONS_NESTED = $null }
   return $null
+}
+
+# The exit for a check that could not run. The user is told the first time in a
+# session, through systemMessage, which the user is shown and the model is not. The
+# marker is a file named for the session, as the note in lint.ps1 is, and with no
+# session id there is no marker, so nothing is said rather than said every time.
+function Exit-Off {
+  $sid = [regex]::Replace([string]$json.session_id, '[^A-Za-z0-9_-]', '_')
+  if ($sid -ne '') {
+    $tmp = if ($env:TMPDIR) { $env:TMPDIR } else { [IO.Path]::GetTempPath() }
+    $mark = Join-Path $tmp "claude-gate-off-$sid"
+    if (-not (Test-Path -LiteralPath $mark)) {
+      try {
+        [IO.File]::WriteAllText($mark, '')
+        [Console]::Out.Write('{"systemMessage":"writing-conventions: model review is off for this session, because the nested claude -p call failed. Commit, PR, MCP, and file text is not being read; the pattern lint on replies still runs."}')
+      } catch { }
+    }
+  }
+  exit 0
 }
 
 # Every string value under a node of the decoded tool_input, at any depth.
@@ -165,7 +185,7 @@ if ($fileMode) {
   }
   if ($class -eq '') {
     $reply = Invoke-Model 'classify-prompt.md' ''
-    if ($null -eq $reply) { exit 0 }
+    if ($null -eq $reply) { Exit-Off }
     $class = [string](@($reply -split "`n" | ForEach-Object { $_.TrimEnd("`r") } | Where-Object { $_.Trim() -ne '' })[0])
     # A reply in any other form is doubt, which reads as CAN_PUBLISH and is not kept.
     if ($class -ceq 'NEVER' -or $class -ceq 'CAN_PUBLISH') {
@@ -190,7 +210,7 @@ if ($fileMode) {
   $again = 'run the command again'
 }
 $verdict = Invoke-Model 'gate-prompt.md' 'rules.md'
-if ($null -eq $verdict) { exit 0 }
+if ($null -eq $verdict) { Exit-Off }
 
 # Get-VerifiedFinding keeps the findings that quote the command. A reply
 # in any other form is a failure path, so it lets the command through as well.

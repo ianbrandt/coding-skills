@@ -57,6 +57,7 @@ $saved = @{
   FILE  = $env:GATE_TEST_VERDICT_FILE
   CLASS = $env:GATE_TEST_CLASS
   CONF  = $env:CLAUDE_CONFIG_DIR
+  TMP   = $env:TMPDIR
 }
 try {
   # The owner test in shell-owner.ps1 hands the hook to PowerShell only on Windows
@@ -297,6 +298,41 @@ try {
   # A reader that cannot run says nothing, and the advisory nudge in lint.ps1 still fires.
   $null = Test-File 2 '' '' (New-Edit $doc 'says') '1'
 
+  # The first time in a session that a check cannot run, the user is told once, through
+  # systemMessage, which the user is shown and the model is not. The marker is a file
+  # named for the session, so another session gets its own notice, and input with no
+  # session id gets none, because nothing could stop it repeating.
+  $env:TMPDIR = Join-Path $scratch 'tmp'
+  [void](New-Item -ItemType Directory -Path $env:TMPDIR)
+  $pwshPath = (Get-Command pwsh).Source
+  function Test-Notice([string]$want, [string]$failCall, [string]$sid, [string]$cmdText = 'git commit -m x') {
+    $script:cases++
+    $ErrorActionPreference = 'Continue'
+    [IO.File]::WriteAllText($env:GATE_TEST_VERDICT_FILE, 'PASS')
+    $env:GATE_TEST_FAIL = $failCall
+    $json = @{ session_id = $sid; tool_input = @{ command = $cmdText } } | ConvertTo-Json -Compress
+    $out = ($json | & $pwshPath -NoProfile -File $gate 2>$null | Out-String).Trim()
+    if ($LASTEXITCODE -ne 0) { Write-Output ("FAIL exit " + $LASTEXITCODE + ", wanted 0: notice $failCall $sid"); $script:fail = 1 }
+    if (($want -eq '' -and $out -ne '') -or ($want -ne '' -and $out -notlike $want)) {
+      Write-Output ("FAIL notice for $failCall $sid, wanted " + $want + ": " + $out); $script:fail = 1
+    }
+  }
+  Test-Notice '{"systemMessage":"*model review is off*"}' '1' 's1'
+  Test-Notice '' '1' 's1'
+  Test-Notice '{"systemMessage":"*"}' '1' 's2'
+  # A session in which the retry succeeded gets none, and neither does a passing one.
+  Test-Notice '' 'safe' 's3'
+  Test-Notice '' '0' 's3'
+  Test-Notice '' '1' ''
+  # No `claude` on the path is the same failure, but only for a command that needed it.
+  $withStub = $env:PATH
+  $env:PATH = Join-Path $scratch 'tmp'
+  Test-Notice '' '1' 's4' 'ls -la'
+  Test-Notice '{"systemMessage":"*"}' '1' 's4'
+  Test-Notice '' '1' 's4'
+  $env:PATH = $withStub
+  $env:TMPDIR = $saved.TMP
+
   # Garbage in place of the hook input is not a reason to block either.
   $cases++
   $ErrorActionPreference = 'Continue'
@@ -312,6 +348,7 @@ try {
   $env:GATE_TEST_VERDICT_FILE = $saved.FILE
   $env:GATE_TEST_CLASS = $saved.CLASS
   $env:CLAUDE_CONFIG_DIR = $saved.CONF
+  $env:TMPDIR = $saved.TMP
   Remove-Item -LiteralPath $scratch -Recurse -Force -ErrorAction SilentlyContinue
 }
 
