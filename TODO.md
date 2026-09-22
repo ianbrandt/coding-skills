@@ -1,10 +1,10 @@
 # To do
 
-- The 40,000-line record case in `lint-test.sh` takes 17 to 18 seconds on Windows, over both its
-  5-second budget and the Stop hook's 10-second timeout, so on a reply that long the record would
-  not finish inside the hook. Find out whether Git Bash alone is that slow or whether `jsonstr.awk`
-  or `lint.awk` has gone quadratic again, and fix whichever it is. There is no equivalent case in
-  `lint-test.ps1`.
+- `lint.ps1` takes 8 to 10 seconds on a 40,000-line reply, against the Stop hook's 10-second
+  timeout, so the PowerShell path can still be cut off on a reply that long. What is left is
+  per-sentence PowerShell in `Invoke-Lint`, where the intermediate list and the array literal per
+  hit cost about 1.4 seconds between them. `lint-test.ps1` has no budget case for this, and one
+  would be flaky until that cost comes down.
 - After the next `writing-conventions` update reaches a session: the `mcp__.*` and the `Stop` hook
   entries have never fired through the harness, only through the self-tests and direct calls. Make
   one Jira or browser MCP call and read `~/.claude/writing-conventions/mcp-tools-*.txt`, and put a

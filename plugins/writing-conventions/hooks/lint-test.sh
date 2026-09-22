@@ -91,14 +91,17 @@ printf '{"last_assistant_message":"This shape is vacuous."}' | bash "$HERE/lint.
 case "$(printf '{"x":1}' | bash "$HERE/lint.sh" --emit)" in *flagged*) echo "FAIL emit without session id printed a note"; fail=1;; esac
 [ -z "$(printf 'not json' | bash "$HERE/lint.sh" --nudge)" ] || { echo "FAIL nudge on garbage"; fail=1; }
 printf 'not json at all {{{' | bash "$HERE/lint.sh" --record; [ $? -eq 0 ] || { echo "FAIL garbage record exit"; fail=1; }
-# a 40,000-line reply with three escapes a line records well inside the Stop
-# hook's 10 s timeout. With either the decode in jsonstr.awk or the lint in
-# lint.awk quadratic in the line count, as each once was, it took 7 to 15 s.
+# a 40,000-line reply with three escapes a line records inside the Stop hook's
+# 10 s timeout. It takes about 5 s under Git Bash on Windows: half in lint.awk,
+# the rest in the two scans of the 1.4 MB input and in the start of five
+# processes, each of which costs 270 ms there. With either the decode in
+# jsonstr.awk or the lint in lint.awk quadratic in the line count, as each once
+# was, it runs well past the limit below.
 cases=$((cases + 1))
 awk 'BEGIN { printf "{\"session_id\":\"long\",\"last_assistant_message\":\""
   for (i = 0; i < 40000; i++) printf "line %d says \\\"hi\\\" \\\\ the shape\\n", i
   printf "\"}" }' > "$TMPDIR/long.json"
 t0=$(date +%s); bash "$HERE/lint.sh" --record < "$TMPDIR/long.json"; t=$(( $(date +%s) - t0 ))
-[ "$t" -le 5 ] || { echo "FAIL a 40,000-line record took ${t}s"; fail=1; }
+[ "$t" -le 7 ] || { echo "FAIL a 40,000-line record took ${t}s"; fail=1; }
 grep -q "banned word x40000" "$TMPDIR/claude-reply-lint-long.txt" || { echo "FAIL long record note"; fail=1; }
 [ $fail -eq 0 ] && echo "PASS ($cases cases)" || { echo "FAILED"; exit 1; }

@@ -87,6 +87,14 @@ $RX.Add([regex]::new($SB + '(it|this|that|neither|either|both|each) ' + $ADV + $
 $RX.Add([regex]::new($SB + $DET + " ($W)?($W)?($W)?[$WCH]+,? whose ")); $KIND.Add('whose')
 $RX.Add([regex]::new($SB + $DET + " ($W)?($W)?($W)?" + $PART + ' ')); $KIND.Add('part')
 
+# In each of the nine a determiner or pronoun comes first, then a verb from one of
+# the lists or "whose", so a sentence with no verb after its first determiner
+# matches none of them, and the nine are skipped for it. The gate costs two
+# matches against the nine it skips, and on a 40,000-line reply that is the
+# difference between 15 s and 3 s.
+$RX_SUBJ = [regex]::new($SB + '(' + $DET + '|it|which) ')
+$RX_VERB = [regex]::new($SB + '(' + $VERB + '|' + $PART + '|whose)' + $NB)
+
 $RX_BANNED = [regex]::new($SB + '(load-bearing|vacuous|vacuously|non-vacuous|owe|owes|owed|shape|shapes|slot|slots' +
                           '|channel|channels|deleak|de-risk|derisk)' + $NB)
 $RX_DASH = [regex]::new("[ \t]\u2014|\u2014[ \t]")
@@ -188,6 +196,9 @@ function Remove-CodeSpans([string]$t) {
 # still found: "the grounds that the rule wants" is excluded on "that", then
 # "the rule wants" is tried on its own.
 function Get-AgencyHit([string]$s, [string]$l) {
+  $sm = $RX_SUBJ.Match($l)
+  if (-not $sm.Success) { return $null }
+  if (-not $RX_VERB.IsMatch($l.Substring($sm.Index))) { return $null }
   for ($p = 0; $p -lt $RX.Count; $p++) {
     $pkind = $KIND[$p]
     $pos = 0
@@ -255,10 +266,14 @@ function Invoke-Lint([string]$text, [switch]$AsNote) {
   $count = @{}
   $example = @{}
   $lines = New-Object 'System.Collections.Generic.List[string]'
+  # One list, cleared each sentence, rather than one built per sentence: New-Object
+  # on a generic type costs 75 microseconds a call, which on a 40,000-line reply is
+  # 3 of the 7 seconds this function used to take.
+  $found = New-Object 'System.Collections.Generic.List[string[]]'
   foreach ($s in [regex]::Split((Remove-CodeSpans $text), '[.!?;:]+[ \t\n]+|\n+')) {
     if ([regex]::IsMatch($s, '^[ \t]*$')) { continue }
     $l = $s.ToLowerInvariant()
-    $found = New-Object 'System.Collections.Generic.List[string[]]'
+    $found.Clear()
     $dm = $RX_DASH.Match($s)
     if ($dm.Success) { $found.Add(@('spaced em dash', $dm.Value)) }
     $bm = $RX_BANNED.Match($l)

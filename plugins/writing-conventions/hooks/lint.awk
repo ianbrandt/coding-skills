@@ -47,6 +47,14 @@ BEGIN {
   P[++NP] = SB "(it|this|that|neither|either|both|each) " ADV VERB NB; KIND[NP] = "finite"
   P[++NP] = SB DET " (" W ")?(" W ")?(" W ")?[[:alnum:]'’—_-]+,? whose "; KIND[NP] = "whose"
   P[++NP] = SB DET " (" W ")?(" W ")?(" W ")?" PART " "; KIND[NP] = "part"
+  # In each of the nine a determiner or pronoun comes first, then a verb from one
+  # of the lists or "whose", so a sentence with no verb after its first determiner
+  # matches none of them, and the nine are skipped for it. The two gate matches
+  # cost 10 microseconds a sentence against 380 for the nine. The nine are tried
+  # at one call site, and awk recompiles a pattern there whenever its string
+  # differs from the last one, so every time round the loop.
+  GATE_SUBJ = SB "(" DET "|it|which) "
+  GATE_VERB = SB "(" VERB "|" PART "|whose)" NB
   P_BANNED = SB "(load-bearing|vacuous|vacuously|non-vacuous|owe|owes|owed|shape|shapes|slot|slots" \
              "|channel|channels|deleak|de-risk|derisk)" NB
   P_DASH = "[ \t]—|—[ \t]"
@@ -113,6 +121,8 @@ function hit(g, ex) {
 # later in the same sentence is still found: "the grounds that the rule wants"
 # is excluded on "that", then "the rule wants" is tried on its own.
 function agency(s, l,   p, pos, rest, start, len, span, after, after2, verb, m, words, nw, i, w, sub_ok, kind) {
+  if (!match(l, GATE_SUBJ)) return
+  if (substr(l, RSTART) !~ GATE_VERB) return
   for (p = 1; p <= NP; p++) {
     kind = KIND[p]
     pos = 1
