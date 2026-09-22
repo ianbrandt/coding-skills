@@ -368,6 +368,12 @@ function Get-Bodies([string]$cmdText) {
   if ($base -eq '') { $base = (Get-Location).Path }
   $mode = 'bash'; if ($tool -ceq 'PowerShell') { $mode = 'pwsh' }
   $files = @(Get-CommandKey $cmdText $mode -Files | Where-Object { $_ -ne '' })
+  # A "\" is a shell escape to the splitter, so an unquoted Windows path arrives
+  # with its separators eaten. Every drive-prefixed word of the command is keyed
+  # by that stripped form, and an operand matching one of the keys is put back to
+  # what the command wrote, so the file is found and named as written.
+  $winPaths = @{}
+  foreach ($w in [regex]::Matches($cmdText, '[A-Za-z]:\\[^\s"'']*')) { $winPaths[($w.Value -replace '\\', '')] = $w.Value }
   $roots = New-Object System.Collections.Generic.List[string]
   $roots.Add($(if ($env:CLAUDE_PROJECT_DIR) { $env:CLAUDE_PROJECT_DIR } else { $base }))
   foreach ($r in $env:TEMP, $env:TMPDIR, [IO.Path]::GetTempPath()) { if ($r) { $roots.Add($r) } }
@@ -382,6 +388,7 @@ function Get-Bodies([string]$cmdText) {
     $tab = $line.IndexOf("`t")
     $moved = $line.Substring(0, $tab)
     $op = $line.Substring($tab + 1)
+    if ($winPaths.ContainsKey($op)) { $op = $winPaths[$op] }
     $why = ''
     $path = ''
     if ($op -eq '' -or $op -cnotmatch '^[A-Za-z0-9._/+@,:=\\-]+$') {

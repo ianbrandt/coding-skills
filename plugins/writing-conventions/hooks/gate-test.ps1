@@ -680,7 +680,9 @@ try {
     if ($sent -notlike $wantLike) { Write-Output ("FAIL reader was sent: " + $sent); $script:fail = 1 }
   }
   function Test-NotRead([string]$op, [string]$why) {
-    if ((($script:out) + ($script:stderr)) -notlike "*body in $op was not read: $why*") {
+    # As additionalContext the line is JSON, where each "\" of a Windows path is
+    # doubled, so the doubling is undone before the path is matched.
+    if (((($script:out) + ($script:stderr)) -replace '\\\\', '\') -notlike "*body in $op was not read: $why*") {
       Write-Output ("FAIL no not-read line for $op ($why): " + $script:out + $script:stderr); $script:fail = 1
     }
   }
