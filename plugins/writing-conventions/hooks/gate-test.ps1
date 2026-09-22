@@ -615,8 +615,8 @@ try {
   foreach ($event in 'PreToolUse', 'Stop', 'PostToolUse') {
     foreach ($group in $hooksJson.hooks.$event) {
       foreach ($h in $group.hooks) {
-        if (-not (@($h.args) -like '*gate.ps1')) { continue }
-        $b = if (@($h.args) -contains '--stop') { 'stop' } elseif (@($h.args) -contains '--file') { 'file' } elseif ($group.matcher -like 'mcp*') { 'mcp' } else { 'shell' }
+        if ($h.command -notlike '*gate.ps1*') { continue }
+        $b = if ($h.command -like '*gate.ps1" --stop*') { 'stop' } elseif ($h.command -like '*gate.ps1" --file*') { 'file' } elseif ($group.matcher -like 'mcp*') { 'mcp' } else { 'shell' }
         $want[$b] = [int]$h.timeout - 15
       }
     }

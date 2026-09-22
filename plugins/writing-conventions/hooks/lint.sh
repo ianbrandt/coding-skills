@@ -9,12 +9,13 @@
 # costs a full re-emission of an answer the reader has already seen. The
 # correction lands on the next reply instead. Every path exits 0.
 
-# One of lint.sh and lint.ps1 emits, never both. PowerShell takes the hook on a
-# Windows install where the PowerShell tool is the configured shell. The mirror of
-# this test is in shell-owner.ps1, which also hands PowerShell the hook where
-# there is no Git Bash to run this script.
+# On a Windows install where the PowerShell tool is the configured shell, lint.ps1
+# runs instead, even with Git Bash installed. The hook command in hooks.json runs
+# lint.ps1 directly where there is no Git Bash to run this script.
 if [ "$OS" = Windows_NT ] && [ "$CLAUDE_CODE_USE_POWERSHELL_TOOL" = 1 ] \
-   && command -v pwsh >/dev/null 2>&1; then exit 0; fi
+   && command -v pwsh >/dev/null 2>&1; then
+  exec pwsh -NoProfile -File "$(dirname "$0")/lint.ps1" "$@"
+fi
 HERE=$(cd "$(dirname "$0")" && pwd)
 mode=${1:---record}
 input=$(cat)

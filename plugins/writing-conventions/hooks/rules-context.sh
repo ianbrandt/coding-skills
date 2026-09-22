@@ -4,9 +4,11 @@
 # Backslash, double quote, tab, carriage return, backspace, and form feed are
 # escaped; any other control character is dropped, so the output is always a
 # valid JSON string whatever gets pasted into rules.md.
-# See lint.sh for what this test is: one of this file and rules-context.ps1 emits.
+# See lint.sh for this handoff to rules-context.ps1.
 if [ "$OS" = Windows_NT ] && [ "$CLAUDE_CODE_USE_POWERSHELL_TOOL" = 1 ] \
-   && command -v pwsh >/dev/null 2>&1; then exit 0; fi
+   && command -v pwsh >/dev/null 2>&1; then
+  exec pwsh -NoProfile -File "$(dirname "$0")/rules-context.ps1" "$@"
+fi
 HERE=$(cd "$(dirname "$0")" && pwd)
 event=${1:-SubagentStart}
 esc=$(awk 'BEGIN { ORS = "" }

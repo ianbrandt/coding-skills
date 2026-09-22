@@ -31,12 +31,11 @@
 # on its child, and nothing here is worth doing for the reader's own session.
 [ -z "$WRITING_CONVENTIONS_NESTED" ] || exit 0
 
-# One of gate.sh and gate.ps1 runs the check, never both. PowerShell takes the
-# hook on a Windows install where the PowerShell tool is the configured shell. The
-# mirror of this test is in shell-owner.ps1, which also hands PowerShell the hook
-# where there is no Git Bash to run this script.
+# See lint.sh for this handoff to gate.ps1.
 if [ "$OS" = Windows_NT ] && [ "$CLAUDE_CODE_USE_POWERSHELL_TOOL" = 1 ] \
-   && command -v pwsh >/dev/null 2>&1; then exit 0; fi
+   && command -v pwsh >/dev/null 2>&1; then
+  exec pwsh -NoProfile -File "$(dirname "$0")/gate.ps1" "$@"
+fi
 HERE=$(cd "$(dirname "$0")" && pwd)
 input=$(cat)
 

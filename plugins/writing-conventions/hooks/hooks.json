@@ -19,15 +19,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/gate.sh\"",
-            "shell": "bash",
-            "timeout": 180,
-            "statusMessage": "Checking the text for AI tells..."
-          },
-          {
-            "type": "command",
-            "command": "pwsh",
-            "args": ["-NoProfile", "-File", "${CLAUDE_PLUGIN_ROOT}/hooks/gate.ps1"],
+            "command": "echo @'\n' >/dev/null; exec bash \"${CLAUDE_PLUGIN_ROOT}/hooks/gate.sh\"\n'@ >$null; pwsh -NoProfile -File \"${CLAUDE_PLUGIN_ROOT}/hooks/gate.ps1\"; exit $LASTEXITCODE #'",
             "timeout": 180,
             "statusMessage": "Checking the text for AI tells..."
           }
@@ -38,15 +30,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/gate.sh\"",
-            "shell": "bash",
-            "timeout": 90,
-            "statusMessage": "Checking the text for AI tells..."
-          },
-          {
-            "type": "command",
-            "command": "pwsh",
-            "args": ["-NoProfile", "-File", "${CLAUDE_PLUGIN_ROOT}/hooks/gate.ps1"],
+            "command": "echo @'\n' >/dev/null; exec bash \"${CLAUDE_PLUGIN_ROOT}/hooks/gate.sh\"\n'@ >$null; pwsh -NoProfile -File \"${CLAUDE_PLUGIN_ROOT}/hooks/gate.ps1\"; exit $LASTEXITCODE #'",
             "timeout": 90,
             "statusMessage": "Checking the text for AI tells..."
           }
@@ -58,29 +42,13 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/lint.sh\" --record",
-            "shell": "bash",
+            "command": "echo @'\n' >/dev/null; exec bash \"${CLAUDE_PLUGIN_ROOT}/hooks/lint.sh\" --record\n'@ >$null; pwsh -NoProfile -File \"${CLAUDE_PLUGIN_ROOT}/hooks/lint.ps1\" --record; exit $LASTEXITCODE #'",
             "timeout": 10,
             "statusMessage": "Linting the reply..."
           },
           {
             "type": "command",
-            "command": "pwsh",
-            "args": ["-NoProfile", "-File", "${CLAUDE_PLUGIN_ROOT}/hooks/lint.ps1", "--record"],
-            "timeout": 10,
-            "statusMessage": "Linting the reply..."
-          },
-          {
-            "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/gate.sh\" --stop",
-            "shell": "bash",
-            "timeout": 60,
-            "statusMessage": "Checking the draft for AI tells..."
-          },
-          {
-            "type": "command",
-            "command": "pwsh",
-            "args": ["-NoProfile", "-File", "${CLAUDE_PLUGIN_ROOT}/hooks/gate.ps1", "--stop"],
+            "command": "echo @'\n' >/dev/null; exec bash \"${CLAUDE_PLUGIN_ROOT}/hooks/gate.sh\" --stop\n'@ >$null; pwsh -NoProfile -File \"${CLAUDE_PLUGIN_ROOT}/hooks/gate.ps1\" --stop; exit $LASTEXITCODE #'",
             "timeout": 60,
             "statusMessage": "Checking the draft for AI tells..."
           }
@@ -92,15 +60,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/rules-context.sh\" SubagentStart",
-            "shell": "bash",
-            "timeout": 5,
-            "statusMessage": "Loading writing rules..."
-          },
-          {
-            "type": "command",
-            "command": "pwsh",
-            "args": ["-NoProfile", "-File", "${CLAUDE_PLUGIN_ROOT}/hooks/rules-context.ps1", "SubagentStart"],
+            "command": "echo @'\n' >/dev/null; exec bash \"${CLAUDE_PLUGIN_ROOT}/hooks/rules-context.sh\" SubagentStart\n'@ >$null; pwsh -NoProfile -File \"${CLAUDE_PLUGIN_ROOT}/hooks/rules-context.ps1\" SubagentStart; exit $LASTEXITCODE #'",
             "timeout": 5,
             "statusMessage": "Loading writing rules..."
           }
@@ -112,15 +72,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/lint.sh\" --emit",
-            "shell": "bash",
-            "timeout": 10,
-            "statusMessage": "Checking the last reply's lint..."
-          },
-          {
-            "type": "command",
-            "command": "pwsh",
-            "args": ["-NoProfile", "-File", "${CLAUDE_PLUGIN_ROOT}/hooks/lint.ps1", "--emit"],
+            "command": "echo @'\n' >/dev/null; exec bash \"${CLAUDE_PLUGIN_ROOT}/hooks/lint.sh\" --emit\n'@ >$null; pwsh -NoProfile -File \"${CLAUDE_PLUGIN_ROOT}/hooks/lint.ps1\" --emit; exit $LASTEXITCODE #'",
             "timeout": 10,
             "statusMessage": "Checking the last reply's lint..."
           }
@@ -133,29 +85,13 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/lint.sh\" --nudge",
-            "shell": "bash",
+            "command": "echo @'\n' >/dev/null; exec bash \"${CLAUDE_PLUGIN_ROOT}/hooks/lint.sh\" --nudge\n'@ >$null; pwsh -NoProfile -File \"${CLAUDE_PLUGIN_ROOT}/hooks/lint.ps1\" --nudge; exit $LASTEXITCODE #'",
             "timeout": 10,
             "statusMessage": "Checking for a prose write..."
           },
           {
             "type": "command",
-            "command": "pwsh",
-            "args": ["-NoProfile", "-File", "${CLAUDE_PLUGIN_ROOT}/hooks/lint.ps1", "--nudge"],
-            "timeout": 10,
-            "statusMessage": "Checking for a prose write..."
-          },
-          {
-            "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/gate.sh\" --file",
-            "shell": "bash",
-            "timeout": 60,
-            "statusMessage": "Checking the file for AI tells..."
-          },
-          {
-            "type": "command",
-            "command": "pwsh",
-            "args": ["-NoProfile", "-File", "${CLAUDE_PLUGIN_ROOT}/hooks/gate.ps1", "--file"],
+            "command": "echo @'\n' >/dev/null; exec bash \"${CLAUDE_PLUGIN_ROOT}/hooks/gate.sh\" --file\n'@ >$null; pwsh -NoProfile -File \"${CLAUDE_PLUGIN_ROOT}/hooks/gate.ps1\" --file; exit $LASTEXITCODE #'",
             "timeout": 60,
             "statusMessage": "Checking the file for AI tells..."
           }

@@ -72,23 +72,28 @@ under them, and a construction it cannot match mechanically is still a violation
 
 ## Which shell runs the hooks
 
-Each of the four command hooks is registered twice, once as a bash script and once as a PowerShell
-one, and [`hooks/shell-owner.ps1`](hooks/shell-owner.ps1) is the test that keeps exactly one of each
-pair emitting. PowerShell takes the hook on Windows when `CLAUDE_CODE_USE_POWERSHELL_TOOL=1`, the
-same setting that makes the PowerShell tool the session's shell, or when there is no Git Bash to run
-the bash script; bash takes it everywhere else, and the mirror of that test sits in the `.sh` files.
-The `defaultShell` setting is not the switch, since it governs input-box `!` commands rather than
-hooks, and the environment variable is what reaches a hook process.
+Each of the four command hooks is registered once, as a shell command with no `shell` key, so
+Claude Code picks the shell: bash on macOS and Linux, Git Bash on Windows when it is installed, and
+PowerShell otherwise. The command is written to parse in both languages. bash and the other POSIX
+shells read the first line's `@'` as the start of a quoted string that ends on the second line, then
+`exec` the `.sh` script. PowerShell reads `@'` as the start of a here-string that ends at the `'@`
+opening the third line, then runs the `.ps1` script with `pwsh`. The trailing `#'` closes the quote
+for zsh, which parses the whole command before running any of it, and is a comment to PowerShell.
+No PowerShell starts on macOS or Linux, so a broken `pwsh` install there never surfaces as a hook
+error.
 
-Git Bash's presence is read off the `git` install rather than from a `bash` on the `PATH`. Git for
-Windows leaves `bash.exe` in `bin\`, which is not on the `PATH` at all, and the `bash` that is on the
-`PATH` is WSL, under two names, which cannot run a hook against a Windows path.
+Each `.sh` script hands the hook to its `.ps1` counterpart through `pwsh` on Windows when
+`CLAUDE_CODE_USE_POWERSHELL_TOOL=1`, the setting that makes the PowerShell tool the session's
+shell, even where Git Bash is installed. The `defaultShell` setting is not the switch, since it
+governs input-box `!` commands rather than hooks, and the environment variable is what reaches a
+hook process. [`hooks/shell-owner.ps1`](hooks/shell-owner.ps1) repeats that decision on the
+PowerShell side, reading Git Bash's presence off the `git` install rather than from a `bash` on the
+`PATH`: Git for Windows leaves `bash.exe` in `bin\`, which is not on the `PATH` at all, and the
+`bash` that is on the `PATH` is WSL, under two names, which cannot run a hook against a Windows path.
 
-The PowerShell side is registered as `pwsh` with an argument list rather than as a shell command, so
-no quoting is involved and a box without PowerShell 7 fails to launch it and falls back to bash. That
-failure is silent: on a macOS install with no `pwsh`, nothing reaches the session. Windows PowerShell
-5.1 never runs a hook, since only `pwsh` is registered; the scripts stay 5.1-clean so the self-test
-runs there. A Windows box with neither PowerShell 7 nor Git Bash gets no command hook at all. The
+Windows PowerShell 5.1 never runs a hook script, since only `pwsh` is launched; the scripts stay
+5.1-clean so the self-test runs there. A Windows box with Git Bash and no PowerShell 7 runs the bash
+scripts whatever the tool setting, and a box with neither gets a hook error for each hook. The
 `SessionStart` rules load either way, since that hook is a plain `cat`.
 
 ## The gate at publication
