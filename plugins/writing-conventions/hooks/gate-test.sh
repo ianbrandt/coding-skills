@@ -487,13 +487,15 @@ unset TMPDIR
 
 # The time budget. A call past its limit is killed with its children and lets the
 # command through with the notice. The deadline is set short so that the limit is
-# 17 seconds rather than 60.
+# about 25 seconds rather than 60. It leaves 10 seconds of slack, because the
+# startup before the call takes 3 seconds under Git Bash on Windows and a limit
+# under 15 seconds means no call at all.
 export TMPDIR="$scratch/budgettmp"; mkdir -p "$TMPDIR"
 cases=$((cases + 1))
 : > "$GATE_TEST_MARK"
 export GATE_TEST_VERDICT=PASS GATE_TEST_FAIL=0
 out=$(printf '%s' '{"session_id":"slow","tool_input":{"command":"git commit -m x"}}' \
-  | GATE_TEST_SLEEP=40 WRITING_CONVENTIONS_GATE_DEADLINE=27 bash "$HERE/gate.sh" 2>/dev/null)
+  | GATE_TEST_SLEEP=40 WRITING_CONVENTIONS_GATE_DEADLINE=35 bash "$HERE/gate.sh" 2>/dev/null)
 [ $? = 0 ] || { echo "FAIL exit $? after a kill"; fail=1; }
 [ "$(wc -l < "$GATE_TEST_MARK" | tr -d ' ')" = 1 ] || { echo "FAIL calls after a kill: $(cat "$GATE_TEST_MARK")"; fail=1; }
 case $out in '{"systemMessage":"'*'model review is off'*) ;; *) echo "FAIL no notice after a kill: $out"; fail=1;; esac

@@ -576,7 +576,9 @@ try {
 
   # The time budget. A call past its limit is killed with its children and lets
   # the command through with the notice. The deadline is set short so that the
-  # limit is 17 seconds rather than 60.
+  # limit is about 25 seconds rather than 60. It leaves 10 seconds of slack,
+  # because the startup before the call takes a few seconds on Windows and a
+  # limit under 15 seconds means no call at all.
   $env:TMPDIR = Join-Path $scratch 'budgettmp'
   [void](New-Item -ItemType Directory -Path $env:TMPDIR)
   $cases++
@@ -585,7 +587,7 @@ try {
   [IO.File]::WriteAllText($env:GATE_TEST_VERDICT_FILE, 'PASS')
   $env:GATE_TEST_FAIL = '0'
   $env:GATE_TEST_SLEEP = '40'
-  $env:WRITING_CONVENTIONS_GATE_DEADLINE = '27'
+  $env:WRITING_CONVENTIONS_GATE_DEADLINE = '35'
   try {
     $out = ('{"session_id":"slow","tool_input":{"command":"git commit -m x"}}' | pwsh -NoProfile -File $gate 2>$null | Out-String).Trim()
     $status = $LASTEXITCODE
