@@ -135,7 +135,8 @@ Detail is not a virtue. The right amount is whatever lets the reader do the next
   message, an issue, or a PR body usually means the text outgrew its genre, not that it needed
   organizing. Cut it to what the genre carries, and structure only what survives: twenty paragraphs
   do read better under headings, and more than a few parallel items do read better as bullets. The
-  gate checks this one as a string match, and allows a heading in a release note.
+  gate checks this one as a string match, and allows a heading in a release note and the list of
+  squashed commits in a squash-merge message.
 
 ## 5. Close a turn with a status sign-off, not a report
 

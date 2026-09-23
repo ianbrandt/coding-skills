@@ -28,7 +28,8 @@ references are exempt. How to read the five:
 5. A Markdown heading, a line starting with one or more `#`, or a bullet changelog, a bulleted list
    of the changes the diff already shows, in a commit message, an issue, a pull request, or a
    comment. Quote the heading or the first bullet. This one is a literal match, not a judgment of
-   length: a heading is allowed in a release note, a document, or a prose file.
+   length: a heading is allowed in a release note, a document, or a prose file. A squash-merge
+   commit message that lists the squashed commits' subjects as bullets is allowed too.
 
 Reply with the single word `PASS` when the text passes, and nothing else. Otherwise the first line
 of the reply is the single word `VIOLATION`, and each line after it is one offending sentence in this
