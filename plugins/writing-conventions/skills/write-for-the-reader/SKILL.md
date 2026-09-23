@@ -122,6 +122,11 @@ Detail is not a virtue. The right amount is whatever lets the reader do the next
   reader's limit is how much of it they can follow well enough to review, and every unneeded
   paragraph spends part of that limit. Short is the norm here for those reasons, not as a
   preference.
+- **Every fact the reader needs, not every fact.** A true sentence still goes when nothing the
+  reader does next depends on it. An aside on release status is the common case: that a change is
+  not in a release yet, or that nothing released is affected, is accurate, and a reviewer of the
+  change acts the same without it. Keep it only where it changes what the reader does, such as a
+  migration they would otherwise plan for.
 - **Short is relative to the change.** A one-sentence body on a large, complex PR fails this rule
   as surely as a twenty-sentence body on a small one. The test is whether a reviewer could act on
   it without asking, not a sentence count, and a genre's usual size is where most pieces land
