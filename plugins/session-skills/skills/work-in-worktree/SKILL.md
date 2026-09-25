@@ -65,7 +65,7 @@ A repo has one main (non-worktree) checkout; you **work in your own worktree**. 
 up front.
 
 ```bash
-MAIN=$(git worktree list --porcelain | awk 'NR==1{print $2}')
+MAIN=$(git worktree list --porcelain | sed -n '1s/^worktree //p')   # keeps a path with spaces whole
 BRANCH=$(git rev-parse --abbrev-ref HEAD)
 DEFAULT=$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's@^origin/@@')
 DEFAULT=${DEFAULT:-main}                     # the repo's integration branch (main/master/…)
