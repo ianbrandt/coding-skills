@@ -239,9 +239,9 @@ tracked family. Ambiguous, ask.
 2. **Exclude the local-only artifacts**—per-clone and uncommitted; never touch the tracked
    `.gitignore`:
    ```bash
-   printf '\n# Local-only planning artifacts (never commit/push upstream)\n/ROADMAP*.local.md\n/.claude/\n/spike-notes.local/\n' \
+   printf '\n# Local-only planning artifacts (never commit/push upstream)\n/ROADMAP*.local.md\n/.claude/\n/notes.local\n' \
      >> .git/info/exclude
-   mkdir -p spike-notes.local
+   mkdir -p notes.local
    ```
 3. **Stamp out `ROADMAP.local.md`** with a header carrying the per-repo config as prose—this header
    *is* the config:
