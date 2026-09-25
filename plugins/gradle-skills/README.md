@@ -44,7 +44,7 @@ Guides Claude through upgrading the Gradle wrapper to the latest available versi
 Install at user scope (available across all your projects):
 
 ```
-/plugin marketplace add IanBrandt/gradle-skills
+/plugin marketplace add IanBrandt/coding-skills
 /plugin install gradle-skills@ianbrandt
 ```
 
