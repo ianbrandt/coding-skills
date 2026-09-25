@@ -35,7 +35,7 @@ Guides Claude through upgrading the Gradle wrapper to the latest available versi
 **Workflow:**
 1. Query `services.gradle.org/versions/current` for the latest Gradle version
 2. Find every `gradle-wrapper.properties` in the project (the wrapper task is per-build, so each is upgraded in its own directory)
-3. For each: if that build's script has a `wrapper` task configuration, update the version there and run `./gradlew wrapper` then `./gradlew help`; otherwise update `gradle-wrapper.properties` directly and run `./gradlew help`
+3. For each: if that build's script has a `wrapper` task configuration, update the version there; otherwise pass it with `--gradle-version`, along with the distribution type and checksum where the build pins them. Either way, run `./gradlew wrapper` twice: the second run, on the new Gradle, regenerates `gradle-wrapper.jar` and the `gradlew` scripts
 4. Run `build` to validate the upgrade (composite-aware: a root build may not reach every included build)
 
 **Sub-agents:** Discovery and the validation build run in sub-agents that return a short summary, keeping verbose Gradle output out of the main conversation.
@@ -60,8 +60,7 @@ The dependency update workflow runs `./gradlew` tasks and `git` commands (it com
       "Bash(./gradlew dependencyUpdates:*)",
       "Bash(./gradlew build:*)",
       "Bash(./gradlew buildHealth:*)",
-      "Bash(./gradlew wrapper)",
-      "Bash(./gradlew help)",
+      "Bash(./gradlew wrapper:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
       "Bash(git push:*)"

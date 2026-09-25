@@ -39,20 +39,33 @@ Check that build's root build script for a `wrapper` task configuration (`tasks.
 `tasks.named<Wrapper>("wrapper") { ... }`, `tasks.named("wrapper") { ... }`, or any variation
 configuring the `Wrapper` task).
 
+Run the `wrapper` task **twice** either way. The first run, on the old Gradle, writes the new version
+into `gradle-wrapper.properties`; the second, on the new Gradle, regenerates `gradle-wrapper.jar`,
+`gradlew`, and `gradlew.bat`. Editing `distributionUrl` by hand and running `./gradlew help` leaves
+the old wrapper jar in place.
+
+If the properties file pins `distributionSha256Sum`, the new distribution's checksum is required:
+`https://services.gradle.org/distributions/gradle-<version>-<bin|all>.zip.sha256`, matching the
+distribution type in the current `distributionUrl`.
+
 **Path A—task exists** (it is the source of truth; `./gradlew wrapper` rewrites the properties file
 from it):
 
-1. Update `gradleVersion` in the task block
-2. Run that build's `./gradlew wrapper`
-3. Run that build's `./gradlew help`
+1. Update `gradleVersion` in the task block, and `distributionSha256Sum` if the task sets it. If the
+   properties file pins a checksum the task does not set, pass `--gradle-distribution-sha256-sum
+   <sum>` on both runs
+2. Run that build's `./gradlew wrapper` twice
 
-**Path B—no task:**
+**Path B—no task:** run this twice in that build, with the same options both times:
 
-1. Update `distributionUrl` in that build's `gradle/wrapper/gradle-wrapper.properties`
-2. Run that build's `./gradlew help`
+```
+./gradlew wrapper --gradle-version <version> [--distribution-type all] \
+  [--gradle-distribution-sha256-sum <sum>]
+```
 
-`./gradlew help` applies the new distribution and may update `gradle-wrapper.jar`, `gradlew`, and
-`gradlew.bat`.
+Pass `--distribution-type all` when the current `distributionUrl` ends in `-all.zip`, and the checksum
+option when the properties file pins one. A bare second `./gradlew wrapper` resets the distribution
+type to `bin` and keeps the old checksum, so the next build fails verification.
 
 ### 4. Validation
 
