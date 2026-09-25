@@ -47,6 +47,11 @@ and `.jre11` were release variants or genuine pre-releases. That second call was
 argument, it fails silently, and it went out at the tier the fetching deserved. Harvest cheap, then
 judge at the tier the judgment needs.
 
+**A re-verify runs at or below the tier of the verify before it.** After a fix, the check is whether
+named findings were resolved, plus a read of the fix diff for anything new it broke. That is
+well-specified and objectively checkable, so it is task-hero work at Medium or High. In the pipeline
+run above, re-verify passes used about 40% of the apex tier's tokens.
+
 ## 2. The effort labels
 
 The desktop picker shows: **Low / Medium / High / Extra / Max / Ultracode**. There is no "default"
