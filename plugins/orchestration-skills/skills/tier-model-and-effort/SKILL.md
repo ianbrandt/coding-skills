@@ -20,16 +20,21 @@ run costs four times what it needed to.
 
 ## 1. The model tiers
 
-**Table current as of 2026-08-11.** Model names age fast; re-tune this table when releases land,
+**Table current as of 2026-09-24.** Model names age fast; re-tune this table when releases land,
 and treat every other skill's tier language ("the apex tier", "a task hero") as pointing here rather
-than at a name. Nothing else in this plugin names a model.
+than at a name. No other part of this plugin includes a model name.
 
 | Tier | Model | Use it for | Cost note |
 |---|---|---|---|
-| Apex | Fable | The most challenging, riskiest, correctness-critical, or key-strategy work: design, adversarial verification, judge stages. | Roughly 4x the effective cost of the everyday tier—2x usage against a weekly budget half the size. Aim it; never default to it. |
-| Everyday | Opus | The orchestrator and the workhorse. The main loop runs here. | The baseline. |
-| Task hero | Sonnet | Any unit that is well-specified and objectively verifiable, inside a Workflow or not. Test-driven work is the ideal case. | Cheap enough to fan out. |
-| Mechanical | Haiku | Stages with a loud oracle: tests, compiles, a verifiable count, bulk reads, fixture sweeps, doc updates. | Cheapest. Only where failure is loud. |
+| Apex | Fable 5.1 | A narrow set: architecture or strategy with no precedent to follow, a tie-break when an everyday verify and the build disagree on something that fails silently, and a question the everyday tier has already tried and left open. | Roughly 4x the effective cost of the everyday tier—2x usage against a weekly budget half the size. Aim it; never default to it. |
+| Everyday | Opus 5.5 | The orchestrator and the workhorse: the main loop, design, adversarial verification, and judge stages. Raise its effort before reaching for the apex tier. | The baseline. |
+| Task hero | Sonnet 5 | Any unit that is well-specified and objectively verifiable, inside a Workflow or not. Test-driven work is the ideal case. | Cheap enough to fan out. |
+| Mechanical | Haiku 4.5 | Stages with a loud oracle: tests, compiles, a verifiable count, bulk reads, fixture sweeps, doc updates. | Cheapest. Only where failure is loud. |
+
+**A stage is not apex work because of its kind.** Design and verify stages run on the everyday
+tier. In one unattended pipeline run, every unit's verify went to the apex tier from one reused
+Workflow template, whether or not a failure in that unit could go unnoticed. Stages at that tier
+accounted for about a fifth of the session's tokens and, at its rate, about half of its cost.
 
 **"Mechanical" means failure is loud.** A stage that could fail silently is not mechanical, however
 rote it looks. Give it a task-hero model and a real check.
@@ -51,7 +56,9 @@ Rough fit:
 
 - **Low**—mechanical stages with a loud oracle.
 - **Medium / High**—ordinary implementation and review.
-- **Extra / Max**—design, adversarial verification, judge stages, and careful multi-step bookkeeping.
+- **Extra**—design, adversarial verification, judge stages, and careful multi-step bookkeeping.
+- **Max**—only a stage where an Extra pass has already stalled on the same question. Past Extra,
+  the cost rises faster than the gain.
 
 **A session running at a high effort should not make every stage pay for it.** Set the expensive
 tier on the stages that need it and let the rest run cheap.
@@ -88,8 +95,8 @@ been read. That session then ran no Workflow at all, built the item inline in th
 both delegated agents out with no model override, and never launched the apex judgment pass it
 promised an hour later.
 
-The apex tier can be spawned unattended for analysis, design, and review stages. Its cost is the
-reason to **aim** it, not the reason to avoid it.
+The apex tier can be spawned unattended for the narrow set in the table. Its cost is the reason to
+**aim** it, not the reason to avoid it.
 
 ## 4. Ultracode: what it is and what it is not
 

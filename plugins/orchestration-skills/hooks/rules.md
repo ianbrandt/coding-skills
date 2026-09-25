@@ -23,8 +23,9 @@ self-contained units—never a one-liner. Keep emergent or fuzzy work in the mai
   over-scoped reader overruns context, dies, and retries from scratch: one such agent burned ~800k
   tokens over 4 retries against ~150k for its bounded siblings.
 - **Pick the tier per stage.** Model is the stage's capability class; effort is its deliberation
-  need. Reserve the apex tier for the hardest analysis, design, and review. Never name a model from
-  memory—the current table lives in the `tier-model-and-effort` skill.
+  need. Design and verify run on the everyday tier, with more effort where they need it; the apex
+  tier is for questions that tier has tried and left open. Never name a model from memory—the
+  current table lives in the `tier-model-and-effort` skill.
 - **State each stage's tier in the message that launches it.** An up-front plan is a forecast and
   nothing later checks it. One session announced `Workflow—design@high, implement@medium, docs@low,
   adversarial-verify@high` and then ran no Workflow, built the item inline, and set no model on
