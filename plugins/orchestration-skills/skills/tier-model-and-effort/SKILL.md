@@ -52,6 +52,25 @@ named findings were resolved, plus a read of the fix diff for anything new it br
 well-specified and objectively checkable, so it is task-hero work at Medium or High. In the pipeline
 run above, re-verify passes used about 40% of the apex tier's tokens.
 
+### A second provider, where one is installed
+
+A skill that runs another provider's model is optional, and nothing here depends on one. Where one
+appears in the session's skill list:
+
+- **Silent-failure verify.** A cross-provider review skill, such as `claudex-code-review` from the
+  `claudex-loop` plugin, replaces the verify stage for a unit whose failure could go unnoticed. It
+  does not run beside an everyday verify. Pass Extra effort and the Claude reviewer's model (the
+  everyday tier) explicitly, or both come from that skill's defaults and the CLI's configuration.
+- **A stalled stage.** A routing skill, such as `claudex-route`, hands the reproduction and the
+  failed approaches to the other provider. Try it before Max effort or the apex tier.
+- **Its model.** The other provider's top model, `gpt-6-astra` as of 2026-09-24, with `gpt-6-sol`
+  as the step down when that plan's quota runs low. Usage on that side counts against the other
+  provider's plan, not the Claude weekly limit. The Claude reviewer inside a cross-provider review
+  still counts.
+
+Without one, a silent-failure verify runs on the everyday tier at Extra, and a stalled stage goes to
+Max effort, then to the apex tier.
+
 ## 2. The effort labels
 
 The desktop picker shows: **Low / Medium / High / Extra / Max / Ultracode**. There is no "default"
@@ -62,7 +81,8 @@ Rough fit:
 - **Low**—mechanical stages with a loud oracle.
 - **Medium / High**—ordinary implementation and review.
 - **Extra**—design, adversarial verification, judge stages, and careful multi-step bookkeeping.
-- **Max**—only a stage where an Extra pass has already stalled on the same question. Past Extra,
+- **Max**—only a stage where an Extra pass has already stalled on the same question, and after a
+  second provider where one is installed (§1). Past Extra,
   the cost rises faster than the gain.
 
 **A session running at a high effort should not make every stage pay for it.** Set the expensive

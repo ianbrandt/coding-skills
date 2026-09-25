@@ -124,7 +124,9 @@ branches from the default branch's HEAD and would test the wrong tree). Tier per
 stages only; design and adversarial-verify at `'high'`/`'xhigh'`. Set each unit's verify tier from
 its own answer to one question: would the test suite catch this unit going silently wrong? A unit
 the suite covers gets a `'high'` verify or none. Never reuse one Workflow template's stage tiers
-across every unit.
+across every unit. Where a cross-provider review skill is installed (`tier-model-and-effort` §1),
+a silent-failure unit's Workflow ends before its verify, and the conductor runs that review on the
+unit's worktree while processing the completion.
 
 **Process each completion—one at a time:**
 
