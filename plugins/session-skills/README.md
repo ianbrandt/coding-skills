@@ -79,3 +79,9 @@ doesn't end a session.
 Editing any skill or the rules file here is a plugin release: an installed session reads a
 version-keyed cache, so the plugin's `version` in `.claude-plugin/marketplace.json` has to bump in
 the same commit or the session keeps serving the old copy.
+
+## Platform
+
+The shell snippets in both skills are bash. PowerShell 7 versions are in
+`work-in-worktree/powershell.md` and `land-and-wrap/powershell.md`, matched by section number. The
+`SessionStart` hook is a plain `cat`, which runs unchanged under bash, Git Bash, and PowerShell.

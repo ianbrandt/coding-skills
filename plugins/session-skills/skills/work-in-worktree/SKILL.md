@@ -37,6 +37,9 @@ under `claude/`, which is what Claude Code's tooling creates. Under another host
 plugin (§0's lease seam) adds the shared lease that keeps two lanes off the same files. Nothing here
 needs it, and a session working alone skips it.
 
+**On PowerShell**, `powershell.md` in this skill's directory has every snippet below in
+PowerShell 7, matched by section number.
+
 ## 0. The two seams
 
 These skills don't decide *what* to work on. Where a repo keeps a backlog—a roadmap file, GitHub

@@ -22,6 +22,9 @@ Two separate jobs, and the second one runs even when the first doesn't: **landin
 work out of its worktree, and the **wrap-up** closes the session whether the work finished, stalled,
 or was abandoned.
 
+**On PowerShell**, `powershell.md` in this skill's directory has every snippet in §1 below in
+PowerShell 7, matched by subsection.
+
 ## 1. What decides how work lands
 
 Read it off the repo, or off the per-clone `git config` values the user set; never from a file in
