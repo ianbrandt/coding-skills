@@ -463,10 +463,11 @@ if ($stopMode) {
   $found = Get-DraftFence ([string]$json.last_assistant_message)
   if ($found.Drafts.Count -eq 0) { exit 0 }
   # Blocking a reply is bounded per turn, counted in a file named for the
-  # prompt_id, which is the same on every Stop call of one turn. With no
-  # prompt_id nothing can be counted, so nothing is blocked and a call would buy
-  # nothing.
+  # prompt_id, which is the same on every Stop call of one turn. Codex sends
+  # turn_id instead. With neither, nothing can be counted, so nothing is blocked
+  # and a call would buy nothing.
   $promptId = [regex]::Replace([string]$json.prompt_id, '[^A-Za-z0-9_-]', '_')
+  if ($promptId -eq '') { $promptId = [regex]::Replace([string]$json.turn_id, '[^A-Za-z0-9_-]', '_') }
   if ($promptId -eq '') { exit 0 }
   $tmpdir = if ($env:TMPDIR) { $env:TMPDIR } else { [IO.Path]::GetTempPath() }
   $stopState = Join-Path $tmpdir "claude-gate-stop-$promptId"

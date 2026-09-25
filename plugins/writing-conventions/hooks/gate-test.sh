@@ -363,6 +363,11 @@ printf '{"last_assistant_message":"%s"}' "$draft1" | bash "$HERE/gate.sh" --stop
 status=$?
 [ "$status" = 0 ] || { echo "FAIL exit $status with no prompt_id"; fail=1; }
 [ -s "$GATE_TEST_MARK" ] && { echo "FAIL model called with no prompt_id"; fail=1; }
+# Codex sends turn_id in place of prompt_id, and the count is kept on it.
+cases=$((cases + 1))
+: > "$GATE_TEST_MARK"
+printf '{"turn_id":"t15","last_assistant_message":"%s"}' "$draft1" | bash "$HERE/gate.sh" --stop >/dev/null 2>&1
+[ $? = 2 ] || { echo "FAIL no block with turn_id alone"; fail=1; }
 # The off switch skips the reader and leaves the reply lint as the only check.
 cases=$((cases + 1))
 : > "$GATE_TEST_MARK"

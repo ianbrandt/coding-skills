@@ -446,6 +446,8 @@ try {
   # With no prompt_id there is nothing to count with, so nothing is blocked and no
   # call is made.
   Test-Stop 0 $false $V '' $draft1
+  # Codex sends turn_id in place of prompt_id, and the count is kept on it.
+  Test-Stop 2 $true $V '' $draft1 '0' '"turn_id":"t16",'
   # The off switch skips the reader and leaves the reply lint as the only check.
   $env:WRITING_CONVENTIONS_STOP_READER = '0'
   try { Test-Stop 0 $false $V 's14' $draft1 }

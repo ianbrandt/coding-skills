@@ -213,10 +213,11 @@ case "$1:$tool" in
     field last_assistant_message | awk -f "$HERE/draft.awk" > "$tmp/text"
     [ -s "$tmp/text" ] || exit 0
     # Blocking a reply is bounded per turn, counted in a file named for the
-    # prompt_id, which is the same on every Stop call of one turn. With no
-    # prompt_id nothing can be counted, so nothing is blocked and a call would
-    # buy nothing.
+    # prompt_id, which is the same on every Stop call of one turn. Codex sends
+    # turn_id instead. With neither, nothing can be counted, so nothing is
+    # blocked and a call would buy nothing.
     pid=$(field prompt_id | tr -c 'A-Za-z0-9_-' '_')
+    [ -n "$pid" ] || pid=$(field turn_id | tr -c 'A-Za-z0-9_-' '_')
     [ -n "$pid" ] || exit 0
     stop="${TMPDIR:-/tmp}/claude-gate-stop-$pid"
     if [ "$(wc -c < "$tmp/text")" -gt $CAP ]; then
