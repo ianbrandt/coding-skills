@@ -52,6 +52,10 @@ if ($Branch -ceq $Default) {
   $Branch = "$Pfx$Name"                      # update, the capture above read the default branch
 } else {
   $Wt = git rev-parse --show-toplevel        # YOUR worktree, edit/build only under here
+  if ($Branch -ceq 'HEAD') {                 # detached, as a codex --worktree session starts
+    $Branch = "$Pfx<id>-<short-kebab-id>"    # named as above
+    git switch -c $Branch
+  }
 }
 # Durable notes belong in the primary checkout: a worktree's untracked files go with it on removal.
 if (($Wt -ne $Main) -and (Test-Path "$Main/$Notes") -and (-not (Test-Path "$Wt/$Notes"))) {

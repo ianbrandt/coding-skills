@@ -85,3 +85,8 @@ the same commit or the session keeps serving the old copy.
 The shell snippets in both skills are bash. PowerShell 7 versions are in
 `work-in-worktree/powershell.md` and `land-and-wrap/powershell.md`, matched by section number. The
 `SessionStart` hook is a plain `cat`, which runs unchanged under bash, Git Bash, and PowerShell.
+
+The Codex CLI runs the same hook once you trust it, from the prompt at the next session start or
+from `/hooks`. Its `workspace-write` sandbox keeps `.git` read-only and the network off, which
+blocks fetch, branch, commit, and push; `work-in-worktree` has the launch flags that lift both.
+Checked on Codex CLI 0.157.0 on macOS.

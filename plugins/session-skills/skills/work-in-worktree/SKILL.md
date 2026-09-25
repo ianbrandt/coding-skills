@@ -33,6 +33,18 @@ over the repo's contributor docs. Those docs govern the code; this governs where
 under `claude/`, which is what Claude Code's tooling creates. Under another host, set `WTROOT` and
 `PFX` in §1 to what its tooling creates, and use the same prefix in §4's reap.
 
+**Under Codex**, launch from the primary checkout and let §3 open the worktree, leaving `WTROOT` and
+`PFX` as they are. Codex's `workspace-write` sandbox keeps `.git` read-only and the network off, so
+§1's fetch, §3's branch, and every commit fail unless each is approved by hand. Two flags lift both:
+
+```bash
+codex --add-dir "$PWD/.git" -c sandbox_workspace_write.network_access=true
+```
+
+A session started with `codex --worktree` begins on a detached HEAD in
+`$CODEX_HOME/worktrees/<n>/<repo>`, outside the primary checkout. It also needs `--add-dir "$PWD"`
+for the files that live only there, and §3 gives it a branch.
+
 **When other sessions are working the same repo at once**, this is half the job: a concurrency
 plugin (§0's lease seam) adds the shared lease that keeps two lanes off the same files. Nothing here
 needs it, and a session working alone skips it.
@@ -145,6 +157,10 @@ if [ "$BRANCH" = "$DEFAULT" ]; then
   BRANCH="$PFX$NAME"                         # update—the capture above read the default branch
 else
   WT=$(git rev-parse --show-toplevel)        # YOUR worktree—edit/build only under here
+  if [ "$BRANCH" = HEAD ]; then              # detached, as a codex --worktree session starts
+    BRANCH="$PFX<id>-<short-kebab-id>"       # named as above
+    git switch -c "$BRANCH"
+  fi
 fi
 # Durable notes belong in the primary checkout: a worktree's untracked files go with it on removal.
 [ "$WT" != "$MAIN" ] && [ -d "$MAIN/$NOTES" ] && [ ! -e "$WT/$NOTES" ] \
