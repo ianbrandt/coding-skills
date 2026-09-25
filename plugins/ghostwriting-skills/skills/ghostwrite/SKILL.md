@@ -18,9 +18,11 @@ user reads it first: **drafting is yours, posting is theirs.**
 
 ## 0. Locate the voice data—and detect the mode
 The plugin's `voice_dir` option is substituted into the first line below (empty when the user set
-none); then `$GHOSTWRITING_DIR`, then the default.
+none); then `$GHOSTWRITING_DIR`, then the default. Codex doesn't substitute it, so the second line
+clears the placeholder.
 ```bash
 VOICE='${user_config.voice_dir}'
+case $VOICE in '${'*) VOICE= ;; esac
 VOICE=${VOICE:-${GHOSTWRITING_DIR:-$HOME/.claude/ghostwriting}}
 [ -f "$VOICE/voice-spec.md" ] && echo "spec: $VOICE/voice-spec.md" || echo "MODE=bootstrap"
 ls "$VOICE/corpus" 2>/dev/null || echo "no corpus"
