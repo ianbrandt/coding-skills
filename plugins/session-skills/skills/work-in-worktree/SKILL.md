@@ -137,7 +137,7 @@ if [ "$BRANCH" = "$DEFAULT" ]; then
      || git show-ref --verify --quiet "refs/heads/$PFX$NAME"; do
     NAME="$NAME-$RANDOM"                     # taken by a sibling—suffix and retry
   done
-  git worktree add "$WTROOT/$NAME" -b "$PFX$NAME" "$BASE"   # §1: current, not local
+  git worktree add --no-track "$WTROOT/$NAME" -b "$PFX$NAME" "$BASE"   # §1: current; no upstream, see below
   WT="$WTROOT/$NAME"
   BRANCH="$PFX$NAME"                         # update—the capture above read the default branch
 else
@@ -148,6 +148,11 @@ fi
   && ln -s "$MAIN/$NOTES" "$WT/$NOTES"
 echo "worktree: $WT   main checkout: $MAIN"
 ```
+
+**`--no-track` leaves the new branch with no upstream.** A branch tracking `origin/<default>` is
+checked against it by `git branch -d`, so while a public push is held, a branch already merged into
+the local default branch is refused and §4's reap leaves it behind. `git push -u` sets an upstream
+once the branch is pushed, and §4's gone-upstream check covers it from then on.
 
 **Name the branch for its destination when the work lands as a pull request**: on a fork, or in a
 repo whose landing mode is `pr` (`land-and-wrap` §1). A pushed branch becomes a pull request's head,

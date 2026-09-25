@@ -45,7 +45,7 @@ if ($Branch -ceq $Default) {
   while ((Test-Path "$WtRoot/$Name") -or (Test-BranchRef "refs/heads/$Pfx$Name")) {
     $Name = "$Name-$(Get-Random)"            # taken by a sibling, suffix and retry
   }
-  git worktree add "$WtRoot/$Name" -b "$Pfx$Name" $Base    # §1: current, not local
+  git worktree add --no-track "$WtRoot/$Name" -b "$Pfx$Name" $Base    # §1: current; no upstream
   $Wt = "$WtRoot/$Name"
   $Branch = "$Pfx$Name"                      # update, the capture above read the default branch
 } else {
