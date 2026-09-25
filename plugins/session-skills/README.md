@@ -23,7 +23,9 @@ The rule that costs the most when it's missed: a repo-root path handed over in c
 status block, a memory, a doc link—means the **primary checkout**, so taking it literally lands the
 edit on the default branch instead of the branch the session thinks it's on. The fix for a file that
 genuinely lives only in the primary checkout, such as an untracked backlog, is here too, along with
-the prune that keeps stale worktree registrations and merged branches from accumulating.
+the prune that keeps stale worktree registrations and merged branches from accumulating. That
+includes PR branches the host squashed or rebased on merge, deleted only when their content is on
+the default branch.
 
 ### `land-and-wrap`
 

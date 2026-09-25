@@ -9,7 +9,8 @@ description: >-
   it is missed—a repo-root path handed over in context means the primary
   checkout, so taking it literally lands the edit on the default branch—plus
   how to edit a file that lives only there, the prune that keeps stale worktrees
-  and merged branches from piling up, and the three-question seam a backlog
+  and merged branches from piling up, squash- and rebase-merged PR branches
+  included, and the three-question seam a backlog
   plugin fills. Trigger before creating a worktree or branch for a unit
   of work, when picking up work that may already be in flight, before editing a
   file another machine also edits, and on "start on this in a worktree" or "am
@@ -179,8 +180,8 @@ link shows as untracked in every new worktree. Write the pattern as `/spike-note
 
 ## 4. Hygiene—prune only
 
-Cheap, safe, and worth running whichever of §2 or §3 you came through. Neither command has anything
-to do with other sessions; a session working alone accumulates the same stale worktree registrations
+Cheap, safe, and worth running whichever of §2 or §3 you came through. None of it has anything to
+do with other sessions; a session working alone accumulates the same stale worktree registrations
 and merged branches.
 
 ```bash
@@ -188,6 +189,34 @@ git worktree prune                           # safe: only reaps worktrees whose 
 git for-each-ref --merged "$DEFAULT" --format='%(refname:short)' \
   'refs/heads/claude/*' 'refs/heads/worktree-*' | xargs -r git branch -d   # merged only; -d self-guards
 ```
+
+`--merged` misses a PR branch the host squashed or rebased on merge, so those pile up. Once the host
+deletes the remote copy, the local branch's upstream is gone. That alone is no proof of a merge: a
+declined PR with its branch deleted looks the same. So delete only a branch that would change
+nothing if merged into `$BASE` now. The block derives `$BASE` itself and does nothing when it can't:
+with `$BASE` empty, every check fails, and a failed check must never read as merged.
+
+```bash
+git fetch -q --prune                         # drops remote-tracking refs the host deleted
+DEFAULT=$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's@^origin/@@')
+BASE="origin/${DEFAULT:-main}"
+T=$(git rev-parse -q --verify "$BASE^{tree}") &&
+git for-each-ref --format='%(refname:short) %(upstream:track)' refs/heads | awk '$2=="[gone]"{print $1}' |
+while read -r b; do
+  if [ "$(git merge-tree --write-tree "$BASE" "$b" 2>/dev/null)" != "$T" ]; then   # git 2.38+
+    echo "kept: $b (upstream gone, content not on $BASE)"
+  elif git worktree list --porcelain | grep -qx "branch refs/heads/$b"; then
+    echo "merged, still checked out: $b"
+  else
+    git branch -D "$b"
+  fi
+done
+```
+
+A merge commit, a rebase merge, and a squash merge all pass. A declined PR and a squash the reviewer
+edited print `kept`. List those in the wrap-up and leave them. A merged branch still checked out in
+a worktree prints `merged, still checked out`: remove that worktree if it is yours, by the rules
+below, then run the block again. List any other in the wrap-up.
 
 **Never `git worktree remove` a worktree you didn't create.** A live session between tasks looks
 identical to an abandoned one, and removing its directory kills it mid-flight. Leftovers are
