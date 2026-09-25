@@ -121,7 +121,10 @@ Workflow: the conductor does them inline in the worktree and processes them in t
 Verify stages run as plain agents in the unit's worktree (no isolation—a worktree-isolated agent
 branches from the default branch's HEAD and would test the wrong tree). Tier per stage
 (`tier-model-and-effort`): mechanical work at the mechanical model or `effort: 'low'`, loud-oracle
-stages only; design and adversarial-verify at `'high'`/`'xhigh'`.
+stages only; design and adversarial-verify at `'high'`/`'xhigh'`. Set each unit's verify tier from
+its own answer to one question: would the test suite catch this unit going silently wrong? A unit
+the suite covers gets a `'high'` verify or none. Never reuse one Workflow template's stage tiers
+across every unit.
 
 **Process each completion—one at a time:**
 

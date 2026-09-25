@@ -150,9 +150,9 @@ Immediately after the title line, emit a one-line **tier plan** naming the stage
 actually has**, then execute it. Two decisions go into it, and they are independent:
 
 - **How much verification the item needs.** The question: **would this repo's test suite catch this
-  item going silently wrong?** A loud suite lets the implement stage run cheap. A silent failure
-  mode—transform or rewrite machinery—puts the weight on design and adversarial-verify, at the top
-  effort and the apex model wherever being wrong is expensive.
+  item going silently wrong?** A loud suite lets the implement stage run cheap and the verify run at
+  High, or not at all. A silent failure mode—transform or rewrite machinery—puts the weight on
+  design and adversarial-verify, at Extra effort on the everyday model.
 - **What runs each stage.** Inline in the main loop, a delegated agent, or a Workflow. A single
   roadmap item is usually a linear design → build → verify, which the main loop plus one or two
   agents handles with nothing to script. Reach for a **Workflow** when there is fan-out, a loop
@@ -165,7 +165,7 @@ tool has no effort parameter, so an effort announced for a plain subagent never 
 Write the plan against the item in front of you. One derived from a real item reads like this:
 
 `Tier plan: inline design and implementation (the trace is already settled), then one
-adversarial-verify agent at the apex tier against the merge logic.`
+adversarial-verify agent at Extra against the merge logic.`
 
 The plan is a forecast, so restate each stage's tier in the message that launches it, and say so
 when a planned stage turns out not to run.
