@@ -117,8 +117,8 @@ no backlog at all, the landing commit is the record and there is nothing else to
 such edit minimal, localized, and in its own final commit—a backlog file is a collision seam every
 other lane is also editing.
 
-Follow the repo's end-of-session merge protocol if it has one (a `/land-session` runbook), otherwise
-land by the mode from §1.
+Follow the repo's end-of-session merge protocol if it has one (a repo-local landing skill or
+runbook), otherwise land by the mode from §1.
 
 ### `merge`
 
@@ -217,20 +217,21 @@ session finds.
 
 The rest, in order:
 
-- **Stop stray background tasks.** A superseded search, an abandoned build or server: `TaskStop`
-  each. A wrap-up delivered while a stray task is still running isn't a wrap-up. The task list
-  tracks todos, not shells—check real processes (`pgrep -fl`) before claiming a session is clear.
+- **Stop stray background tasks.** A superseded search, an abandoned build or server: stop each
+  one, with the host's tool for background tasks where it has one (`TaskStop` in Claude Code), or
+  by pid. A wrap-up delivered while a stray task is still running isn't a wrap-up. A todo list is
+  not a process list—check real processes (`pgrep -fl`) before claiming a session is clear.
 - **Capture what belongs outside this session.** Durable conventions go to the repo's versioned
   docs; machine-local facts go to memory. Nothing that the repo already records.
 - **Say what's left**, plainly, and where to do it: this session (it holds the context) or a fresh
   one (new scope, or this context has grown long). A fresh one gets a **launch snippet** in the
   format this plugin's `hooks/rules.md` specifies, plus the tier to run it at, named from
-  `tier-model-and-effort` rather than from memory. Where the repo has a backlog plugin
-  (`work-in-worktree` §0's backlog seam), its invocation is the snippet's entry point: it finds the
-  in-flight work
-  itself, so name the unfinished **branch** alongside it and leave the recap out.
+  `tier-model-and-effort` where it is installed rather than from memory. Where the repo has a
+  backlog plugin (`work-in-worktree` §0's backlog seam), its invocation is the snippet's entry
+  point: it finds the in-flight work itself, so name the unfinished **branch** alongside it and
+  leave the recap out.
 - **Suggest a session title** if the session did substantive work, in the format this plugin's
   `hooks/rules.md` specifies—it loads at every session start, so the format is already in context.
 
-`write-for-the-reader` owns how the wrap-up reads: what to include, what the reader can already see,
-and why open items go as instructions rather than prose.
+How the wrap-up reads is covered in `write-for-the-reader`, where it is installed: what to include,
+what the reader can already see, and why open items go as instructions rather than prose.

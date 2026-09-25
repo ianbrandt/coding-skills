@@ -29,8 +29,9 @@ fresh one.
 On a judgment call about place—which tree, which branch, whose worktree to touch—these steps decide,
 over the repo's contributor docs. Those docs govern the code; this governs where the code lands.
 
-**Platform names.** Worktrees under `$MAIN/.claude/worktrees/` and branches under `claude/` are what
-Claude Code's tooling produces; name whatever your tooling actually creates.
+**Platform names.** The snippets default to worktrees under `$MAIN/.claude/worktrees/` and branches
+under `claude/`, which is what Claude Code's tooling creates. Under another host, set `WTROOT` and
+`PFX` in §1 to what its tooling creates, and use the same prefix in §4's reap.
 
 **When other sessions are working the same repo at once**, this is half the job: a concurrency
 plugin (§0's lease seam) adds the shared lease that keeps two lanes off the same files. Nothing here
@@ -72,6 +73,10 @@ DEFAULT=${DEFAULT:-main}                     # the repo's integration branch (ma
 BASE="origin/$DEFAULT"                       # branch from this, never from the local default branch
 git fetch -q || echo "fetch failed: $BASE may be behind" >&2      # do not swallow this
 git rev-parse --verify -q "$BASE" >/dev/null || BASE="$DEFAULT"   # no remote: local is all there is
+
+WTROOT="$MAIN/.claude/worktrees"             # where this host's tooling creates worktrees
+PFX="claude/"                                # and the branch prefix it uses
+NOTES="spike-notes.local"                    # the repo's local-only notes directory, if it has one
 ```
 
 **Nothing local tells you the checkout is current**, and a clean working tree least of all: another
@@ -107,7 +112,7 @@ work in flight with no lease at all. Tell 1 or 2 is what fires then, and they ar
 a repo with no concurrency plugin has.
 
 ```bash
-WT="$MAIN/.claude/worktrees/<the matching worktree dir>"   # resume: work here
+WT="$WTROOT/<the matching worktree dir>"   # resume: work here
 ```
 
 Set `WT` to it and `BRANCH` to that worktree's checked-out branch, skip §3, and read the branch's
@@ -125,19 +130,19 @@ if [ "$BRANCH" = "$DEFAULT" ]; then
   # Launched in the PRIMARY checkout—open your own worktree now; never edit under $MAIN.
   NAME="<short-kebab-id>"                    # arbitrary pair (color-animal), NOT activity words like
                                              # "roadmap-lap"—every session picks those, and siblings collide
-  while [ -d "$MAIN/.claude/worktrees/$NAME" ] \
-     || git show-ref --verify --quiet "refs/heads/claude/$NAME"; do
+  while [ -d "$WTROOT/$NAME" ] \
+     || git show-ref --verify --quiet "refs/heads/$PFX$NAME"; do
     NAME="$NAME-$RANDOM"                     # taken by a sibling—suffix and retry
   done
-  git worktree add "$MAIN/.claude/worktrees/$NAME" -b "claude/$NAME" "$BASE"   # §1: current, not local
-  WT="$MAIN/.claude/worktrees/$NAME"
-  BRANCH="claude/$NAME"                      # update—the capture above read the default branch
+  git worktree add "$WTROOT/$NAME" -b "$PFX$NAME" "$BASE"   # §1: current, not local
+  WT="$WTROOT/$NAME"
+  BRANCH="$PFX$NAME"                         # update—the capture above read the default branch
 else
   WT=$(git rev-parse --show-toplevel)        # YOUR worktree—edit/build only under here
 fi
 # Durable notes belong in the primary checkout: a worktree's untracked files go with it on removal.
-[ "$WT" != "$MAIN" ] && [ -d "$MAIN/spike-notes.local" ] && [ ! -e "$WT/spike-notes.local" ] \
-  && ln -s "$MAIN/spike-notes.local" "$WT/spike-notes.local"
+[ "$WT" != "$MAIN" ] && [ -d "$MAIN/$NOTES" ] && [ ! -e "$WT/$NOTES" ] \
+  && ln -s "$MAIN/$NOTES" "$WT/$NOTES"
 echo "worktree: $WT   main checkout: $MAIN"
 ```
 
@@ -153,31 +158,31 @@ In `merge` mode the generated name is fine, since nothing outside this machine e
 renamed branch escapes §4's merged-branch reap. Once pushed, it is deleted by §4's gone-upstream
 check after its PR merges. A held fork branch is never pushed, so it stays until the user removes it.
 
-**Translate every context-supplied `<repo-root>/…` path to `$WT/…`** before any `Read`/`Edit`/
-`Write`. The `gitStatus` block, memories, and doc links all cite the bare repo-root path, and taking
-it literally silently lands edits on the default branch in the primary checkout. Reserve `$MAIN` for
-files that live only there and for the final merge. After your first Edit, confirm it shows in
-`git -C "$WT" status` and NOT in `git -C "$MAIN" status`.
+**Translate every context-supplied `<repo-root>/…` path to `$WT/…`** before any file read or edit.
+A git status summary the host injects, memories, and doc links all cite the bare repo-root path,
+and taking it literally silently lands edits on the default branch in the primary checkout. Reserve
+`$MAIN` for files that live only there and for the final merge. After your first edit, confirm it
+shows in `git -C "$WT" status` and NOT in `git -C "$MAIN" status`.
 
 **Files that live only in the primary checkout.** An untracked backlog file, a local-only notes
 directory, and any shared ledger a plugin keeps there never propagate to a worktree—that is the
 design, one shared copy
 rather than per-worktree forks of it. A worktree-guard hook, where the environment has one, blocks
-`Edit`/`Write` against the primary checkout while a worktree session is active; that is right for
+file-edit tools against the primary checkout while a worktree session is active; that is right for
 source files and wrong for this family. Don't relocate the file to satisfy the guard. Splice the
-edit through a plain `Bash` call instead: a heredoc `python3 - <<'PYEOF'` with an `assert old in s`
-before the replace, so a drifted anchor fails loudly instead of silently doing nothing, or `Write`
-to a scratch path and `cp scratch target` when rewriting a whole file. Such guards typically reject
+edit through a plain shell command instead: a heredoc `python3 - <<'PYEOF'` with an `assert old in s`
+before the replace, so a drifted anchor fails loudly instead of silently doing nothing, or write the
+whole file to a scratch path and `cp scratch target`. Such guards typically reject
 a *compound* command (`A && B`, `VAR=x; cmd`)—split it into plain single commands.
 
 **Write durable notes to the primary checkout, never into the worktree.** `git worktree remove`
 deletes a worktree's untracked files without a warning, and the loss shows up only when a later
 session follows a reference to a note that is gone. The `ln -s` line in the block above links a
-local-only notes directory through, so existing write paths land in `$MAIN`. `spike-notes.local` is
-a convention of the author's repos; the `-d` test skips the link wherever that directory is absent,
-and a repo with its own notes directory gets the same line with its name. **An exclude pattern with
-a trailing slash does not match the link**: `/spike-notes.local/` matches only a directory, so the
-link shows as untracked in every new worktree. Write the pattern as `/spike-notes.local`.
+local-only notes directory through, so existing write paths land in `$MAIN`. Set `NOTES` in §1 to
+the repo's notes directory; the `-d` test skips the link where that directory is absent. **An
+exclude pattern with a trailing slash does not match the link**: `/spike-notes.local/` matches only
+a directory, so the link shows as untracked in every new worktree. Write the pattern as
+`/spike-notes.local`.
 
 ## 4. Hygiene—prune only
 
@@ -189,6 +194,7 @@ and merged branches.
 git worktree prune                           # safe: only reaps worktrees whose dir is already gone
 git for-each-ref --merged "$DEFAULT" --format='%(refname:short)' \
   'refs/heads/claude/*' 'refs/heads/worktree-*' | xargs -r git branch -d   # merged only; -d self-guards
+                                             # claude/: the host's branch prefix, as PFX in §1
 ```
 
 `--merged` misses a PR branch the host squashed or rebased on merge, so those pile up. Once the host
