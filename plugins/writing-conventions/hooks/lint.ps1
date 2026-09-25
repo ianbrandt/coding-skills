@@ -28,6 +28,7 @@ if (-not $LintPs1LoadOnly) {
 
 # The draft-fence scanner, shared with gate.ps1.
 . (Join-Path $PSScriptRoot 'draft.ps1')
+. (Join-Path $PSScriptRoot 'patch.ps1')
 
 $ErrorActionPreference = 'Stop'
 $EM = [char]0x2014
@@ -372,7 +373,10 @@ try {
     '--nudge' {
       $path = Get-Field $json 'file_path'
       if ($path -eq '' -and $null -ne $json) { $path = Get-Field $json.tool_input 'file_path' }
-      if ([regex]::IsMatch($path.ToLowerInvariant(), '\.(md|markdown|txt|kt|kts|java|groovy)$')) {
+      # Codex writes files with apply_patch, one patch that can touch several.
+      $paths = @($path)
+      if ($path -eq '' -and $null -ne $json) { $paths = @((Get-PatchFile (Get-Field $json.tool_input 'command') '') | ForEach-Object { $_.Path }) }
+      if (@($paths | Where-Object { [regex]::IsMatch($_.ToLowerInvariant(), '\.(md|markdown|txt|kt|kts|java|groovy)$') }).Count -gt 0) {
         Write-Utf8 ('{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"' + $NUDGE + '"}}')
       }
     }

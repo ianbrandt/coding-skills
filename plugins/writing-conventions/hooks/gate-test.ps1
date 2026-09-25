@@ -337,6 +337,23 @@ try {
   $long = 'Sixty characters of plain text, or near enough, to pad it. ' * 1000
   $r = Test-File 1 '*Only the first 50000 characters*' 'PASS' (New-Input 'Write' @{ file_path = $doc; content = $long })
   if ($r.Sent.Length -ge 51000) { Write-Output ("FAIL " + $r.Sent.Length + " characters sent past the cap"); $fail = 1 }
+  # Codex writes files with apply_patch, one patch in tool_input.command. An added
+  # file is reviewed whole, and an updated one as the paragraphs holding its added
+  # lines, read from the file as patched. A path can be relative to cwd.
+  function New-Patch([string]$body) { @{ tool_name = 'apply_patch'; cwd = $scratch; tool_input = @{ command = "*** Begin Patch`n$body*** End Patch" } } | ConvertTo-Json -Compress }
+  $newMd = Join-Path $scratch 'new.md'
+  $null = Test-File 1 ('*Fix the quoted text in ' + $newMd.Replace('\', '\\') + '*') "VIOLATION`n`"The report says so.`" -> x" (New-Patch "*** Add File: $newMd`n+# New`n+`n+The report says so.`n")
+  $null = Test-File 0 '' 'PASS' (New-Patch ("*** Add File: " + (Join-Path $scratch 'Main.kt') + "`n+// The report says so.`n"))
+  $r = Test-File 1 '*The report says the version.*' "VIOLATION`n`"The report says the version.`" -> x" (New-Patch "*** Update File: doc.md`n@@`n-Old line.`n+The report says the version. It is short.`n")
+  if ($r.Sent -notlike ('*File: ' + $scratch + '*doc.md*')) { Write-Output ("FAIL the relative path was not resolved: " + $r.Sent); $fail = 1 }
+  if ($r.Sent -like '*Third one*') { Write-Output ("FAIL another paragraph was sent: " + $r.Sent); $fail = 1 }
+  # Every prose file in the patch is sent, and a quote from none of them is dropped.
+  $aMd = Join-Path $scratch 'a.md'
+  [IO.File]::WriteAllText($aMd, "Plain one.`n")
+  $r = Test-File 1 '' "VIOLATION`n`"Third one here.`" -> x" (New-Patch "*** Add File: $aMd`n+Plain one.`n*** Update File: $doc`n@@`n+Second paragraph stays.`n")
+  if ($r.Sent -notlike '*Plain one.*Second paragraph stays.*') { Write-Output ("FAIL both files were not sent: " + $r.Sent); $fail = 1 }
+  $null = Test-File 1 '*Second paragraph stays.*' "VIOLATION`n`"Second paragraph stays.`" -> x" (New-Patch ("*** Update File: " + (Join-Path $scratch 'old.md') + "`n*** Move to: $doc`n@@`n+Second paragraph stays.`n"))
+  $null = Test-File 0 '*Not reviewed*deleted*' 'PASS' (New-Patch "*** Update File: $doc`n@@`n-Gone.`n")
   # A reader that cannot run says nothing, and the advisory nudge in lint.ps1 still fires.
   $null = Test-File 1 '' '' (New-Edit $doc 'says') '1'
 

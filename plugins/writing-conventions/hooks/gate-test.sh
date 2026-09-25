@@ -258,6 +258,25 @@ file 0 '*Not reviewed*deleted*' PASS "$(edit "$doc" '')"
 long=$(awk 'BEGIN { for (i = 0; i < 1000; i++) printf "Sixty characters of plain text, or near enough, to pad it. " }')
 file 1 '*Only the first 50000 characters*' PASS "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"$doc\",\"content\":\"$long\"}}"
 [ ${#sent} -lt 51000 ] || { echo "FAIL ${#sent} characters sent past the cap"; fail=1; }
+# Codex writes files with apply_patch, one patch in tool_input.command. An added
+# file is reviewed whole, and an updated one as the paragraphs holding its added
+# lines, read from the file as patched. A path can be relative to cwd.
+patch() { printf '{"tool_name":"apply_patch","cwd":"%s","tool_input":{"command":"*** Begin Patch\\n%s*** End Patch"}}' "$scratch" "$1"; }
+file 1 "*Fix the quoted text in $scratch/new.md*" 'VIOLATION
+"The report says so." -> x' "$(patch "*** Add File: $scratch/new.md\\n+# New\\n+\\n+The report says so.\\n")"
+file 0 '' PASS "$(patch "*** Add File: $scratch/Main.kt\\n+// The report says so.\\n")"
+file 1 '*The report says the version.*' 'VIOLATION
+"The report says the version." -> x' "$(patch '*** Update File: doc.md\n@@\n-Old line.\n+The report says the version. It is short.\n')"
+case $sent in *"File: $scratch/doc.md"*) ;; *) echo "FAIL the relative path was not resolved: $sent"; fail=1;; esac
+case $sent in *'Third one'*) echo "FAIL another paragraph was sent: $sent"; fail=1;; esac
+# Every prose file in the patch is sent, and a quote from none of them is dropped.
+printf 'Plain one.\n' > "$scratch/a.md"
+file 1 '' 'VIOLATION
+"Third one here." -> x' "$(patch "*** Add File: $scratch/a.md\\n+Plain one.\\n*** Update File: $doc\\n@@\\n+Second paragraph stays.\\n")"
+case $sent in *'Plain one.'*'Second paragraph stays.'*) ;; *) echo "FAIL both files were not sent: $sent"; fail=1;; esac
+file 1 '*Second paragraph stays.*' 'VIOLATION
+"Second paragraph stays." -> x' "$(patch "*** Update File: $scratch/old.md\\n*** Move to: $doc\\n@@\\n+Second paragraph stays.\\n")"
+file 0 '*Not reviewed*deleted*' PASS "$(patch "*** Update File: $doc\\n@@\\n-Gone.\\n")"
 # A reader that cannot run says nothing, and the advisory nudge in lint.sh still fires.
 file 1 '' '' "$(edit "$doc" says)" 1
 

@@ -8,11 +8,14 @@
 # equal. Printing stops soon after cap characters; the caller cuts at the cap.
 # The caller never passes an empty new_string file, which would read the edited
 # file as the first one.
-FNR == NR { sub(/\r$/, ""); want[++k] = $0; next }
+# With -v lines=1 the first file is instead the lines an apply_patch call added,
+# and a paragraph is kept when one of its lines equals one of them.
+FNR == NR { sub(/\r$/, ""); if (lines) { if ($0 !~ /^[ \t]*$/) added[$0] = 1; k = 1 } else want[++k] = $0; next }
 { sub(/\r$/, ""); line[++n] = $0 }
 function blank(i) { return line[i] ~ /^[ \t]*$/ }
 function ends(s, t) { return t == "" || (length(s) >= length(t) && substr(s, length(s) - length(t) + 1) == t) }
 function hit(i,    j) {
+  if (lines) return line[i] in added
   if (k == 1) return index(line[i], want[1]) > 0
   if (!ends(line[i], want[1])) return 0
   for (j = 2; j < k; j++) if (line[i + j - 1] != want[j]) return 0

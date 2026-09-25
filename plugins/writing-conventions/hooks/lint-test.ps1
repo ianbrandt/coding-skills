@@ -145,6 +145,13 @@ try {
   if ((Invoke-Hook '--emit' '{"x":1}') -like '*flagged*') {
     Write-Output 'FAIL emit without session id printed a note'; $fail = 1
   }
+  # Codex writes files with apply_patch, and any prose file in the patch counts.
+  if ((Invoke-Hook '--nudge' '{"tool_name":"apply_patch","tool_input":{"command":"*** Begin Patch\n*** Update File: src/a.py\n+x\n*** Add File: docs/b.md\n+Hi.\n*** End Patch"}}').Trim() -eq '') {
+    Write-Output 'FAIL nudge skipped a patched .md'; $fail = 1
+  }
+  if ((Invoke-Hook '--nudge' '{"tool_name":"apply_patch","tool_input":{"command":"*** Begin Patch\n*** Update File: src/a.py\n+x\n*** End Patch"}}').Trim() -ne '') {
+    Write-Output 'FAIL nudge fired on a patched .py'; $fail = 1
+  }
   if ((Invoke-Hook '--nudge' 'not json').Trim() -ne '') { Write-Output 'FAIL nudge on garbage'; $fail = 1 }
   [void](Invoke-Hook '--record' 'not json at all {{{')
   if ($LASTEXITCODE -ne 0) { Write-Output 'FAIL garbage record exit'; $fail = 1 }

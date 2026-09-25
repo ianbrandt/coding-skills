@@ -260,6 +260,48 @@ case "$1:$tool" in
     msg=$(printf 'File: %s\n\n' "$path"; cat "$tmp/text")
     sources() { cat "$tmp/text"; }
     again= ;;
+  --file:apply_patch)
+    # Codex writes files with one patch, which can add, update, or move several.
+    # Each prose file in it is reviewed as the paragraphs that hold the lines the
+    # patch added, read from the file as patched.
+    field command | awk -v cwd="$(field cwd)" -v out="$tmp" -f "$HERE/patch.awk"
+    : > "$tmp/text"; : > "$tmp/msg"; path=; unread=; i=0
+    while [ -e "$tmp/path.$((i + 1))" ]; do
+      i=$((i + 1)); p=$(cat "$tmp/path.$i")
+      case "$(printf '%s' "$p" | tr 'A-Z' 'a-z')" in
+        *.md|*.markdown|*.txt|*.adoc|*.rst) ;;
+        *) continue ;;
+      esac
+      if ! grep -q '[^[:space:]]' "$tmp/new.$i"; then
+        unread="$unread${unread:+
+}Not reviewed: this edit to $p only deleted text."
+        continue
+      fi
+      : > "$tmp/part"
+      if [ -f "$p" ] && [ "$(wc -c < "$p")" -le 1048576 ]; then
+        awk -v cap=$CAP -v lines=1 -f "$HERE/excerpt.awk" "$tmp/new.$i" "$p" > "$tmp/part"
+      fi
+      if [ ! -s "$tmp/part" ]; then
+        cp "$tmp/new.$i" "$tmp/part"
+        unread="$unread${unread:+
+}Only the new text was reviewed, not the sentences around it: $p is over 1 MB or could not be read."
+      fi
+      { printf 'File: %s\n\n' "$p"; cat "$tmp/part"; echo; } >> "$tmp/msg"
+      cat "$tmp/part" >> "$tmp/text"
+      path="$path${path:+, }$p"
+    done
+    if [ -z "$path" ]; then
+      [ -z "$unread" ] || printf '%s\n' "$unread" | context
+      exit 0
+    fi
+    if [ "$(wc -c < "$tmp/msg")" -gt $CAP ]; then
+      head -c $CAP "$tmp/msg" > "$tmp/cut" && mv "$tmp/cut" "$tmp/msg"
+      unread="$unread${unread:+
+}Only the first $CAP characters of the text were reviewed."
+    fi
+    msg=$(cat "$tmp/msg")
+    sources() { cat "$tmp/text"; }
+    again= ;;
   --file:*) exit 0 ;;
   :mcp__*)
     # Whether an MCP tool can publish is asked of a model once per tool and kept in

@@ -85,6 +85,9 @@ n=$(printf '{"tool_name":"Write","tool_input":{"file_path":"/tmp/draft.md","cont
 case "$n" in '{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"You just wrote prose'*) ;; *) echo "FAIL nudge: $n"; fail=1;; esac
 [ -z "$(printf '{"tool_input":{"file_path":"/src/main.py"}}' | bash "$HERE/lint.sh" --nudge)" ] || { echo "FAIL nudge fired on .py"; fail=1; }
 [ -n "$(printf '{"tool_input":{"file_path":"/tmp/README.MD"}}' | bash "$HERE/lint.sh" --nudge)" ] || { echo "FAIL nudge skipped README.MD"; fail=1; }
+# Codex writes files with apply_patch, and any prose file in the patch counts.
+[ -n "$(printf '{"tool_name":"apply_patch","tool_input":{"command":"*** Begin Patch\\n*** Update File: src/a.py\\n+x\\n*** Add File: docs/b.md\\n+Hi.\\n*** End Patch"}}' | bash "$HERE/lint.sh" --nudge)" ] || { echo "FAIL nudge skipped a patched .md"; fail=1; }
+[ -z "$(printf '{"tool_name":"apply_patch","tool_input":{"command":"*** Begin Patch\\n*** Update File: src/a.py\\n+x\\n*** End Patch"}}' | bash "$HERE/lint.sh" --nudge)" ] || { echo "FAIL nudge fired on a patched .py"; fail=1; }
 # no session id: nothing is saved, and nothing another session saved is printed
 printf '{"last_assistant_message":"This shape is vacuous."}' | bash "$HERE/lint.sh" --record
 [ -z "$(ls "$TMPDIR")" ] || { echo "FAIL record without session id wrote a file"; fail=1; }

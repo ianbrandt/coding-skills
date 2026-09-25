@@ -48,12 +48,12 @@ case "$mode" in
     printf '%s\n' "$REMINDER"
     ;;
   --nudge)
-    path=$(printf '%s' "$input" | awk -v key=file_path -f "$HERE/jsonstr.awk" | tr 'A-Z' 'a-z')
-    case "$path" in
-      *.md|*.markdown|*.txt|*.kt|*.kts|*.java|*.groovy)
-        printf '{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"%s"}}' "$NUDGE"
-        ;;
-    esac
+    path=$(printf '%s' "$input" | awk -v key=file_path -f "$HERE/jsonstr.awk")
+    # Codex writes files with apply_patch, one patch that can touch several.
+    [ -n "$path" ] || path=$(printf '%s' "$input" | awk -v key=command -f "$HERE/jsonstr.awk" | awk -f "$HERE/patch.awk")
+    if printf '%s\n' "$path" | tr 'A-Z' 'a-z' | grep -qE '\.(md|markdown|txt|kt|kts|java|groovy)$'; then
+      printf '{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"%s"}}' "$NUDGE"
+    fi
     ;;
 esac
 exit 0

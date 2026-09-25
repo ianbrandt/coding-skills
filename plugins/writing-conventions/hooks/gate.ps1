@@ -40,6 +40,7 @@ if (-not $PowerShellOwnsHook) { exit 0 }
 # The draft-fence scanner, shared with lint.ps1, and the shell command splitter,
 # the same as keys.awk.
 . (Join-Path $PSScriptRoot 'draft.ps1')
+. (Join-Path $PSScriptRoot 'patch.ps1')
 . (Join-Path $PSScriptRoot 'keys.ps1')
 
 # Native stderr under 'Stop' is a terminating error on 5.1 once it is redirected,
@@ -196,6 +197,18 @@ function Get-Excerpt([string]$text, [string]$new) {
     $at = $text.IndexOf($new, $end, [StringComparison]::Ordinal)
   }
   return (@($keep | ForEach-Object { $text.Substring($_[0], $_[1] - $_[0]).Trim("`n") }) -join "`n`n")
+}
+
+# excerpt.awk -v lines=1, in PowerShell: the paragraphs of $text that hold a line
+# equal to one of the non-blank lines in $added.
+function Get-LineExcerpt([string]$text, [string[]]$added) {
+  $want = New-Object 'System.Collections.Generic.HashSet[string]'
+  foreach ($a in $added) { if ($a.Trim() -ne '') { [void]$want.Add($a.Replace("`r", '')) } }
+  $keep = New-Object System.Collections.Generic.List[string]
+  foreach ($para in [regex]::Split($text.Replace("`r", ''), '\n[ \t]*\n')) {
+    foreach ($l in $para.Split("`n")) { if ($want.Contains($l)) { $keep.Add($para.Trim("`n")); break } }
+  }
+  return ($keep -join "`n`n")
 }
 
 # walk.awk, in PowerShell: READER, SAFE, or ASK followed by one
@@ -490,6 +503,32 @@ if ($stopMode) {
   # reading, and only of the file the tool wrote. The reader is sent the text under
   # review and not the hook input, which for a Write holds the whole file.
   $path = [string]$json.tool_input.file_path
+  if ($tool -ceq 'apply_patch') {
+    # Codex writes files with one patch, which can add, update, or move several.
+    # Each prose file in it is reviewed as the paragraphs that hold the lines the
+    # patch added, read from the file as patched.
+    $notes = New-Object System.Collections.Generic.List[string]
+    $parts = New-Object System.Collections.Generic.List[string]
+    $sources = @(); $paths = @()
+    foreach ($f in (Get-PatchFile ([string]$json.tool_input.command) ([string]$json.cwd))) {
+      if (-not [regex]::IsMatch($f.Path.ToLowerInvariant(), '\.(md|markdown|txt|adoc|rst)$')) { continue }
+      if (($f.New -join '').Trim() -eq '') { $notes.Add("Not reviewed: this edit to $($f.Path) only deleted text."); continue }
+      $text = ''
+      try {
+        if ((Get-Item -LiteralPath $f.Path -ErrorAction Stop).Length -le 1048576) { $text = Get-LineExcerpt ([IO.File]::ReadAllText($f.Path, $utf8)) $f.New }
+      } catch { }
+      if ($text -eq '') {
+        $text = $f.New -join "`n"
+        $notes.Add("Only the new text was reviewed, not the sentences around it: $($f.Path) is over 1 MB or could not be read.")
+      }
+      $parts.Add("File: $($f.Path)`n`n$text"); $sources += $text; $paths += $f.Path
+    }
+    if ($paths.Count -eq 0) { if ($notes.Count -gt 0) { Write-Context ($notes -join "`n") }; exit 0 }
+    $raw = $parts -join "`n`n"
+    if ($raw.Length -gt $CAP) { $raw = $raw.Substring(0, $CAP); $notes.Add("Only the first $CAP characters of the text were reviewed.") }
+    $path = $paths -join ', '
+    $unread = $notes -join "`n"
+  } else {
   if ($tool -cne 'Write' -and $tool -cne 'Edit') { exit 0 }
   if (-not [regex]::IsMatch($path.ToLowerInvariant(), '\.(md|markdown|txt|adoc|rst)$')) { exit 0 }
   if ($tool -ceq 'Write') { $text = [string]$json.tool_input.content }
@@ -509,6 +548,7 @@ if ($stopMode) {
   }
   $raw = "File: $path`n`n$text"
   $sources = @($text)
+  }
 } elseif ($tool -like 'mcp__*') {
   # Whether an MCP tool can publish is asked of a model once per tool and kept in a
   # per-user file, one line per answer, so no server or tool name is written here.

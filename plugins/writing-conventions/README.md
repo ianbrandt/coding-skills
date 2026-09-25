@@ -96,6 +96,15 @@ Windows PowerShell 5.1 never runs a hook script, since only `pwsh` is launched; 
 scripts whatever the tool setting, and a box with neither gets a hook error for each hook. The
 `SessionStart` rules load either way, since that hook is a plain `cat`.
 
+## Codex
+
+The Codex CLI loads the same `hooks/hooks.json` and sets `CLAUDE_PLUGIN_ROOT` for it. Codex skips a
+plugin's hooks until you trust them, from the prompt at the next session start or from `/hooks`.
+Checked on Codex CLI 0.157.0 on macOS: the rules arrive at session start, the style reminder with
+each prompt, and the nudge after an `apply_patch` edit. The gate still reads text through a nested
+`claude -p` call, so it runs only where the Claude Code CLI is installed and signed in. Without it,
+model review is off and the pattern lint on replies still runs. Codex on Windows is untested.
+
 ## The gate at publication
 
 The census behind this plugin found that 101 of 107 corrections landed on text that ships: PR
@@ -283,6 +292,11 @@ that text and the file path, not the hook input.
 What is not read is stated in the same feedback: text past the first 50,000 characters, an `Edit`
 that only deletes, and the sentences around an `Edit` to a file over 1 MB, where `new_string` alone
 is read. A draft written to a file with a shell redirect is not read at all.
+
+Codex edits files with `apply_patch`, one patch that can add, update, or move several files at once.
+[`hooks/patch.awk`](hooks/patch.awk) splits the patch by file, and each prose file in it is read as
+the paragraphs of the patched file that contain a line added by the patch. An added file is therefore
+read whole.
 
 ### Chat drafts
 
