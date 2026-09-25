@@ -42,6 +42,8 @@ if ($Branch -ceq $Default) {
   # Launched in the PRIMARY checkout, open your own worktree now; never edit under $Main.
   $Name = '<short-kebab-id>'                 # arbitrary pair (color-animal), NOT activity words like
                                               # "roadmap-lap": every session picks those, and siblings collide
+  $Id = '<backlog id, lowercased>'           # SKILL.md §0's backlog ID, or empty where the work has none
+  if ($Id) { $Name = "$Id-$Name" }           # r78-sage-heron: the ID for SKILL.md §2's tell 2
   while ((Test-Path "$WtRoot/$Name") -or (Test-BranchRef "refs/heads/$Pfx$Name")) {
     $Name = "$Name-$(Get-Random)"            # taken by a sibling, suffix and retry
   }

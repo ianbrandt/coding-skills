@@ -103,8 +103,9 @@ of them means the work is already in flight, and its existing worktree is *your*
 
 1. **A pin in the backlog** (§0)—a note tying that unit of work to one branch or worktree is the
    durable in-flight record, and it outlives every session that touched it.
-2. **An existing worktree or branch named for it** (`git worktree list`), carrying commits the
-   default branch doesn't have.
+2. **An existing worktree or branch named for it** (`git worktree list`), with commits the
+   default branch doesn't have. A worktree directory starting with the work's backlog ID and a
+   hyphen counts (`r78-` for R78, §3), whatever its branch is named.
 3. **A live lease naming it**, where the repo runs a concurrency plugin (§0's lease seam)—that
    plugin says how to read its ledger; consult it now, before deciding. A lease whose worktree still
    exists catches only a session that died mid-flight.
@@ -133,6 +134,8 @@ if [ "$BRANCH" = "$DEFAULT" ]; then
   # Launched in the PRIMARY checkout—open your own worktree now; never edit under $MAIN.
   NAME="<short-kebab-id>"                    # arbitrary pair (color-animal), NOT activity words like
                                              # "roadmap-lap"—every session picks those, and siblings collide
+  ID="<backlog id, lowercased>"              # §0's backlog ID, or empty where the work has none
+  NAME="${ID:+$ID-}$NAME"                    # r78-sage-heron: the ID for §2's tell 2
   while [ -d "$WTROOT/$NAME" ] \
      || git show-ref --verify --quiet "refs/heads/$PFX$NAME"; do
     NAME="$NAME-$RANDOM"                     # taken by a sibling—suffix and retry
@@ -153,6 +156,11 @@ echo "worktree: $WT   main checkout: $MAIN"
 checked against it by `git branch -d`, so while a public push is held, a branch already merged into
 the local default branch is refused and §4's reap leaves it behind. `git push -u` sets an upstream
 once the branch is pushed, and §4's gone-upstream check covers it from then on.
+
+**Prefix the name with the work's backlog ID** where it has one, keeping the generated pair as the
+suffix. In `pr` mode the branch is renamed, and where the backlog record is a tracked file the work
+stays open with no pin until its PR merges, so while the PR is open the ID appears only in the
+worktree directory, for §2's tell 2.
 
 **Name the branch for its destination when the work lands as a pull request**: on a fork, or in a
 repo whose landing mode is `pr` (`land-and-wrap` §1). A pushed branch becomes a pull request's head,
