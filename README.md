@@ -61,6 +61,17 @@ invoked.
 - [`gradle-skills`](plugins/gradle-skills) upgrades Gradle dependencies and the wrapper, one
   verified atomic commit at a time. Gradle builds only.
 
+### Codex
+
+The Codex CLI reads the same marketplace. `ghostwriting-skills` and `gradle-skills` work there as
+they are; the others are written for Claude Code.
+
+```sh
+codex plugin marketplace add IanBrandt/coding-skills
+codex plugin add ghostwriting-skills@ianbrandt
+codex plugin add gradle-skills@ianbrandt
+```
+
 ## License
 
 Licensed under MIT. See [LICENSE.md](LICENSE.md).
