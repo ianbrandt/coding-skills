@@ -29,18 +29,20 @@ the default branch.
 
 ### `land-and-wrap`
 
-How work leaves a worktree, decided by two facts read off the repo instead of a mode declared in a
+How work leaves a worktree, decided by facts read off the repo instead of a mode declared in a
 file. An `upstream` remote means the repo is a fork of someone else's project: the work never
 merges, never pushes, and nothing at all reaches the remote host, whether GitHub, GitLab, or
 Bitbucket—issue and PR text is drafted as local files for the user to post. No `upstream` means the
-repo is theirs, so work fast-forwards into the default branch. The push then depends on `origin`'s
-visibility, going out when private and waiting for the user's explicit go when public. Visibility
-is read from a per-repo `git config` value, with `gh` and `glab` as shortcuts on GitHub and
-GitLab, and the user is asked once when none of them returns a value.
+repo is theirs. Work then fast-forwards into the default branch, or, where the default branch is
+protected, goes up as a branch with a pull request whose title and body wait for the user's go. The
+push depends on `origin`'s visibility, going out when private and waiting for the user's explicit go
+when public. Visibility and landing mode are each read from a per-clone `git config` value, with
+`gh` as a shortcut for both and `glab` for visibility, and the user is asked once when none of them
+returns a value. The fork hold, the public-push hold, and the wait on PR text each have a per-clone
+`git config` override that only the user sets.
 
-Splitting those two facts apart is what makes "a repo you own with an untracked, local-only roadmap"
-an ordinary combination rather than a special case: only fork-ness stops a merge, and only
-visibility gates a push.
+Reading these facts off the repo is what makes "a repo you own with an untracked, local-only
+roadmap" an ordinary combination rather than a special case: the backlog decides none of them.
 
 Then the wrap-up actions every session runs whether or not the work finished: stop stray background
 tasks, release any lease, and leave the branch and worktree standing as the resume record.

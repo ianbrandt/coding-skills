@@ -141,16 +141,17 @@ fi
 echo "worktree: $WT   main checkout: $MAIN"
 ```
 
-**Name the branch for its destination when the work targets a fork.** A branch pushed to a fork
-becomes a pull request's head, and a PR head name is permanent and public. On a fork, rename the
-generated name to the target project's own convention now, before anything records it—`git -C "$WT"
-branch -m add-jvm-target-flag`. Absent a stated convention, a short descriptive slug. **The name
+**Name the branch for its destination when the work lands as a pull request**: on a fork, or in a
+repo whose landing mode is `pr` (`land-and-wrap` §1). A pushed branch becomes a pull request's head,
+and a PR head name is permanent and visible to everyone who reviews it. Rename the generated name
+to the target project's own convention now, before anything records it—`git -C "$WT" branch -m
+add-jvm-target-flag`. Absent a stated convention, a short descriptive slug. **The name
 chosen then is final**: filing an issue afterwards is not a reason to renumber it to
 `fix-issue-<N>`, which desyncs the branch from its worktree directory and from anything else that
 recorded the name.
-On a repo you own, the generated name is fine—nothing outside this machine ever sees it. A renamed
-branch escapes §4's merged-branch reap, which is harmless: a fork's branches are never merged
-locally, so the reap never had it.
+In `merge` mode the generated name is fine, since nothing outside this machine ever sees it. A
+renamed branch escapes §4's merged-branch reap. Once pushed, it is deleted by §4's gone-upstream
+check after its PR merges. A held fork branch is never pushed, so it stays until the user removes it.
 
 **Translate every context-supplied `<repo-root>/…` path to `$WT/…`** before any `Read`/`Edit`/
 `Write`. The `gitStatus` block, memories, and doc links all cite the bare repo-root path, and taking
