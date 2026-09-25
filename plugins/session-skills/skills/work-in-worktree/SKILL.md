@@ -91,7 +91,7 @@ git rev-parse --verify -q "$BASE" >/dev/null || BASE="$DEFAULT"   # no remote: l
 
 WTROOT="$MAIN/.claude/worktrees"             # where this host's tooling creates worktrees
 PFX="claude/"                                # and the branch prefix it uses
-NOTES="spike-notes.local"                    # the repo's local-only notes directory, if it has one
+NOTES="notes.local"                          # the repo's local-only notes directory, if it has one
 ```
 
 **Nothing local tells you the checkout is current**, and a clean working tree least of all: another
@@ -212,9 +212,9 @@ deletes a worktree's untracked files without a warning, and the loss shows up on
 session follows a reference to a note that is gone. The `ln -s` line in the block above links a
 local-only notes directory through, so existing write paths land in `$MAIN`. Set `NOTES` in §1 to
 the repo's notes directory; the `-d` test skips the link where that directory is absent. **An
-exclude pattern with a trailing slash does not match the link**: `/spike-notes.local/` matches only
+exclude pattern with a trailing slash does not match the link**: `/notes.local/` matches only
 a directory, so the link shows as untracked in every new worktree. Write the pattern as
-`/spike-notes.local`.
+`/notes.local`.
 
 ## 4. Hygiene—prune only
 

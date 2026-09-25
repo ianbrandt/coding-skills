@@ -19,7 +19,7 @@ if ($LASTEXITCODE -ne 0) { $Base = $Default }         # no remote: local is all 
 
 $WtRoot = "$Main/.claude/worktrees"                   # where this host's tooling creates worktrees
 $Pfx = 'claude/'                                      # and the branch prefix it uses
-$Notes = 'spike-notes.local'                          # the repo's local-only notes directory, if any
+$Notes = 'notes.local'                                # the repo's local-only notes directory, if any
 ```
 
 ## 2. Resume before you branch
