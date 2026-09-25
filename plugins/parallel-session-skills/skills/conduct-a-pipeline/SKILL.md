@@ -218,7 +218,7 @@ the fork hold, process the unit by §2b instead, against `upstream` per `land-an
 - Keep the squashed atomic commits **on the unit's branch**; do not merge or push them.
 - **Build gate** (step 3) before recording it done. A red unit is not "done".
 - Record it done in the backlog, with a note of how far it got. Draft any issue, comment, or PR text
-  as local files under the repo's notes directory.
+  as local files under the repo's notes directory, or `.claude/pr-drafts/` where it has none.
 - **Leave the worktree + branch in place** for the user to review and sync. Delete the claim; update
   the run-state file (`staged`, not `landed`).
 

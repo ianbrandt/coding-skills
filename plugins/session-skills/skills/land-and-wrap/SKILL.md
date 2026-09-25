@@ -193,8 +193,9 @@ destination in `work-in-worktree` §3, before the first push. The steps below ar
    user to review and sync; never merge or push them.
 2. **Draft outreach as local files**—`NNN-issue-draft.md`, `NNN-pr-draft.md`,
    `NNN-comment-draft.md`, keyed by the upstream number once known and by the work's own ID before
-   then, in whatever local notes directory the repo keeps them in. **Filing an issue, opening a PR,
-   and posting a comment are the user's actions, never yours.**
+   then, in whatever local notes directory the repo keeps them in, or `.claude/pr-drafts/` where it
+   has none (snippet in §2 `pr` step 6). **Filing an issue, opening a PR, and posting a comment
+   are the user's actions, never yours.**
 3. **Record it done** through the backlog plugin, in a form that says how far the work got: built
    locally, drafted, filed, or merged upstream are different states to the person who has to sync
    it.
