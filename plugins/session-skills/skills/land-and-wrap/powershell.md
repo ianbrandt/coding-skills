@@ -1,12 +1,13 @@
 # land-and-wrap, in PowerShell
 
-PowerShell 7 equivalents for the §1 bash in `SKILL.md`. §2 through §4 are single git, `gh`, or
-`glab` commands with no shell-specific parsing around them, so their bash form runs unchanged.
+PowerShell 7 equivalents for the §1 bash in `SKILL.md`, and for the PR draft file in its §2 `pr`
+step 6. The rest of §2 through §4 is single git, `gh`, or `glab` commands with no shell-specific
+parsing around them, so their bash form runs unchanged.
 
 `gh` and `glab` are optional everywhere here, guarded with `Get-Command ... -ErrorAction
 SilentlyContinue` rather than `2>$null`: a missing executable is a lookup error PowerShell reports
 on the console even under `2>$null`, and the guard avoids it. Where neither is installed, as on a
-machine with no `gh`, every block below falls through to `unknown`, and `SKILL.md`'s "ask the user
+machine with no `gh`, every block in §1 falls through to `unknown`, and `SKILL.md`'s "ask the user
 once" step runs the same as on the bash side.
 
 ## 1. What decides how work lands
@@ -70,4 +71,15 @@ git config session-skills.landing pr        # or merge
 git config session-skills.holdPublicPush false    # a public origin pushes like a private one
 git config session-skills.holdFork false          # a fork lands as a PR against upstream (§3)
 git config session-skills.holdPrText false        # open a PR without first showing its text
+```
+
+## 2. Landing in a repo you own
+
+### `pr`, step 6: where the repo has no notes directory
+
+```powershell
+$F = "$Main/.claude/pr-drafts/<id>-pr-draft.md"   # the work's backlog ID, or the branch name
+New-Item -ItemType Directory -Force (Split-Path $F) | Out-Null
+git -C $Main check-ignore -q $F
+if ($LASTEXITCODE -ne 0) { Add-Content "$Main/.git/info/exclude" "`n/.claude/pr-drafts/" }
 ```

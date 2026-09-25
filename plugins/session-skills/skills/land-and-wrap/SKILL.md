@@ -22,8 +22,8 @@ Two separate jobs, and the second one runs even when the first doesn't: **landin
 work out of its worktree, and the **wrap-up** closes the session whether the work finished, stalled,
 or was abandoned.
 
-**On PowerShell**, `powershell.md` in this skill's directory has every snippet in §1 below in
-PowerShell 7, matched by subsection.
+**On PowerShell**, `powershell.md` in this skill's directory has every snippet in §1 below, and the
+one in §2 `pr` step 6, in PowerShell 7, matched by subsection.
 
 ## 1. What decides how work lands
 
@@ -157,7 +157,14 @@ runbook), otherwise land by the mode from §1.
    "$F"`, or `glab mr create -s "$BRANCH" -b "$DEFAULT" -t "$TITLE" --description-file "$F"`. With
    no host tool, as with a Bitbucket `origin` and plain git, write the title and body to a local
    file in the repo's notes directory, and give the user the create link from the `remote:` lines
-   of the `git push` output.
+   of the `git push` output. Where the repo has no notes directory, use `.claude/pr-drafts/` in
+   the primary checkout, excluded from git unless already ignored:
+
+   ```bash
+   F="$MAIN/.claude/pr-drafts/<id>-pr-draft.md"   # the work's backlog ID, or the branch name
+   mkdir -p "${F%/*}"
+   git -C "$MAIN" check-ignore -q "$F" || printf '\n/.claude/pr-drafts/\n' >> "$MAIN/.git/info/exclude"
+   ```
 
 The branch and worktree stay until the PR merges, since review fixes go on the same branch. A
 backlog record kept in a tracked file rides in the PR and merges with it. One kept outside the tree
