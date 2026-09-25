@@ -21,20 +21,23 @@ flight, builds each in its own worktree via a background Workflow, and processes
 finishes—a rolling pipeline, refilled after every completion, running until candidates run out or
 the plan is invalidated.
 
-Per-lane mechanics are **inherited**, not restated: `work-in-worktree` for the worktree and the
-backlog seam, `claim-a-lane` for the claim ledger, `land-and-wrap` for the two landing arms. This
-skill adds the conductor layer and the **unattended deviations**—each one exists because there is no
-human in the loop. *This skill is the Workflow orchestration opt-in for every unit built under it.*
+Per-lane mechanics come from `work-in-worktree` for the worktree and the backlog seam,
+`claim-a-lane` for the claim ledger, and `land-and-wrap` for landing. This skill adds the conductor
+layer and the **unattended deviations**—each one exists because there is no human in the loop.
+*This skill is the Workflow orchestration opt-in for every unit built under it.*
 
 **Candidates come from the backlog** (`work-in-worktree` §0), not from here. A backlog plugin supplies
 an ordered list of workable units and records each one done in its own form; this skill decides how
 many run at once, what happens when one fails, and when to stop. With no backlog plugin, the user
 supplies the list up front and the conductor runs it dry.
 
-The repo decides how a completed unit is **processed**, by `land-and-wrap`'s two facts. A repo you
-own lands each one serially on the default branch—rebase, mandatory build, fast-forward, and a push
-only if `origin` is private (§2a). A fork of someone else's project stages each one locally and
-**writes nothing to the remote host**; those don't serialize (§2b).
+How a completed unit is **processed** follows `land-and-wrap` §1: fork-ness, the landing mode,
+`origin`'s visibility, and the per-clone holds. In `merge` mode each unit lands serially on the
+default branch: rebase, mandatory build, fast-forward, and a push unless it is held (§2a). In `pr`
+mode each unit's branch is rebased, built, and pushed under the same rule, and its PR text waits in
+a local file for the user's go (§2b). On a fork, each unit is staged locally and **nothing is written
+to the remote host** unless the user lifted the fork hold (§2c). Only `merge` units serialize, since
+only they move a shared branch.
 
 ## 0. Arguments
 
@@ -47,16 +50,19 @@ it. A backlog plugin may add its own arguments, such as a hint biasing candidate
 ## 1. Conductor setup—once
 
 The conductor roots in the **main checkout** and never edits repo files outside a unit's worktree,
-the run-state file excepted. Get the candidate list from the backlog; if it is empty, stop. Run
-the hygiene pass once—`work-in-worktree` §4's prune, then `claim-a-lane` §2's dead-claim reap. Then:
+the run-state file and the PR draft files excepted. Get the candidate list from the backlog; if it
+is empty, stop. Run the hygiene pass once—`work-in-worktree` §4's prune, then `claim-a-lane` §2's dead-claim reap. Then:
 
+- **Read how units land** with `land-and-wrap` §1's commands: fork-ness, visibility, the landing
+  mode, and the holds. For a value still unknown, skip the question to the user and take that
+  section's default, since nobody is there to answer. An unknown mode means §2a with the push held.
 - **Create the run-state file** `.claude/pipeline-run.json`—git-ignored where the backlog is tracked,
   git-excluded where it isn't, and deliberately NOT under `.claude/claims/`, where the hygiene reaper
-  would parse it as a claim and delete it. Per-unit `{status, worktree, branch, taskId, attempts}`,
-  plus `landed`/`staged`, `flagged`, `claimedCount`, and the recent completion/failure window.
-  **Rewrite it on every state change; re-read it at the top of every wake**—context can be summarized
-  mid-run, and IDs, counters, and flags held only in context don't survive that. It doubles as the
-  morning-after record.
+  would parse it as a claim and delete it. Per-unit `{status, worktree, branch, taskId, attempts,
+  touches}`, plus the landing facts, `landed`/`staged`, `flagged`, `claimedCount`, and the recent
+  completion/failure window. **Rewrite it on every state change; re-read it at the top of every
+  wake**—context can be summarized mid-run, and IDs, counters, and flags held only in context don't
+  survive that. It doubles as the morning-after record.
 - Emit the session title, spelled out.
 
 No pause follows—this skill runs unattended.
@@ -73,15 +79,17 @@ pipeline is the one stall no completion event can break.
 **Candidates:** re-derive after every completion. The backlog supplies what is workable and in what
 order (`work-in-worktree` §0); this skill removes what the session layer knows to be unavailable:
 
-- **claimed**—a live claim names it;
-- **not disjoint**—any path it expects to edit falls inside a live claim's `touches` globs;
+- **claimed**—it is listed in a live claim;
+- **not disjoint**—any path it expects to edit falls inside a live claim's `touches` globs, or inside
+  those of a unit staged this run (kept in the run-state file);
 - **already in flight** by any of `work-in-worktree` §2's three tells. **The conductor never takes the
   resume path**: a unit in flight stays out of candidates rather than being resumed here—it is an
   attended session's to finish. **A missing claim does not make it open**: a session that wrapped
   cleanly deleted its own claim and left the work in flight, so check the backlog's pin and `git
   worktree list` before reading an unclaimed unit as free;
-- **flagged this run**—a flagged unit's claim was released, so without the exclusion it is re-picked
-  and re-burned on every refill.
+- **flagged or staged this run**—a flagged unit's claim was released, and a staged `pr` unit stays
+  open in the backlog until its PR merges, so without the exclusion either one is re-picked and
+  re-burned on every refill.
 
 Keep candidates in the backlog's order so fills take the topmost eligible units first. A unit whose
 paths can't be predicted well enough to declare declares the broadest glob it might reach; that
@@ -90,7 +98,13 @@ costs parallelism and never costs correctness.
 **Fill:** while in-flight < cap, claimed < max-items, and a candidate exists: open its worktree +
 branch per `work-in-worktree` §3 and write its claim per `claim-a-lane` §3, **atomically, with its
 `touches` globs**—the conductor is the one reader that depends on them being accurate, since it is
-holding several lanes open at once.
+holding several lanes open at once. Where the branch needs a name for its destination
+(`work-in-worktree` §3: `pr` mode or a fork), give it one then, since nobody is present at landing to
+supply one. **Name the worktree directory with the unit's ID as a prefix**—`$WTROOT/<id>-<color-animal>`,
+keeping `work-in-worktree` §3's generated pair as the suffix—while the branch keeps its own name.
+A backlog that pins a unit by branch or worktree name (`work-in-worktree` §2's tell 1 or 2) can then
+read the ID straight off the worktree directory for as long as it exists, which matters most in `pr`
+mode, where the worktree outlives the fill that opened it.
 
 **When a build reports files outside its declared globs, rewrite that claim before the next fill.**
 A stale `touches` is worse than none: it reads as a checked disjointness guarantee. After all claims
@@ -141,17 +155,22 @@ unit's worktree while processing the completion.
 2. `ready` → inspect the diff (`git -C $WT status` / `diff`), strip any surviving agent artifacts,
    then **squash the WIP checkpoints into atomic, past-tense commits** (soft-reset to the merge-base,
    re-commit in logical units).
-3. **A Workflow's self-reported green has been wrong.** `ready` is a claim, not a gate: agents have
-   reported it on a red tree—having run a scoped subset, misread the output, or last built before
-   their own final edit. **The conductor runs the build gate itself** on every completed unit
-   (below), and a `ready` report failing that gate is a `failed` report—back to step 1. Never
-   substitute the report for the gate, and never skip the gate because the report was detailed or
-   confident.
-4. **Then process by what the repo is** (`land-and-wrap` §1):
+3. **A Workflow's self-reported green has been wrong.** `ready` is an unverified report until the
+   conductor's build gate passes: agents have reported it on a red tree—having run a scoped subset,
+   misread the output, or last built before their own final edit. **The conductor runs the build
+   gate itself** on every completed unit, in the arm below that processes it, and a `ready` report
+   failing that gate is a `failed` report—back to step 1. Never substitute the report for the gate,
+   and never skip the gate because the report was detailed or confident. The gate is the repo's
+   **full build** (from its contributor docs), run from `$WT`, never a scoped single-module test: a
+   module-scoped gate can pass while a sibling module's fixtures stay red. `land-and-wrap`'s
+   risk-based skip is off here. An attended session can skip because the next session rebuilds;
+   here the next session is this loop applying the same skip, and at stop time there is none.
+4. **Then process it by how units land** (§1): §2a in `merge` mode or with the mode unknown, §2b in
+   `pr` mode, and §2c on a fork.
 
-### 2a. A repo you own—land serially on the default branch
+### 2a. `merge`—land serially on the default branch
 
-Per `land-and-wrap` §2, with these unattended deviations:
+Per `land-and-wrap` §2 `merge`, with these unattended deviations:
 
 - Rebase onto the default branch. **Record the unit done in the backlog after the rebase.** Where
   the backlog's record is a tracked-file edit, make it the final fresh commit on the rebased tip:
@@ -159,37 +178,54 @@ Per `land-and-wrap` §2, with these unattended deviations:
   unattended conflict resolution silently mangles a sibling's backlog state. Where the backlog
   lives outside the tree—an untracked local-only file, an issue tracker—there is no commit to make;
   record it once the unit passes the build gate, through the backlog plugin's own mechanics.
-- **Build—mandatory; the risk-based skip is off here**, regardless of what the unit's report claimed
-  (step 3). The attended risk-based skip assumes a next session as the net; here that "next session"
-  is this loop applying the same skip, and at stop time there is none. Gate on the repo's **full
-  build** (from its contributor docs), never a scoped single-module test—a module-scoped gate can
-  pass while a sibling module's fixtures stay red.
+- **Build gate** (step 3), on the rebased tip.
 - Fast-forward-merge from the main checkout. On `--ff-only` refusal—a human session landed inside
   your rebase→build window—**re-rebase onto the moved branch and retry, bounded (3 attempts)**; never
   relax `--ff-only`.
-- Push if the repo is private. **On a public repo, never push**: keep landing each unit on local
-  `main` and present the accumulated unpushed range (`origin/main..main`) at stop for the user's
+- **Push** where `origin` is private or the user lifted the public-push hold, and never with the
+  landing mode unknown. Otherwise keep landing each unit on the local default branch and present
+  the accumulated unpushed range (`origin/$DEFAULT..$DEFAULT`) at stop for the user's
   review-then-push. Then delete the claim; remove the worktree and branch; update the run-state file.
 
-### 2b. A fork—stage locally, nothing to the remote host
+### 2b. `pr`—push each branch, and leave its PR text for the user
 
-Per `land-and-wrap` §3. There is no shared branch, so units do NOT serialize:
+Per `land-and-wrap` §2 `pr`, with these unattended deviations. No shared branch moves, so units do
+NOT serialize:
+
+- Fetch, then rebase onto `origin/$DEFAULT`. Record the unit in the backlog by `land-and-wrap` §2's
+  `pr` rule: a tracked-file record is the final commit on the rebased branch and merges with the PR;
+  outside the tree, record the unit as in review once it passes the build gate, so a declined PR
+  leaves it open.
+- **Build gate** (step 3), on the rebased branch.
+- **Push the branch** where `origin` is private or the user lifted the public-push hold. Otherwise
+  leave it unpushed for the wrap-up.
+- **Write the PR title and body**, in the repo's PR style, to `<id>-pr-draft.md` in the repo's notes
+  directory, or `.claude/pr-drafts/` where the repo has none (git-ignored or git-excluded like the
+  run-state file), with the create link from the push's `remote:` lines where there is one. The text
+  waits for the user's go: open the PR (`land-and-wrap` §2 `pr` step 6) only where the user set
+  `holdPrText` to `false` and the branch was pushed.
+- **Leave the worktree + branch in place** until the PR merges. Delete the claim; update the
+  run-state file (`staged`, not `landed`).
+
+### 2c. A fork—stage locally, nothing to the remote host
+
+Per `land-and-wrap` §3. There is no shared branch, so units do NOT serialize. Where the user lifted
+the fork hold, process the unit by §2b instead, against `upstream` per `land-and-wrap` §3.
 
 - Keep the squashed atomic commits **on the unit's branch**; do not merge or push them.
-- **Run the repo's build/test yourself** to confirm the branch is green before recording it done—same
-  rule as step 3; the unit's own report doesn't count. A red unit is not "done".
-- Record it done in the backlog, in a form that says how far it got. Draft any issue, comment, or PR
-  text as local files under the repo's notes directory.
+- **Build gate** (step 3) before recording it done. A red unit is not "done".
+- Record it done in the backlog, with a note of how far it got. Draft any issue, comment, or PR text
+  as local files under the repo's notes directory.
 - **Leave the worktree + branch in place** for the user to review and sync. Delete the claim; update
   the run-state file (`staged`, not `landed`).
 
 5. **Post-completion premise check:** `plan_invalidating` is self-reported and an agent can miss
    it—if the completed unit's diff touched a shared seam that in-flight or queued units build on, or
    contradicts an assumption the backlog's ordering rests on, treat it as plan invalidation (§3) even
-   though the report said `ready`.
+   though `ready` was reported.
 6. Refill the pipeline (fresh candidate derivation) and log one line:
-   `landed <id> <name> (<sha>)—N in flight, M landed.` on a repo you own /
-   `staged <id> <name> on <branch>—N in flight, M staged.` on a fork.
+   `landed <id> <name> (<sha>)—N in flight, M landed.` after §2a /
+   `staged <id> <name> on <branch>—N in flight, M staged.` after §2b or §2c.
 
 **Stuck build:** a Workflow far past its runtime for work of that size with no progress (the watchdog
 gets you here) → TaskStop it, re-scope the stuck stage, resume from the run ID; never let one stuck
@@ -205,19 +241,26 @@ Stop when:
 - **Plan invalidated**—a unit self-reports it, or the §2.5 check trips: a prerequisite discovered
   wrong, a spike refuting a settled ruling, a finding that materially changes what sibling units
   assume. Do NOT improvise a revised plan—stop and report; re-planning is the user's session.
-- **Default branch red after a landing**—one fix-forward attempt; still red → stop immediately. No
-  analogue on a fork: nothing lands on a shared branch, so a red unit is simply left flagged and
-  unstaged.
+- **Default branch red after a §2a landing**—one fix-forward attempt; still red → stop immediately.
+  No analogue in §2b or §2c: nothing lands on a shared branch, so a red unit is simply left flagged
+  and unstaged.
 - **The failure window trips**—≥2 failures within any 3 consecutive completions (ordered by
   completion time), or ≥3 units flagged in the run.
 - **max-items reached.**
 
 On stop: finalize the run-state file, send a PushNotification (one line—units landed/staged, stop
-reason), then a full wrap-up per `land-and-wrap` §4: landed/staged units with SHAs (on a fork their
-branch names to sync; on a public repo you own the unpushed `origin/main..main` range awaiting
-review-then-push), flagged units with why, what the backlog has left, and a recommendation for the
-next attended session. Re-emit the session-title line. No stop path skips the notification and
-wrap-up.
+reason), then a full wrap-up per `land-and-wrap` §4:
+
+- landed and staged units with SHAs;
+- after §2a with the push held, the unpushed `origin/$DEFAULT..$DEFAULT` range awaiting
+  review-then-push;
+- after §2b, each branch with its PR text file (`<id>-pr-draft.md` in the notes directory, or
+  `.claude/pr-drafts/`) or opened PR, and for a held push its `origin/$DEFAULT..<branch>` range;
+- after §2c, the branch names to sync;
+- flagged units with why, what the backlog has left, and a recommendation for the next attended
+  session.
+
+Re-emit the session-title line. No stop path skips the notification and wrap-up.
 
 ## 4. Ledger etiquette
 

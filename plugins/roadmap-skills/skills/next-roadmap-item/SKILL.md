@@ -57,17 +57,18 @@ plus `ROADMAP-CHANGELOG.local.md`. Parked and declined files are created on firs
 empty stubs. Migrate a legacy `docs/roadmap.md` to the root in a grooming commit when the ledger is
 empty.
 
-**The done-record follows the plan's location, and nothing else.** A tracked roadmap needs no
-changelog: the landing commit that deletes the item *is* the record. A local-only roadmap is
-untracked, so git history can't hold it and `$HISTORY` does.
+**The done-record follows the plan's location; `pr` mode only delays it (§6).** A tracked roadmap
+needs no changelog: the landing commit that deletes the item *is* the record. A local-only roadmap is
+untracked, so it is not in git history and is recorded in `$HISTORY` instead.
 
 Both files live **only in the primary checkout** when they are untracked, which is by design—one
 shared plan, not per-worktree copies. `work-in-worktree` has the mechanics for editing a
 primary-checkout file from a worktree session.
 
-**This is not the same question as how work lands.** `land-and-wrap` decides that from fork-ness and
-`origin`'s visibility. A repo you own can carry a local-only roadmap and still merge into its own
-default branch.
+**This is not the same question as how work lands.** That is determined from the repo, as
+described in `land-and-wrap` §1: fork-ness, the landing mode, `origin`'s visibility, and the
+per-clone holds. Work in a repo you own lands in its default branch even when the roadmap is
+local-only.
 
 ## 2. Get into a lane
 
@@ -76,9 +77,12 @@ fresh one. If it is not among the available skills, **stop and tell the user to 
 `session-skills`**—nothing below fails loudly without it, so proceeding just edits the default branch
 in the primary checkout.
 
-`work-in-worktree` §2's resume tells are what decide whether this run is a resume, and **tell 1 is an
-item's own text in `$ROADMAP`**: a build rule pinning the item to one branch or worktree is the
-durable in-flight record, outliving every session that touched it.
+Whether this run is a resume is determined by `work-in-worktree` §2's resume tells, and **tell 1 is
+an item's own text in `$ROADMAP`**: a build rule pinning the item to one branch or worktree is the
+durable in-flight record, outliving every session that touched it. **A pin for a branch that
+`work-in-worktree` §4 reports as merged (or whose content is already on `origin/$DEFAULT`) marks the
+item done, not in flight**: delete it and append its done-record to `$HISTORY` (`MERGED-UPSTREAM` on
+a fork) rather than resuming it.
 
 Run `work-in-worktree` §4's prune too. Then run **`claim-a-lane`**'s §1 and §2—orient against
 siblings, reap dead claims—and come back here to pick. Writing the claim (its §3) happens after the pick, not before. `claim-a-lane`
@@ -193,13 +197,17 @@ session does at its end. Two things it defers back to this skill:
 
 - **Bring the docs.** Finishing an item includes every piece of documentation it touches—the
   subsystem's design doc plus any user-facing surface.
-- **Record the item done, forward-only.** A tracked roadmap **deletes** the landed item, in its own
-  final commit; never migrate it to a done-list, never annotate it "landed". A local-only roadmap
-  deletes it too and **appends a done-record to `$HISTORY`**, which is a *reasoning archive* rather
-  than a landed-list: mechanism notes, corrections, refuted hypotheses, the local-to-upstream sha
-  and number map, findings a later session should not have to re-derive, under a status keyword
+- **Record the item done, forward-only.** On a tracked roadmap, **delete** the landed item in its
+  own final commit; never migrate it to a done-list, never annotate it "landed". On a local-only
+  roadmap, delete it too and **append a done-record to `$HISTORY`**, which is a *reasoning
+  archive*: mechanism notes, corrections, refuted hypotheses, the local-to-upstream sha and number
+  map, and findings a later session should not have to re-derive, under a status keyword
   (`BUILT-LOCAL` / `DRAFTED` / `FILED` / `PR-READY` / `MERGED-UPSTREAM`). Free-form append, no rigid
   schema. An item that turned out parked or declined moves to the parked or declined file instead.
+  In `pr` mode (`land-and-wrap` §1) the item stays in the roadmap until its PR merges, so a declined
+  PR leaves it open. On a tracked roadmap the deletion commit goes in the PR. On a local-only
+  roadmap, append the done-record now under `PR-READY`, or `FILED` once the PR is open, and pin the
+  item to its branch; the session that removes the worktree after the merge deletes the item.
 
 - **Record what was found in passing.** A defect or a gap noticed while building this item, and
   outside it, becomes a new item with the next free ID at its priority position, never a fix

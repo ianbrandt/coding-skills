@@ -25,10 +25,11 @@ the same names with a `.local.md` suffix, which is both the never-commit signal
 and what keeps a shadow roadmap from colliding with an upstream project's real
 `ROADMAP.md`. (`docs/roadmap.md` is honored as a legacy location.)
 
-Where the plan lives is a separate question from how finished work lands—
-`land-and-wrap` decides that from whether the repo is a fork and whether its
-origin is public. A repo you own can carry a local-only roadmap and still merge
-into its own default branch.
+Where the plan lives is a separate question from how finished work lands. To
+land it, `land-and-wrap` checks whether the repo is a fork, whether its default
+branch is protected, whether its origin is public, and any `git config` override
+the user set per clone. Work in a repo you own lands in its default branch even
+when the roadmap is local-only.
 
 An optional lane hint (`/next-roadmap-item R1`) biases the pick without
 overriding the no-collision rules. Point the hint at an item that's already in
@@ -46,7 +47,8 @@ cap, the fill loop, retries, the build gate, the stop conditions—is
 whatever the backlog is. This skill supplies that loop's two roadmap-shaped inputs: the
 ordered candidate list (open, ungated, and on a fork not flagged as requiring
 you present) and, once an item is green, deleting it from the roadmap or
-appending its changelog entry.
+appending its changelog entry, or, for a PR not yet merged, pinning it to its
+branch.
 
 The split is why the loop is worth having: a conductor holding several lanes
 open is the reader that needs mechanical disjointness, and nothing about holding

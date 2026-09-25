@@ -56,31 +56,44 @@ ordered workable list. From the roadmap that is:
 - **In roadmap order**, priority-descending, so fills take the topmost eligible items first. The
   `Rn` IDs carry no order.
 
-Everything else the conductor filters on—claimed, not disjoint, already in flight, flagged this
-run—is the session layer's and needs nothing from here.
+Everything else the conductor filters on—claimed, not disjoint, already in flight, flagged or staged
+this run—is the session layer's and needs nothing from here.
 
-The roadmap's **pin** is `work-in-worktree` §2's tell 1: an item's entry naming a branch or worktree is
-the durable in-flight record, and it is why an unclaimed item is not automatically free.
+The roadmap's **pin** is `work-in-worktree` §2's tell 1: a branch or worktree recorded in an item's
+entry is the durable in-flight record, and it is why an unclaimed item is not automatically free. A
+pin for a branch that `work-in-worktree` §4 reports as merged (or whose content is already on
+`origin/$DEFAULT`) marks the item done rather than in flight: delete it, append its done-record to `$HISTORY`
+(`MERGED-UPSTREAM` on a fork), and remove the worktree if this run created it (`next-roadmap-item`
+§2 has the same rule).
 
 ## 3. Recording an item done
 
-`conduct-a-pipeline` §2a/§2b calls back here once a unit is green. In roadmap form:
+The conductor calls back here from its §2a, §2b, or §2c once a unit is green. In roadmap form:
 
-The roadmap is forward-only either way: **delete the item**, never migrate it to a done-list, never
-annotate it "landed". An item that turned out parked or declined moves to the parked or declined
-file instead, created on first need. What varies is where the done-record goes, and that follows
-**the plan's location** (next-roadmap-item §1), not how the work landed:
+The roadmap is forward-only either way: **delete the item once its work has merged**, never migrate
+it to a done-list, never annotate it "landed". An item that turned out parked or declined moves to
+the parked or declined file instead, created on first need. What varies is where the done-record
+goes, and that follows **the plan's location** (next-roadmap-item §1), plus the `pr` exception below:
 
 - **A tracked roadmap**: git history is the done-record—the deletion itself. This edit is the final
-  fresh commit on the rebased tip, per §2a—minimal and localized, since every other lane is editing
-  the same file.
+  fresh commit on the rebased tip, per `conduct-a-pipeline` §2a or §2b—minimal and localized, since
+  every other lane is editing the same file.
 - **A local-only roadmap** (every fork, and any owned repo keeping its plan off the record): the
   files are untracked and live only in the primary checkout, so there is no commit to make—delete
   the item and **append its done-record to the changelog** through `work-in-worktree`'s
-  primary-checkout edit mechanics, once the unit passes the build gate. On a fork the entry carries
+  primary-checkout edit mechanics, once the unit passes the build gate. On a fork the entry includes
   a status keyword (`BUILT-LOCAL` / `DRAFTED` / `FILED` / `PR-READY` / `MERGED-UPSTREAM`, per
-  next-roadmap-item §6). The changelog is a reasoning archive, not a landed list: capture what
-  commit messages won't.
+  next-roadmap-item §6). The changelog records the reasoning behind each item: capture what commit
+  messages won't.
+
+**In `pr` mode** (`conduct-a-pipeline` §2b) the item stays in the roadmap until its PR merges, so a
+declined PR leaves it open (next-roadmap-item §6). On a tracked roadmap the deletion commit goes in
+the PR, so the item still reads as open on the default branch with no pin attached; the in-flight
+tell there is the item's worktree, named for its ID (`conduct-a-pipeline` §2's Fill paragraph), for as
+long as it exists. On a local-only roadmap, append the changelog entry now under `PR-READY`, or
+`FILED` where the conductor opened the PR, and pin the item to its branch in place of deleting it.
+The pin is `work-in-worktree` §2's tell 1, so no later run re-picks the item, and the same merged-pin
+rule as §2 above clears it once the branch merges.
 
 The conductor's per-completion log line and its wrap-up name items by `Rn.m` and by the roadmap's own
 heading text.
