@@ -29,6 +29,11 @@ CLAUDE_SESSION_ID=MINE CLAUDE_PROJECT_DIR="$T/primary/.claude/worktrees/lane" sh
 check "releases own claim when run from a worktree" "b.json c.json" "$(claims)"
 
 seed
+git -C "$T/primary" worktree add -q "$T/codex-home/worktrees/1/primary" -b claude/codex
+CLAUDE_SESSION_ID=MINE CLAUDE_PROJECT_DIR="$T/codex-home/worktrees/1/primary" sh "$S"
+check "releases own claim from a worktree outside the primary checkout" "b.json c.json" "$(claims)"
+
+seed
 CLAUDE_SESSION_ID=NOBODY CLAUDE_PROJECT_DIR="$T/primary" sh "$S"
 check "unmatched id deletes nothing" "a.json b.json c.json" "$(claims)"
 

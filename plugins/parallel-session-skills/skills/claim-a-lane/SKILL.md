@@ -72,17 +72,19 @@ with siblings, and a session working alone needs them too. Run that first, then 
 session between tasks looks identical to an abandoned one, and removing its directory kills it
 mid-flight. Leftovers are harmless clutter the next `prune` reaps; when in doubt, leave it.
 
-Then reap **dead claims**—worktree directory gone, or branch no longer exists. Key off the
-**worktree directory, not merge-state**: a just-claimed session's branch tip equals the default
-branch, which merge-state reads as dead. The claim filename is the worktree's directory name:
+Then reap **dead claims**: a claim is dead when no worktree has its branch checked out. Key off
+**`git worktree list`, not merge-state**: a just-claimed session's branch tip equals the default
+branch, which merge-state reads as dead. Not the `$MAIN/.claude/worktrees/` directory either: a
+session started with `codex --worktree` works in `$CODEX_HOME/worktrees/<n>/<repo>`, and
+checking the directory there reaps a live claim.
 
 ```bash
+git worktree prune                           # a deleted worktree directory otherwise stays listed
+live=$(git worktree list --porcelain | sed -n 's@^branch refs/heads/@@p')
 for f in "$MAIN"/.claude/claims/*.json; do
   [ -e "$f" ] || continue
-  name=$(basename "$f" .json)
   b=$(sed -n 's/.*"branch"[^"]*"\([^"]*\)".*/\1/p' "$f")
-  if [ ! -d "$MAIN/.claude/worktrees/$name" ] \
-     || ! git show-ref --verify --quiet "refs/heads/$b"; then
+  if [ -z "$b" ] || ! printf '%s\n' "$live" | grep -qxF -- "$b"; then
     echo "reaping dead claim: $f ($b)"; rm -f "$f"
   fi
 done
@@ -94,12 +96,13 @@ integration leaves a branch looking unmerged when its content is already on the 
 
 ## 3. Write the claim—before writing any code
 
-A claim written "later" is a claim that didn't prevent a collision. The filename is the **worktree
-directory name**, not the branch.
+A claim written later does not prevent a collision. The filename is the **branch name with `/` as
+`-`**. Not the worktree directory name: every `codex --worktree` session of one repo works in a
+directory named after the repo, so a second one would overwrite the first's claim.
 
 ```bash
 BRANCH=$(git -C "$WT" rev-parse --abbrev-ref HEAD)
-NAME=$(basename "$WT")
+NAME=$(printf %s "$BRANCH" | tr / -)
 ITEM="<what you claimed, short phrase, e.g. parser aggregation core>"  # no double quotes—they break the printf-built JSON
 TOUCHES='["src/parser/**", "docs/parsing.md"]'                        # paths this lane expects to edit
 SESSION="${CLAUDE_SESSION_ID:-${CLAUDE_CODE_SESSION_ID:-}}"           # stamped so this plugin's SessionEnd hook can release it
@@ -127,12 +130,11 @@ after your check, so **re-read the ledger once more right before starting the wo
 then resolves by the same rule. On a re-pick, prefer work no live claim sits near.
 
 **Resuming work already in flight: the lane already exists—only the lease may be missing.** The
-branch and worktree are already correct, so rename nothing, and a claim naming the work you are
-resuming is **yours**, not a collision—re-picking on it is the bug this path exists to prevent. If a
+branch and worktree are already correct, so rename nothing. A claim for the work you are resuming
+is **yours**, and re-picking on it is the bug this path exists to prevent. If a
 live claim exists, confirm its `branch` matches `git -C "$WT" rev-parse --abbrev-ref HEAD` and you
 are done. If there is no claim (the ordinary case, since the prior session deleted its own at wrap),
-write one now with `NAME=$(basename "$WT")` naming the **existing** worktree directory, which keeps
-it keyed for §2's reap.
+write one now for the **existing** branch, as above.
 
 ## Releasing it
 
@@ -141,13 +143,13 @@ Your claim is released at **session** end, finished or not: the ledger leases se
 
 ```bash
 MAIN=$(git worktree list --porcelain | sed -n '1s/^worktree //p')   # re-derive—shell state doesn't persist
-rm -f "$MAIN/.claude/claims/$(basename "$WT").json"             # keyed off the worktree dir, matching §2's reap
+rm -f "$MAIN/.claude/claims/$(git -C "$WT" rev-parse --abbrev-ref HEAD | tr / -).json"   # keyed off the branch, as in §3
 ls "$MAIN"/.claude/claims/                                      # confirm—rm -f on a wrong path succeeds silently
 ```
 
 `$WT` is the path `work-in-worktree` set, **written out literally**. Re-deriving it with `git
-rev-parse --show-toplevel` returns `$MAIN` in a session launched from the repo root, so the `rm`
-removes a file that never existed and the real claim leaks.
+rev-parse --show-toplevel` returns `$MAIN` in a session launched from the repo root, whose branch is
+the default branch, so the `rm` removes a file that never existed and the real claim leaks.
 
 This plugin's `SessionEnd` hook releases any claim carrying this session's id when a session ends
 without wrapping. It is the net, not the path: releasing at wrap hands the lane back immediately
