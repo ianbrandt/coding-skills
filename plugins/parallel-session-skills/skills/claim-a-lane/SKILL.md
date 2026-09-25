@@ -46,7 +46,7 @@ creates.
 ## 1. Orient against siblings
 
 ```bash
-MAIN=$(git worktree list --porcelain | awk 'NR==1{print $2}')   # re-derive—see above; never inherit
+MAIN=$(git worktree list --porcelain | sed -n '1s/^worktree //p')   # re-derive—see above; never inherit
 DEFAULT=$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's@^origin/@@')
 DEFAULT=${DEFAULT:-main}
 git worktree list                            # who's around (worktrees ≈ sessions)
@@ -140,7 +140,7 @@ Your claim is released at **session** end, finished or not: the ledger leases se
 `land-and-wrap` §4 is the trigger; this is the step it runs.
 
 ```bash
-MAIN=$(git worktree list --porcelain | awk 'NR==1{print $2}')   # re-derive—shell state doesn't persist
+MAIN=$(git worktree list --porcelain | sed -n '1s/^worktree //p')   # re-derive—shell state doesn't persist
 rm -f "$MAIN/.claude/claims/$(basename "$WT").json"             # keyed off the worktree dir, matching §2's reap
 ls "$MAIN"/.claude/claims/                                      # confirm—rm -f on a wrong path succeeds silently
 ```

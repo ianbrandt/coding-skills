@@ -49,4 +49,10 @@ seed; rm -rf "$T/primary/.claude/claims"
 CLAUDE_SESSION_ID=MINE CLAUDE_PROJECT_DIR="$T/primary" sh "$S"
 check "absent ledger exits clean" "" "$(claims)"
 
+P="$T/with space"; mkdir -p "$P/.claude/claims"
+git -C "$P" init -q .; git -C "$P" commit -q --allow-empty -m init
+printf '{ "session": "MINE", "item": "a" }\n' > "$P/.claude/claims/a.json"
+CLAUDE_SESSION_ID=MINE CLAUDE_PROJECT_DIR="$P" sh "$S"
+check "releases own claim when the checkout path has a space" "" "$(ls "$P/.claude/claims/")"
+
 [ "$fails" -eq 0 ] && echo "PASS" || { echo "$fails FAILED"; exit 1; }

@@ -16,7 +16,7 @@ id="${CLAUDE_SESSION_ID:-${CLAUDE_CODE_SESSION_ID:-}}"
 
 # The ledger lives in the PRIMARY checkout, which is not necessarily this session's
 # directory: a worktree session's project dir is the worktree. Ask git for it.
-main=$(git -C "${CLAUDE_PROJECT_DIR:-.}" worktree list --porcelain 2>/dev/null | awk 'NR==1{print $2}')
+main=$(git -C "${CLAUDE_PROJECT_DIR:-.}" worktree list --porcelain 2>/dev/null | sed -n '1s/^worktree //p')
 [ -n "$main" ] || exit 0
 [ -d "$main/.claude/claims" ] || exit 0
 
