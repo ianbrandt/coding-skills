@@ -1,47 +1,37 @@
 ---
 name: upgrade-dependencies
-description: Check for and upgrade Gradle version-catalog dependencies and settings.gradle plugins one at a time, verifying each.
+description: Check for and upgrade Gradle dependencies and settings.gradle plugins one at a time, verifying each.
 paths: "**/libs.versions.toml,**/settings.gradle.kts,**/settings.gradle"
 ---
 
 # Upgrade Dependencies
 
-Check for, upgrade, and verify Gradle dependencies one at a time. No prerequisites.
+Check for, upgrade, and verify Gradle dependencies one at a time. No prerequisites: the Gradle
+Versions Plugin's `dependencyUpdates` task reports the updates, and the plugin is injected by an init
+script into any build without it. The plugin needs Gradle 8.4 or later; on an older wrapper, run
+`upgrade-gradle` first or ask the maintainer.
 
-Primary check: **direct metadata lookup** against every declared entry in every version catalog, plus
-every **settings plugin** (the `plugins { }` block of `settings.gradle(.kts)`). Both kinds flow
-through the same one-at-a-time workflow. Where applied, the Gradle Versions Plugin's
-`dependencyUpdates` is **optional enrichment**, and `buildHealth` enriches verification.
-
-**Honest ceiling:** the lookup checks declared catalog versions, not the resolved graph. It misses
-transitive-only and non-catalog build-script dependencies, and you own BOM / `version.ref` /
-repository-selection reasoning yourself.
+Every configuration's declared dependencies are reported, including the settings and build-script
+classpaths, but versions that arrive only transitively are not. `buildHealth`, where applied,
+enriches verification.
 
 ## Composite and included builds
 
-Each directory with its own `settings.gradle(.kts)` is a build, each possibly with its own catalog,
-repositories, and plugins. `dependencyUpdates` does not traverse included builds, reports only where
-the plugin is applied, and never reports settings plugins.
-
-"Enumerate the builds" means:
+Each directory with its own `settings.gradle(.kts)` is a build, and so is `buildSrc`. Each has its own
+catalog, repositories, and plugins, and gets its own report (step 2).
 
 ```
-find . \( -name 'settings.gradle.kts' -o -name 'settings.gradle' \) \
-  -not -path '*/build/*' -not -path '*/.claude/worktrees/*'
-find . -name 'libs.versions.toml' \
+find . \( -name 'settings.gradle.kts' -o -name 'settings.gradle' -o -type d -name buildSrc \) \
   -not -path '*/build/*' -not -path '*/.claude/worktrees/*'
 ```
-
-Enumerate catalogs by **file**: a shared catalog is checked and edited once, not once per consuming
-build.
 
 ## Sub-agent delegation
 
-Delegate **discovery** (step 2) and **verification** (steps 5 and 6), one single-shot general-purpose
-sub-agent per job, each returning only that step's summary contract. A sub-agent **must not** edit
-files, run `git`, fix failures, or move on to another dependency; on failure it returns enough to act
-on, never a bare "FAIL". Prioritization, edits, commits, and reporting stay in the main thread. Relay
-what comes back.
+Delegate **verification** (steps 5 and 6), one single-shot general-purpose sub-agent per build, on a
+small, fast model: the job is running a command and trimming its output. It returns only step 5's
+summary contract. A sub-agent **must not** edit files, run `git`, fix failures, or move on to another
+dependency; on failure it returns enough to act on, never a bare "FAIL". Everything else stays in the
+main thread. Relay what comes back.
 
 ## Workflow
 
@@ -67,64 +57,74 @@ One dependency update plus its verification is one **round**.
 
 ### 2. Check for updates
 
-Delegate the whole step. The sub-agent enumerates the builds, runs the lookups below, and returns only
-a compact update list—nothing else, and says so explicitly if it finds none:
-
-- **Catalog dependencies & plugins:** `group:artifact  current → available  (catalog file · alias)`,
-  or for `[plugins]` entries `plugin-id  current → available  (catalog file · alias)`.
-- **Settings plugins:** `plugin-id  current → latest-stable  (declaring file(s))`. Same id+version in
-  several files is one update—one line.
-- **Gradle Versions Plugin self-update:** flagged separately; step 3 acts on it first.
-- **Enrichment (where available):** extra updates `dependencyUpdates` surfaces that the catalog check
-  did not (transitive / build-script deps), plus any newer-Gradle line.
-
-#### Primary: catalog-direct metadata lookup
-
-For each `libs.versions.toml`, check every declared entry:
-
-1. Parse `[versions]`, `[libraries]`, `[plugins]`. Each `[libraries]` entry resolves to a
-   `group:artifact`; each `[plugins]` entry to a plugin `id`; a `[versions]` entry is reached through
-   the `version.ref` pointing at it—resolve it via the referencing coordinate.
-2. Determine that build's declared repositories: `dependencyResolutionManagement { repositories }`
-   for libraries, `pluginManagement { repositories }` for plugins. Default to Maven Central
-   (`https://repo1.maven.org/maven2/`) and the Plugin Portal (`https://plugins.gradle.org/m2/`).
-3. Fetch `maven-metadata.xml` (e.g. `curl -s`) from those repositories:
-   - **Library** → `<repo>/<group-with-dots-as-slashes>/<artifact>/maven-metadata.xml`
-   - **Plugin** → `<repo>/<id-with-dots-as-slashes>/<id>.gradle.plugin/maven-metadata.xml`
-4. Choose the highest **stable** version by semantic-version ordering, not string ordering (`3.18` is
-   newer than `3.9`). Ignore pre-releases (`-rc`, `-alpha`, `-beta`, `-M`, `-SNAPSHOT`, …) unless the
-   current version is itself a pre-release. Report any entry whose latest stable is newer than
-   declared.
-
-#### Settings plugins (not in any catalog)
-
-Same lookup:
-
-1. From the enumerated settings files, read each `plugins { }` block (often absent): record `id`,
-   current version, declaring file(s), and whether the version is inline or a catalog reference.
-2. Resolve each `id` via its marker artifact (step 3 above), defaulting to the Plugin Portal, falling
-   back to that file's `pluginManagement { repositories }`.
-3. The same id+version repeated across many settings files is **one** update, applied across all of
-   them in a single round.
-
-#### Optional enrichment: dependencyUpdates
-
-Run once per build that applies it, addressing an included build by full path:
+Run `dependencyUpdates` once per build, from that build's directory:
 
 ```
-./gradlew dependencyUpdates --no-parallel              # the build the wrapper runs in
-./gradlew :modules:dependencyUpdates --no-parallel     # an included build applying the plugin
+./gradlew dependencyUpdates --output-formatter=json -q -p <build-dir>      # plugin already applied
+./gradlew dependencyUpdates --output-formatter=json -q -p <build-dir> \
+  --init-script <absolute-path>/gvp.init.gradle.kts                        # plugin not applied
 ```
 
-On a "dependencies exceed the version found at the milestone revision level" section, re-run that
-build's task with `--refresh-dependencies`. Never use it on the initial run.
+The plugin is already applied when `ben-manes.versions` appears in that build's settings script,
+build scripts, catalog, or build logic, or in `~/.gradle/init.d`. **Never add the init script to
+such a build:** where `DependencyUpdatesTask` is configured by type in the build, it fails with "is
+not a subclass of the given type". An init script applies to every build in one invocation, so run
+each build on its own with `-p`, never as `:included:dependencyUpdates` from the root.
 
-Fold all updates—catalog entries, settings plugins, enrichment-only items—into the workflow below.
+Settings plugins are reported only where `io.github.ben-manes.versions.settings` is applied, as the
+init script does. Where only the project plugin is applied, look up each plugin in the settings
+`plugins { }` block by hand: fetch
+`https://plugins.gradle.org/m2/<id-with-dots-as-slashes>/<id>.gradle.plugin/maven-metadata.xml`, or
+the same path under that build's `pluginManagement { repositories }`, and take the highest stable
+version.
+
+Write the init script outside the repo, in a temp or scratch directory, and pass its absolute path:
+`--init-script` resolves a relative path against the working directory, not against `-p`.
+
+```kotlin
+import com.github.benmanes.gradle.versions.VersionsSettingsPlugin
+
+initscript {
+  repositories { gradlePluginPortal() }
+  dependencies { classpath("io.github.ben-manes:gradle-versions-plugin:latest.release") }
+}
+
+gradle.beforeSettings(Action<Settings> {
+  pluginManager.apply(VersionsSettingsPlugin::class.java)
+})
+```
+
+Read each report with `jq`, from `build/dependencyUpdates/report.json` under the build directory
+unless `outputDir` or `reportfileName` is set on the task:
+
+- **`.outdated.dependencies[]`**: `group`, `name`, `version`, and `available`. The newest release is
+  in whichever of `available.release`, `.milestone`, or `.integration` is set, matching the task's
+  `revision`. `available.minor` is the newest version in the current major, `available.patch` the
+  newest in the current minor. Take `available.preRelease` only when the current version is itself a
+  pre-release.
+- A plugin, from a settings or build `plugins { }` block, is reported by its marker,
+  `<id>:<id>.gradle.plugin`.
+- **`.exceeded`**: re-run that build with `--refresh-dependencies`. Never use it on the first run.
+- **`.unresolved`** and **`.skipped`**: carry them into the step-7 report; they are not upgrades.
+- **`.gradle`**: a newer Gradle. Mention it; `upgrade-gradle` handles it.
+
+Versions outside a `strictly` or `reject` bound, or outside a consumed platform's constraints, are
+already left out of the report. Where the plugin is already applied, the rules the maintainer set on
+the task apply too.
+
+Find where each entry is declared: a `libs.versions.toml` alias or `[versions]` entry, a
+settings `plugins { }` block, or a build script. An entry declared nowhere in the build, such as the
+Kotlin compiler classpath filled by `kotlin-dsl`, is not an upgrade: list it in step 7 and move on.
+The same coordinate and version declared in one shared catalog, or repeated across settings files, is
+**one** update.
 
 ### 3. Self-update the Gradle Versions Plugin first
 
-If `com.github.ben-manes.versions` itself has an update, upgrade only that plugin before anything
-else: run it as a normal round (step 4), then re-run step 2 and continue from the refreshed report.
+If the plugin is applied in a build and has an update
+(`io.github.ben-manes.versions`, `io.github.ben-manes.versions.settings`, or the deprecated
+`com.github.ben-manes.versions`), upgrade only that plugin before anything else: run it as a normal
+round (step 4), then re-run step 2 and continue from the refreshed report. Keep the plugin ID
+already in use unless asked.
 
 ### 4. Update one dependency at a time
 
@@ -137,20 +137,22 @@ One dependency per round, one commit per round. Settings plugins count as single
 3. Core libraries before their dependents
 4. Independent libraries last
 
-Slot each settings plugin in by what it affects (e.g. a toolchain resolver alongside other toolchain
+Place each settings plugin by what it affects (e.g. a toolchain resolver alongside other toolchain
 updates).
 
 **Each round:**
-1. Update only its version—in the `libs.versions.toml` that **declares** it (never another build's
-   catalog), or in the `settings.gradle(.kts)` `plugins { }` block for an inline-versioned settings
-   plugin. When the same settings-plugin id+version repeats across files, update **all** of them in
-   this one round.
+1. Update only its version, to the newest release from step 2, where it is **declared**: the
+   `libs.versions.toml` declaring it (never another build's catalog), the `settings.gradle(.kts)`
+   `plugins { }` block for an inline-versioned settings plugin, or the build script. When the same
+   settings-plugin id+version repeats across files, update **all** of them in this one round.
 2. Identify affected modules: for catalog entries, search for usages of the alias; for a settings
    plugin, note the declaring file(s)
 3. Run verification (step 5)
 4. If it passed, commit this single dependency and continue straight to the next round without
-   pausing. If it failed, **stop and report; do not commit, do not push, do not touch another
-   dependency.**
+   pausing. If it failed on a major-version bump and the entry lists an `available.minor` newer than
+   the current version, revert and retry once at that minor; if that passes, commit it, record the
+   major as blocked, and continue. Any other failure: **stop and report; do not commit, do not push,
+   do not touch another dependency.**
 
 **Watch for:** compiler/toolchain API changes; breaking changes in build plugins or test frameworks;
 behavioral changes affecting existing code; new deprecations or required source changes;
@@ -173,8 +175,8 @@ Single-build default `./gradlew build buildHealth`; composite, the step-1 set, e
 
 `--rerun-tasks` is your judgement, default off: reach for it only when you distrust the incremental
 result—a toolchain / compiler-plugin or code-generator upgrade, signs of stale caching (a task
-reported `UP-TO-DATE` that the change should have touched, or an "exceed the milestone" warning), or
-a deliberate from-scratch check.
+reported `UP-TO-DATE` that the change should have touched, or entries under `.exceeded`), or a
+deliberate from-scratch check.
 
 The sub-agent returns only:
 
@@ -200,6 +202,8 @@ with the step-5 return contract. May use the heavier step-1 set; a from-scratch 
 
 - What changed and why
 - Verification results, per-round and final
+- Majors held back at their latest minor, with the failure that blocked each
+- Entries not upgraded: unresolved, skipped, and those declared nowhere in the build
 - What was committed and whether the branch was pushed; if push was off, note the commits are left
   for the maintainer
 - If a round or the final verification failed, exactly where the run stopped and what was and was not
@@ -211,6 +215,8 @@ with the step-5 return contract. May use the heavier step-1 set; a from-scratch 
 - **Version catalog:** Do not rename aliases, bundles, or plugin aliases unless asked. Maintain
   existing formatting and style.
 - **Settings plugins:** Upgrade inline versions in place; do not migrate them into the catalog unless
+  asked.
+- **Versions Plugin:** Do not apply it to the build, or leave the init script in the repo, unless
   asked.
 - **Scope:** Keep diffs focused and minimal. No unrelated refactors, no unrelated version changes, no
   new dependencies without clear justification.
