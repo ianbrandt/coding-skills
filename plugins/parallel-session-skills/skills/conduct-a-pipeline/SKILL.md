@@ -122,6 +122,9 @@ Workflow: the conductor does them inline in the worktree and processes them in t
   retry resets to them; you must NEVER `git merge`, `git push`, rewrite history, or edit the backlog
   files—the conductor owns processing and backlog reconciliation (the unit's own new design or notes
   file is fine);
+- no `git push` even to a scratch test repo, since every push raises a permission prompt the user
+  cannot tell apart from a real one; update a scratch bare `origin` from its side instead (`git -C
+  origin.git fetch <checkout> <branch>:<branch>`, or `git -C origin.git branch -D <branch>`);
 - **[on a fork only] NO writes of any kind to the remote host** (GitHub, GitLab, Bitbucket, or
   any other)—no push even to the fork, no issues, comments, PRs, or merge requests, no write
   commands from a host CLI (`gh`, `glab`, or another); draft any outreach text as local files for
