@@ -63,13 +63,15 @@ invoked.
 
 ### Codex
 
-The Codex CLI reads the same marketplace. `ghostwriting-skills` and `gradle-skills` work there as
-they are; the others are written for Claude Code.
+The Codex CLI reads the same marketplace. `ghostwriting-skills`, `gradle-skills`, and
+`writing-conventions` work there; the others are written for Claude Code. Codex runs a plugin's
+hooks only after you trust them, from the prompt at the next session start or from `/hooks`.
 
 ```sh
 codex plugin marketplace add IanBrandt/coding-skills
 codex plugin add ghostwriting-skills@ianbrandt
 codex plugin add gradle-skills@ianbrandt
+codex plugin add writing-conventions@ianbrandt
 ```
 
 ## License
