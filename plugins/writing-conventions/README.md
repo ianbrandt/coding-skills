@@ -41,7 +41,7 @@ The lint itself is [`hooks/lint.awk`](hooks/lint.awk), a pure filter over text.
 [`hooks/lint.ps1`](hooks/lint.ps1) is the same three modes and the same lint in one PowerShell file,
 for a Windows install where the PowerShell tool is the shell; `ConvertFrom-Json` there replaces
 [`hooks/jsonstr.awk`](hooks/jsonstr.awk). The two matchers are held together by
-[`hooks/lint-corpus.tsv`](hooks/lint-corpus.tsv), 97 cases read by both
+[`hooks/lint-corpus.tsv`](hooks/lint-corpus.tsv), 102 cases read by both
 [`hooks/lint-test.sh`](hooks/lint-test.sh) and [`hooks/lint-test.ps1`](hooks/lint-test.ps1), so a
 change to one matcher and not the other fails a test. On every one of those cases the two agreed
 byte for byte, reported example text included, when the port landed. The `.ps1` files are ASCII, with
@@ -49,8 +49,8 @@ every em dash and curly quote written as a `\uXXXX` regex escape, because Window
 reads a BOM-less file through the ANSI codepage and one pasted em dash corrupts string parsing.
 
 It flags the mechanically detectable subset of the rules: the banned vocabulary, spaced em dashes,
-a missing Oxford comma in a list of single words, and an inanimate subject paired with a verb of
-speech, volition, or cognition. The Oxford comma check needs two commas before the final "and" or
+a missing Oxford comma in a list of single words, an inanimate subject paired with a verb of
+speech, volition, or cognition, and a bulleted or numbered item that opens on bold text. The Oxford comma check needs two commas before the final "and" or
 "or", because a one-comma list ("a, b and c") matches too many ordinary clauses. The agency set is
 deliberately narrow. An earlier version also matched possession verbs (holds, carries, keeps) and
 scored about 40% precision on a hand-checked sample, mostly on code mechanics such as a map that

@@ -37,7 +37,7 @@ $REMINDER = 'Style, for this reply and any prose written to files: an inanimate 
 $NUDGE = "You just wrote prose to a file. Re-read it now for inanimate agency (report/build/entry/declaration as subject of says/gives/owns/configures/carries), spaced em dashes, and banned vocabulary; fix in place before moving on. If this text will publish under the user's name, have a fresh-context subagent sweep it against the rules before hand-over."
 
 # --- patterns (mirrors lint.awk BEGIN) ------------------------------------
-# Four groups. Banned words and spaced em dashes are exact. A missing Oxford
+# Five groups. Banned words and spaced em dashes are exact. A missing Oxford
 # comma is caught only in a list of single words with two commas before the
 # final "and" or "or" ("json, xml, html and plain"). A multi-word item, or a
 # list with one comma ("a, b and c"), looks too much like a clause to flag. Inanimate agency is
@@ -140,8 +140,9 @@ $RULE = @{
   'spaced em dash'   = 'an em dash takes no surrounding spaces: write word' + $EM + 'word, never word ' + $EM + ' word'
   'oxford comma'     = 'a list of three or more items takes a comma before the final "and" or "or": write a, b, and c'
   'inanimate agency' = 'an inanimate subject must not take a verb of speech, volition, or cognition; say who the real actor is, or rewrite around the act'
+  'bold list item'   = 'a list of findings takes no bold; start each item with its plain words'
 }
-$ORDER = @('banned word', 'spaced em dash', 'oxford comma', 'inanimate agency')
+$ORDER = @('banned word', 'spaced em dash', 'oxford comma', 'inanimate agency', 'bold list item')
 
 function Get-Trimmed([string]$x) { return $x.Trim(@(' ', "`t")) }
 
@@ -180,6 +181,10 @@ function Remove-CodeSpans([string]$t) {
       }
     }
     if ($fence -ne '') { [void]$held.Append($line).Append("`n"); continue }
+    # A bulleted or numbered item that opens on bold text, recorded before the
+    # asterisks are dropped below.
+    $bl = [regex]::Match($line, '^[ \t]*([-*+]|[0-9]+[.)])[ \t]+\*\*[^*]+\*\*')
+    if ($bl.Success) { $script:BoldLeads.Add((Get-Example ($bl.Value -replace '^[^*]+', ''))) }
     [void]$out.Append($line).Append("`n")
   }
   if ($fence -ne '') { [void]$out.Append($held.ToString()) }
@@ -271,7 +276,14 @@ function Invoke-Lint([string]$text, [switch]$AsNote) {
   # on a generic type costs 75 microseconds a call, which on a 40,000-line reply is
   # 3 of the 7 seconds this function used to take.
   $found = New-Object 'System.Collections.Generic.List[string[]]'
-  foreach ($s in [regex]::Split((Remove-CodeSpans $text), '[.!?;:]+[ \t\n]+|\n+')) {
+  $script:BoldLeads = New-Object 'System.Collections.Generic.List[string]'
+  $clean = Remove-CodeSpans $text
+  foreach ($b in $script:BoldLeads) {
+    if (-not $count.ContainsKey('bold list item')) { $count['bold list item'] = 0; $example['bold list item'] = $b }
+    $count['bold list item'] = $count['bold list item'] + 1
+    $lines.Add("bold list item`t" + $b)
+  }
+  foreach ($s in [regex]::Split($clean, '[.!?;:]+[ \t\n]+|\n+')) {
     if ([regex]::IsMatch($s, '^[ \t]*$')) { continue }
     $l = $s.ToLowerInvariant()
     $found.Clear()

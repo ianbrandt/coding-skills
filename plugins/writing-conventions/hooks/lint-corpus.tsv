@@ -99,3 +99,9 @@ oxford comma	The formatters are `json`, `xml`, `html` and `plain`.
 -	The built-in formatters are json, xml, html, plain, text, and problems.
 -	Run it on JDK 8, 11, 17, or 21.
 -	If it fails, retry and report.
+# A list item that opens on bold text. Bold later in the item, bold outside a list, and a fenced list stay clean.
+bold list item	- **Typed lookup fails.** The lookup fails whenever the two copies differ.
+bold list item	Findings:\n\n1. **Groovy by name works.** It still works.
+-	- The lookup fails with **every** copy.
+-	**Note:** the lookup fails.
+-	```\n- **Typed lookup fails.** It fails.\n```

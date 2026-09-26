@@ -3,7 +3,7 @@
 # With -v note=1 it prints the note the next turn opens with instead, or
 # nothing when the text is clean. Pure: no files, no environment.
 #
-# Four groups. Banned words and spaced em dashes are exact. A missing Oxford
+# Five groups. Banned words and spaced em dashes are exact. A missing Oxford
 # comma is caught only in a list of single words with two commas before the
 # final "and" or "or" ("json, xml, html and plain"). A multi-word item, or a
 # list with one comma ("a, b and c"), looks too much like a clause to flag. Inanimate agency
@@ -20,6 +20,8 @@
 # always the noun. The finite subject patterns are tried shortest first, so
 # "the report says we decided" is caught on "the report says" before the
 # longer span that swallows the human clause is tried.
+# The fifth group is a bulleted or numbered item that opens on bold text
+# ("- **Label.** text"), matched on the raw line outside a fence.
 BEGIN {
   W = "[[:alnum:]'’—_-]+ "
   DET = "(the|a|an|this|that|these|those|each|every|its|our|my|your|neither|either|both|no)"
@@ -94,7 +96,8 @@ BEGIN {
   RULE["spaced em dash"] = "an em dash takes no surrounding spaces: write word—word, never word — word"
   RULE["oxford comma"] = "a list of three or more items takes a comma before the final \"and\" or \"or\": write a, b, and c"
   RULE["inanimate agency"] = "an inanimate subject must not take a verb of speech, volition, or cognition; say who the real actor is, or rewrite around the act"
-  ORDER[1] = "banned word"; ORDER[2] = "spaced em dash"; ORDER[3] = "oxford comma"; ORDER[4] = "inanimate agency"
+  RULE["bold list item"] = "a list of findings takes no bold; start each item with its plain words"
+  ORDER[1] = "banned word"; ORDER[2] = "spaced em dash"; ORDER[3] = "oxford comma"; ORDER[4] = "inanimate agency"; ORDER[5] = "bold list item"
 }
 # One line at a time: a newline always ends a sentence, and none of the
 # reductions in prose() reach across one. Appending every line to one string
@@ -105,7 +108,7 @@ END {
   if (note) {
     if (total == 0) exit
     print "A house-style lint flagged the previous reply:"
-    for (o = 1; o <= 4; o++) {
+    for (o = 1; o <= 5; o++) {
       g = ORDER[o]
       if (COUNT[g]) printf "- %s x%d, e.g. \"%s\". Rule: %s.\n", g, COUNT[g], EXAMPLE[g], RULE[g]
     }
@@ -182,6 +185,11 @@ function fenced(x,   m) {
     if (substr(m, 1, 1) == substr(fence, 1, 1) && length(m) >= length(fence)) { fence = ""; nheld = 0; return }
   }
   if (fence != "") { HELD[++nheld] = x; return }
+  # A bulleted or numbered item that opens on bold text, checked before prose()
+  # drops the asterisks.
+  if (match(x, /^[ \t]*([-*+]|[0-9]+[.)])[ \t]+\*\*[^*]+\*\*/)) {
+    m = substr(x, RSTART, RLENGTH); sub(/^[^*]+/, "", m); hit("bold list item", example(m))
+  }
   prose(x)
 }
 # Inline code, straight or curly double-quoted text, and markdown emphasis or
