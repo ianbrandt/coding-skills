@@ -356,7 +356,7 @@ findings=$(awk -v verdict="$tmp/verdict" -f "$HERE/verdict.awk" "$@" "$tmp/verdi
 if [ -z "$again" ]; then
   # A file is cheap to fix after the fact and a blocked edit stops the turn, so
   # this path hands the findings back and blocks nothing.
-  { [ -z "$findings" ] || printf '%s\nFix the quoted text in %s.\n' "$findings" "$path"
+  { [ -z "$findings" ] || printf '%s\nFix the quoted text in %s. Each rewrite after -> is only a suggestion; where one reads stiffly, write the sentence the way a person would say it.\n' "$findings" "$path"
     [ -z "$unread" ] || printf '%s\n' "$unread"; } | context
   exit 0
 fi
@@ -387,5 +387,5 @@ if [ -n "$stop" ]; then
     exit 0
   fi
 fi
-printf '%s\nRewrite the quoted text and %s.\n%s' "$findings" "$again" "$unread" >&2
+printf '%s\nRewrite the quoted text and %s. Each rewrite after -> is only a suggestion; where one reads stiffly, write the sentence the way a person would say it.\n%s' "$findings" "$again" "$unread" >&2
 exit 2

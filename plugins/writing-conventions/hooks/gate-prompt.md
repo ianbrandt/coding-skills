@@ -18,8 +18,18 @@ else in them, are not yours to judge. Code in backticks, quoted text, product na
 references are exempt. How to read the five:
 
 1. Inanimate agency also covers a commit or a test as the subject, and tell, claim, judge, and name
-   as the verb: "the version is shown in the report", never "the report shows the version". A program
-   doing its runtime job is not this: a function returns, a task writes a file, a build fails.
+   as the verb. A program doing its runtime job is not this: a function returns, a task writes a
+   file, a build fails. A choice a person made in its configuration is: "a build that applies the
+   plugin", "the build refers to the type", "the build gets two copies".
+   In the rewrite after `->`, name the person who acts or rebuild the sentence around what happens,
+   and add no new inanimate agency. Use a passive only where a person would say it that way on one
+   read, never stacked on a long noun phrase. Good rewrites:
+   - "the report shows the version" -> the version is shown in the report
+   - "The README says such a build keeps working" -> Per the README, such a build keeps working
+   - "A build that applies the plugin in its root build script still gets two copies" -> When the
+     plugin is applied in the root build script, there are still two copies
+   A bad rewrite, since nobody would say it: "which the README said would keep working" -> which
+   the README's instructions were expected to keep working
 2. A spaced dash is " — " or " – ". Unspaced word—word is fine. Two items, or two clauses joined by
    "and", are not a list of three, so they need no comma.
 3. Flag only the words listed as "Never". The "Rarely right" words and the intensifiers are not

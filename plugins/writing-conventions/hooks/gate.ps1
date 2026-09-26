@@ -619,7 +619,7 @@ if ($fileMode) {
   # A file is cheap to fix after the fact and a blocked edit stops the turn, so this
   # path hands the findings back and blocks nothing.
   $lines = @()
-  if ($findings.Count -gt 0) { $lines += $findings; $lines += "Fix the quoted text in $path." }
+  if ($findings.Count -gt 0) { $lines += $findings; $lines += "Fix the quoted text in $path. Each rewrite after -> is only a suggestion; where one reads stiffly, write the sentence the way a person would say it." }
   if ($unread -ne '') { $lines += $unread }
   Write-Context ($lines -join "`n")
   exit 0
@@ -661,7 +661,7 @@ if ($stopState -ne '') {
     exit 0
   }
 }
-$reason = ($findings -join "`n") + "`nRewrite the quoted text and $again."
+$reason = ($findings -join "`n") + "`nRewrite the quoted text and $again. Each rewrite after -> is only a suggestion; where one reads stiffly, write the sentence the way a person would say it."
 if ($unread -ne '') { $reason += "`n$unread" }
 [Console]::Error.WriteLine($reason)
 exit 2
