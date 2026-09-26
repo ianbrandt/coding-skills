@@ -49,7 +49,9 @@ one is the one read at drafting time.
 
 ## 1. Read the spec before drafting
 Read `voice-spec.md` end to end, delta log included, and read two or three corpus samples matching
-the genre—as models to imitate, not background.
+the genre—as models to imitate, not background. Read each file whole, the rules file below
+included: no `head`, no line limit. A cut-off read drops the end of the file, which is where the
+delta log and the latest rules are.
 A summary carried in context is not the spec; re-read it per session. No corpus, or no sample for
 the genre ⇒ draft on the spec alone and record the gap in §4.
 
@@ -102,15 +104,17 @@ same tendency that produced it, and its tells read as natural. A report of viola
 either, since each fix comes from that same tendency, and rounds of find-and-fix rarely converge. So
 before the first hand-over of such a piece, **have a fresh-context subagent rewrite it**. Give the
 subagent nothing but the draft verbatim, the always-on rules file §0 names (or the spec's
-prohibitions when there is none), the spec's **Contrast pairs** section verbatim, the genre's cap,
-and this brief:
+prohibitions when there is none), the spec's **Contrast pairs** section verbatim, the spec's entry
+for the genre verbatim, the corpus samples §1 read for the genre, the genre's cap, and this brief:
 
-> Rewrite the draft so it breaks none of the rules, imitating the right-hand side of each contrast
-> pair. For every sentence, find the subject and check its verb against the inanimate-agency rule;
-> replace a noun that stands in for a thing as a metaphor with the thing's literal name; fix dashes
-> and banned words. Keep every fact, number, name, link, code span, and fenced block as given, and
-> add nothing. Stay inside the cap, unless that means dropping a fact; then keep the fact. Return only
-> the rewritten text.
+> Rewrite the draft so it breaks none of the rules and reads like the samples, imitating the
+> right-hand side of each contrast pair. You may restructure it to the genre entry's form: what the
+> opening sentence says, and the order of prose and exhibits. Where a sample and the genre entry
+> disagree, follow the entry; the samples are older than some of its rules. For every sentence,
+> find the subject and check its verb against the inanimate-agency rule; replace a noun that stands
+> in for a thing as a metaphor with the thing's literal name; fix dashes and banned words. Keep every
+> fact, number, name, link, code span, and fenced block as given, and add nothing. Stay inside the
+> cap, unless that means dropping a fact; then keep the fact. Return only the rewritten text.
 
 Pick a mid-tier model over the smallest: writing text without the tells is harder than spotting them
 in given text. Then check the rewrite before you adopt it:
@@ -119,17 +123,29 @@ in given text. Then check the rewrite before you adopt it:
    remove anything it added.
 2. **Run the lint over it again**, because tells survive a rewrite. Fix a real hit by hand, in
    place, and don't send the text back for another rewrite round.
+3. **Check it against the genre entry's form**, the opening and every line after the first
+   exhibit. A rewrite that imitates an older sample can bring back a form that was dropped from
+   the entry since.
 
 Each rule break the rewrite or the lint fixed is a §4 procedure failure. Re-run the rewrite only
 after substantive redrafting.
 
+A rewrite you don't adopt still ran, so it is neither adopted nor skipped. Report it with the
+reason in the hand-over line below, next to the drafts; saying so mid-turn is not enough.
+
 Then hand it over: the body exactly as asked, and nothing else. At most one line may follow it, and
-only to say that a check did not run, to ask a question that must be settled before posting, or to
-say which part runs over a cap (§2). That line follows the spec's prohibitions too. No rewrite notes,
-no draft history, no delta-log entries: those wait for §4. Then wait for an explicit go. A question
-about scope or wording is the review happening, not its conclusion.
+only to say that a check did not run or that you rejected the rewrite and why, to ask a question
+that must be settled before posting, or to say which part runs over a cap (§2). That line follows
+the spec's prohibitions too. No rewrite notes, no draft history, no delta-log entries: those wait
+for §4. Then wait for an explicit go. A question about scope or wording is the review happening,
+not its conclusion.
 
 ## 4. Log the delta
+**When the user says a draft reads as AI-written, or asks whether this procedure ran, answer that
+first**, before any redraft: which steps ran, which you skipped or cut short, and which result you
+overrode, such as a rejected rewrite. Then redraft. A silent redraft leaves the user unable to tell
+a procedure failure from a missing rule.
+
 §4 runs once per piece, after the user edits the draft or gives the go, and never inside the
 hand-over. Diff their version against yours, add the rule breaks you fixed yourself in §3, and
 **classify each change first**; the two failures take opposite fixes:
