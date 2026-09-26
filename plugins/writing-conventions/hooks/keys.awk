@@ -18,7 +18,8 @@
 # A segment with no command in it has no lines. One more line, 0<TAB>PROSE,
 # comes first when there is a sentence in the command: a capitalized word, at
 # least four more words, and a last word ending in ".", "!", or "?". The gate
-# reads a RUNS_CODE command, an interpreter or curl, only with that line.
+# reads a RUNS_CODE command, an interpreter or curl, only with that line. With
+# files=1 it is left out, since the output there is file operands only.
 #
 # With files=1 the output is instead one line per operand of a body-file flag in
 # a git commit or a gh pr, issue, or release command, <cd><TAB><operand>, where
@@ -60,7 +61,7 @@ END {
   for (i in a) header[a[i]] = 1
 
   w = "[ \t]+[A-Za-z][A-Za-z'-]*[,;:]?"
-  if (src ~ ("(^|[^A-Za-z0-9_])[A-Z][a-z'-]*[,;:]?" w w w w "(" w ")*[ \t]+[A-Za-z][A-Za-z'-]*[.!?]")) print "0\tPROSE"
+  if (!files && src ~ ("(^|[^A-Za-z0-9_])[A-Z][a-z'-]*[,;:]?" w w w w "(" w ")*[ \t]+[A-Za-z][A-Za-z'-]*[.!?]")) print "0\tPROSE"
   bad = 0
   scan(src)
   if (!bad) {

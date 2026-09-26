@@ -183,5 +183,9 @@ bashfiles	git commit -F m.txt -m "open	1:""
 bashfiles	git commit -m "open	-
 pwshfiles	git commit -F msg.txt	0:msg.txt
 pwshfiles	Set-Location sub; git commit -F msg.txt	1:msg.txt
+# A sentence in the command adds no line in files mode: the body files are all it prints.
+bashfiles	cat >> notes.md <<'EOF'\nThe README now lists the steps for the migration here.\nEOF	-
+bashfiles	gh pr create --title "The README now lists the steps for the migration." -F body.md	0:body.md
+pwshfiles	Set-Content notes.md 'The README now lists the steps for the migration here.'	-
 pwshfiles	git commit -F "$env:TEMP\m.txt"	0:$env:TEMP\m.txt
 pwshfiles	git commit -F C:\work\m.txt	0:C:\work\m.txt

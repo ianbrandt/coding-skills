@@ -29,7 +29,7 @@ function Get-CommandKey([string]$command, [string]$mode, [switch]$Files) {
   $pwshMode = ($mode -eq 'pwsh')
   $ctx = if ($pwshMode) { $script:CtxPwsh } else { $script:CtxBash }
   $lines = New-Object System.Collections.Generic.List[string]
-  if ($script:ReProse.IsMatch($command)) { [void]$lines.Add("0`tPROSE") }
+  if (-not $Files -and $script:ReProse.IsMatch($command)) { [void]$lines.Add("0`tPROSE") }
 
   $st = @{
     Bad       = $false
