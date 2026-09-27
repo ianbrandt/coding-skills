@@ -236,8 +236,8 @@ The rest, in order:
   docs; machine-local facts go to memory. Nothing that the repo already records.
 - **Say what's left**, plainly, and where to do it: this session (it holds the context) or a fresh
   one (new scope, or this context has grown long). A fresh one gets a **launch snippet** in the
-  format this plugin's `hooks/rules.md` specifies, plus the tier to run it at, named from
-  `tier-model-and-effort` where it is installed rather than from memory. Where the repo has a
+  format this plugin's `hooks/rules.md` specifies, including the model and effort in the picker's
+  terms, chosen from `tier-model-and-effort` where it is installed rather than from memory. Where the repo has a
   backlog plugin (`work-in-worktree` §0's backlog seam), its invocation is the snippet's entry
   point: it finds the in-flight work itself, so name the unfinished **branch** alongside it and
   leave the recap out.
