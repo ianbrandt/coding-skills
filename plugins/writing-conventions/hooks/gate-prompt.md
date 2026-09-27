@@ -47,6 +47,10 @@ form, with nothing else in the reply:
 
 "the offending words" -> a plain rewrite
 
+For a shell command whose text only goes into a file on this machine, such as a script that
+rewrites a local file, with nothing in the command sending text anywhere else, the first line is
+`LOCAL` instead of `VIOLATION`. When unsure, it is `VIOLATION`.
+
 Copy the quoted words exactly as they appear in the message, the shortest run that shows the
 violation, and leave out any stretch that has a double quote or a backslash in it. When the offending
 words are split by text that is not part of the sentence, quote each piece and join the pieces with

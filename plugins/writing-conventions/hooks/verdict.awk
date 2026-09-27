@@ -1,7 +1,8 @@
 # Print the findings in a reader's verdict that quote the text under review.
 #   awk -v verdict=<verdict-file> -f verdict.awk <source-file>... <verdict-file>
-# The first line of a verdict is SKIP, PASS, or VIOLATION, and only VIOLATION
-# has findings. A finding is one line:
+# The first line of a verdict is SKIP, PASS, VIOLATION, or LOCAL, and only the
+# last two have findings. LOCAL is VIOLATION for text that only goes into a local
+# file, and gate.sh decides what it changes. A finding is one line:
 #   "fragment" + "fragment" -> rewrite
 # It is verified when every fragment, with runs of whitespace collapsed, is in
 # one of the source files; the fragments need not share a file. The reader can
@@ -14,7 +15,7 @@ FILENAME != verdict { src[FILENAME] = src[FILENAME] " " $0; next }
 !seen {
   if ($0 ~ /^[ \t\r]*$/) next
   seen = 1
-  if (squash($0) != "VIOLATION") exit
+  if (squash($0) != "VIOLATION" && squash($0) != "LOCAL") exit
   for (f in src) src[f] = squash(src[f])
   next
 }

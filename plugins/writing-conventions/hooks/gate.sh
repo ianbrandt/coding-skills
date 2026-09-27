@@ -199,6 +199,7 @@ bodies() {
 }
 
 tool=$(field tool_name)
+tofile=
 case "$1:$tool" in --stop:*) b=stop ;; --file:*) b=file ;; :mcp__*) b=mcp ;; *) b=shell ;; esac
 for d in $DEADLINES; do case $d in "$b="*) deadline=${d#*=} ;; esac; done
 # The self-test sets a short deadline, to reach a time limit in seconds.
@@ -337,7 +338,8 @@ case "$1:$tool" in
     case "$cmd" in
       *"git commit"*|*"git -C"*commit*|*"gh pr "*|*"gh issue "*|*"gh release "*) ;;
       *) [ "$WRITING_CONVENTIONS_SHELL_CLASSIFIER" = 0 ] && exit 0
-         shellclass ;;
+         shellclass
+         tofile=1 ;;
     esac
     unread=
     bodies
@@ -362,6 +364,14 @@ if [ -z "$again" ]; then
 fi
 if [ -z "$findings" ]; then
   [ -z "$unread" ] || printf '%s' "$unread" | context PreToolUse
+  exit 0
+fi
+# The reader answers LOCAL when the text only goes into a file on this machine,
+# such as a script that rewrites a local file. That is the file path's case, so
+# the findings come back and nothing is blocked. The four families always block.
+if [ -n "$tofile" ] && [ "$(awk '!/^[ \t\r]*$/ { gsub(/[ \t\r]/, ""); print; exit }' "$tmp/verdict")" = LOCAL ]; then
+  { printf '%s\nFix the quoted text in the file after the command runs. Each rewrite after -> is only a suggestion; where one reads stiffly, write the sentence the way a person would say it.\n' "$findings"
+    [ -z "$unread" ] || printf '%s\n' "$unread"; } | context PreToolUse
   exit 0
 fi
 if [ -n "$stop" ]; then

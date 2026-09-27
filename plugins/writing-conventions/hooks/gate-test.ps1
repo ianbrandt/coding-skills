@@ -258,6 +258,8 @@ try {
   $null = Test-Mcp 0 0 1 'CAN_PUBLISH' 'PASS' $jira
   $out = Test-Mcp 2 1 1 'CAN_PUBLISH' $whole $bitbucket
   if ($out -notlike '*make the call again*') { Write-Output ("FAIL MCP reason: " + $out); $fail = 1 }
+  # An MCP call is never a local file, so a LOCAL verdict blocks it as well.
+  $null = Test-Mcp 2 0 1 'CAN_PUBLISH' "LOCAL`n`"The report says so.`" -> x" $bitbucket
   # A tool classified NEVER makes no reader call, then or later.
   $null = Test-Mcp 0 1 0 'NEVER' 'PASS' $search
   $null = Test-Mcp 0 0 0 'NEVER' 'PASS' $search
@@ -579,6 +581,16 @@ try {
   Test-Shell 0 1 0 "python3 -c 'print(1)'" -keys "python3`tRUNS_CODE`n"
   Test-Shell 0 0 0 "python3 -c 'print(1)'"
   Test-Shell 0 0 1 "python3 -c 'print(`"The report says so and more.`")'"
+  # A finding in text that only goes into a local file comes back as context, and
+  # the command runs. A LOCAL verdict still blocks the four families, and a LOCAL
+  # line with a second word lets the command through with nothing, as VIOLATION does.
+  $toLocal = "python3 -c 'open(`"n.md`", `"w`").write(`"The report says so and more.`")'"
+  Test-Shell 0 0 1 $toLocal -verdict "LOCAL`n`"The report says so`" -> x"
+  if ($script:shellOut -notlike '*"hookEventName":"PreToolUse"*The report says so*after the command*') { Write-Output ("FAIL LOCAL context: " + $script:shellOut); $fail = 1 }
+  Test-Shell 2 0 1 'git commit -m "The report says so"' -verdict "LOCAL`n`"The report says so`" -> x"
+  Test-Shell 0 0 1 $toLocal -verdict "LOCAL MAYBE`n`"The report says so`" -> x"
+  if ($script:shellOut -ne '') { Write-Output ("FAIL context for a malformed LOCAL: " + $script:shellOut); $fail = 1 }
+  Test-Shell 2 0 1 $toLocal -verdict "VIOLATION`n`"The report says so`" -> x"
   # A substitution in an expanding here-string, and a quoted first word, reach the
   # reader with no lookup.
   Test-Shell 0 0 1 "`$b = @`"`n`$(hg commit -m x)`n`"@"

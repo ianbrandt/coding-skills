@@ -179,6 +179,9 @@ mcp 0 0 1 CAN_PUBLISH PASS "$jira"
 mcp 2 1 1 CAN_PUBLISH 'VIOLATION
 "The report says so." -> x' "$bitbucket"
 case $stderr in *'make the call again'*) ;; *) echo "FAIL MCP reason: $stderr"; fail=1;; esac
+# An MCP call is never a local file, so a LOCAL verdict blocks it as well.
+mcp 2 0 1 CAN_PUBLISH 'LOCAL
+"The report says so." -> x' "$bitbucket"
 # A tool classified NEVER makes no reader call, then or later.
 mcp 0 1 0 NEVER PASS "$search"
 mcp 0 0 0 NEVER PASS "$search"
@@ -497,6 +500,20 @@ shcase 0 0 0 'ls \"$dir\"'
 GATE_TEST_KEYS='python3=RUNS_CODE' shcase 0 1 0 "python3 -c 'print(1)'"
 shcase 0 0 0 "python3 -c 'print(1)'"
 shcase 0 0 1 "python3 -c 'print(\"The report says so and more.\")'"
+# A finding in text that only goes into a local file comes back as context, and the
+# command runs. A LOCAL verdict still blocks the four families, and a LOCAL line
+# with a second word lets the command through with nothing, as VIOLATION does.
+tolocal='python3 -c \"open(\\\"n.md\\\", \\\"w\\\").write(\\\"The report says so and more.\\\")\"'
+GATE_TEST_VERDICT='LOCAL
+"The report says so" -> x' shcase 0 0 1 "$tolocal"
+case $out in *'"hookEventName":"PreToolUse"'*'The report says so'*'after the command'*) ;; *) echo "FAIL LOCAL context: $out"; fail=1;; esac
+GATE_TEST_VERDICT='LOCAL
+"The report says so" -> x' shcase 2 0 1 'git commit -m \"The report says so\"'
+GATE_TEST_VERDICT='LOCAL MAYBE
+"The report says so" -> x' shcase 0 0 1 "$tolocal"
+[ -z "$out" ] || { echo "FAIL context for a malformed LOCAL: $out"; fail=1; }
+GATE_TEST_VERDICT='VIOLATION
+"The report says so" -> x' shcase 2 0 1 "$tolocal"
 # A substitution in an expanding heredoc body, and a quoted first word, reach the
 # reader with no lookup.
 shcase 0 0 1 "cat <<EOF\n'\$(hg commit -m x)'\nEOF"

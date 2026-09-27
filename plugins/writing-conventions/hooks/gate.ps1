@@ -467,6 +467,7 @@ function Get-Bodies([string]$cmdText) {
 $tool = [string]$json.tool_name
 $unread = ''
 $stopState = ''
+$toFile = $false
 if ($stopMode) {
   # A reply the session has tagged as a draft for publication. Only the text
   # inside a `draft` fence is reviewed, so nothing else in the reply is judged by
@@ -596,6 +597,7 @@ if ($stopMode) {
   if ($cmd -notmatch 'git commit|git -C.*commit|gh pr |gh issue |gh release ') {
     if ($env:WRITING_CONVENTIONS_SHELL_CLASSIFIER -eq '0') { exit 0 }
     Test-ShellCommand
+    $toFile = $true
   }
   $bodies = Get-Bodies $cmd
   $unread = ($bodies.Unread -join "`n")
@@ -626,6 +628,16 @@ if ($fileMode) {
 }
 if ($findings.Count -eq 0) {
   if ($unread -ne '') { Write-Context $unread 'PreToolUse' }
+  exit 0
+}
+# The reader answers LOCAL when the text only goes into a file on this machine,
+# such as a script that rewrites a local file. That is the file path's case, so
+# the findings come back and nothing is blocked. The four families always block.
+$first = @($verdict -split "`n" | Where-Object { $_ -notmatch '^[ \t\r]*$' } | Select-Object -First 1)
+if ($toFile -and $first.Count -gt 0 -and ($first[0] -replace '[ \t\r]', '') -ceq 'LOCAL') {
+  $lines = @($findings) + "Fix the quoted text in the file after the command runs. Each rewrite after -> is only a suggestion; where one reads stiffly, write the sentence the way a person would say it."
+  if ($unread -ne '') { $lines += $unread }
+  Write-Context ($lines -join "`n") 'PreToolUse'
   exit 0
 }
 if ($stopState -ne '') {

@@ -214,6 +214,16 @@ and a short message posted through `curl` or a script is not read.
 `WRITING_CONVENTIONS_SHELL_CLASSIFIER=0` turns this off and leaves the four families. A command can
 need two calls, so the shell hooks' timeout is 180 seconds.
 
+A command that only writes a local file is not blocked, just as a `Write` or `Edit` to a prose file
+is not (see "Prose files"). A session in a worktree edits a file that lives only in the primary
+checkout with a `python3` or `perl` script, because a worktree guard can refuse an `Edit` there. The
+reader answers `LOCAL` in place of `VIOLATION` when nothing in the command sends the text anywhere
+else, and doubt is `VIOLATION`. The findings then come back as `additionalContext`, and the session
+fixes the file after the command runs. A `LOCAL` answer still blocks the four families and an MCP
+call. In a live run on Sonnet, two local-file scripts came back `LOCAL` 6 times out of 6. Four
+scripts that post their text through a webhook, `gh api`, `hg commit -l`, or `glab release create`
+were blocked 12 times out of 12.
+
 A body passed by file path is read by the script, for the four families only: `git commit -F` or
 `--file`, and `-F`, `--body-file`, or `--notes-file` on `gh pr`, `gh issue`, and `gh release`. The
 flags that take a value are listed per command in `keys.awk` and `keys.ps1`, from each command's

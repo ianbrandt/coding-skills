@@ -4,8 +4,9 @@
 # this file is verdict.awk, and the two are held together by the verdict cases in
 # gate-test.sh and gate-test.ps1.
 #
-# The first line of a verdict is SKIP, PASS, or VIOLATION, and only VIOLATION has
-# findings. A finding is one line:
+# The first line of a verdict is SKIP, PASS, VIOLATION, or LOCAL, and only the last
+# two have findings. LOCAL is VIOLATION for text that only goes into a local file,
+# and gate.ps1 decides what it changes. A finding is one line:
 #   "fragment" + "fragment" -> rewrite
 # It is verified when every fragment, with runs of whitespace collapsed, is in one
 # of the sources; the fragments need not share a source. The reader can see text
@@ -20,7 +21,7 @@ function Get-VerifiedFinding([string]$Verdict, [string[]]$Sources) {
   $lines = @($Verdict -split "`n")
   $i = 0
   while ($i -lt $lines.Count -and $lines[$i] -match '^[ \t\r]*$') { $i++ }
-  if ($i -ge $lines.Count -or (& $squash $lines[$i]) -cne 'VIOLATION') { return @() }
+  if ($i -ge $lines.Count -or (& $squash $lines[$i]) -cnotin 'VIOLATION', 'LOCAL') { return @() }
   $src = @($Sources | ForEach-Object { & $squash $_ })
   $verified = @()
   for ($i++; $i -lt $lines.Count; $i++) {
