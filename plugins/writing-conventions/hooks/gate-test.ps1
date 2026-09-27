@@ -21,7 +21,7 @@ foreach ($rawLine in Get-Content -LiteralPath (Join-Path $here 'shell-keys.tsv')
   $fields = $rawLine -split "`t"
   if ($fields.Count -lt 3) { continue }
   $cases++
-  $cmd = $fields[1] -creplace '\\n', "`n" -creplace '\\t', "`t"
+  $cmd = $fields[1] -creplace '\\\\', "`u{1}" -creplace '\\n', "`n" -creplace '\\t', "`t" -creplace "`u{1}", '\'
   $mode = $fields[0]
   $files = $mode.EndsWith('files')
   if ($files) { $mode = $mode.Substring(0, $mode.Length - 5) }

@@ -109,8 +109,10 @@ $script:ReQuoted1Bad = [regex]::new('[ \t\n;&|(){}<>`]')
 $script:ReAllWs = [regex]::new('^[ \t\r]*$')
 $script:ReWordSplit = [regex]::new('[ \t\r]+')
 
-$wPat = '[ \t]+[A-Za-z][A-Za-z''-]*[,;:]?'
-$prosePattern = '(^|[^A-Za-z0-9_])[A-Z][a-z''-]*[,;:]?' + $wPat + $wPat + $wPat + $wPat + '(' + $wPat + ')*[ \t]+[A-Za-z][A-Za-z''-]*[.!?]'
+$gapPat = '([ \t]|[\\`][nt])+'
+$qPat = '([\\`]?["''])?'
+$wPat = $gapPat + $qPat + '[A-Za-z][A-Za-z''-]*' + $qPat + '[,;:]?'
+$prosePattern = '(^|[^A-Za-z0-9_]|[\\`][nt])[A-Z][a-z''-]*' + $qPat + '[,;:]?' + $wPat + $wPat + $wPat + $wPat + '(' + $wPat + ')*' + $gapPat + $qPat + '[A-Za-z][A-Za-z''-]*[.!?]'
 $script:ReProse = [regex]::new($prosePattern)
 
 function New-KeysContext([bool]$pwshMode) {

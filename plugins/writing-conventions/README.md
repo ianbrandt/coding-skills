@@ -209,7 +209,7 @@ The four command families above reach the reader whatever is in the file, so a w
 lose new coverage but never theirs. A quote left open, or a word that cannot be read as a name in a
 subcommand position, such as `hg "$verb"`, sends the command to the reader. A `RUNS_CODE` command is
 read only when it contains a sentence: six or more words, the first capitalized and the last ending
-in `.`, `!`, or `?`. Interpreters run in about 16% of commands on the machine this was measured on,
+in `.`, `!`, or `?`. A `\n` or `\t` escape between words counts as a space, and a word may be quoted. Interpreters run in about 16% of commands on the machine this was measured on,
 and a short message posted through `curl` or a script is not read.
 `WRITING_CONVENTIONS_SHELL_CLASSIFIER=0` turns this off and leaves the four families. A command can
 need two calls, so the shell hooks' timeout is 180 seconds.

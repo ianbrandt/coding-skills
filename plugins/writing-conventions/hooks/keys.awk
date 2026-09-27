@@ -17,7 +17,9 @@
 #                   reader with no lookup
 # A segment with no command in it has no lines. One more line, 0<TAB>PROSE,
 # comes first when there is a sentence in the command: a capitalized word, at
-# least four more words, and a last word ending in ".", "!", or "?". The gate
+# least four more words, and a last word ending in ".", "!", or "?". Words are
+# separated by spaces, tabs, or a \n, \t, `n, or `t escape, since a script
+# writes a line break into its text that way, and a word may be quoted. The gate
 # reads a RUNS_CODE command, an interpreter or curl, only with that line. With
 # files=1 it is left out, since the output there is file operands only.
 #
@@ -60,8 +62,10 @@ END {
   split("for case select in", a, " ")
   for (i in a) header[a[i]] = 1
 
-  w = "[ \t]+[A-Za-z][A-Za-z'-]*[,;:]?"
-  if (!files && src ~ ("(^|[^A-Za-z0-9_])[A-Z][a-z'-]*[,;:]?" w w w w "(" w ")*[ \t]+[A-Za-z][A-Za-z'-]*[.!?]")) print "0\tPROSE"
+  gap = "([ \t]|[\\\\`][nt])+"
+  q = "([\\\\`]?[\"'])?"
+  w = gap q "[A-Za-z][A-Za-z'-]*" q "[,;:]?"
+  if (!files && src ~ ("(^|[^A-Za-z0-9_]|[\\\\`][nt])[A-Z][a-z'-]*" q "[,;:]?" w w w w "(" w ")*" gap q "[A-Za-z][A-Za-z'-]*[.!?]")) print "0\tPROSE"
   bad = 0
   scan(src)
   if (!bad) {
