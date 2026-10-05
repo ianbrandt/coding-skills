@@ -73,11 +73,13 @@ The fix has to be made in the stream: a hook on the stored reply alone leaves th
 showing the spaced form while the reply arrives.
 
 What the lint skips is left as written: a fenced block, inline code, and text in straight or
-curly double quotes. A `draft` fence is the exception, since its text is for publication, though a
+curly double quotes. A fence counts when it opens in a block quote or on a list item's first line,
+and a code span or a quote left open at the end of a line stays open until it closes or a blank
+line ends the paragraph. A `draft` fence is the exception, since its text is for publication, though a
 fence inside it is left alone. The other findings in a draft still need the reader, so the `Stop`
-check is unchanged. Two more cases are left as written because the spaces are markdown: a dash with
-no letter, code span, or quote before it on its line, as after a list or heading marker, and spaces
-between a dash and a line break.
+check is unchanged. Three more cases are left as written because the spaces are markdown: a dash with
+no letter, code span, or quote before it on its line, as after a list or heading marker, a dash
+alone in a table cell, and spaces between a dash and a line break.
 
 Text is held back only while the next piece of the stream could change it: spaces that may precede
 a dash, a run of backticks, and a line that may open a fence. When a chunk of another kind arrives,
