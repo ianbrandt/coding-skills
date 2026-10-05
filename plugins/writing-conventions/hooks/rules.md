@@ -36,7 +36,8 @@ Eleven anti-patterns. Each reads as AI writing; the literal phrasing is always a
    does; in a commit body, the problem, then the change. No draft history, no answers to
    objections nobody raised.
 6. **Order.** The thing a sentence is about is its subject, and a sentence has one idea in 10 to
-   20 words. A clause that reverses the one before it takes "but"; "and" hides the reversal.
+   20 words. A clause that reverses the one before it takes "but"; after "and" the reversal is easy
+   to miss.
    - "A custom port can still be set with `server.port`"
      → "`server.port` is still available for a custom port"
    - "the cache is shared between runs on one machine, and none of it reaches a CI agent"
@@ -63,10 +64,10 @@ Eleven anti-patterns. Each reads as AI writing; the literal phrasing is always a
 10. **Evidence.** Cut what the reader can already see, such as an all-green test summary where CI
     reports the same verdict, or a walkthrough of a diff in the same reply. A local result CI
     will not show is worth stating. Hedge a judgment, state a measurement, and check before
-    hedging: run history, merged PRs, and a commit log are all measurable from outside, so a
-    question about one of those spends the reader's attention on your homework. A claim reused
-    from the repo gets checked like one you wrote, and a draft already approved gets re-checked
-    against anything found after it.
+    hedging: run history, merged PRs, and a commit log are all measurable from outside, so asking
+    about one of those spends the reader's attention on your homework. A claim reused from the repo
+    gets checked like one you wrote, and a draft already approved gets re-checked against anything
+    found after it.
 11. **Err short.** A code comment, a commit message, an issue, and a PR body are short by
     default. Every extra paragraph is paid for three times, in the tokens spent producing it, in
     the reader's attention, and in the correction round when they ask for it to be cut, and where
@@ -76,14 +77,14 @@ Eleven anti-patterns. Each reads as AI writing; the literal phrasing is always a
     such as an aside that a change is not in a release yet. Short is relative to the change: a
     one-sentence body on a large, complex PR fails this as surely as a twenty-sentence body on a
     small one. A heading or a bullet changelog in a commit message, an issue, or a PR body usually
-    means the text outgrew its genre rather than that it needed organizing, and long enough to need
-    headings should be the rare exception, not the norm. Where the content really is that long, cut
-    first and structure what is left: twenty paragraphs read better under headings, and more than a
-    few parallel items read better as bullets.
+    means the text is too long for its genre rather than that it needed organizing, and long enough
+    to need headings should be the rare exception, not the norm. Where the content really is that
+    long, cut first and structure what is left: twenty paragraphs read better under headings, and
+    more than a few parallel items read better as bullets.
 
-A rule broken in a draft is broken across the branch: sweep commit messages, code comments, test
-names, and docs, not the draft alone. The user's private circumstances (employer, clients,
-unreleased plans) never enter a public artifact.
+A rule broken in a draft is usually broken elsewhere on the branch: sweep commit messages, code
+comments, test names, and docs, not the draft alone. The user's private circumstances (employer,
+clients, unreleased plans) never enter a public artifact.
 
 A draft for publication—any text the user will paste, post, send, or file somewhere else—goes in
 its own fenced block with the info string `draft`, even mid-task, and in a longer fence when the

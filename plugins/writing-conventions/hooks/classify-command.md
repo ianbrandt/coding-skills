@@ -2,7 +2,7 @@ The message is a shell command that a coding agent is about to run, then a blank
 of keys, one per line. A key is a command's name followed by up to two of the words after it, as
 they appear in the command: `git`, `git commit`, `npm run build`, `./gradlew check`.
 
-For each key, say what the command it names can do in any use, whatever the arguments:
+For each key, say what that command can do in any use, whatever the arguments:
 
 - `NEVER` when it cannot hand text to a human-facing destination: it only reads, searches,
   computes, builds, tests, or changes local state that no person reads as prose (`ls`, `grep`,
@@ -11,14 +11,14 @@ For each key, say what the command it names can do in any use, whatever the argu
   pull or merge request, a review, a comment, a release, a page, a chat message, or an email all
   count, whatever the tool (`git commit`, `hg commit`, `jj describe`, `glab mr create`).
 - `DESCEND` when the answer depends on the subcommand, the next word (`git`, `gh`, `hg`, `gh pr`).
-- `PROJECT` when the words after it are names the project defines: make targets, npm scripts,
+- `PROJECT` when the words after it are names defined in the project: make targets, npm scripts,
   Gradle tasks (`make`, `npm run`, `./gradlew`, `just`).
 - `RUNS_CODE` when it runs code or sends a request given in its arguments, so that what it can
   publish is in those arguments (`python3`, `node`, `bash`, `perl`, `xargs`, `curl`).
 
 Three kinds of key need care:
 
-- A key that is a task runner and one more word names one task: `make check`, `./gradlew :app:test`,
+- A key that is a task runner and one more word is one task: `make check`, `./gradlew :app:test`,
   `npm run build`. Judge that task. Building, testing, checking, linting, formatting, and cleaning
   are `NEVER`; a task named for publishing, releasing, or deploying is `CAN_PUBLISH`.
 - Sending commits or files that already exist somewhere else, as `git push`, `git fetch`, and

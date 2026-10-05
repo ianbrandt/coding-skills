@@ -20,7 +20,7 @@ governs writing **as** the user, for text they sign and post, when that plugin i
 it, this skill covers that text too. Escalation—when to stop and hand over
 a decision—belongs to `ask-when-needed` in the `orchestration-skills` plugin; write none of it here.
 
-This plugin's `hooks/rules.md` loads every session and carries the short form: eleven named
+This plugin's `hooks/rules.md` is loaded in every session and has the short form: eleven
 anti-patterns with one contrast pair each. This file is the full protocol behind it, and §8 is the
 long form of the prohibitions. All of it applies to text a human reads. Agent-facing files—skills,
 hook payloads, subagent briefs—follow the prohibitions and are exempt from the form rules, so they
@@ -37,8 +37,8 @@ during which they were doing something else.
 - **No term you coined mid-session.** A label you invented to think with ("the guard path", "the
   cold branch") means nothing to someone who was not thinking alongside you. Replace it with the
   concrete thing it stands for.
-- **Lead with the outcome**, then what is left. A chronology of what you tried is a record of your
-  search, not information the reader can act on.
+- **Lead with the outcome**, then what is left. The reader cannot act on a chronology of what you
+  tried.
 - **Write the point, do not leave it to be assembled.** Correct facts in the right order still fail
   when the conclusion drawn from them stays in your head. "Most builds won't need a rule at all" is
   a bare fact; the point was that nothing has to be migrated to take the improvement up. Ask of
@@ -46,33 +46,34 @@ during which they were doing something else.
 - **Re-establish the subject at the top of a wrap-up.** One clause naming the repo, branch, or
   feature costs nothing and rescues a reader who has three sessions open.
 - **A set the reader has not met takes the bare plural.** "This PR corrects defects found in a
-  review", not "the defects". The definite article announces a set already established, which the
-  first sentence of a body never has. It binds a title and a branch name as much as a body.
-- **Write the thing, not a reference to it.** "Other than the intersection with the other option"
-  names the topic and leaves the reader to reconstruct it. Put the intersection itself in the
-  sentence. A reference works only where the reader has already been given the thing.
+  review", not "the defects". A reader takes the definite article to mean a set they already know,
+  and in the first sentence of a body there is none. The same holds in a title and a branch name.
+- **Write the thing, not a reference to it.** In "Other than the intersection with the other option"
+  only the topic is given, and the reader has to reconstruct the rest. Put the intersection itself
+  in the sentence. A reference works only where the reader has already been given the thing.
 
 ## 2. Choose the altitude before writing the words
 
-Detail is not a virtue. The right amount is whatever lets the reader do the next thing, and no more.
+Write the amount of detail that lets the reader do the next thing, and no more.
 
 - **Show reasoning only where the reader could reasonably have chosen differently.** A decision
   with one conventional answer gets one line stating what you did. A decision where you rejected a
   plausible alternative gets one sentence naming the alternative and the fact that ruled it out.
-  Reasoning shown for a call nobody would question buries the calls that do need it.
+  When reasoning is shown for a call nobody would question, the calls that do need it are harder to
+  find.
 - **Name a mechanism when the reader will touch it; describe the outcome when they will not.**
   "Cached the fetch with `@lru_cache(maxsize=1000)`" when they may tune the size; "responses are
-  cached now" when they will not. A named mechanism in code they never open is trivia. An outcome
-  given where they need the knob forces a second question.
+  cached now" when they will not. The reader has no use for the name of a mechanism in code they
+  never open, and has to ask a second question when given only an outcome where they need the
+  setting.
 - **Distinguish an explanation the reader asked for from prose defending an unchallenged choice.**
   If the last user message asked "why" or "how", answer in full—that is the deliverable. If nobody
-  questioned the choice and the paragraph exists to justify it, delete the paragraph. Prose
-  defending a simplification is the complexity coming back in another form.
+  questioned the choice and the paragraph exists to justify it, delete the paragraph. Defending a
+  simplification in prose puts back the complexity that was cut.
 - **Hedge a judgment, state a measurement.** Certainty is part of altitude. A verdict on intent, on
   someone else's report, or on anything you cannot see carries its hedge; a number you measured is
   stated flat, and hedging that understates evidence you have. A claim you could check gets checked
-  before it gets hedged, because a hedge on a checkable fact spends the reader's attention on your
-  homework.
+  before it gets hedged, because otherwise the reader has to do the checking.
 - **Match the altitude to the reader's next move.** Someone reviewing a diff needs enough to
   disagree with it. Someone who asked for status needs the current state and the blocker. Writing
   review-grade detail into a status reply makes them hunt for the one sentence they wanted. When
@@ -84,12 +85,12 @@ Detail is not a virtue. The right amount is whatever lets the reader do the next
   Reproducing the body in chat spends the tokens twice and buries the point.
 - **Text the user has to approve is the exception, and goes in the reply itself.** A draft they will
   post under their name, or any text whose purpose is to get their go, gets pasted into a fenced
-  block. Tool output is displayed to you, not reliably to them, so a `cat`, a Read, or "I wrote it
-  to `draft.md`" hands over nothing. Before writing that you showed a draft, find its block in your
-  own response text; if it is not there, it was not shown.
+  block. Tool output is displayed to you, not reliably to them, so after a `cat`, a Read, or "I
+  wrote it to `draft.md`" the user has seen nothing. Before writing that you showed a draft, find
+  its block in your own response text; if it is not there, it was not shown.
 - **Link any file worth opening with an absolute path.** Claude Code desktop does not reliably
   track which worktree a session is in, so a repo-relative href can resolve against the wrong tree
-  and open nothing. This bites hardest when a session's notes and its code sit in different trees.
+  and open nothing. This matters most when a session's notes and its code sit in different trees.
 - **Name the file and link it in the same breath.** Never a bare filename, never an unlinked "wrote
   it to `notes/`". When a reply cites files from two trees, link both.
 
@@ -102,26 +103,25 @@ Detail is not a virtue. The right amount is whatever lets the reader do the next
 - **Do not restate the diff**, and do not summarize your own summary. If the code is in the reply or
   one click away in a linked file, a prose walkthrough duplicates it; a closing paragraph that
   repeats the opening one is filler.
-- **Text already in the repo is not a warrant.** A claim copied from a doc, a comment, or an
+- **Check text already in the repo before reusing it.** A claim copied from a doc, a comment, or an
   earlier draft gets checked the way one you wrote does, and the source it came from gets the same
   fix when the edit lands. An approved draft goes stale the same way: where later work in the
   session changes the fact, re-check the draft against what was found after it, not only against
   these rules.
 - **Say a fact once.** A mechanism and the consequence that follows from it are one fact, so a
-  closing sentence explaining why the mechanism produced the result goes; the reader accepted the
+  closing sentence explaining why the mechanism led to the result goes; the reader accepted the
   point a sentence ago. A justification clause for a reason already given is the same failure, and
-  it is where an epigram most often gets in.
+  it is where an epigram is most often written.
 
-- **Err short, and let the reader ask.** The two failures are not symmetric. A draft that leaves
-  something out costs the reader one sentence asking for it; a draft that over-explains costs them
-  a read, a judgment, and a correction round, every time. So where the choice is close, cut.
-- **Verbosity costs three times over.** The tokens spent producing the paragraph, the reader's
-  attention spent on it, and the correction round where they ask for it to be cut. The first is
-  paid on every draft, whether or not anyone pushes back. Where an agent writes most of the
-  comments, commit messages, issues, and PR bodies in a repo, the second is the binding one: the
-  reader's limit is how much of it they can follow well enough to review, and every unneeded
-  paragraph spends part of that limit. Short is the norm here for those reasons, not as a
-  preference.
+- **Err short, and let the reader ask.** The two failures cost different amounts. A draft that
+  leaves something out costs the reader one sentence asking for it; a draft that over-explains costs
+  them a read, a judgment, and a correction round, every time. So where the choice is close, cut.
+- **An unneeded paragraph is paid for three times**: in the tokens spent writing it, in the reader's
+  attention, and in the correction round where they ask for it to be cut. The first is paid on every
+  draft, whether or not anyone pushes back. Where an agent writes most of the comments, commit
+  messages, issues, and PR bodies in a repo, the second is the limit that matters: the reader's
+  limit is how much of it they can follow well enough to review, and every unneeded paragraph uses
+  part of it. Short is the norm here for those reasons, not as a preference.
 - **Every fact the reader needs, not every fact.** A true sentence still goes when nothing the
   reader does next depends on it. An aside on release status is the common case: that a change is
   not in a release yet, or that nothing released is affected, is accurate, and a reviewer of the
@@ -131,12 +131,12 @@ Detail is not a virtue. The right amount is whatever lets the reader do the next
   as surely as a twenty-sentence body on a small one. The test is whether a reviewer could act on
   it without asking, not a sentence count, and a genre's usual size is where most pieces land
   rather than a limit any piece has to hit.
-- **A heading is a symptom, not a structure.** A Markdown heading or a bullet changelog in a commit
-  message, an issue, or a PR body usually means the text outgrew its genre, not that it needed
-  organizing. Cut it to what the genre carries, and structure only what survives: twenty paragraphs
-  do read better under headings, and more than a few parallel items do read better as bullets. The
-  gate checks this one as a string match, and allows a heading in a release note and the list of
-  squashed commits in a squash-merge message.
+- **A heading in a short genre usually means the text is too long.** A Markdown heading or a bullet
+  changelog in a commit message, an issue, or a PR body usually means the text is too long for its
+  genre, not that it needed organizing. Cut it to the genre's usual size, and structure only what is
+  left: twenty paragraphs do read better under headings, and more than a few parallel items do read
+  better as bullets. The gate checks this one as a string match, and allows a heading in a release
+  note and the list of squashed commits in a squash-merge message.
 
 ## 5. Close a turn with a status sign-off, not a report
 
@@ -152,17 +152,17 @@ next steps, and write each one so it can be acted on without rereading: the acti
 happens, and what it waits on. A command goes in the item rather than being described. Prose is
 still right for the reasoning behind a decision; it is wrong for the list of what to do.
 
-**When one command does the work, name the command first.** Listing the mechanics behind it (rebase
+**When one command does the work, give the command first.** Listing the mechanics behind it (rebase
 this, resolve that conflict, then merge) is worse than the single line that runs it: it reads as
-work the reader has to do by hand, and it restates what the command already owns and would do
-differently anyway. Give the invocation, where to run it from, and any precondition the command
-cannot check for itself. A skill invocation counts as a command. Spell out mechanics only where the
-reader has to perform them, or where a step falls outside what the command covers.
+work the reader has to do by hand, and it restates what the command already does, which the command
+would do differently anyway. Give the invocation, where to run it from, and any precondition the
+command cannot check for itself. A skill invocation counts as a command. Spell out mechanics only
+where the reader has to perform them, or where a step falls outside what the command covers.
 
 **Anything the reader will run goes in its own fenced block, never inline.** Inline code cannot be
-copied in one gesture; a fenced block carries a copy control on the desktop surface, and that is the
-whole point of quoting it. This covers shell commands, slash commands, skill invocations, and launch
-prompts for a fresh session. Two forms, and the distinction matters:
+copied in one gesture; a fenced block has a copy control on the desktop surface, which is the reason
+to quote it. This covers shell commands, slash commands, skill invocations, and launch prompts for a
+fresh session. Two forms, and the distinction matters:
 
 - **A shell command** gets a `bash`-tagged block, one command per block, no leading `$` and no
   output interleaved inside the fence.
@@ -174,16 +174,16 @@ than handed over to run.
 
 ## 6. Catch the jargon you coined this session
 
-The banned-word list in `hooks/rules.md` is a list of known offenders, not the boundary of the rule.
-The larger risk is vocabulary you invented an hour ago and no longer hear as invented.
+The banned-word list in `hooks/rules.md` has the known offenders, and the rule is wider than the
+list. The larger risk is vocabulary you invented an hour ago and no longer hear as invented.
 
 Before sending, scan your reply for any noun phrase that is not one of: a name in the codebase, a
 standard term of the craft, or a plain English word. Anything left is a term you minted. Either
 replace it with the concrete thing, or define it in the same sentence on first use. A term that
 needed a definition usually did not need to exist.
 
-The same scan catches abstraction drift: a sentence about "the approach" or "the mechanism" where
-the concrete noun would fit is a sentence hiding what it is about.
+The same scan catches abstraction drift: in a sentence about "the approach" or "the mechanism" where
+the concrete noun would fit, the reader cannot tell what the sentence is about.
 
 **Take the target document's noun, and none of its phrasing.** Grep the file you are editing for
 how a concept is named there and use that word, so the edit reads as part of the file. Constructions
@@ -192,31 +192,31 @@ inherited construction gets fixed where it came from rather than copied forward 
 
 Scan sentence form too, not only vocabulary. An epigram—a line that would work as a slide title—and
 a rhetorical antithesis ("they chose to skip it; we chose to fix it") are tells at the sentence
-level, and neither trips a word check. Rewrite each as the plain fact it stands for.
+level, and a word check finds neither. Rewrite each as the plain fact it stands for.
 
-**One idea per sentence, 10 to 20 words.** A sentence carrying two subordinate clauses gets split.
-First drafts land at 30 to 40 words, which is the usual reason a paragraph reads as written by a
-model, so the count is worth checking on a paragraph that reads heavy.
+**One idea per sentence, 10 to 20 words.** A sentence with two subordinate clauses gets split. First
+drafts land at 30 to 40 words, which is the usual reason a paragraph reads as written by a model, so
+the count is worth checking on a paragraph that reads heavy.
 
-**Emphasis is rare, not banned.** This covers `**bold**`, `*italic*`, and `_italic_` alike. A list
-of findings takes none, and a fact placed first needs no marking. Two reasons to keep it rare in
-prose: none of it survives where the text is read plain, in a terminal, a commit message, or a log,
-and in rendered text it is overused to the point of reading as a tell. The bar is something that
-strongly warrants being called out, which is a few times a document rather than a few times a
-paragraph. Below that bar, reaching for it means the phrasing needs work, since the word carrying
-the weight can go at the front of the sentence instead. Heavy bold stays right in an agent-facing
-file, where it shows a model what it must not skip, which is where the form rules stop.
+**Use emphasis rarely.** This covers `**bold**`, `*italic*`, and `_italic_` alike. A list of
+findings takes none, and a fact placed first needs no marking. Two reasons to keep it rare in prose:
+none of it survives where the text is read plain, in a terminal, a commit message, or a log, and in
+rendered text it is overused to the point of reading as a tell. The bar is something that strongly
+warrants being called out, which is a few times a document rather than a few times a paragraph.
+Below that bar, reaching for it means the phrasing needs work, since the word that matters can go at
+the front of the sentence instead. Heavy bold stays right in an agent-facing file, where it shows a
+model what it must not skip, which is where the form rules stop.
 
 Personification is the third, and the easiest to miss, since every word in the sentence can be
 plain. Check each subject against its verb: if a person doing that verb would be speaking, wanting,
 perceiving, or possessing, and the subject is a thing, rewrite it. The rule and the repair are in
 `hooks/rules.md`. Run this one on chat replies too, not only on published prose.
 
-**Reordering is editing.** After moving a paragraph or a sentence, run the whole scan again from the
-top rather than over the moved part: a pronoun that sat next to its noun when the sentence was
-written is now several nouns away from it, and a clause added during the move has never been read
-at all. One epigram reached a draft the user had already approved that way, and a "Those are" was
-left pointing at the wrong sentence by an insertion just ahead of it.
+**Scan again after reordering.** After moving a paragraph or a sentence, run the whole scan again
+from the top rather than over the moved part: a pronoun that sat next to its noun when the sentence
+was written is now several nouns away from it, and a clause added during the move has never been
+read at all. One epigram was added that way to a draft the user had already approved, and after an
+insertion just ahead of it a "Those are" referred to the wrong sentence.
 
 ## 7. Log a word the user flags
 
@@ -247,7 +247,7 @@ cases, kept here so the always-on file stays short enough to be read every turn.
 
 These rules govern text a human reads: chat replies, summaries, and anything published under the
 user's name. Files written for agents to read—skills, hook payloads, subagent briefs—are partly
-exempt, along a line that runs between two kinds of rule:
+exempt, by kind of rule:
 
 - **Prohibitions bind everywhere**, agent-facing files included: the banned vocabulary below, no
   inanimate agency, no epigrams, unspaced em dashes. These are precision rules rather than register
@@ -269,8 +269,8 @@ thing instead of abstracting it. Banned in chat replies, not only in published p
   clause around the plain noun that fits.
 - "owed"—state the obligation: "what the verifier has to check", "what the fix still needs".
 - "slot", as a noun for a field or a place a value is stored—say "field", or write the member's
-  own name. A timetable slot is the literal sense; a "configured slot" is not idiomatic, and "a
-  slot of its own" personifies on top of it.
+  name. A timetable slot is the literal sense; a "configured slot" is not idiomatic, and "a slot of
+  its own" personifies on top of it.
 - "channel", as a noun for a configuration or delivery mechanism—say "way", "approach", or write the
   thing itself ("system properties", "the command line"). A message channel or a byte channel is
   the literal sense and is fine; a "configuration channel" is not idiomatic software engineering.
@@ -279,28 +279,27 @@ thing instead of abstracting it. Banned in chat replies, not only in published p
 - Intensifiers—drop them: "Gradle's own" is "Gradle's". The bare noun or verb makes the same claim,
   and the intensifier reads as the writer leaning on it.
 - A deferential frame around a question ("worth your ruling", "I'd defer to you on", "your call").
-  An open question takes a question mark and stands on its own. The frame turns the ask into
-  narration and reads as courtier voice. Offering to do the work is a different act and is not
-  covered here: "I could restore binary compatibility in a v0.58.1" states a capability, and the
-  reader can decline it without a round trip.
+  An open question takes a question mark and stands on its own. With the frame the ask reads as
+  narration, in a courtier's voice. Offering to do the work is a different act and is not covered
+  here: "I could restore binary compatibility in a v0.58.1" states a capability, and the reader can
+  decline it without a round trip.
 
 - A judgment stood in for a mechanism's name—"nag" for a deprecation warning, "noise" for a
-  report's output. Print the mechanism's own name and let the reader judge it. This one binds a
-  local note as much as posted text, since the wording in a note is what gets copied into a draft.
+  report's output. Print the mechanism's name and let the reader judge it. This one binds a local
+  note as much as posted text, since the wording in a note is what gets copied into a draft.
 
-This list is the live one. It grows here when the user flags a word. Every entry in it names a
-class, not one word: "heap floor" for a minimum heap and "bucket" for a configuration are the same
-coinage failure as "shape" for a design, and none of the three is fixed by a synonym. Rewrite the
-clause around the plain thing instead, since a swapped word usually leaves the coined idea in
-place.
+This list is the live one, and a word the user flags is added here. Every entry is one example of a
+class: "heap floor" for a minimum heap and "bucket" for a configuration are the same coinage failure
+as "shape" for a design, and none of the three is fixed by a synonym. Rewrite the clause around the
+plain thing instead, since a swapped word usually leaves the coined idea in place.
 
 **"Name" as a verb is uncommon, so it reads as AI writing in most places.** Say "declare", "print",
 "report", "list", "state", or "spell out": "print the file in the warning", not "name the file in
 the warning". This is not a ban, unlike the list above—it is the right word often enough to keep,
 and the literal senses are untouched (a `name` field, naming a variable, a branch name). "Named" as
-an abstract act is already ruled out in the inanimate-agency paragraph below, but that reading is
-easy to take as conditional on an inanimate subject, and an imperative slips past it ("Fix: name
-every cause…").
+an abstract act is already ruled out in the inanimate-agency paragraph below, but that paragraph is
+easy to read as covering only an inanimate subject, and not an imperative ("Fix: name every
+cause…").
 
 **No inanimate agency.** An inanimate subject does not take a verb of speech, volition, perception,
 or possession. A report, an entry, a row, a project, a version, a build, or a PR does not say, tell,
@@ -314,27 +313,28 @@ the same way**. "the system property, whose place is in the middle" attributes a
 Grammatically it is personification: the subject is given an agent role the verb reserves for
 something animate, and it is a recognizable AI-writing tell. Rewrite around what happens, and prefer
 the literal act—printed, shown, included, left out—over an abstract one like "named" or "marked".
-A passive can also keep the personification while hiding it: a build that "is shown" newer versions
-perceives them as surely as one that sees them. Write "newer pre-releases are still reported when
-the current version is itself a pre-release". Going passive is only half the fix for the other
-reason too, since a passive that goes abstract trades personification for opacity: say who the real actor is where there is one, and write a condition as an if/then
-sentence rather than compressing it into a noun phrase. A passive that clears both of those tests
-can still fail a third: it has to be a phrase a person would say on one read. "a module is held to
-the version its platform fixes" is not, and the repair rebuilds the sentence around the observable
-effect: "versions outside a platform's constraints are no longer reported". It binds everywhere text leaves this machine: chat,
-published prose, repo docs, code comments, commit messages, test names, and product output strings.
-Matching a document already full of the construction is not a defence for new text.
+The personification can also remain in a passive: a build that "is shown" newer versions perceives
+them as surely as one that sees them. Write "newer pre-releases are still reported when the current
+version is itself a pre-release". Going passive is only half the fix for the other reason too, since
+an abstract passive is no longer personified but is hard to follow: say who the real actor is where
+there is one, and write a condition as an if/then sentence rather than compressing it into a noun
+phrase. A passive that clears both of those tests can still fail a third: it has to be a phrase a
+person would say on one read. "a module is held to the version its platform fixes" is not, and the
+repair rebuilds the sentence around the observable effect: "versions outside a platform's
+constraints are no longer reported". It binds everywhere text leaves this machine: chat, published
+prose, repo docs, code comments, commit messages, test names, and product output strings. Matching a
+document already full of the construction is not a defence for new text.
 
 **No epigrams, no rhetorical antithesis.** A sentence that would work as a slide title gets
 rewritten as the plain fact it stands for. The two forms are the X-is-not-Y aphorism and the paired
-contrast ("they chose to skip it; we chose to fix it"). The pull is strongest in a document whose
-own subject is rules, where an aphorism reads as authority.
+contrast ("they chose to skip it; we chose to fix it"). The pull is strongest in a document about
+rules, where an aphorism reads as authority.
 
 **Every pronoun resolves.** Each "it", "this", and "that" points at one named thing the reader can
 find in the same paragraph, and a bare "this" opening a sentence usually stands in for a whole
 preceding idea rather than a noun. Use the concrete noun, or "this PR" when there is none. This is
 the no-back-references rule of §1 at sentence scale, and it is the one most often broken in a long
-draft: six logged corrections on one voice spec ride on it. A wrinkle the rule does not catch: a
+draft: six logged corrections on one voice spec were breaks of it. One case is outside the rule: a
 claim can be true of the code and false of the output, so check a resolved claim against what the
 reader will see, not only against the implementation.
 
@@ -343,8 +343,8 @@ reader will see, not only against the implementation.
 build". "And" reads as continuation, so the reader is past the turn before noticing it was one.
 
 **Prefer a finite coordinated clause over a trailing participle**, even at a couple more words:
-"and was closed as not planned", not ", closed as not planned". The participial tail is a compression
-tell; the finite clause reads at speaking pace.
+"and was closed as not planned", not ", closed as not planned". The participial tail reads as
+compressed, and the finite clause reads at speaking pace.
 
 **Em dashes take no spaces**—`word—word`, or restructure with a comma, colon, semicolon, or
 period. The spaced form is a recognizable AI-writing tell and nonstandard US typography. It binds
@@ -352,10 +352,9 @@ everywhere text leaves this machine: chat, published prose, repo docs, code comm
 output strings. **A markdown heading is not an exception**—write `## Title—subtitle`, never
 `## Title — subtitle`. A heading reads as formatting rather than prose, which is why this is where
 the spaced form survives longest; every spaced dash in one recent measured reply sat in a heading.
-Spaced dashes already sitting in a file are drift, never precedent. Sweep for the
-spaced form before posting and before committing. One exception: never retro-edit an
-already-published post to fix them—that churn is itself a signal of AI authorship. Repo content is
-fair game to sweep whole.
+Spaced dashes already in a file are not a reason to add more. Sweep for the spaced form before
+posting and before committing. One exception: never retro-edit an already-published post to fix
+them—that churn is a signal of AI authorship. Repo content is fair game to sweep whole.
 
 **A list of three or more takes the Oxford comma**: "json, xml, html, and plain", never "json, xml,
 html and plain". The same holds before a final "or". It binds on every surface, including log
@@ -368,5 +367,5 @@ so seconds below a minute and minutes-and-seconds above one.
 
 **The user's private circumstances never enter a public artifact.** Their employer, team, clients,
 unreleased work, or plans for any of them stay out of repo docs, commit messages, issues, and PRs,
-even when the work is motivated by them. State the need the artifact serves, never the private
+even when the work is motivated by them. State the need the artifact is for, never the private
 situation behind it.
