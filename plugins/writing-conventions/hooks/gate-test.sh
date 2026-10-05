@@ -30,7 +30,7 @@ cat > "$GATE_TEST_MARK.stdin"
 # A call past its time limit: the sleep is a child, so that killing the stub
 # alone would leave it running.
 if [ -n "$GATE_TEST_SLEEP" ]; then sleep "$GATE_TEST_SLEEP" & echo $! > "$GATE_TEST_MARK.sleep"; wait; fi
-[ "$GATE_TEST_FAIL" = 1 ] && exit 1
+[ "$GATE_TEST_FAIL" = 1 ] && exit "${GATE_TEST_EXIT:-1}"
 case "$*" in *classify-prompt.md*) printf '%s\n' "$GATE_TEST_CLASS"; exit 0;; esac
 # The shell classifier: each key after the blank line that GATE_TEST_KEYS has a
 # line for, key=CLASS, is answered with a tab, and GATE_TEST_RAW replaces the reply.
@@ -639,6 +639,102 @@ GATE_TEST_VERDICT='VIOLATION
 "The report says so." -> x' body 2 1 'git commit -F msg.txt -m \"The report says so.\" && cat msg.txt'
 notread msg.txt 'the command names it more than once'
 unset GATE_TEST_VERDICT
+
+# The module transport, which gate.ts drives. Under WRITING_CONVENTIONS_MODULE a
+# model call is a request file and exit 3, and no `claude` is started. The next
+# run reads the answer, and a run that exits 0 leaves the file that makes the
+# command hook's run for the same tool_use_id exit without a call.
+export TMPDIR="$scratch/tmpd"
+unset GATE_TEST_VERDICT
+# mod <exit> <tool_use_id> <command> [<tool> <tool_input>]; stdout in $out, stderr
+# in $stderr, and the request's key and directory in $key and $asks after an exit 3
+mod() {
+  cases=$((cases + 1))
+  : > "$GATE_TEST_MARK"
+  out=$(printf '{"session_id":"mod%s","tool_use_id":"%s","tool_name":"%s","tool_input":%s}' "$2" "$2" "${4:-Bash}" "${5:-"{\"command\":\"$3\"}"}" \
+    | WRITING_CONVENTIONS_MODULE=1 bash "$HERE/gate.sh" 2>"$scratch/err")
+  status=$?
+  stderr=$(cat "$scratch/err")
+  [ "$status" = "$1" ] || { echo "FAIL module exit $status, wanted $1: $3"; fail=1; }
+  [ -s "$GATE_TEST_MARK" ] && { echo "FAIL claude was started under the module: $3"; fail=1; }
+  key=; asks=
+  [ "$status" = 3 ] && { key=$(printf '%s\n' "$out" | sed -n 1p); asks=$(printf '%s\n' "$out" | sed -n 3p); }
+}
+WRITING_CONVENTIONS_GATE_MODEL=some-model mod 3 t1 "$says"
+[ "$(printf '%s\n' "$out" | sed -n 2p)" = some-model ] && [ "$asks" = "$TMPDIR/claude-gate-ask-t1" ] || { echo "FAIL module request line: $out"; fail=1; }
+case $(cat "$asks/prompt.$key") in *'The report says so'*) ;; *) echo "FAIL module prompt: $(cat "$asks/prompt.$key")"; fail=1;; esac
+cat "$HERE/gate-prompt.md" "$HERE/rules.md" | cmp -s - "$asks/system.$key" || { echo "FAIL module system prompt"; fail=1; }
+[ -e "$TMPDIR/claude-gate-read-t1" ] && { echo "FAIL a call was marked read before its answer"; fail=1; }
+printf 'VIOLATION\n"The report says so" -> The version is shown in the report.\n' > "$asks/reply.$key"
+mod 2 t1 "$says"
+case $stderr in *'shown in the report'*'run the command again'*) ;; *) echo "FAIL module violation reason: $stderr"; fail=1;; esac
+[ -e "$TMPDIR/claude-gate-ask-t1" ] || [ -e "$TMPDIR/claude-gate-read-t1" ] && { echo "FAIL a blocked call left files behind"; fail=1; }
+# A clean answer lets the command through, and the hook's run then makes no call.
+mod 3 t2 "$says"
+printf 'PASS\n' > "$asks/reply.$key"
+mod 0 t2 "$says"
+[ -e "$TMPDIR/claude-gate-read-t2" ] && [ ! -e "$TMPDIR/claude-gate-ask-t2" ] || { echo "FAIL a passed call was not marked read"; fail=1; }
+cases=$((cases + 1))
+: > "$GATE_TEST_MARK"
+printf '{"tool_use_id":"t2","tool_name":"Bash","tool_input":{"command":"%s"}}' "$says" | bash "$HERE/gate.sh" >/dev/null 2>&1
+[ $? = 0 ] && [ ! -s "$GATE_TEST_MARK" ] && [ ! -e "$TMPDIR/claude-gate-read-t2" ] || { echo "FAIL the hook read a call the module had read"; fail=1; }
+# The file is for the command hook alone: a draft or file check with the same id
+# is read as before.
+cases=$((cases + 1))
+: > "$TMPDIR/claude-gate-read-t2"
+printf '{"session_id":"s","prompt_id":"modstop","tool_use_id":"t2","last_assistant_message":"```draft\\nThe report says so.\\n```"}' \
+  | GATE_TEST_VERDICT=PASS bash "$HERE/gate.sh" --stop >/dev/null 2>&1
+[ -s "$GATE_TEST_MARK" ] || { echo "FAIL a draft check was skipped for a call the module had read"; fail=1; }
+rm -f "$TMPDIR/claude-gate-read-t2"
+# Only once: the same id without the file is read by the hook as before.
+run PASS 0 "$says"
+[ "$called" = yes ] || { echo "FAIL the hook skipped a call the module had not read"; fail=1; }
+# A model call that failed is the failure path: through, with the notice.
+mod 3 t3 "$says"
+: > "$asks/fail.$key"
+mod 0 t3 "$says"
+case $out in '{"systemMessage":"'*'model review is off'*) ;; *) echo "FAIL no notice after a failed module call: $out"; fail=1;; esac
+# A classifier call and then a reader call are two requests. The classifier's
+# answers are cached by the run that reads them, so the run after it makes no
+# classifier call, and the reader's verdict must still be the one it reads.
+unset WRITING_CONVENTIONS_SHELL_CLASSIFIER
+mod 3 t4 'acme publish \"The report says so\"'
+grep -q '^acme publish$' "$asks/prompt.$key" || { echo "FAIL module classifier request: $out"; fail=1; }
+printf 'acme\tDESCEND\nacme publish\tCAN_PUBLISH\n' > "$asks/reply.$key"
+mod 3 t4 'acme publish \"The report says so\"'
+grep -q 'tool_input' "$asks/prompt.$key" || { echo "FAIL module reader request after the classifier: $out"; fail=1; }
+printf 'VIOLATION\n"The report says so" -> x\n' > "$asks/reply.$key"
+mod 2 t4 'acme publish \"The report says so\"'
+export WRITING_CONVENTIONS_SHELL_CLASSIFIER=0
+# The same for an MCP tool, where the classifier's answer is one word.
+mod 3 t6 '' mcp__x__modpost '{"text":"The report says so"}'
+printf 'CAN_PUBLISH\n' > "$asks/reply.$key"
+mod 3 t6 '' mcp__x__modpost '{"text":"The report says so"}'
+printf 'VIOLATION\n"The report says so" -> x\n' > "$asks/reply.$key"
+mod 2 t6 '' mcp__x__modpost '{"text":"The report says so"}'
+# A run that is killed has read nothing, so it leaves no file for the hook.
+cases=$((cases + 1))
+mkdir -p "$scratch/slow"
+cp "$HERE"/*.awk "$HERE"/*.md "$scratch/slow/"
+sed 's/^verdict=\$(ask /sleep 5; &/' "$HERE/gate.sh" > "$scratch/slow/gate.sh"
+grep -q '^sleep 5; verdict=' "$scratch/slow/gate.sh" || { echo "FAIL the slow copy of gate.sh has no sleep"; fail=1; }
+printf '{"tool_use_id":"t7","tool_name":"Bash","tool_input":{"command":"%s"}}' "$says" \
+  | WRITING_CONVENTIONS_MODULE=1 bash "$scratch/slow/gate.sh" >/dev/null 2>&1 &
+slow=$!
+sleep 1; kill -TERM $slow; wait $slow 2>/dev/null
+[ -e "$TMPDIR/claude-gate-read-t7" ] && { echo "FAIL a killed module run was marked read"; fail=1; }
+# Outside the module, a nested call that exits 3 is a failed call like any other.
+cases=$((cases + 1))
+out=$(printf '{"session_id":"exit3","tool_name":"Bash","tool_input":{"command":"%s"}}' "$says" \
+  | GATE_TEST_FAIL=1 GATE_TEST_EXIT=3 bash "$HERE/gate.sh" 2>/dev/null)
+[ $? = 0 ] || { echo "FAIL exit $? after a nested call that exited 3"; fail=1; }
+case $out in '{"systemMessage":"'*'model review is off'*) ;; *) echo "FAIL no notice after a nested call that exited 3: $out"; fail=1;; esac
+# A command that reaches no model is marked read too, and with no tool_use_id
+# the module leaves the call to the hook.
+mod 0 t5 'ls -la'
+[ -e "$TMPDIR/claude-gate-read-t5" ] || { echo "FAIL a safe call was not marked read"; fail=1; }
+mod 4 '' "$says"
+unset TMPDIR
 
 # Garbage in place of the hook input is not a reason to block either.
 cases=$((cases + 1))

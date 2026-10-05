@@ -34,6 +34,8 @@
 # See lint.sh for this handoff to gate.ps1.
 if [ "$OS" = Windows_NT ] && [ "$CLAUDE_CODE_USE_POWERSHELL_TOOL" = 1 ] \
    && command -v pwsh >/dev/null 2>&1; then
+  # gate.ps1 has no module transport, so the module leaves this call to the hook.
+  [ -z "$WRITING_CONVENTIONS_MODULE" ] || exit 4
   exec pwsh -NoProfile -File "$(dirname "$0")/gate.ps1" "$@"
 fi
 HERE=$(cd "$(dirname "$0")" && pwd)
@@ -44,7 +46,7 @@ input=$(cat)
 # non-zero, was killed at its time limit, or was not started for lack of time.
 # With no `claude` on the path there is no call, which is the same failure.
 ask() {
-  command -v claude >/dev/null 2>&1 || return 1
+  [ -n "$WRITING_CONVENTIONS_MODULE" ] || command -v claude >/dev/null 2>&1 || return 1
   call --safe-mode "$@"
 }
 # A command can need a classifier call and then a reader call, so each call gets
@@ -55,6 +57,20 @@ ask() {
 # process group of its own, and a watcher kills the group at the limit.
 DEADLINES='shell=165 mcp=75 file=45 stop=45'
 call() {
+  # Under the module, a call is a request file and exit 3. The module answers it and
+  # runs the script again from the top, and the call returns the answer on that run.
+  # A request is named for a checksum of what it asks, never for its place in the
+  # run: the classifier's answers are cached by the run that reads them, so the
+  # next run makes one call fewer.
+  if [ -n "$WRITING_CONVENTIONS_MODULE" ]; then
+    k=$(printf '%s\n%s\n%s' "$2" "$3" "${msg:-$input}" | cksum | awk '{ print $1 }')
+    [ -e "$asks/fail.$k" ] && return 1
+    [ -e "$asks/reply.$k" ] && { cat "$asks/reply.$k"; return 0; }
+    printf '%s' "${msg:-$input}" > "$asks/prompt.$k"
+    cat "$HERE/$2" ${3:+"$HERE/$3"} > "$asks/system.$k"
+    printf '%s' "$k" > "$asks/pending"
+    return 3
+  fi
   lim=$((deadline - SECONDS - 10))
   [ $lim -gt 60 ] && lim=60
   [ $lim -ge 15 ] || return 124
@@ -96,10 +112,14 @@ context() {
 # marker is a file named for the session, as the note in lint.sh is, and with no
 # session id there is no marker, so nothing is said rather than said every time.
 off() {
+  if [ "$1" = 3 ] && [ -n "$WRITING_CONVENTIONS_MODULE" ]; then
+    printf '%s\n%s\n%s\n' "$(cat "$asks/pending")" "${WRITING_CONVENTIONS_GATE_MODEL:-sonnet}" "$asks"
+    exit 3
+  fi
   sid=$(field session_id | tr -c 'A-Za-z0-9_-' '_')
   mark="${TMPDIR:-/tmp}/claude-gate-off-$sid"
   if [ -n "$sid" ] && [ ! -e "$mark" ] && : > "$mark"; then
-    printf '{"systemMessage":"writing-conventions: model review is off for this session, because the nested claude -p call failed. Commit, PR, MCP, file, and draft text is not being read; the pattern lint on replies still runs."}'
+    printf '{"systemMessage":"writing-conventions: model review is off for this session, because the model call failed. Commit, PR, MCP, file, and draft text is not being read; the pattern lint on replies still runs."}'
   fi
   exit 0
 }
@@ -123,7 +143,7 @@ shellclass() {
   case $walk in READER) return ;; SAFE) exit 0 ;; esac
   printf '%s\n' "$walk" | awk -F '\t' '$1 == "ASK"' > "$tmp/ask"
   msg=$(printf '%s\n\n' "$cmd"; awk -F '\t' '!seen[$3]++ { print $3 }' "$tmp/ask")
-  reply=$(ask classify-command.md) || off
+  reply=$(ask classify-command.md) || off $?
   msg=
   printf '%s\n' "$reply" | awk -F '\t' -v OFS='\t' '
     FNR == NR { want[$3] = want[$3] SUBSEP $2; next }
@@ -197,6 +217,26 @@ bodies() {
   msg=$(printf '%s' "$input"; i=1
     while [ $i -le $n ]; do printf '\n\nFile: %s\n\n' "$(cat "$tmp/name.$i")"; cat "$tmp/body.$i"; i=$((i + 1)); done)
 }
+
+# gate.ts runs this script from a `tool.call` hook in Claude Code, with
+# WRITING_CONVENTIONS_MODULE set, and makes each model call itself. The command
+# hook then runs for the same call, so a run under the module that exits 0 leaves
+# a file named for the tool_use_id, and the hook's run removes it and exits. A
+# blocked call never reaches the hook. Answers are kept between the module's runs
+# in a directory named the same way.
+id=$(field tool_use_id | tr -c 'A-Za-z0-9_-' '_')
+seen="${TMPDIR:-/tmp}/claude-gate-read-$id"
+asks="${TMPDIR:-/tmp}/claude-gate-ask-$id"
+if [ -n "$WRITING_CONVENTIONS_MODULE" ]; then
+  { [ -n "$id" ] && mkdir -p "$asks"; } || exit 4
+  trap 'rc=$?; rm -rf "$tmp"; [ $rc = 3 ] || rm -rf "$asks"; [ $rc != 0 ] || : > "$seen"' EXIT
+  # A run that is killed has read nothing, and the status of its last command
+  # would say otherwise.
+  trap 'exit 143' HUP INT TERM
+elif [ -z "$1" ] && [ -n "$id" ] && [ -e "$seen" ]; then
+  rm -f "$seen"
+  exit 0
+fi
 
 tool=$(field tool_name)
 tofile=
@@ -316,7 +356,7 @@ case "$1:$tool" in
     class=$(awk -v t="$tool" 'NF == 2 && $1 == t { if ($2 == "CAN_PUBLISH") p = 1; if ($2 == "NEVER") n = 1 }
       END { if (p) print "CAN_PUBLISH"; else if (n) print "NEVER" }' "$cache" 2>/dev/null)
     if [ -z "$class" ]; then
-      class=$(ask classify-prompt.md) || off
+      class=$(ask classify-prompt.md) || off $?
       class=$(printf '%s\n' "$class" | awk 'NF { sub(/\r$/, ""); print; exit }')
       # A reply in any other form is doubt, which reads as CAN_PUBLISH and is not kept.
       case "$class" in
@@ -346,7 +386,7 @@ case "$1:$tool" in
     sources() { printf '%s' "$cmd"; }
     again='run the command again' ;;
 esac
-verdict=$(ask gate-prompt.md rules.md) || off
+verdict=$(ask gate-prompt.md rules.md) || off $?
 
 # verdict.awk keeps the findings that quote the text under review. A reply in any
 # other form is a failure path, so it lets the command through as well.

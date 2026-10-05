@@ -6,6 +6,11 @@
   },
   "repository": "https://github.com/IanBrandt/coding-skills",
   "license": "MIT",
-  "hooks": "./hooks/mods.json",
-  "keywords": ["register", "summary", "prose", "style", "lint"]
+  "keywords": [
+    "register",
+    "summary",
+    "prose",
+    "style",
+    "lint"
+  ]
 }

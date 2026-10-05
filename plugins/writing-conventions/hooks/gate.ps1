@@ -152,7 +152,7 @@ function Exit-Off {
     if (-not (Test-Path -LiteralPath $mark)) {
       try {
         [IO.File]::WriteAllText($mark, '')
-        [Console]::Out.Write('{"systemMessage":"writing-conventions: model review is off for this session, because the nested claude -p call failed. Commit, PR, MCP, file, and draft text is not being read; the pattern lint on replies still runs."}')
+        [Console]::Out.Write('{"systemMessage":"writing-conventions: model review is off for this session, because the model call failed. Commit, PR, MCP, file, and draft text is not being read; the pattern lint on replies still runs."}')
       } catch { }
     }
   }
