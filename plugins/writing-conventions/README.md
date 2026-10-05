@@ -70,6 +70,23 @@ never matched, and a clean reply clears whatever the previous one left pending. 
 judgment to detect stay where they were, in the model's own review passes; the lint is the floor
 under them, and a construction it cannot match mechanically is still a violation.
 
+## Spaced em dashes in a reply
+
+[`hooks/dash.ts`](hooks/dash.ts) closes up a spaced em dash as the reply streams, through a
+`turn.step` hook in the plugin's hooks module, so `word — word` is shown and stored as `word—word`.
+The fix has to be made in the stream: a hook on the stored reply alone leaves the screen
+showing the spaced form while the reply arrives.
+
+What `lint.awk` skips is left as written: a fenced block, inline code, and text in straight or
+curly double quotes. A `draft` fence is the exception, since its text is for publication. The other
+findings in a draft still need the reader, so the `Stop` check is unchanged. Text is held back only
+while the next piece of the stream could change it: spaces that may precede a dash, a run of
+backticks, and a line that may open a fence.
+
+[`hooks/dash.test.ts`](hooks/dash.test.ts) checks each case whole and cut into random pieces, under
+`claude plugin test`. [`hooks/register.ts`](hooks/register.ts) registers this hook and the gate's,
+because `hooks.json` may list only one module.
+
 ## Which shell runs the hooks
 
 Each of the four command hooks is registered once, as a shell command with no `shell` key, so
@@ -196,9 +213,8 @@ The command hook does the whole check, nested call included, in three cases:
 
 The `Stop` and file checks use the nested call everywhere.
 
-The module is listed under `modules` in [`hooks/hooks.json`](hooks/hooks.json), beside the command
-hooks. [`hooks/gate.test.ts`](hooks/gate.test.ts) runs under `claude plugin test`, with a stand-in
-for the script.
+[`hooks/gate.test.ts`](hooks/gate.test.ts) runs under `claude plugin test`, with a stand-in for the
+script.
 
 ### Other shell commands
 
