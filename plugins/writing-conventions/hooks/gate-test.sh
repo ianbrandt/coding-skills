@@ -618,8 +618,8 @@ unset GATE_TEST_VERDICT
 
 # The module transport, which gate.ts drives. Under WRITING_CONVENTIONS_MODULE a
 # model call is a request file and exit 3, and no `claude` is started. The next
-# run reads the answer, and a run that exits 0 leaves the file that makes the
-# command hook's run for the same tool_use_id exit without a call.
+# run reads the answer. The command hook's run for the same event exits without
+# a call while its token is in WRITING_CONVENTIONS_GATE_DONE.
 export TMPDIR="$scratch/tmpd"
 unset GATE_TEST_VERDICT
 # mod <exit> <tool_use_id> <command> [<tool> <tool_input>]; stdout in $out, stderr
@@ -640,31 +640,59 @@ WRITING_CONVENTIONS_GATE_MODEL=some-model mod 3 t1 "$says"
 [ "$(printf '%s\n' "$out" | sed -n 2p)" = some-model ] && [ "$asks" = "$TMPDIR/claude-gate-ask-t1" ] || { echo "FAIL module request line: $out"; fail=1; }
 case $(cat "$asks/prompt.$key") in *'The report says so'*) ;; *) echo "FAIL module prompt: $(cat "$asks/prompt.$key")"; fail=1;; esac
 cat "$HERE/gate-prompt.md" "$HERE/rules.md" | cmp -s - "$asks/system.$key" || { echo "FAIL module system prompt"; fail=1; }
-[ -e "$TMPDIR/claude-gate-read-t1" ] && { echo "FAIL a call was marked read before its answer"; fail=1; }
 printf 'VIOLATION\n"The report says so" -> The version is shown in the report.\n' > "$asks/reply.$key"
 mod 2 t1 "$says"
 case $stderr in *'shown in the report'*'run the command again'*) ;; *) echo "FAIL module violation reason: $stderr"; fail=1;; esac
-[ -e "$TMPDIR/claude-gate-ask-t1" ] || [ -e "$TMPDIR/claude-gate-read-t1" ] && { echo "FAIL a blocked call left files behind"; fail=1; }
-# A clean answer lets the command through, and the hook's run then makes no call.
+[ -e "$TMPDIR/claude-gate-ask-t1" ] && { echo "FAIL a blocked call left its requests behind"; fail=1; }
+# A clean answer lets the command through and leaves nothing behind.
 mod 3 t2 "$says"
 printf 'PASS\n' > "$asks/reply.$key"
 mod 0 t2 "$says"
-[ -e "$TMPDIR/claude-gate-read-t2" ] && [ ! -e "$TMPDIR/claude-gate-ask-t2" ] || { echo "FAIL a passed call was not marked read"; fail=1; }
-cases=$((cases + 1))
-: > "$GATE_TEST_MARK"
-printf '{"tool_use_id":"t2","tool_name":"Bash","tool_input":{"command":"%s"}}' "$says" | bash "$HERE/gate.sh" >/dev/null 2>&1
-[ $? = 0 ] && [ ! -s "$GATE_TEST_MARK" ] && [ ! -e "$TMPDIR/claude-gate-read-t2" ] || { echo "FAIL the hook read a call the module had read"; fail=1; }
-# The file is for the command hook alone: a draft or file check with the same id
-# is read as before.
-cases=$((cases + 1))
-: > "$TMPDIR/claude-gate-read-t2"
-printf '{"session_id":"s","prompt_id":"modstop","tool_use_id":"t2","last_assistant_message":"```draft\\nThe report says so.\\n```"}' \
-  | GATE_TEST_VERDICT=PASS bash "$HERE/gate.sh" --stop >/dev/null 2>&1
-[ -s "$GATE_TEST_MARK" ] || { echo "FAIL a draft check was skipped for a call the module had read"; fail=1; }
-rm -f "$TMPDIR/claude-gate-read-t2"
-# Only once: the same id without the file is read by the hook as before.
-run PASS 0 "$says"
-[ "$called" = yes ] || { echo "FAIL the hook skipped a call the module had not read"; fail=1; }
+[ -e "$TMPDIR/claude-gate-ask-t2" ] && { echo "FAIL a passed call left its requests behind"; fail=1; }
+# The hook's run makes no call for a token in the module's list, and makes one
+# for any other: another call's id, or the same id under another check.
+# hooked <called> <list> <input> [<argument>]
+hooked() {
+  cases=$((cases + 1))
+  : > "$GATE_TEST_MARK"
+  printf '%s' "$3" | GATE_TEST_VERDICT=PASS WRITING_CONVENTIONS_GATE_DONE="$2" bash "$HERE/gate.sh" $4 >/dev/null 2>&1
+  [ $? = 0 ] || { echo "FAIL hook exit $? with the list [$2]: $3"; fail=1; }
+  [ "$([ -s "$GATE_TEST_MARK" ] && echo yes || echo no)" = "$1" ] || { echo "FAIL hook called=$1 wanted, with the list [$2]: $3 $4"; fail=1; }
+}
+shell_in=$(printf '{"tool_use_id":"t2","tool_name":"Bash","tool_input":{"command":"%s"}}' "$says")
+file_in=$(printf '{"tool_use_id":"t2","tool_name":"Write","tool_input":{"file_path":"%s","content":"The report says so."}}' "$scratch/modfile.md")
+stop_in='{"session_id":"s","prompt_id":"p2","last_assistant_message":"```draft\nThe report says so.\n```"}'
+hooked no 't1 t2 t3' "$shell_in"
+hooked yes 't1 t22 file-t2 stop-p2' "$shell_in"
+hooked yes '' "$shell_in"
+hooked no 'file-t2' "$file_in" --file
+hooked yes 't2 stop-p2' "$file_in" --file
+hooked no 't9 stop-p2' "$stop_in" --stop
+hooked yes 't2 file-t2 stop-p' "$stop_in" --stop
+# The file and draft checks go through the module the same way.
+# modarg <exit> <argument> <input>; stdout in $out, stderr in $stderr
+modarg() {
+  cases=$((cases + 1))
+  : > "$GATE_TEST_MARK"
+  out=$(printf '%s' "$3" | WRITING_CONVENTIONS_MODULE=1 bash "$HERE/gate.sh" $2 2>"$scratch/err")
+  status=$?
+  stderr=$(cat "$scratch/err")
+  [ "$status" = "$1" ] || { echo "FAIL module exit $status, wanted $1: $2 $3"; fail=1; }
+  [ -s "$GATE_TEST_MARK" ] && { echo "FAIL claude was started under the module: $2"; fail=1; }
+  key=; asks=
+  [ "$status" = 3 ] && { key=$(printf '%s\n' "$out" | sed -n 1p); asks=$(printf '%s\n' "$out" | sed -n 3p); }
+}
+modarg 3 --file "$file_in"
+[ "$asks" = "$TMPDIR/claude-gate-ask-file-t2" ] || { echo "FAIL module file request: $out"; fail=1; }
+printf 'VIOLATION\n"The report says so." -> x\n' > "$asks/reply.$key"
+modarg 0 --file "$file_in"
+case $out in '{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"'*'The report says so.'*) ;; *) echo "FAIL module file findings: $out"; fail=1;; esac
+modarg 3 --stop "$stop_in"
+[ "$asks" = "$TMPDIR/claude-gate-ask-stop-p2" ] || { echo "FAIL module draft request: $out"; fail=1; }
+printf 'VIOLATION\n"The report says so." -> x\n' > "$asks/reply.$key"
+modarg 2 --stop "$stop_in"
+case $stderr in *'The report says so.'*'emit the corrected draft'*) ;; *) echo "FAIL module draft block: $stderr"; fail=1;; esac
+modarg 4 --stop '{"last_assistant_message":"```draft\nThe report says so.\n```"}'
 # A model call that failed is the failure path: through, with the notice.
 mod 3 t3 "$says"
 : > "$asks/fail.$key"
@@ -688,7 +716,7 @@ printf 'CAN_PUBLISH\n' > "$asks/reply.$key"
 mod 3 t6 '' mcp__x__modpost '{"text":"The report says so"}'
 printf 'VIOLATION\n"The report says so" -> x\n' > "$asks/reply.$key"
 mod 2 t6 '' mcp__x__modpost '{"text":"The report says so"}'
-# A run that is killed has read nothing, so it leaves no file for the hook.
+# A run that is killed removes its requests.
 cases=$((cases + 1))
 mkdir -p "$scratch/slow"
 cp "$HERE"/*.awk "$HERE"/*.md "$scratch/slow/"
@@ -697,19 +725,25 @@ grep -q '^sleep 5; verdict=' "$scratch/slow/gate.sh" || { echo "FAIL the slow co
 printf '{"tool_use_id":"t7","tool_name":"Bash","tool_input":{"command":"%s"}}' "$says" \
   | WRITING_CONVENTIONS_MODULE=1 bash "$scratch/slow/gate.sh" >/dev/null 2>&1 &
 slow=$!
-sleep 1; kill -TERM $slow; wait $slow 2>/dev/null
-[ -e "$TMPDIR/claude-gate-read-t7" ] && { echo "FAIL a killed module run was marked read"; fail=1; }
+sleep 1
+[ -d "$TMPDIR/claude-gate-ask-t7" ] || { echo "FAIL the slow run made no request directory"; fail=1; }
+kill -TERM $slow; wait $slow 2>/dev/null
+[ -e "$TMPDIR/claude-gate-ask-t7" ] && { echo "FAIL a killed module run left its requests behind"; fail=1; }
 # Outside the module, a nested call that exits 3 is a failed call like any other.
 cases=$((cases + 1))
 out=$(printf '{"session_id":"exit3","tool_name":"Bash","tool_input":{"command":"%s"}}' "$says" \
   | GATE_TEST_FAIL=1 GATE_TEST_EXIT=3 bash "$HERE/gate.sh" 2>/dev/null)
 [ $? = 0 ] || { echo "FAIL exit $? after a nested call that exited 3"; fail=1; }
 case $out in '{"systemMessage":"'*'model review is off'*) ;; *) echo "FAIL no notice after a nested call that exited 3: $out"; fail=1;; esac
-# A command that reaches no model is marked read too, and with no tool_use_id
-# the module leaves the call to the hook.
-mod 0 t5 'ls -la'
-[ -e "$TMPDIR/claude-gate-read-t5" ] || { echo "FAIL a safe call was not marked read"; fail=1; }
+# With no tool_use_id the module leaves the call to the hook. So does a body file
+# outside the directory the module passes as the project.
 mod 4 '' "$says"
+cases=$((cases + 1))
+case $proj in /tmp/*|/private/tmp/*) ;; *)
+  printf '{"tool_use_id":"t8","cwd":"%s","tool_name":"Bash","tool_input":{"command":"git commit -F ../msg.txt"}}' "$proj/sub" \
+    | WRITING_CONVENTIONS_MODULE=1 TMPDIR="$proj/sub" bash "$HERE/gate.sh" >/dev/null 2>&1
+  [ $? = 4 ] || { echo "FAIL module exit $?, wanted 4, for a body above the directory it started in"; fail=1; } ;;
+esac
 unset TMPDIR
 
 # Garbage in place of the hook input is not a reason to block either.

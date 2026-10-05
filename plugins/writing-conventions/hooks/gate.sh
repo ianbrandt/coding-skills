@@ -197,6 +197,9 @@ bodies() {
           r=$(cd "$r" 2>/dev/null && pwd -P) || continue
           case "$dir/" in "${r%/}"/*) why= ;; esac
         done
+        # The module has no CLAUDE_PROJECT_DIR to pass on, only the directory the
+        # session started in, so this one is left to the command hook.
+        [ -z "$why" ] || [ -z "$WRITING_CONVENTIONS_MODULE" ] || exit 4
         size=$(wc -c < "$path")
         if [ -n "$why" ]; then :
         elif [ "$size" -gt 1048576 ]; then why='it is over 1 MB'
@@ -218,24 +221,28 @@ bodies() {
     while [ $i -le $n ]; do printf '\n\nFile: %s\n\n' "$(cat "$tmp/name.$i")"; cat "$tmp/body.$i"; i=$((i + 1)); done)
 }
 
-# gate.ts runs this script from a `tool.call` hook in Claude Code, with
+# gate.ts runs this script from its hooks in Claude Code, with
 # WRITING_CONVENTIONS_MODULE set, and makes each model call itself. The command
-# hook then runs for the same call, so a run under the module that exits 0 leaves
-# a file named for the tool_use_id, and the hook's run removes it and exits. A
-# blocked call never reaches the hook. Answers are kept between the module's runs
-# in a directory named the same way.
-id=$(field tool_use_id | tr -c 'A-Za-z0-9_-' '_')
-seen="${TMPDIR:-/tmp}/claude-gate-read-$id"
-asks="${TMPDIR:-/tmp}/claude-gate-ask-$id"
+# hook then runs for the same event. While the module has an event in hand its
+# token is in WRITING_CONVENTIONS_GATE_DONE, a list the module sets in the
+# environment the hooks start from, and the hook's run exits on finding its own
+# token there. The token is the tool_use_id for a command or an MCP call, with
+# file- before it for a file check, and stop- and the prompt_id for a draft
+# check. Requests are kept between the module's runs in a directory named for
+# the token.
+case $1 in
+  --stop) token=$(field prompt_id | tr -c 'A-Za-z0-9_-' '_'); token=${token:+stop-$token} ;;
+  --file) token=$(field tool_use_id | tr -c 'A-Za-z0-9_-' '_'); token=${token:+file-$token} ;;
+  *) token=$(field tool_use_id | tr -c 'A-Za-z0-9_-' '_') ;;
+esac
+asks="${TMPDIR:-/tmp}/claude-gate-ask-$token"
 if [ -n "$WRITING_CONVENTIONS_MODULE" ]; then
-  { [ -n "$id" ] && mkdir -p "$asks"; } || exit 4
-  trap 'rc=$?; rm -rf "$tmp"; [ $rc = 3 ] || rm -rf "$asks"; [ $rc != 0 ] || : > "$seen"' EXIT
-  # A run that is killed has read nothing, and the status of its last command
-  # would say otherwise.
+  { [ -n "$token" ] && mkdir -p "$asks"; } || exit 4
+  trap 'rc=$?; rm -rf "$tmp"; [ $rc = 3 ] || rm -rf "$asks"' EXIT
+  # Without this the EXIT trap does not run for a run that is killed.
   trap 'exit 143' HUP INT TERM
-elif [ -z "$1" ] && [ -n "$id" ] && [ -e "$seen" ]; then
-  rm -f "$seen"
-  exit 0
+elif [ -n "$token" ]; then
+  case " $WRITING_CONVENTIONS_GATE_DONE " in *" $token "*) exit 0 ;; esac
 fi
 
 tool=$(field tool_name)

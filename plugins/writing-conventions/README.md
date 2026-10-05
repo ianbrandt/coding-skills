@@ -191,18 +191,21 @@ call. 15 seconds of each hook's timeout is reserved for that cleanup.
 ### The model call in Claude Code
 
 Where Claude Code runs function hooks, [`hooks/gate.ts`](hooks/gate.ts) makes the model calls
-in-process for a `Bash`, `PowerShell`, or MCP tool call. `gate.sh` still classifies the command,
-reads the body files, and filters the findings. Run from the module, it writes each model request to
-a file and exits 3 where it would start `claude -p`. The module sends the request through
+in-process for all three checks: a `Bash`, `PowerShell`, or MCP tool call, a prose file just
+written, and a draft in the reply. `gate.sh` still classifies the command, reads the body files,
+finds the draft, and filters the findings. Run from the module, it writes each model request to a
+file and exits 3 where it would start `claude -p`. The module sends the request through
 `$.model.complete`, which resolves an alias the way `--model` does, writes the reply beside the
 request, and runs the script again. A model call took 1.2 to 1.7 seconds this way over nine calls,
 against 3.6 to 4.1 seconds over three nested calls, on CLI 2.1.289. The time limit, the
 `WRITING_CONVENTIONS_NESTED` guard, and the need for `claude` on the PATH apply only to the nested
 call. A failed call is still let through, and the notice is a toast in place of a `systemMessage`.
 
-The command hook still runs for the same tool call. When the module lets a call through, the script
-leaves a file named for the `tool_use_id` in the temporary directory, and the hook's run removes
-the file and exits without a model call. The command hook does not run for a blocked call.
+The command hooks still run for the same events. While the module has an event in hand, a token
+for it is in `WRITING_CONVENTIONS_GATE_DONE`, a list the module sets in the environment the hooks
+start from, and `gate.sh` exits without a model call on finding its own token there. The token is
+the `tool_use_id` for a command or an MCP call, with `file-` before it for a file check, and
+`stop-` and the `prompt_id` for a draft check. The command hook does not run for a blocked call.
 
 The command hook does the whole check, nested call included, in three cases:
 
@@ -210,8 +213,6 @@ The command hook does the whole check, nested call included, in three cases:
   the module was checked on.
 - On a Windows session where `gate.ps1` runs the check.
 - When the script cannot be started.
-
-The `Stop` and file checks use the nested call everywhere.
 
 [`hooks/gate.test.ts`](hooks/gate.test.ts) runs under `claude plugin test`, with a stand-in for the
 script.
