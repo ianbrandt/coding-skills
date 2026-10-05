@@ -72,6 +72,12 @@ test('the lint tool answers with the flagged lines, or clean', async ($: any, on
   expect((await $.tool.call({ tool: 'mcp__writing-conventions__lint', text: 'The build passed.' })).result).toBe('clean')
 })
 
+test('the lint tool reads a draft passed inside its fence', async ($: any, on: any) => {
+  world(on)
+  const F = '```'
+  expect((await $.tool.call({ tool: 'mcp__writing-conventions__lint', text: `${F}draft\nThe build is load-bearing.\n${F}\n` })).result).toBe('banned word\tload-bearing')
+})
+
 test('with no session id nothing is saved', async ($: any, on: any) => {
   world(on)
   await stop($, 'The build is load-bearing.', '')

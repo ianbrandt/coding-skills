@@ -361,7 +361,8 @@ export const register: Register = on => {
   // The lint tool is answered here. Any other command or MCP call is checked
   // before it runs.
   on('tool.call', async ($, e, next) => {
-    if (e.tool === TOOL) return { result: lint(String((e as any).text ?? '')).replace(/\n+$/, '') || 'clean' }
+    // A draft may come inside its fence, and lint() drops every closed fence.
+    if (e.tool === TOOL) return { result: lint(drafts(String((e as any).text ?? ''), { unwrap: true })).replace(/\n+$/, '') || 'clean' }
     if (!/^(Bash$|PowerShell$|mcp__)/.test(e.tool)) return next(e)
     const { tool, tool_use_id, agentId, ...tool_input } = e as any
     const verdict = await gate($, async () => {
