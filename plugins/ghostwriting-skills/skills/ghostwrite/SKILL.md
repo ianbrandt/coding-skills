@@ -13,8 +13,8 @@ description: >-
 
 # Ghostwrite—draft in the user's voice
 
-This skill is the method; the voice is the user's own data (§0). The user signs the text, so the
-user reads it first: **drafting is yours, posting is theirs.**
+This skill has the method, and the voice comes from the user's data (§0). The user signs the text,
+so the user reads it first: **you draft, and only the user posts.**
 
 ## 0. Locate the voice data—and detect the mode
 **If a `## Voice data, loaded by the plugin` section follows this skill's text, the plugin's hooks
@@ -45,19 +45,18 @@ instead. Check which of those loaded in this session, and follow a pointer rathe
 file; `voice-spec.md` is the positive spec, read on demand. Both are maintained here (§4, §5). With
 no always-on file at all, the prohibitions go in the spec too.
 
-**The spec holds no copy of what the always-on file covers.** This skill augments that file rather
-than standing apart from it, so a rule general enough to bind every surface is routed there and
-deleted from the spec, not kept in both. What stays in the spec is the user's own register and
-their per-genre form. A duplicated rule drifts: the two copies get edited apart, and the weaker
-one is the one read at drafting time.
+**The spec holds no copy of what the always-on file covers.** This skill adds to that file, so a
+rule general enough to bind every surface is routed there and deleted from the spec, not kept in
+both. What stays in the spec is the user's own register and their per-genre form. The two copies of
+a duplicated rule get edited apart, and the weaker one is the one read at drafting time.
 
 ## 1. Read the spec before drafting
 Read `voice-spec.md` end to end, delta log included, and read two or three corpus samples matching
 the genre—as models to imitate, not background. Read each file whole, the rules file below
 included: no `head`, no line limit. A cut-off read drops the end of the file, which is where the
 delta log and the latest rules are.
-A summary carried in context is not the spec; re-read it per session. No corpus, or no sample for
-the genre ⇒ draft on the spec alone and record the gap in §4.
+Re-read the spec per session, even with a summary of it in context. No corpus, or no sample for the
+genre ⇒ draft on the spec alone and record the gap in §4.
 
 **Re-read the always-on rules file §0 names in the same pass**, even though it loaded at session
 start: by drafting time that copy sits far back in the context, where it is weakly attended, and
@@ -65,14 +64,14 @@ most rule breaks happen deep in long sessions. Reading it again immediately befo
 the prohibitions where they bind.
 
 This also governs **reviewing** a draft—carried over from an earlier session, written by another
-agent, or by you hours ago. Calling a draft ready is drafting.
+agent, or by you hours ago. Before calling a draft ready, do the same reads.
 
 ## 2. Draft to the spec
 Write to the spec's entry for the genre—its form and size. No entry ⇒ use the nearest neighbor
-and record the gap in §4. **Caps are caps, not targets**: exceed one only when the content forces it,
-never for thoroughness. A fact the user gave always forces it: never drop a given fact to fit a cap.
-Keep the fact, and use the hand-over line (§3) to say which part runs over. Everything else about the
-draft comes from the spec, not your defaults.
+and record the gap in §4. **Treat a cap as a maximum, and do not write up to it**: exceed one only
+when the content forces it, never for thoroughness. A fact the user gave always forces it: never
+drop a given fact to fit a cap. Keep the fact, and use the hand-over line (§3) to say which part
+runs over. Everything else about the draft comes from the spec, not your defaults.
 
 **Check the end of the body against the form, not only the opening.** When the genre's entry is
 opening prose and then exhibits, as an issue entry usually is, every line after the first exhibit is
@@ -81,8 +80,8 @@ a one-fact bullet or in the opening sentences, never in a closing sentence of pr
 
 **Imitate, then check.** Draft by matching the corpus samples and the spec's **Contrast pairs**,
 sentence rhythm included, and only then check the rule list for what imitation missed. Text written
-to match the user's own sentences lands the register more reliably than text written from
-prohibitions; a draft written from the rule list alone drifts back to the default register.
+to match the user's sentences lands the register more reliably than text written from prohibitions;
+a draft written from the rule list alone drifts back to the default register.
 
 ## 3. Self-review, lint, rewrite, then hand it over
 Check the draft against the spec rule by rule and fix what you broke **before** the user sees it; a
@@ -137,8 +136,8 @@ Then hand it over: the body exactly as asked, and nothing else. At most one line
 only to say that a check did not run or that you rejected the rewrite and why, to ask a question
 that must be settled before posting, or to say which part runs over a cap (§2). That line follows
 the spec's prohibitions too. No rewrite notes, no draft history, no delta-log entries: those wait
-for §4. Then wait for an explicit go. A question about scope or wording is the review happening,
-not its conclusion.
+for §4. Then wait for an explicit go. A question about scope or wording is part of the review, and
+is not the go.
 
 ## 4. Log the delta
 **When the user says a draft reads as AI-written, or asks whether this procedure ran, answer that
@@ -161,8 +160,8 @@ genre form or size ⇒ `voice-spec.md`. When that always-on file ships from a pl
 plugin change: make it in the repo the plugin is published from, not the installed cache, and bump
 the plugin's `version` in that repo's `.claude-plugin/marketplace.json` in the same commit, or the
 installed session keeps serving the old list. When
-an entry changes a standing rule, promote it into the spec's body—the log grows, the body stays
-stable.
+an entry changes a standing rule, promote it into the spec's body, so that every standing rule is
+read there.
 
 A failure that **recurs** gets a second promotion: into the spec's **Contrast pairs** section, as
 the drafted sentence and the user's rewrite, verbatim. The pairs are what §2 imitates. The tendency
@@ -188,7 +187,7 @@ guessing. One-time setup; afterwards proceed from §1.
 5. **Route the always-on rules** the samples imply: the step-3 prohibitions belong in the always-on
    file §0 names, which already includes the typography and banned-vocabulary rules when it is the
    `writing-conventions` file—add only what it lacks. With no always-on file, they go in the spec's
-   own prohibitions section. Show any edit and ask before making it, and where the file ships from a
+   prohibitions section. Show any edit and ask before making it, and where the file ships from a
    plugin, bump its `version` in that repo's `.claude-plugin/marketplace.json` in the same commit.
 6. **Say what you could not derive.** A genre with no sample gets no entry—don't invent one.
 

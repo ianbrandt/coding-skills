@@ -13,8 +13,8 @@ description: >-
 # Share a ghostwriting spec—anonymized export
 
 The export is a **seed**: house style another writer bootstraps from, not a copy of the user's
-voice. The user reviews it before it leaves their machine: **building the export is yours, sharing
-it is theirs.**
+voice. The user reviews it before it leaves their machine: **you build the export, and only the user
+shares it.**
 
 ## 0. Locate the spec
 The plugin's `voice_dir` option is substituted into the first line below (empty when the user set
@@ -28,18 +28,19 @@ No spec ⇒ stop and say so; bootstrap first (ghostwrite §5).
 
 ## 1. Select what ships
 Start from `voice-spec.md` and keep every body section except the delta log: **Voice**, the
-per-genre form, **Procedure**, and any further house-style sections the spec has grown (posting
-mechanics for a platform, register with a particular kind of collaborator). Match that section by
-what it holds—one entry per genre, giving what goes in, in what order, and what never appears—not
-by its title. `ghostwrite` §5 names it **Per-genre form**, and a spec written before that
-convention may title it something else, **Per-genre caps** among them.
+per-genre form, **Procedure**, and any further house-style sections that were added to the spec
+(posting mechanics for a platform, register with a particular kind of collaborator). Match that
+section by what it holds—one entry per genre, giving what goes in, in what order, and what never
+appears—not by its title. In `ghostwrite` §5 it is **Per-genre form**, and a spec written before
+that convention may title it something else, **Per-genre caps** among them.
 
 - **The delta log and the corpus never ship.** Replace the log with an empty one. Sweep the
   dropped log for any rule not yet promoted into the body; carry the rule text over, never an
   entry's exhibits.
-- **Caps are house style; voice is personal.** Keep the caps and any other house-style section
-  as-is. Mark the Voice section as a placeholder the recipient refits from their own samples
-  during bootstrap—a recipient who keeps it would be writing as the exporter, not as themselves.
+- **Keep the house style, and mark the voice for refitting.** Keep the caps and any other
+  house-style section as-is. Mark the Voice section as a placeholder the recipient refits from their
+  own samples during bootstrap—a recipient who keeps it would be writing as the exporter, not as
+  themselves.
 
 ## 2. Scrub the remainder
 Check every line that ships against this list, and rewrite or drop what matches:
@@ -58,11 +59,12 @@ this deliberately overrides the general rule that text awaiting approval goes in
 
 - The seed file sits beside the spec and is a build output. If `$VOICE` is versioned, say so once
   and suggest ignoring `voice-spec-seed.md`.
-- Do not write, upload, or send the export anywhere else. Scrubbing is a first pass; the user's
-  read of that file is the anonymization boundary, and sharing it is their move, not yours.
+- Do not write, upload, or send the export anywhere else. Scrubbing is a first pass; the user's read
+  of that file is the last anonymization check, and only the user shares it.
 - Say in one line what the scrub dropped and any judgment call worth their attention.
 
 ## 4. Seeding a recipient
-The recipient runs the ghostwrite bootstrap (§5) with the export as the seed spec: the caps carry
-over, the Voice placeholder is refit from their samples, and their delta log starts empty and
-diverges from there. One seed can serve a whole team; each writer's spec stays their own.
+The recipient runs the ghostwrite bootstrap (§5) with the export as the seed spec: the caps are
+kept, the Voice placeholder is refit from their samples, and their delta log starts empty and
+diverges from there. One seed can serve a whole team, and each writer still ends up with a spec of
+their own.
