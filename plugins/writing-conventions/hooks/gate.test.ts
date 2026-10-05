@@ -1,5 +1,5 @@
 // claude plugin test: the gate against a stand-in for the model and the file
-// system, so what is tested is the plumbing: which events reach a model call,
+// system, so what is tested is the plumbing: which events lead to a model call,
 // which replies block, and that a call which fails lets the event through.
 import { expect, mock, test } from 'claude-code/testing'
 
@@ -8,7 +8,7 @@ const FINDING = 'VIOLATION\n"The report says so." -> It is shown in the report.'
 const CONFIG = '/cfg/writing-conventions'
 
 type World = {
-  // The reader's reply, the classifiers' replies, and whether the call fails.
+  // The review model's reply, the classifiers' replies, and whether the call fails.
   verdict?: string
   commands?: string
   tool?: string
@@ -64,7 +64,7 @@ const bash = ($: any, command: string) => $.tool.call({ tool: 'Bash', command, t
 const cacheOf = (seen: { files: Record<string, string> }, name: string) =>
   Object.entries(seen.files).filter(([p]) => p.startsWith(`${CONFIG}/${name}-`)).map(([, text]) => text).join('')
 
-test('the four publishing families reach the reader, git -C included', async ($: any, on: any) => {
+test('commands in the four publishing families are reviewed, git -C included', async ($: any, on: any) => {
   const seen = world(on, { verdict: 'PASS' })
   for (const c of ['git commit -m "Plain message"', 'git -C /tmp/wt commit -m "Plain message"', 'gh pr create --title x --body y', 'gh issue comment 1 --body y', 'gh release create v1 --notes y']) {
     expect((await bash($, c)).result).toEqual({ stdout: 'ran' })
@@ -135,7 +135,7 @@ test('a cold key costs one classifier call, and its answer is kept', async ($: a
   expect(seen.ran).toBe(2)
 })
 
-test('a publishing command no name was written for reaches the reader', async ($: any, on: any) => {
+test('a publishing command no name was written for is reviewed', async ($: any, on: any) => {
   const seen = world(on, { commands: 'hg\tDESCEND\nhg commit\tCAN_PUBLISH', verdict: 'VIOLATION\n"The report says so." -> x' })
   const ran = await bash($, 'hg commit -m "The report says so."')
   expect(ran.deny).toBeDefined()
@@ -146,7 +146,7 @@ test('a publishing command no name was written for reaches the reader', async ($
   expect(seen.commands[1]).toBe('hg status\n\nhg status')
 })
 
-test('a classifier reply in any other form is doubt: the reader runs and nothing is kept', async ($: any, on: any) => {
+test('a classifier reply in any other form is doubt: the command is reviewed and nothing is kept', async ($: any, on: any) => {
   const seen = world(on, { commands: 'I think ls is fine', verdict: 'PASS' })
   await bash($, 'ls -la')
   expect(seen.reader).toHaveLength(1)
@@ -230,7 +230,7 @@ test('only the string values of an MCP input are reviewed, each on its own', asy
   expect((await notion($, { nodes: [{ text: 'The report' }, { text: 'says so.' }] })).deny).toBeDefined()
 })
 
-test('a tool classified NEVER makes no reader call, then or later', async ($: any, on: any) => {
+test('a call to a tool classified NEVER is not reviewed, then or later', async ($: any, on: any) => {
   const never = world(on, { tool: 'NEVER', verdict: FINDING })
   await notion($, { text: 'The report says so.' })
   await notion($, { text: 'The report says so.' })
@@ -258,7 +258,7 @@ test('a cache saved with CRLF line ends is read the same', async ($: any, on: an
   expect(seen.reader).toHaveLength(1)
 })
 
-test('a tool classifier reply in any other form is doubt: the reader runs and nothing is kept', async ($: any, on: any) => {
+test('a tool classifier reply in any other form is doubt: the call is reviewed and nothing is kept', async ($: any, on: any) => {
   const doubt = world(on, { tool: 'It might publish.', verdict: 'PASS' })
   await notion($, { text: 'x' })
   expect(doubt.reader).toHaveLength(1)
@@ -364,7 +364,7 @@ test('the count of one turn\'s blocks outlasts a Stop of another turn', async ($
 
 const DRAFT = '~draft\nThe report says so.\n~'
 
-test('nothing is blocked without a prompt_id, or with the reader down', async ($: any, on: any) => {
+test('nothing is blocked without a prompt_id, or with no review model', async ($: any, on: any) => {
   const w: World = { verdict: FINDING }
   const seen = world(on, w)
   expect((await $.classic.Stop(reply(undefined, DRAFT))).block).toBeUndefined()
@@ -374,7 +374,7 @@ test('nothing is blocked without a prompt_id, or with the reader down', async ($
   expect(seen.toasts.join()).toContain('model review is off')
 })
 
-test('the off switch for the draft reader makes no call', async ($: any, on: any) => {
+test('the off switch for the draft check makes no call', async ($: any, on: any) => {
   const off = world(on, { verdict: FINDING, env: { WRITING_CONVENTIONS_STOP_READER: '0' } })
   expect((await $.classic.Stop(reply('p5', DRAFT))).block).toBeUndefined()
   expect(off.reader).toHaveLength(0)

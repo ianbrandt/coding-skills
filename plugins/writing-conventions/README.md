@@ -22,7 +22,7 @@ narration, sentence order, coinages, writing for a reader who has read nothing s
 message, saying a fact once, evidence, and erring short. Three standing rules follow: a
 rule broken in a draft is swept across the branch, the user's private circumstances stay out
 of public artifacts, and a draft for publication goes in a fenced block with the info string
-`draft`, which is what the `Stop` reader below looks for. It runs about 1,250 words, so it costs
+`draft`, which is what the `Stop` check below looks for. It runs about 1,250 words, so it costs
 roughly 1,650 tokens per session and per subagent, against about 1,600 words for the long form; the reasoning behind each rule, and its edge cases, sit in `write-for-the-reader` §8
 and load only when that skill does.
 
@@ -76,7 +76,7 @@ What the lint skips is left as written: a fenced block, inline code, and text in
 curly double quotes. A fence counts when it opens in a block quote or on a list item's first line,
 and a code span or a quote left open at the end of a line stays open until it closes or a blank
 line ends the paragraph. A `draft` fence is the exception, since its text is for publication, though a
-fence inside it is left alone. The other findings in a draft still need the reader, so the `Stop`
+fence inside it is left alone. The other findings in a draft still need the review model, so the `Stop`
 check is unchanged. Three more cases are left as written because the spaces are markdown: a dash with
 no letter, code span, or quote before it on its line, as after a list or heading marker, a dash
 alone in a table cell, and spaces between a dash and a line break.
@@ -134,7 +134,7 @@ serves.
 An alias is enough there because `$.model.complete` resolves one the way `--model` does, through
 `ANTHROPIC_DEFAULT_SONNET_MODEL` and the related variables, so the default holds on a first-party
 install and on a LiteLLM proxy in front of Bedrock or Vertex alike. That is the reason the check is not a prompt-type
-hook, where the `model` field resolves nothing: `"model": "sonnet"` there reaches the API verbatim, a proxy
+hook, where the `model` field resolves nothing: `"model": "sonnet"` there is sent to the API verbatim, a proxy
 answers HTTP 400 `Invalid model name passed in model=sonnet`, and Claude Code logs
 `unrecognized_model` with `query_source: hook_prompt`. Since that field is a free-form string checked
 at call time rather than at load time, the only symptom was a hook error on every commit, with the
@@ -162,12 +162,12 @@ ones included. One hook covers all four command families, because the command te
 matched in the module rather than through a hook `if` pattern. `git -C <path> commit` is gated that
 way too, and no `Bash(git commit *)` rule matches that form, which is the one a worktree session uses.
 [`hooks/gate.test.ts`](hooks/gate.test.ts) checks the plumbing under `claude plugin test`, against a
-stand-in for the model: which commands reach the model, which replies block a command, and the
+stand-in for the model: which commands are sent to the model, which replies block a command, and the
 fail-open path.
 
 ### Other shell commands
 
-Any other command goes to the reader when the classifier model answers that it can publish. That
+Any other command is reviewed when the classifier model answers that it can publish. That
 way `hg commit`, `svn commit`, `jj describe`, `glab mr create`, and a CLI nobody here has heard of
 are read like `git commit`, with no command name written in the plugin.
 `keys()` in [`hooks/keys.ts`](hooks/keys.ts) splits the command into
@@ -190,9 +190,9 @@ The answers are appended to
 directory for a task name or a program run by path. The file is yours to read and edit, and for one
 key a `CAN_PUBLISH` line wins over the other classes.
 
-The four command families above reach the reader whatever is in the file, so a wrong `NEVER` can
-lose new coverage but never theirs. A quote left open, or a word that cannot be read as a name in a
-subcommand position, such as `hg "$verb"`, sends the command to the reader. A `RUNS_CODE` command is
+The four command families above are reviewed whatever is in the file, so a wrong `NEVER` can
+lose new coverage but never theirs. A command is also reviewed when it has a quote left open, or a
+word that cannot be read as a name in a subcommand position, such as `hg "$verb"`. A `RUNS_CODE` command is
 read only when it contains a sentence: six or more words, the first capitalized and the last ending
 in `.`, `!`, or `?`. A `\n` or `\t` escape between words counts as a space, and a word may be quoted. Interpreters run in about 16% of commands on the machine this was measured on,
 and a short message posted through `curl` or a script is not read.
@@ -201,7 +201,7 @@ and a short message posted through `curl` or a script is not read.
 A command that only writes a local file is not blocked, just as a `Write` or `Edit` to a prose file
 is not (see "Prose files"). A session in a worktree edits a file that lives only in the primary
 checkout with a `python3` or `perl` script, because a worktree guard can refuse an `Edit` there. The
-reader answers `LOCAL` in place of `VIOLATION` when nothing in the command sends the text anywhere
+review model answers `LOCAL` in place of `VIOLATION` when nothing in the command sends the text anywhere
 else, and doubt is `VIOLATION`. The findings then come back as `additionalContext`, and the session
 fixes the file after the command runs. A `LOCAL` answer still blocks the four families and an MCP
 call. In a live run on Sonnet 5.5, two local-file scripts came back `LOCAL` 6 times out of 6. Four
@@ -211,7 +211,7 @@ were blocked 12 times out of 12.
 A body passed by file path is read by the gate, for the four families only: `git commit -F` or
 `--file`, and `-F`, `--body-file`, or `--notes-file` on `gh pr`, `gh issue`, and `gh release`. The
 flags that take a value are listed per command in `keys.ts`, from each command's
-`--help`, so that `git commit -m '-F' notes.txt` reads no file. The reader is sent each file after the
+`--help`, so that `git commit -m '-F' notes.txt` reads no file. The review model is sent each file after the
 hook input, under a `File: <path>` line, and a finding may quote it. A file is read only when the
 text on disk is the text the command will publish, as far as the gate can tell:
 
@@ -235,7 +235,7 @@ in a program called by path (`/usr/bin/git`), and nothing is reported for it. A 
 other command, such as `hg commit -l`, is not read.
 
 Replayed from an empty cache over 122,260 shell commands from one machine's history, 3.6% of
-commands made a classifier call and 9.5% reached the reader, against 4.1% for the four families
+commands made a classifier call and 9.5% were reviewed, against 4.1% for the four families
 alone. Of the rest, 1.8% were `python3` with a sentence in the code, 1.7% were programs run by path
 that the classifier did not know, 0.9% were `git merge`, `rebase`, `tag`, and `cherry-pick`, and
 0.5% were commands that could not be split into keys. Planted inanimate-agency sentences in `hg commit`,
@@ -260,10 +260,10 @@ is not read, since the hash changed. The file is yours to read and edit: for one
 over a `NEVER` line, and a malformed line is ignored. A `NEVER` tool costs no model call after the
 first. A wrong `NEVER` is a lasting gap on that machine until the line is edited.
 
-For a `CAN_PUBLISH` tool the whole `tool_input` goes to the reader, structure included, so text
+For a `CAN_PUBLISH` tool the whole `tool_input` is sent to the review model, structure included, so text
 split across short fields is read together. A finding has to quote the decoded string values of
 `tool_input`. In a rich-text body such as Atlassian Document Format one sentence can be split
-across text nodes, and the reader quotes it as its pieces, `"The report " + "says so."`; each piece
+across text nodes, and the review model quotes it as its pieces, `"The report " + "says so."`; each piece
 is looked for on its own and nothing is joined.
 
 ### Prose files
@@ -272,15 +272,15 @@ A `Write` or `Edit` to a `.md`, `.markdown`, `.txt`, `.adoc`, or `.rst` file get
 after the fact, from a `PostToolUse` hook. Nothing is
 blocked, because a file is cheap to fix and a blocked edit stops the turn: a verified finding comes
 back as `additionalContext`, and the session fixes the file in place. The advisory nudge on
-`Write|Edit` is unchanged and still fires for the same files, so a session in which the reader
+`Write|Edit` is unchanged and still fires for the same files, so a session in which the review model
 cannot run keeps it. A source file gets the nudge only.
 
-The reader has no tools, so the gate reads, and only the file the tool just wrote. For a
+The review model has no tools, so the gate reads, and only the file the tool just wrote. For a
 `Write` the text under review is `content`. For an `Edit` it is the whole paragraphs, bounded by
 blank lines, that hold `new_string` in the edited file
 (`excerpt()` in [`hooks/text.ts`](hooks/text.ts)): replacing "includes" with "says" in "The report includes
 the version." makes a violation that the one word does not show. The size of the excerpt follows
-the edit and not the file, so a release note added to a large changelog is read. The reader is sent
+the edit and not the file, so a release note added to a large changelog is read. The review model is sent
 that text and the file path, not the hook input.
 
 What is not read is stated in the same feedback: text past the first 50,000 characters, an `Edit`
@@ -289,16 +289,16 @@ is read. A draft written to a file with a shell redirect is not read at all.
 
 ### Chat drafts
 
-A draft the session hands its user to paste somewhere else never reaches a shell command or an MCP
-tool. A draft for publication goes in its own fenced block with the info string `draft`; that rule
-is loaded into every session. On `Stop`, the text inside each `draft` fence goes to the reader, and
-nothing else in the reply does. A turn with no such fence costs one scan and no model call.
+A draft the session hands its user to paste somewhere else is never in a shell command or an MCP
+tool call. A draft for publication goes in its own fenced block with the info string `draft`; that rule
+is loaded into every session. On `Stop`, the text inside each `draft` fence is sent to the review model, and
+nothing else in the reply is. A turn with no such fence costs one scan and no model call.
 
 A verified finding blocks the stop. That continues the turn, so the session emits a corrected
 draft. Claude Code has no hook that runs before a reply is displayed, so review happens afterward. A
 blocked reply is re-emitted whole. The blocking is counted per turn, by the turn's `prompt_id`, and
 it stops after two; the third time, the user is told that review is unresolved, and the reply
-stands. `WRITING_CONVENTIONS_STOP_READER=0` turns the reader off.
+stands. `WRITING_CONVENTIONS_STOP_READER=0` turns this check off.
 
 Tagging keeps this cheap, and the rate was measured before any of it was built and again with the
 rule text that ships, at n = 12 per arm with `claude -p --model sonnet` and the draft named only as
@@ -314,7 +314,7 @@ miss, and 0 of 12 ordinary replies used the tag while all 12 had another fence. 
 reply lint is all that sees it.
 
 The lint drops every closed fenced block before matching, so the `draft` fences are unwrapped
-first (`drafts()` in [`hooks/text.ts`](hooks/text.ts), the same scanner the reader uses), and the
+first (`drafts()` in [`hooks/text.ts`](hooks/text.ts), the same scanner the `Stop` check uses), and the
 whole reply still gets the one pass it always got. A code fence
 inside a draft is still a fence and is still dropped, which is why a draft that includes one goes
 in a longer fence.
@@ -357,7 +357,7 @@ the difference. Every run costs a fraction of a dollar in judge and agent calls,
 for a change to the rules file or the hooks, not for every commit. Results land under
 `evals/results/`, which is ignored.
 
-The Stop reader is on during a run, so a plugin-loaded draft is scored after any rewrite. Each
+The `Stop` check is on during a run, so a plugin-loaded draft is scored after any rewrite. Each
 rewrite takes a turn, which is why `max_turns` is 8 in every case.
 
 Before the prompts were seeded and the judge changed, the plugin raised the mean case score by

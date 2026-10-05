@@ -139,7 +139,7 @@ test('clean text makes no note', () => {
 })
 
 // The draft fence comes off before the lint, as the Stop hook takes it off, so
-// the draft is still read when the model reader cannot run. Every other fence
+// the draft is still read when the review model cannot run. Every other fence
 // is dropped, a code fence inside a draft included.
 test('a draft is linted as prose once its fence lines are off', () => {
   const note = (reply: string) => lint(drafts(reply, { unwrap: true }), { note: true })

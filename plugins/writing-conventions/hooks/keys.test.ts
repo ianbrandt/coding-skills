@@ -45,7 +45,7 @@ bash	setsid hg commit -m x	1:hg | 1:hg commit | 1:hg commit x | 1:+hg commit | 1
 # Paths as the first word are keys as written.
 bash	./gradlew build --info	1:./gradlew | 1:./gradlew build | 1:+./gradlew build
 bash	"$WT"/gradlew check	1:$WT/gradlew | 1:$WT/gradlew check | 1:+$WT/gradlew check
-# A quoted or odd first word goes to the reader.
+# A command with a quoted or odd first word is reviewed.
 bash	"my tool" run	1:READ
 bash	a,b c	1:READ
 bash	[ -f x ] && echo y	1:[ | 1:[ x | 1:+[ x | 2:echo | 2:echo y | 2:+echo y
@@ -82,7 +82,7 @@ bash	git diff $(git merge-base a b) HEAD	1:git | 1:git diff | 1:git diff ? | 1:+
 bash	diff <(gh pr view 1) x	1:diff | 1:diff ? | 1:+diff ? | 1:+diff x | 2:gh | 2:gh pr | 2:gh pr view | 2:+gh pr | 2:+gh view | 2:+gh pr view
 bash	tee >(hg commit -m x) < f	1:tee | 1:tee ? | 1:+tee ? | 2:hg | 2:hg commit | 2:hg commit x | 2:+hg commit | 2:+hg x | 2:+hg commit x
 bash	echo $(( $(wc -l < f) + 1 )) done	1:echo | 1:echo ? | 1:+echo ? | 1:+echo done | 2:wc
-# Quotes nested inside a substitution inside quotes are misread, toward the reader.
+# Quotes nested inside a substitution inside quotes are misread, toward a review.
 bash	echo "$(git commit -m "a; b")"	1:echo | 2:READ | 3:git | 3:git commit | 3:git commit ? | 3:+git commit
 # Heredocs: the body is dropped in both passes.
 bash	cat <<'EOF'\nhg commit -m "it's"\nEOF	1:cat
@@ -253,7 +253,7 @@ test('a key with no answer is asked about, and a NEVER settles the command', () 
   expect(verdict('', [])).toEqual(['SAFE'])
 })
 
-test('a publishing command reaches the reader, and below a DESCEND only the subcommand is asked about', () => {
+test('a publishing command is reviewed, and below a DESCEND only the subcommand is asked about', () => {
   expect(verdict('hg commit -m "Fix it"', [])).toEqual(['ASK', 'ASK\t*\thg', 'ASK\t*\thg commit', 'ASK\t/proj/a\thg commit'])
   expect(verdict('hg commit -m "Fix it"', HG)).toEqual(['READER'])
   expect(verdict('hg log', HG)).toEqual(['ASK', 'ASK\t*\thg log'])
@@ -261,7 +261,7 @@ test('a publishing command reaches the reader, and below a DESCEND only the subc
   expect(verdict('make', ['*\tDESCEND\tmake'])).toEqual(['SAFE'])
 })
 
-test('a key with no answer on the final walk reaches the reader', () => {
+test('a command with an unanswered key is reviewed on the final walk', () => {
   expect(verdict('jj describe -m x', [])).toEqual(['ASK', 'ASK\t*\tjj', 'ASK\t*\tjj describe', 'ASK\t*\tjj describe x', 'ASK\t/proj/a\tjj describe', 'ASK\t/proj/a\tjj x', 'ASK\t/proj/a\tjj describe x'])
   expect(verdict('jj describe -m x', [], '/proj/a', true)).toEqual(['READER'])
 })
@@ -282,18 +282,18 @@ test('a task runner of two words has its task names asked about, in the project'
   expect(verdict('npm run build', [...NPM, '/proj/a\tNEVER\tnpm run build'])).toEqual(['SAFE'])
 })
 
-test('a word that cannot be read as a name reaches the reader below DESCEND or PROJECT, and changes nothing below NEVER', () => {
+test('a command is reviewed for a word that cannot be read as a name below DESCEND or PROJECT, and not below NEVER', () => {
   expect(verdict('hg "$verb" -m x', HG)).toEqual(['READER'])
   expect(verdict('make check "$task"', MAKE)).toEqual(['READER'])
   expect(verdict('ls "$dir"', ['*\tNEVER\tls'])).toEqual(['SAFE'])
 })
 
-test('a RUNS_CODE command reaches the reader only with a sentence in it', () => {
+test('a RUNS_CODE command is reviewed only with a sentence in it', () => {
   expect(verdict("python3 -c 'print(1)'", ['*\tRUNS_CODE\tpython3'])).toEqual(['SAFE'])
   expect(verdict("python3 -c 'print(\"The report says so and more.\")'", ['*\tRUNS_CODE\tpython3'])).toEqual(['READER'])
 })
 
-test('a substitution in an expanding heredoc body, and a quoted first word, reach the reader with no lookup', () => {
+test('a command with a substitution in an expanding heredoc body, or a quoted first word, is reviewed with no lookup', () => {
   expect(verdict("cat <<EOF\n'$(hg commit -m x)'\nEOF", ['*\tNEVER\tcat', '*\tNEVER\thg'])).toEqual(['READER'])
   expect(verdict('"my tool" run', [])).toEqual(['READER'])
 })
@@ -310,7 +310,7 @@ test('a path as the first word is looked up in the project', () => {
   expect(verdict('./run x', ['/proj/a\tNEVER\t./run'])).toEqual(['SAFE'])
 })
 
-test('a DESCEND at depth 3 reaches the reader', () => {
+test('a command with a DESCEND at depth 3 is reviewed', () => {
   const GH = ['*\tDESCEND\tgh', '*\tDESCEND\tgh pr']
   expect(verdict('gh pr create', [...GH, '*\tDESCEND\tgh pr create'])).toEqual(['READER'])
   expect(verdict('gh pr list', [...GH, '*\tNEVER\tgh pr list'])).toEqual(['SAFE'])

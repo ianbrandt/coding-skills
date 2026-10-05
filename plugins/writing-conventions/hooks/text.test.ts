@@ -121,7 +121,7 @@ test('the fragments of one finding can be in different sources', () => {
 
 // Two draft fences are two sources: one quote cannot span both, and a
 // two-fragment finding that quotes each of them can.
-test('no quote reaches across two drafts', () => {
+test('no quote is matched across two drafts', () => {
   const two = [drafts(`${F}draft\nThe report \n${F}\n\nAnd the second:\n\n${F}draft\nsays so.\n${F}`)]
   expect(findings('VIOLATION\n"The report says so." -> x\n', two)).toBe('')
   expect(findings('VIOLATION\n"The report" + "says so." -> x\n', two)).toBe('"The report" + "says so." -> x\n')
@@ -152,7 +152,7 @@ test('a verdict in any other form has no findings', () => {
   ]) expect([verdict, findings(`${verdict}\n`, [SAYS])]).toEqual([verdict, ''])
 })
 
-// The reader can be shown text that was never sent for review, so a quote from
+// The review model can be shown text that was never sent for review, so a quote from
 // outside the draft, or from a paragraph outside the excerpt, verifies nothing.
 test('a finding is checked against the draft or the excerpt, and nothing outside it', () => {
   expect(findings('VIOLATION\n"The report says so." -> x\n', [drafts(`The report says so.\n\n${F}draft\nPlain text.\n${F}`)])).toBe('')

@@ -150,7 +150,7 @@ function lower(s: string): string {
 }
 
 // One line at a time: a newline always ends a sentence, and none of the
-// reductions in prose() reach across one.
+// reductions in prose() spans one.
 export function lint(text: string, options?: { note?: boolean }): string {
   const r: Run = { note: !!options?.note, fence: '', held: [], total: 0, count: {}, example: {}, out: '' }
   for (const line of records(text)) fenced(r, line)

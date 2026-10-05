@@ -1,7 +1,7 @@
 // Publication gate: check the human-facing text in a git commit, a gh command, a
 // call to an MCP tool that can publish, a prose file just written, or a draft the
-// reply puts in a `draft` fence, against the four prohibitions, before it reaches
-// a reader.
+// reply puts in a `draft` fence, against the four prohibitions, before a reader
+// sees it.
 //
 // The check is one `$.model.complete` call with gate-prompt.md as the system
 // prompt, rules.md appended to it so that the rules are written down once, and
@@ -49,7 +49,7 @@ type Verdict = { block?: string; context?: string }
 const CAP = 50000
 const ADVICE = 'Each rewrite after -> is only a suggestion; where one reads stiffly, write the sentence the way a person would say it.'
 
-// Four command families always reach the reader, whatever is cached, so a wrong
+// Commands in four families are always reviewed, whatever is cached, so a wrong
 // NEVER from the classifier can never lose them. Matching the command text
 // covers `git -C <path> commit`, which no `Bash(git commit *)` rule matches.
 const FAMILIES = /git commit|git -C[\s\S]*commit|gh pr |gh issue |gh release /
@@ -119,14 +119,14 @@ function keep($: any, path: string, answers: string[]): Promise<void> {
 }
 
 // publishes($, cmd, mode, proj): whether a command outside the four families
-// goes to the reader. keys() splits it into keys, and walk() looks them up in
+// is reviewed. keys() splits it into keys, and walk() looks them up in
 // the cache, one line per answer, <scope><TAB><class><TAB><key>, where a key
 // below a task runner or under a path is kept per project. One call answers
 // every key the cache has no line for, and a key it leaves out, or answers in
 // any other form, is doubt: it reads as CAN_PUBLISH and is not kept.
 async function publishes($: any, cmd: string, mode: 'bash' | 'pwsh', proj: string): Promise<boolean> {
   // walk() reads no keys as a safe command, so a command that could not be
-  // split goes to the reader.
+  // split is reviewed.
   let keyLines: string[]
   try {
     keyLines = keys(cmd, mode)
@@ -158,8 +158,8 @@ type Bodies = { read: { name: string; text: string }[]; unread: string[] }
 
 // bodies($, cmd, mode, base, proj): the files the command passes a commit, PR,
 // issue, or release body in, and a line for each one that is not read.
-// bodyFiles() finds the files, from the flags written down there, and the reader
-// never chooses one. A file is read only when the text on disk is the text the
+// bodyFiles() finds the files, from the flags written down there, and the review
+// model never chooses one. A file is read only when the text on disk is the text the
 // command will publish, as far as can be told: a literal path that is in no
 // other word of the command, since a command that writes the file first
 // publishes other text; relative to the directory the command starts in, with
@@ -206,8 +206,8 @@ async function bodies($: any, cmd: string, mode: 'bash' | 'pwsh', base: string, 
   return out
 }
 
-// read($, prompt, sources): the reader's verdict on `prompt`, and the findings
-// in it that quote one of `sources`. The reader can see text quoted from an
+// read($, prompt, sources): the review model's verdict on `prompt`, and the
+// findings in it that quote one of `sources`. The model can see text quoted from an
 // untrusted source, so no finding is acted on until its quote is found in the
 // text the gate chose to review.
 async function read($: any, prompt: string, sources: string[]): Promise<{ found: string; local: boolean }> {
@@ -218,7 +218,7 @@ async function read($: any, prompt: string, sources: string[]): Promise<{ found:
 
 const join = (...parts: string[]) => parts.filter(p => p !== '').join('\n')
 
-// A shell command, checked before it runs. `input` is what the reader is sent.
+// A shell command, checked before it runs. `input` is what the review model is sent.
 async function shell($: any, input: any): Promise<Verdict> {
   const cmd = String(input.tool_input.command ?? '')
   const mode = input.tool_name === 'PowerShell' ? 'pwsh' : 'bash'
@@ -234,7 +234,7 @@ async function shell($: any, input: any): Promise<Verdict> {
   const { found, local } = await read($, prompt, [cmd, ...files.map(f => f.text)])
   const notRead = unread.join('\n')
   if (found === '') return notRead ? { context: notRead } : {}
-  // The reader answers LOCAL when the text only goes into a file on this
+  // The review model answers LOCAL when the text only goes into a file on this
   // machine, such as a script that rewrites a local file. That is the file
   // check's case, so the findings come back and nothing is blocked. The four
   // families always block.
@@ -266,15 +266,15 @@ async function mcp($: any, input: any): Promise<Verdict> {
     else cls = 'CAN_PUBLISH'
   }
   if (cls !== 'CAN_PUBLISH') return {}
-  // The reader is sent the whole input, structure included, and a finding has
-  // to quote one of the string values in tool_input. Each value is a source of
+  // The review model is sent the whole input, structure included, and a finding
+  // has to quote one of the string values in tool_input. Each value is a source of
   // its own, so no quote can match across two of them.
   const { found } = await read($, JSON.stringify(input), strings(input.tool_input))
   return found === '' ? {} : { block: join(found, `Rewrite the quoted text and make the call again. ${ADVICE}`) }
 }
 
 // A prose file just written. Only the file the tool wrote is read, and the
-// reader is sent the text under review, not the hook input, which for a Write
+// review model is sent the text under review, not the hook input, which for a Write
 // holds the whole file. A file is cheap to fix after the fact and a blocked edit
 // stops the turn, so the findings come back as context and nothing is blocked.
 async function file($: any, e: any): Promise<Verdict> {
@@ -301,8 +301,8 @@ async function file($: any, e: any): Promise<Verdict> {
 }
 
 // The blocks of each turn's replies, by prompt_id. A blocked Stop costs a whole
-// re-emitted reply, so a reader that keeps finding something in each rewrite is
-// stopped after two.
+// re-emitted reply, so blocking stops after two when something is found in
+// each rewrite.
 const blocked = new Map<string, number>()
 
 // A reply the session has tagged as a draft for publication. Only the text
@@ -312,14 +312,14 @@ const blocked = new Map<string, number>()
 async function stop($: any, e: any): Promise<Verdict> {
   if ((await $.env.get('WRITING_CONVENTIONS_STOP_READER')) === '0') return {}
   // Each draft ends on a line holding only \x01, and the cap comes off before
-  // the reader is sent them, so a quote from past it is never verified.
+  // the review model is sent them, so a quote from past it is never verified.
   const text = drafts(String(e.last_assistant_message ?? '')).slice(0, CAP)
   // Blocking is counted per turn, by the prompt_id, which is the same on every
   // Stop of one turn. Without one nothing can be counted, so nothing is blocked
   // and no call is made.
   const turn = String(e.prompt_id ?? '')
   if (text === '' || turn === '') return {}
-  // The reader is sent the drafts and nothing else. Each one stays a source of
+  // The review model is sent the drafts and nothing else. Each one stays a source of
   // its own, so no finding can quote across two of them.
   const { found } = await read($, text.replace(/\x01/g, '\n'), text.split('\x01'))
   if (found === '') return {}
@@ -397,7 +397,7 @@ export const register: Register = on => {
   // The final reply is linted and the note saved. lint() drops every closed
   // fence, so the fence lines of a draft block come off first and its text stays
   // in place: a draft is prose, and this is the one check left on it when the
-  // model reader cannot run. Then the gate reads the drafts, and a finding
+  // review model cannot run. Then the gate reads the drafts, and a finding
   // blocks the stop.
   on('classic.Stop', async ($, e: any, next: any) => {
     const text = String(e.last_assistant_message ?? '')

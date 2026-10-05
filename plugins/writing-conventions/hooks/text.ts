@@ -125,14 +125,14 @@ export function excerpt(newText: string, fileText: string, cap: number): string 
   return out
 }
 
-// findings(verdict, sources): the findings in a reader's verdict that quote the
+// findings(verdict, sources): the findings in a review model's verdict that quote the
 // text under review, which is `sources`. The first line of a verdict is SKIP,
 // PASS, VIOLATION, or LOCAL, and only the last two have findings. LOCAL is
 // VIOLATION for text that only goes into a local file, and what it changes is
 // in gate.ts. A finding is one line:
 //   "fragment" + "fragment" -> rewrite
 // It is verified when every fragment, with runs of whitespace collapsed, is in
-// one of the sources; the fragments need not share a source. The reader can see
+// one of the sources; the fragments need not share a source. The model can see
 // text quoted from an untrusted source, so no finding is acted on until its
 // quote is found in the text the gate chose to review. Anything else returns
 // nothing: a verdict line with a second word, a finding that does not parse, a

@@ -12,8 +12,8 @@
 //   +make check     a task name under "make", read only when "make" is a PROJECT
 //   +make ?         a task word under "make" that cannot be read as a name
 //   +make !         more than 8 task names under "make"
-//   READ            the segment, or the whole command as segment 1, goes to the
-//                   reader with no lookup
+//   READ            the segment, or the whole command as segment 1, is reviewed
+//                   with no lookup
 // A segment with no command in it has no lines. One more line, 0<TAB>PROSE,
 // comes first when there is a sentence in the command: a capitalized word, at
 // least four more words, and a last word ending in ".", "!", or "?". Words are
@@ -254,8 +254,8 @@ function extract(src: string, mode: Mode, files: boolean): string[] {
               // The awk script counted bytes, so its "_" stood for the first byte of a
               // character outside ASCII and the other bytes stayed in pass 2,
               // where a word with one in it does not read as a name. Each of
-              // those bytes is U+FFFD here, so that such a word still goes to
-              // the reader.
+              // those bytes is U+FFFD here, so that a command with such a word
+              // is still reviewed.
               const cp = s.codePointAt(j + 1) ?? 0
               const wide = cp > 0xffff ? 1 : 0
               content += run + (e === '\n' ? '' : s.slice(j + 1, j + 2 + wide))
@@ -621,8 +621,8 @@ export function bodyFiles(src: string, mode: Mode): string[] {
   return extract(src, mode, true)
 }
 
-// walk(keyLines, cacheLines, scope, final): whether a shell command goes to the
-// reader, from the classifier cache. keyLines is what keys() returned, and scope
+// walk(keyLines, cacheLines, scope, final): whether a shell command is
+// reviewed, from the classifier cache. keyLines is what keys() returned, and scope
 // is the project directory. Each cache line is <scope><TAB><class><TAB><key>,
 // where the scope is "*" for a key shared by every project or a project
 // directory. For one key in one scope, CAN_PUBLISH wins over RUNS_CODE, PROJECT,
@@ -633,12 +633,12 @@ export function bodyFiles(src: string, mode: Mode): string[] {
 // no answer for, ASK<TAB><scope><TAB><key>. With `final` a key with no answer
 // reads as CAN_PUBLISH, so the result is READER or SAFE.
 //
-// A segment is walked from its first word. NEVER settles it; CAN_PUBLISH sends
-// the command to the reader; RUNS_CODE does only when keys() found a sentence.
+// A segment is walked from its first word. NEVER settles it; on CAN_PUBLISH
+// the command is reviewed; on RUNS_CODE only when keys() found a sentence.
 // DESCEND goes down to every subcommand candidate: none is safe, a "?" among
-// them or a DESCEND at depth 3 is the reader. PROJECT reads every task name
+// them or a DESCEND at depth 3 is READER. PROJECT reads every task name
 // below it, in the project's scope: none, a "?", a "!", or any task that is not
-// NEVER sends the command to the reader, so one safe task does not settle
+// NEVER is READER, so one safe task does not settle
 // `make check publish`. A path as the first word, and every key below it, is in
 // the project's scope as well.
 const CNAME = ['', 'NEVER', 'DESCEND', 'PROJECT', 'RUNS_CODE', 'CAN_PUBLISH']
