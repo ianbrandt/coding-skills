@@ -11,6 +11,12 @@ hand-written samples. The directory is asked for when the plugin is enabled (the
 option); left empty, the skills use `$GHOSTWRITING_DIR`, then `~/.claude/ghostwriting/`. The
 directory can be a symlink into a private repo.
 
+[`hooks/voice.ts`](hooks/voice.ts) appends that data to the `ghostwrite` skill's text as the skill
+loads, through a `skill.prompt` hook: the spec, every corpus sample up to 64,000 characters in all,
+and the `writing-conventions` rules file when that plugin is installed. Past that size the samples
+are listed by name for the model to read by genre. With no hooks module running, the model reads
+the files itself. [`hooks/voice.test.ts`](hooks/voice.test.ts) runs under `claude plugin test`.
+
 ## Skills
 
 ### `ghostwrite`

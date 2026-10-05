@@ -17,6 +17,11 @@ This skill is the method; the voice is the user's own data (§0). The user signs
 user reads it first: **drafting is yours, posting is theirs.**
 
 ## 0. Locate the voice data—and detect the mode
+**If a `## Voice data, loaded by the plugin` section follows this skill's text, the plugin's hooks
+module already did this section's snippet and §1's reads**: the spec, the corpus, and the always-on
+rules file are in that section, each whole. Use them from there, skip the snippet, and read none of
+those files again. Without that section, on a host that runs no hooks module, do it by hand:
+
 The plugin's `voice_dir` option is substituted into the first line below (empty when the user set
 none); then `$GHOSTWRITING_DIR`, then the default.
 ```bash
