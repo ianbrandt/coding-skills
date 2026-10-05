@@ -366,6 +366,11 @@ failed a regex grader on one run of 24 and the personification judge on 3. Tells
 facts still get through: in the PR body case, "the README told users" appeared in one of two
 plugin-loaded drafts, in each of two separate runs.
 
+With `--judge-model sonnet` the judge is Sonnet 5.5 from CLI 2.1.289 on, so a score from before
+that is not comparable with a later one. On 2026-10-05 the plugin scored 0.95 and no plugin 0.91, a
+gain of 0.04. Plugin-loaded drafts failed no regex grader, the personification judge on 2 runs of
+24, both in the same PR body case, and the form judge on 4.
+
 ## Skills
 
 ### `write-for-the-reader`
