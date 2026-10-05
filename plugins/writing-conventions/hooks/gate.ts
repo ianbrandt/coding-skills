@@ -4,9 +4,6 @@
 // `claude -p`, and prints the key of the request, the model, and the directory
 // that holds the request. This hook answers through `$.model.complete`, which
 // resolves a model alias the way `--model` does, and runs the script again.
-//
-// mods.json lists this file, and only the Claude Code manifest names mods.json:
-// Codex drops every hook in a hooks file that has a `modules` key.
 import type { Register } from 'claude-code'
 
 // The function-hook API is early access and moves between releases. This is the

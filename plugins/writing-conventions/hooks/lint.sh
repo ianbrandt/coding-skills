@@ -49,8 +49,6 @@ case "$mode" in
     ;;
   --nudge)
     path=$(printf '%s' "$input" | awk -v key=file_path -f "$HERE/jsonstr.awk")
-    # Codex writes files with apply_patch, one patch that can touch several.
-    [ -n "$path" ] || path=$(printf '%s' "$input" | awk -v key=command -f "$HERE/jsonstr.awk" | awk -f "$HERE/patch.awk")
     if printf '%s\n' "$path" | tr 'A-Z' 'a-z' | grep -qE '\.(md|markdown|txt|kt|kts|java|groovy)$'; then
       printf '{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"%s"}}' "$NUDGE"
     fi
