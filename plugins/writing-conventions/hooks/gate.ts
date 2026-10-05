@@ -60,6 +60,8 @@ class Off extends Error {}
 async function ask($: any, system: string[], prompt: string): Promise<string> {
   const parts: string[] = []
   for (const f of system) parts.push(await $.fs.read(`${$.plugin.root}/hooks/${f}`))
+  // No effort is set: at `low`, Sonnet 5.5 kept a finding on more clean text
+  // (README, "The gate at publication").
   const reply = await $.model.complete({
     model: (await $.env.get('WRITING_CONVENTIONS_GATE_MODEL')) || 'sonnet',
     system: parts.join(''),

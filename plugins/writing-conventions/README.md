@@ -142,10 +142,15 @@ gate silently absent.
 
 Sonnet is the default because Claude Code's own default for a check like this is Haiku, which denied
 10 of 24 checks on a dozen clean commit messages and then rejected its own suggested rewrites, so a
-session could not commit at all. Sonnet allowed 23 of those 24, and both models denied all 16 checks
-on planted violations.
+session could not commit at all. Sonnet 5 allowed 23 of those 24, and both models denied all 16 checks
+on planted violations. Sonnet 5.5, which the alias resolves to on CLI 2.1.289, had the same two counts on
+2026-10-05, and over five runs it allowed 57 of 60 and denied 40 of 40.
 
-A call took 1.2 to 1.7 seconds over nine calls on CLI 2.1.289, and is given at most 60 seconds.
+On Sonnet 5.5 the median call took 1.6 seconds on a planted commit message, 3.6 seconds on a clean
+one, and 5.9 seconds on the text of a PR, an issue, or a comment, and the longest of 317 calls took
+16 seconds. A call is given at most 60 seconds. No effort is set on it. At `low` the last two
+medians fell to 1.3 and 2.3 seconds, but over two runs of 60 posted texts that an earlier review
+found clean, a finding was kept on 63 of 120 checks against 42 at the model's default.
 
 Every failure lets the command through, so a gate that cannot reach a model does not block a
 commit. The first time in a session that a check fails, the user is told once that model review is
@@ -199,7 +204,7 @@ checkout with a `python3` or `perl` script, because a worktree guard can refuse 
 reader answers `LOCAL` in place of `VIOLATION` when nothing in the command sends the text anywhere
 else, and doubt is `VIOLATION`. The findings then come back as `additionalContext`, and the session
 fixes the file after the command runs. A `LOCAL` answer still blocks the four families and an MCP
-call. In a live run on Sonnet, two local-file scripts came back `LOCAL` 6 times out of 6. Four
+call. In a live run on Sonnet 5.5, two local-file scripts came back `LOCAL` 6 times out of 6. Four
 scripts that post their text through a webhook, `gh api`, `hg commit -l`, or `glab release create`
 were blocked 12 times out of 12.
 
@@ -302,7 +307,10 @@ replies that included a draft, 6 were in a plain fence, 2 in a blockquote, and 1
 rules; a plain fence of 8 words or more also trips on 4 of 12 ordinary replies. With the rule text
 that ships, 8 of the 9 replies that included a draft tagged it, and 0 of 12 ordinary replies used
 the tag while 11 of them carried some other fence. The miss gave review feedback as the body of the
-reply rather than as a block. A draft the session does not tag is not read by the model at all; the
+reply rather than as a block. On Sonnet 5.5, with the prompts of that second run on 2026-10-05, a
+drafting skill fired on 2 of 12 runs with no rule, and of the 9 drafts 3 were in a plain fence and 6
+in a blockquote. With the rule, 9 of the 10 replies that included a draft tagged it, with the same
+miss, and 0 of 12 ordinary replies used the tag while all 12 had another fence. A draft the session does not tag is not read by the model at all; the
 reply lint is all that sees it.
 
 The lint drops every closed fenced block before matching, so the `draft` fences are unwrapped
