@@ -87,14 +87,10 @@ prohibitions; a draft written from the rule list alone drifts back to the defaul
 Check the draft against the spec rule by rule and fix what you broke **before** the user sees it; a
 rule you broke and fixed yourself still goes to §4 as a procedure failure, recorded when §4 runs.
 
-**Then run the lint over the draft.** With `writing-conventions` installed, its `lint.awk` prints
-one line per flagged sentence, and prints nothing for clean text:
-```bash
-LINT=$(ls -d "${CLAUDE_CONFIG_DIR:-$HOME/.claude}"/plugins/cache/*/writing-conventions/*/hooks/lint.awk 2>/dev/null | sort -V | tail -1)
-[ -n "$LINT" ] && awk -f "$LINT" "$DRAFT" || echo "no lint installed"   # $DRAFT: a scratch file holding the draft
-```
-Fix a real hit by hand, in place, and leave a false positive alone. With no lint installed or no
-shell, use the hand-over line to say the lint did not run.
+**Then run the lint over the draft.** With `writing-conventions` installed, call its
+`mcp__writing-conventions__lint` tool with the draft as `text`. It returns one line per flagged
+sentence, or `clean` for clean text. Fix a real hit by hand, in place, and leave a false positive
+alone. With no such tool in the session, use the hand-over line to say the lint did not run.
 
 **A short draft with no lint hits skips the rewrite below and goes straight to the hand-over.**
 Short means up to about five sentences of prose, which covers most PR bodies, comments, and commit
