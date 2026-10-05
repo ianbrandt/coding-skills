@@ -99,6 +99,12 @@ passed both, so the remaining issue gap is most likely judge variance rather tha
 of prose. The third plugin-loaded body still put "Seen on tally 0.9.0." on its own line after the
 bullets, and passed form.
 
+With `--judge-model sonnet` the judge is Sonnet 5.5 from Claude Code 2.1.289 on, so the scores above
+are not comparable with a later run. On 2026-10-05, with four runs per case, the plugin scored 0.97
+on average and no plugin 0.92, a gap of +0.06. Every plugin-loaded body passed form, and two on the
+report PR failed the facts judge. One run without the plugin ended on an API error and is in its
+average.
+
 ## Works with `writing-conventions`
 
 Neither plugin needs the other. `writing-conventions` loads the prohibitions every session (no
