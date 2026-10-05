@@ -13,8 +13,8 @@ it learns from your edits into the same file when this plugin is installed.
 ## What loads every session
 
 A `SessionStart` hook injects [`hooks/rules.md`](hooks/rules.md) into every session, including
-after `/clear`, compaction, and a fork. A `SubagentStart` hook injects the same file into every
-subagent through [`hooks/rules-context.sh`](hooks/rules-context.sh), since a subagent's report is
+after `/clear`, compaction, and a fork. The hooks module adds the same file to every
+subagent as it starts, since a subagent's report is
 what a later summary is built from. The file is eleven named
 anti-patterns, one line and one drafted-to-accepted pair each: inanimate agency, mechanics
 (spaced em dashes, the Oxford comma, and consistent units), a banned-vocabulary list, epigrams and paired contrasts,
@@ -30,23 +30,18 @@ Prohibitions bind everywhere, `SKILL.md` files included, because they are about 
 than register. Form rules—bold, redundancy, length, the reader-facing voice—stop at the
 agent-facing line, so those files are formatted for whatever a model reads best.
 
-[`hooks/lint.sh`](hooks/lint.sh) runs on both ends of a turn, in bash and awk with no other
-dependency. A `Stop` hook runs it with `--record` over the final reply and saves what it finds; a
-`UserPromptSubmit` hook runs it with `--emit`, which opens the next turn with those hits and a
-one-line reminder, then clears them; a `PostToolUse` hook on `Write` and `Edit` runs `--nudge`,
-which asks for a re-read when the file just written is prose, or is a source file with comments and
-test names in it (`.md`, `.markdown`, `.txt`, `.kt`, `.kts`, `.java`, `.groovy`, in any letter case).
-The lint itself is [`hooks/lint.awk`](hooks/lint.awk), a pure filter over text.
+The reply lint runs on both ends of a turn, from the plugin's hooks module
+([`hooks/gate.ts`](hooks/gate.ts)). On `Stop` the final reply is linted and what is found is saved.
+On `UserPromptSubmit` the next turn opens with those hits and a one-line reminder, and the saved
+note is cleared. After a `Write` or an `Edit`, a re-read is asked for when the file just written is
+prose, or is a source file with comments and test names in it (`.md`, `.markdown`, `.txt`, `.kt`,
+`.kts`, `.java`, `.groovy`, in any letter case). The lint itself is `lint()` in
+[`hooks/lint.ts`](hooks/lint.ts), a pure function over text, checked on 102 cases in
+[`hooks/lint.test.ts`](hooks/lint.test.ts). The module also registers it as a tool,
+`mcp__writing-conventions__lint`, which the `ghostwrite` skill calls on a draft.
 
-[`hooks/lint.ps1`](hooks/lint.ps1) is the same three modes and the same lint in one PowerShell file,
-for a Windows install where the PowerShell tool is the shell; `ConvertFrom-Json` there replaces
-[`hooks/jsonstr.awk`](hooks/jsonstr.awk). The two matchers are held together by
-[`hooks/lint-corpus.tsv`](hooks/lint-corpus.tsv), 102 cases read by both
-[`hooks/lint-test.sh`](hooks/lint-test.sh) and [`hooks/lint-test.ps1`](hooks/lint-test.ps1), so a
-change to one matcher and not the other fails a test. On every one of those cases the two agreed
-byte for byte, reported example text included, when the port landed. The `.ps1` files are ASCII, with
-every em dash and curly quote written as a `\uXXXX` regex escape, because Windows PowerShell 5.1
-reads a BOM-less file through the ANSI codepage and one pasted em dash corrupts string parsing.
+A word is letters and digits in ASCII and Latin-1, so `café` is one word, and a character outside
+those is read whole.
 
 It flags the mechanically detectable subset of the rules: the banned vocabulary, spaced em dashes,
 a missing Oxford comma in a list of single words, an inanimate subject paired with a verb of
@@ -77,7 +72,7 @@ under them, and a construction it cannot match mechanically is still a violation
 The fix has to be made in the stream: a hook on the stored reply alone leaves the screen
 showing the spaced form while the reply arrives.
 
-What `lint.awk` skips is left as written: a fenced block, inline code, and text in straight or
+What the lint skips is left as written: a fenced block, inline code, and text in straight or
 curly double quotes. A `draft` fence is the exception, since its text is for publication, though a
 fence inside it is left alone. The other findings in a draft still need the reader, so the `Stop`
 check is unchanged. Two more cases are left as written because the spaces are markdown: a dash with
@@ -93,40 +88,26 @@ written. In a 900-word reply no such chunk arrived inside a text block.
 `claude plugin test`. [`hooks/register.ts`](hooks/register.ts) registers this hook and the gate's,
 because `hooks.json` may list only one module.
 
-## Which shell runs the hooks
+## What runs the hooks
 
-Each of the four command hooks is registered once, as a shell command with no `shell` key, so
-Claude Code picks the shell: bash on macOS and Linux, Git Bash on Windows when it is installed, and
-PowerShell otherwise. The command is written to parse in both languages. bash and the other POSIX
-shells read the first line's `@'` as the start of a quoted string that ends on the second line, then
-`exec` the `.sh` script. PowerShell reads `@'` as the start of a here-string that ends at the `'@`
-opening the third line, then runs the `.ps1` script with `pwsh`. The trailing `#'` closes the quote
-for zsh, which parses the whole command before running any of it, and is a comment to PowerShell.
-No PowerShell starts on macOS or Linux, so a broken `pwsh` install there never surfaces as a hook
-error.
+Everything but the `SessionStart` rules runs in the plugin's hooks module,
+[`hooks/register.ts`](hooks/register.ts), so a Windows session runs the same code as any other and
+no shell is involved. The `SessionStart` hook is a plain `cat` of `rules.md`.
 
-Each `.sh` script hands the hook to its `.ps1` counterpart through `pwsh` on Windows when
-`CLAUDE_CODE_USE_POWERSHELL_TOOL=1`, the setting that makes the PowerShell tool the session's
-shell, even where Git Bash is installed. The `defaultShell` setting is not the switch, since it
-governs input-box `!` commands rather than hooks, and the environment variable is what reaches a
-hook process. [`hooks/shell-owner.ps1`](hooks/shell-owner.ps1) repeats that decision on the
-PowerShell side, reading Git Bash's presence off the `git` install rather than from a `bash` on the
-`PATH`: Git for Windows leaves `bash.exe` in `bin\`, which is not on the `PATH` at all, and the
-`bash` that is on the `PATH` is WSL, under two names, which cannot run a hook against a Windows path.
-
-Windows PowerShell 5.1 never runs a hook script, since only `pwsh` is launched; the scripts stay
-5.1-clean so the self-test runs there. A Windows box with Git Bash and no PowerShell 7 runs the bash
-scripts whatever the tool setting, and a box with neither gets a hook error for each hook. The
-`SessionStart` rules load either way, since that hook is a plain `cat`.
+The function-hook API is early access, and 2.1.289 is the CLI the module was checked on. On an older
+CLI the module does nothing, and says so once in a toast. The rules still load at session start
+there, but the lint, the gate, and the rules for subagents are off. The same is true, with no toast,
+where function hooks are switched off: `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1` in the environment
+turns them on, and `claude --debug` logs a module that did not load.
 
 ## The gate at publication
 
 The census behind this plugin found that 101 of 107 corrections landed on text that ships: PR
 bodies, comments, issue bodies, commit messages, docs. A lint over chat never sees those, so a
-`PreToolUse` hook watches the commands that publish them: `git commit`, every `gh pr`, `gh issue`,
+`tool.call` hook watches the commands that publish them: `git commit`, every `gh pr`, `gh issue`,
 and `gh release` subcommand, and any other command that can publish (see "Other shell commands"),
 through the `Bash` tool and through the `PowerShell` tool both. Covering only `Bash` leaves every commit ungated on a Windows session where the PowerShell tool
-is the shell. [`hooks/gate.sh`](hooks/gate.sh) and [`hooks/gate.ps1`](hooks/gate.ps1) hand the command
+is the shell. [`hooks/gate.ts`](hooks/gate.ts) hands the command
 to a model, which pulls out the commit message or the title and body and checks that text against the
 four prohibitions: inanimate agency, mechanics (spaced em dashes and the Oxford comma), the banned
 words, and epigrams. A fifth check is a string match rather than a judgment: a Markdown heading or a
@@ -136,23 +117,23 @@ and no other form is. The model replies `PASS`, `SKIP` for a command that publis
 offending sentence: the quoted words, then a plain rewrite. A body read from a file path is not in
 the command, so it is not checked.
 
-[`hooks/verdict.awk`](hooks/verdict.awk) and [`hooks/verdict.ps1`](hooks/verdict.ps1) look for each
+`findings()` in [`hooks/text.ts`](hooks/text.ts) looks for each
 quote in the command, with runs of whitespace collapsed. A finding with its quote in the command
 comes back as the tool's error, and the session fixes the text and runs the command again. A reply in any other
 form lets the command through, as a failed call does, because the text the model reads can quote an
 untrusted source.
 
-The check runs as one nested `claude -p --safe-mode --tools=` call, with
+The check is one `$.model.complete` call, with
 [`hooks/gate-prompt.md`](hooks/gate-prompt.md) as the system prompt and the hook input as the
 message. [`hooks/rules.md`](hooks/rules.md) is appended to that prompt, so a word added to the rules
 is checked at the gate with no second edit. Which model answers comes from `WRITING_CONVENTIONS_GATE_MODEL`, or from the `sonnet` alias
 when that is unset; set it in the `env` block of a settings file to any id the session's endpoint
 serves.
 
-An alias is enough there because `--model` resolves one through `ANTHROPIC_DEFAULT_SONNET_MODEL` and
-friends, so the default holds on a first-party install and on a LiteLLM proxy in front of Bedrock or
-Vertex alike. That is the reason the check runs out in a script rather than in a prompt-type hook,
-where the `model` field resolves nothing: `"model": "sonnet"` there reaches the API verbatim, a proxy
+An alias is enough there because `$.model.complete` resolves one the way `--model` does, through
+`ANTHROPIC_DEFAULT_SONNET_MODEL` and friends, so the default holds on a first-party install and on a
+LiteLLM proxy in front of Bedrock or Vertex alike. That is the reason the check is not a prompt-type
+hook, where the `model` field resolves nothing: `"model": "sonnet"` there reaches the API verbatim, a proxy
 answers HTTP 400 `Invalid model name passed in model=sonnet`, and Claude Code logs
 `unrecognized_model` with `query_source: hook_prompt`. Since that field is a free-form string checked
 at call time rather than at load time, the only symptom was a hook error on every commit, with the
@@ -163,76 +144,31 @@ Sonnet is the default because Claude Code's own default for a check like this is
 session could not commit at all. Sonnet allowed 23 of those 24, and both models denied all 16 checks
 on planted violations.
 
-`--safe-mode` starts the nested call with no CLAUDE.md, skills, plugins, hooks, or MCP servers and
-keeps the normal sign-in, so the check works on a browser sign-in as well as with a key. `--tools=`
-leaves the nested model no tools, and the default tool definitions are most of the call: one check
-was 1.9k input tokens and 3.3 to 3.8 seconds with it, and 26k tokens with `--safe-mode` alone. The
-flag is `--tools=` and not `--tools ""` because PowerShell can drop an empty argument on the way to
-`claude`.
+A call took 1.2 to 1.7 seconds over nine calls on CLI 2.1.289, and is given at most 60 seconds.
 
-Every failure path exits 0, so a gate that cannot reach a model lets the command through instead of
-blocking it.
-
-The first time in a session that the call fails, or that `claude` is not on the path, the user is
-told once that model review is off, through the hook's `systemMessage`, which is shown to the user
-and not to the model. The marker is a file in the temporary directory, named for the session id. A
-reply from a call that exited 0 is not such a failure, whatever its form.
-
-Managed policy settings still apply under `--safe-mode`, so a copy of the gate registered that way
-would run inside its own nested call. The scripts set `WRITING_CONVENTIONS_NESTED=1` on that call,
-and each exits at once when the variable is set.
+Every failure lets the command through, so a gate that cannot reach a model does not block a
+commit. The first time in a session that a check fails, the user is told once that model review is
+off, in a toast, which is shown to the user and not to the model. A reply from a call that was
+answered is not such a failure, whatever its form.
 
 The cost is one call per `git commit` and per `gh pr`, `gh issue`, or `gh release` command, read-only
-ones included. One hook entry per shell covers all four command families, because the command text is
-matched in the script rather than through a hook `if` pattern. `git -C <path> commit` is gated that
+ones included. One hook covers all four command families, because the command text is
+matched in the module rather than through a hook `if` pattern. `git -C <path> commit` is gated that
 way too, and no `Bash(git commit *)` rule matches that form, which is the one a worktree session uses.
-[`hooks/gate-test.sh`](hooks/gate-test.sh) and [`hooks/gate-test.ps1`](hooks/gate-test.ps1) check the
-plumbing offline against a stub `claude` on the PATH: which commands reach the model, which replies
-block a command, the exit codes, and the fail-open path.
-
-Each nested call gets at most 60 seconds, less when the hook is short of time, and none starts with
-under 15 seconds left. A call past its limit is killed with its children and counts as a failed
-call. 15 seconds of each hook's timeout is reserved for that cleanup.
-
-### The model call in Claude Code
-
-Where Claude Code runs function hooks, [`hooks/gate.ts`](hooks/gate.ts) makes the model calls
-in-process for all three checks: a `Bash`, `PowerShell`, or MCP tool call, a prose file just
-written, and a draft in the reply. `gate.sh` still classifies the command, reads the body files,
-finds the draft, and filters the findings. Run from the module, it writes each model request to a
-file and exits 3 where it would start `claude -p`. The module sends the request through
-`$.model.complete`, which resolves an alias the way `--model` does, writes the reply beside the
-request, and runs the script again. A model call took 1.2 to 1.7 seconds this way over nine calls,
-against 3.6 to 4.1 seconds over three nested calls, on CLI 2.1.289. The time limit, the
-`WRITING_CONVENTIONS_NESTED` guard, and the need for `claude` on the PATH apply only to the nested
-call. A failed call is still let through, and the notice is a toast in place of a `systemMessage`.
-
-The command hooks still run for the same events. While the module has an event in hand, a token
-for it is in `WRITING_CONVENTIONS_GATE_DONE`, a list the module sets in the environment the hooks
-start from, and `gate.sh` exits without a model call on finding its own token there. The token is
-the `tool_use_id` for a command or an MCP call, with `file-` before it for a file check, and
-`stop-` and the `prompt_id` for a draft check. The command hook does not run for a blocked call.
-
-The command hook does the whole check, nested call included, in three cases:
-
-- On a CLI older than 2.1.289. The function-hook API is early access, and 2.1.289 is the version
-  the module was checked on.
-- On a Windows session where `gate.ps1` runs the check.
-- When the script cannot be started.
-
-[`hooks/gate.test.ts`](hooks/gate.test.ts) runs under `claude plugin test`, with a stand-in for the
-script.
+[`hooks/gate.test.ts`](hooks/gate.test.ts) checks the plumbing under `claude plugin test`, against a
+stand-in for the model: which commands reach the model, which replies block a command, and the
+fail-open path.
 
 ### Other shell commands
 
 Any other command goes to the reader when the classifier model answers that it can publish. That
 way `hg commit`, `svn commit`, `jj describe`, `glab mr create`, and a CLI nobody here has heard of
-are read like `git commit`, with no command name written in the scripts.
-[`hooks/keys.awk`](hooks/keys.awk) and [`hooks/keys.ps1`](hooks/keys.ps1) split the command into
+are read like `git commit`, with no command name written in the plugin.
+`keys()` in [`hooks/keys.ts`](hooks/keys.ts) splits the command into
 keys: each simple command's first word, up to two subcommand candidates after it, and the words after
 each key in case it is a task runner. A substitution inside double quotes counts as a command, and
-single-quoted text and heredoc bodies do not. Both scripts are tested against
-[`hooks/shell-keys.tsv`](hooks/shell-keys.tsv).
+single-quoted text and heredoc bodies do not. [`hooks/keys.test.ts`](hooks/keys.test.ts) checks it
+on 147 commands.
 
 Each key has one of five classes: `NEVER`, `CAN_PUBLISH`, `DESCEND` when the answer depends on the
 subcommand (`git`, `hg`), `PROJECT` when the words after it are the project's own task names
@@ -254,8 +190,7 @@ subcommand position, such as `hg "$verb"`, sends the command to the reader. A `R
 read only when it contains a sentence: six or more words, the first capitalized and the last ending
 in `.`, `!`, or `?`. A `\n` or `\t` escape between words counts as a space, and a word may be quoted. Interpreters run in about 16% of commands on the machine this was measured on,
 and a short message posted through `curl` or a script is not read.
-`WRITING_CONVENTIONS_SHELL_CLASSIFIER=0` turns this off and leaves the four families. A command can
-need two calls, so the shell hooks' timeout is 180 seconds.
+`WRITING_CONVENTIONS_SHELL_CLASSIFIER=0` turns this off and leaves the four families.
 
 A command that only writes a local file is not blocked, just as a `Write` or `Edit` to a prose file
 is not (see "Prose files"). A session in a worktree edits a file that lives only in the primary
@@ -267,17 +202,17 @@ call. In a live run on Sonnet, two local-file scripts came back `LOCAL` 6 times 
 scripts that post their text through a webhook, `gh api`, `hg commit -l`, or `glab release create`
 were blocked 12 times out of 12.
 
-A body passed by file path is read by the script, for the four families only: `git commit -F` or
+A body passed by file path is read by the gate, for the four families only: `git commit -F` or
 `--file`, and `-F`, `--body-file`, or `--notes-file` on `gh pr`, `gh issue`, and `gh release`. The
-flags that take a value are listed per command in `keys.awk` and `keys.ps1`, from each command's
+flags that take a value are listed per command in `keys.ts`, from each command's
 `--help`, so that `git commit -m '-F' notes.txt` reads no file. The reader is sent each file after the
 hook input, under a `File: <path>` line, and a finding may quote it. A file is read only when the
-text on disk is the text the command will publish, as far as a script can tell:
+text on disk is the text the command will publish, as far as the gate can tell:
 
 - The path is literal, with no variable, glob, `~`, or quoted space in it.
 - No other word of the command includes its file name, since a command that writes the file first
   publishes different text from what is in the file now.
-- A relative path resolves against the hook's `cwd`, and the command has no `cd`, `pushd`,
+- A relative path resolves against the session's `cwd`, and the command has no `cd`, `pushd`,
   `Set-Location`, `git -C`, `git --work-tree`, or `GIT_WORK_TREE` in it.
 - It is a readable regular file, not a link, inside the project or a temporary directory, at most
   1 MB, with no NUL byte in its first 8 KB.
@@ -297,15 +232,15 @@ Replayed from an empty cache over 122,260 shell commands from one machine's hist
 commands made a classifier call and 9.5% reached the reader, against 4.1% for the four families
 alone. Of the rest, 1.8% were `python3` with a sentence in the code, 1.7% were programs run by path
 that the classifier did not know, 0.9% were `git merge`, `rebase`, `tag`, and `cherry-pick`, and
-0.5% were commands the scripts could not read. Planted inanimate-agency sentences in `hg commit`,
+0.5% were commands that could not be split into keys. Planted inanimate-agency sentences in `hg commit`,
 `svn commit`, `jj describe`, and `glab mr create` were each blocked, and clean messages in the same
 four went through.
 
 ### MCP calls
 
 A team that publishes through an MCP server, such as Jira and Bitbucket with no `gh` installed, gets
-the same read. A second `PreToolUse` entry matches `mcp__.*` and runs the same two scripts. No
-server or tool name is written in them. The first call to a tool costs one classifier call, with
+the same read. The `tool.call` hook that reads a shell command reads a call to any `mcp__` tool. No
+server or tool name is written in it. The first call to a tool costs one classifier call, with
 [`hooks/classify-prompt.md`](hooks/classify-prompt.md) as the system prompt: can this tool hand text
 to a human-facing destination? The answer is `CAN_PUBLISH` or `NEVER`, doubt is `CAN_PUBLISH`, and
 a reply in any other form is treated as doubt and not kept. On 30 hand-labeled tools with sample
@@ -314,8 +249,8 @@ tools), all 20 publishing tools came back `CAN_PUBLISH` and all 10 others `NEVER
 
 The answer is appended as one line, `<tool name> <answer>`, to
 `${CLAUDE_CONFIG_DIR:-~/.claude}/writing-conventions/mcp-tools-<hash>.txt`, where the hash is of the
-classifier prompt, so a changed prompt starts a new file. `gate.sh` and `gate.ps1` hash differently
-and keep separate files. The file is yours to read and edit: for one tool a `CAN_PUBLISH` line wins
+classifier prompt, so a changed prompt starts a new file. A file written by a version before 0.44.0
+is not read, since the hash changed. The file is yours to read and edit: for one tool a `CAN_PUBLISH` line wins
 over a `NEVER` line, and a malformed line is ignored. A `NEVER` tool costs no model call after the
 first. A wrong `NEVER` is a lasting gap on that machine until the line is edited.
 
@@ -328,16 +263,16 @@ is looked for on its own and nothing is joined.
 ### Prose files
 
 A `Write` or `Edit` to a `.md`, `.markdown`, `.txt`, `.adoc`, or `.rst` file gets the same read
-after the fact, from a `PostToolUse` entry that runs the gate scripts with `--file`. Nothing is
+after the fact, from a `PostToolUse` hook. Nothing is
 blocked, because a file is cheap to fix and a blocked edit stops the turn: a verified finding comes
 back as `additionalContext`, and the session fixes the file in place. The advisory nudge on
 `Write|Edit` is unchanged and still fires for the same files, so a session in which the reader
 cannot run keeps it. A source file gets the nudge only.
 
-The nested model has no tools, so the script reads, and only the file the tool just wrote. For a
+The reader has no tools, so the gate reads, and only the file the tool just wrote. For a
 `Write` the text under review is `content`. For an `Edit` it is the whole paragraphs, bounded by
 blank lines, that hold `new_string` in the edited file
-([`hooks/excerpt.awk`](hooks/excerpt.awk)): replacing "includes" with "says" in "The report includes
+(`excerpt()` in [`hooks/text.ts`](hooks/text.ts)): replacing "includes" with "says" in "The report includes
 the version." makes a violation that the one word does not show. The size of the excerpt follows
 the edit and not the file, so a release note added to a large changelog is read. The reader is sent
 that text and the file path, not the hook input.
@@ -350,13 +285,12 @@ is read. A draft written to a file with a shell redirect is not read at all.
 
 A draft the session hands its user to paste somewhere else never reaches a shell command or an MCP
 tool. A draft for publication goes in its own fenced block with the info string `draft`; that rule
-is loaded into every session. A `Stop` entry runs the gate scripts with `--stop`. The text inside
-each `draft` fence goes to the reader, and nothing else in the reply does. A turn with no such fence
-costs one scan and no model call.
+is loaded into every session. On `Stop`, the text inside each `draft` fence goes to the reader, and
+nothing else in the reply does. A turn with no such fence costs one scan and no model call.
 
-A verified finding exits 2. That continues the turn, so the session emits a corrected draft. Claude
-Code has no hook that runs before a reply is displayed, so review happens afterward. A blocked
-reply is re-emitted whole. The blocking is counted in a file named for the turn's `prompt_id`, and
+A verified finding blocks the stop. That continues the turn, so the session emits a corrected
+draft. Claude Code has no hook that runs before a reply is displayed, so review happens afterward. A
+blocked reply is re-emitted whole. The blocking is counted per turn, by the turn's `prompt_id`, and
 it stops after two; the third time, the user is told that review is unresolved, and the reply
 stands. `WRITING_CONVENTIONS_STOP_READER=0` turns the reader off.
 
@@ -370,9 +304,9 @@ the tag while 11 of them carried some other fence. The miss gave review feedback
 reply rather than as a block. A draft the session does not tag is not read by the model at all; the
 reply lint is all that sees it.
 
-Both matchers drop every closed fenced block before matching, so `--record` unwraps the `draft`
-fences first ([`hooks/draft.awk`](hooks/draft.awk), [`hooks/draft.ps1`](hooks/draft.ps1), the same
-scanner the reader uses), and the whole reply still gets the one pass it always got. A code fence
+The lint drops every closed fenced block before matching, so the `draft` fences are unwrapped
+first (`drafts()` in [`hooks/text.ts`](hooks/text.ts), the same scanner the reader uses), and the
+whole reply still gets the one pass it always got. A code fence
 inside a draft is still a fence and is still dropped, which is why a draft that includes one goes
 in a longer fence.
 

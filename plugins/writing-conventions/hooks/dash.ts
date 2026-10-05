@@ -2,7 +2,7 @@
 // the text in the transcript are both `word—word`. A `session.append` hook would
 // fix only the stored reply: the screen shows the streamed text first.
 //
-// What is left alone is what lint.awk leaves alone: a fenced block, inline code,
+// What is left alone is what the lint leaves alone: a fenced block, inline code,
 // and text in straight or curly double quotes. A `draft` fence is the exception,
 // since its text is for publication, though a fence inside it is left alone. A
 // dash with no letter before it on its line is left alone too: after a list or
