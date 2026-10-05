@@ -11,6 +11,7 @@
 // the text is left as written until the span closes or a blank line ends the
 // paragraph, and the reply lint still reports it.
 import type { Register } from 'claude-code'
+import { atLeast } from './gate'
 
 // One text block's position: the text held back while the next piece could
 // change it, whether the next character starts a line, the open fence, whether it
@@ -163,6 +164,9 @@ export function feed(s: Dash, piece: string, end = false): string {
 
 export const register: Register = on => {
   on('turn.step', async function* ($, e, next) {
+    // The chunk format is part of an early-access API, so on a CLI the module was
+    // not checked on the reply is passed through as written.
+    if (!atLeast((await $.session.version().catch(() => ({}))).base)) return yield* next(e)
     const blocks = new Map<number, Dash>()
     const stream = next(e)[Symbol.asyncIterator]()
     for (;;) {

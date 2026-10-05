@@ -98,7 +98,7 @@ no shell is involved. The `SessionStart` hook is a plain `cat` of `rules.md`.
 
 The function-hook API is early access, and 2.1.289 is the CLI the module was checked on. On an older
 CLI the module does nothing, and says so once in a toast. The rules still load at session start
-there, but the lint, the gate, and the rules for subagents are off. The same is true, with no toast,
+there, but the lint, the dash rewrite, the gate, and the rules for subagents are off. The same is true, with no toast,
 where function hooks are switched off: `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1` in the environment
 turns them on, and `claude --debug` logs a module that did not load.
 

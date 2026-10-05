@@ -17,6 +17,7 @@ function world(on: any, base = '2.1.289') {
   on('classic.UserPromptSubmit', () => ({ additionalContext: ['from a settings hook'] }))
   on('classic.PostToolUse', () => ({}))
   on('classic.SubagentStart', () => ({}))
+  return files
 }
 
 const stop = ($: any, text: string, session_id = 's1') => $.classic.Stop({ session_id, last_assistant_message: text })
@@ -78,7 +79,9 @@ test('with no session id nothing is saved', async ($: any, on: any) => {
 })
 
 test('on an older CLI nothing is recorded or added', async ($: any, on: any) => {
-  world(on, '2.1.200')
+  const files = world(on, '2.1.200')
   await stop($, 'The build is load-bearing.')
+  expect(Object.keys(files)).toEqual([])
   expect(await prompt($)).toEqual(['from a settings hook'])
+  expect((await $.classic.SubagentStart({ agent_id: 'a1', agent_type: 'Explore' })).additionalContext).toBeUndefined()
 })

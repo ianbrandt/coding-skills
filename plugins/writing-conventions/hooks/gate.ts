@@ -25,10 +25,16 @@ const CHECKED = [2, 1, 289]
 
 let warned = false
 
+// Whether CLI version `base` is the checked one or later. dash.ts asks this
+// with a version it read through its own $.
+export function atLeast(base: unknown): boolean {
+  const v = String(base).split('.').map(Number)
+  for (let i = 0; i < 3; i++) if (v[i] !== CHECKED[i]) return v[i] > CHECKED[i]
+  return true
+}
+
 async function isChecked($: any): Promise<boolean> {
-  const v = String((await $.session.version()).base).split('.').map(Number)
-  let ok = true
-  for (let i = 0; i < 3; i++) if (v[i] !== CHECKED[i]) { ok = v[i] > CHECKED[i]; break }
+  const ok = atLeast((await $.session.version()).base)
   if (!ok && !warned) {
     warned = true
     $.ui.toast(`writing-conventions: the gate and the reply lint are off. They need Claude Code ${CHECKED.join('.')} or later.`, { timeoutMs: 15000 })
@@ -421,6 +427,7 @@ export const register: Register = on => {
   // A subagent starts with the rules the session started with.
   on('classic.SubagentStart', async ($, e: any, next: any) => {
     const ran = await next(e)
+    if (!(await isChecked($).catch(() => false))) return ran
     const rules = await $.fs.read(`${$.plugin.root}/hooks/rules.md`).catch(() => '')
     return rules ? { ...ran, additionalContext: [...(ran.additionalContext ?? []), rules] } : ran
   })

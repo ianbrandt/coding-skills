@@ -80,7 +80,8 @@ test('text is held only while the next piece could change it', () => {
 })
 
 // steps <chunks>: the hook's output for a stream of chunks, through the plugin.
-async function steps($: any, on: any, chunks: any[], fail = false): Promise<any[]> {
+async function steps($: any, on: any, chunks: any[], fail = false, base = '2.1.289'): Promise<any[]> {
+  on('session.version', () => ({ value: { version: base, base, builtAt: '' } }))
   on('turn.step', async function* () {
     for (const c of chunks) yield c
     if (fail) throw new Error('stream cut')
@@ -120,4 +121,9 @@ test('held text is written when the stream fails', async ($: any, on: any) => {
   const out = await steps($, on, [{ kind: 'text', index: 0, text: 'word ' }, { kind: 'text', index: 0, text: 'tail ' + F }], true)
   expect(text(out, 0)).toBe('word tail ' + F)
   expect(out[out.length - 1].kind).toBe('thrown')
+})
+
+test('on an older CLI the reply is passed through as written', async ($: any, on: any) => {
+  const out = await steps($, on, [{ kind: 'text', index: 0, text: 'One — two ' }, { kind: 'text', index: 0, text: '— three' }], false, '2.1.200')
+  expect(text(out, 0)).toBe('One — two — three')
 })
