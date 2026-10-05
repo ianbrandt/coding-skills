@@ -80,6 +80,10 @@ Rough fit:
 
 - **Low**—mechanical stages with a loud oracle.
 - **Medium / High**—ordinary implementation and review.
+  A task-hero stage starts at Medium: the vendor
+  recalibrated that model's levels as of 2026-10-04, and Medium is its documented starting point
+  for agentic coding. At Low it sometimes reports a change as done without running a check that
+  exercises it, so a task-hero brief at Low requires test or build output in the result.
 - **Extra**—design, adversarial verification, judge stages, and careful multi-step bookkeeping.
 - **Max**—only a stage where an Extra pass has already stalled on the same question, and after a
   second provider where one is installed (§1). Past Extra,
