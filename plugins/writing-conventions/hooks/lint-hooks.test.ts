@@ -1,10 +1,10 @@
 // claude plugin test: the reply lint's hooks, the reminders, and the lint tool.
 import { expect, test } from 'claude-code/testing'
 
-function world(on: any, base = '2.1.289') {
+function world(on: any, base = '2.1.289', env: Record<string, string> = {}) {
   on('session.version', () => ({ value: { version: base, base, builtAt: '' } }))
   const files: Record<string, string> = {}
-  on('env.get', () => ({ value: undefined }))
+  on('env.get', (_$: any, e: any) => ({ value: env[e.name as string] }))
   on('fs.read', (_$: any, e: any) => {
     if (e.path.endsWith('.md')) return { value: `<${e.path.split('/').pop()}>` }
     if (!(e.path in files)) throw new Error('ENOENT')
@@ -76,6 +76,12 @@ test('the lint tool reads a draft passed inside its fence', async ($: any, on: a
   world(on)
   const F = '```'
   expect((await $.tool.call({ tool: 'mcp__writing-conventions__lint', text: `${F}draft\nThe build is load-bearing.\n${F}\n` })).result).toBe('banned word\tload-bearing')
+})
+
+test('the note is kept in TEMP where there is no TMPDIR', async ($: any, on: any) => {
+  const files = world(on, '2.1.289', { TEMP: '/win/Temp' })
+  await stop($, 'The build is load-bearing.')
+  expect(Object.keys(files)).toEqual(['/win/Temp/claude-reply-lint-s1.txt'])
 })
 
 test('with no session id nothing is saved', async ($: any, on: any) => {

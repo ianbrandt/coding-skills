@@ -182,7 +182,7 @@ async function bodies($: any, cmd: string, mode: 'bash' | 'pwsh', base: string, 
       const stat = await $.fs.stat(path, { resolve: true }).catch(() => undefined)
       if (!stat || stat.isLink || stat.kind !== 'file' || !stat.realPath) why = 'it is not a regular file'
       else {
-        const roots = [await real(proj), await real(await $.env.get('TMPDIR')), await real('/tmp')]
+        const roots = [await real(proj), await real(await tmp($)), await real('/tmp')]
         const dir = stat.realPath.slice(0, stat.realPath.lastIndexOf('/') + 1)
         if (!roots.some(r => r && dir.startsWith(`${r.replace(/\/$/, '')}/`))) why = 'it is outside the project and the temporary directory'
         else if (stat.size > 1048576) why = 'it is over 1 MB'
@@ -352,9 +352,14 @@ const TOOL = 'mcp__writing-conventions__lint'
 // file named for the session, so that a resumed session still gets it. With no
 // session id there is no safe place, since a shared file would hand one
 // session's note to another.
+// The temporary directory: TMPDIR, or TEMP or TMP as Windows has them.
+async function tmp($: any): Promise<string> {
+  return (await $.env.get('TMPDIR')) || (await $.env.get('TEMP')) || (await $.env.get('TMP')) || '/tmp'
+}
+
 async function notePath($: any, session: unknown): Promise<string> {
   const id = String(session ?? '').replace(/[^A-Za-z0-9_-]/g, '_')
-  return id && `${(await $.env.get('TMPDIR')) || '/tmp'}/claude-reply-lint-${id}.txt`
+  return id && `${await tmp($)}/claude-reply-lint-${id}.txt`
 }
 
 export const register: Register = on => {
