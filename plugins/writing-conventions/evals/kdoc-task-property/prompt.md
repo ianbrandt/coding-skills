@@ -1,5 +1,5 @@
 ---
-max_turns: 3
+max_turns: 8
 tags: [kdoc, style]
 runs: 2
 ---
