@@ -96,7 +96,8 @@ async function cachePath($: any, name: string, prompt: string): Promise<string> 
   return `${config}/writing-conventions/${name}-${hash(await $.fs.read(`${$.plugin.root}/hooks/${prompt}`))}.txt`
 }
 
-const lines = (text: string) => text.split('\n').filter(l => l !== '')
+// A cache the user saved from an editor may have CRLF line ends.
+const lines = (text: string) => text.split(/\r?\n/).filter(l => l !== '')
 
 async function cached($: any, path: string): Promise<string[]> {
   return lines(await $.fs.read(path).catch(() => ''))

@@ -248,6 +248,16 @@ test('in the cache a CAN_PUBLISH line wins over a NEVER line, and a malformed li
   expect(seen.reader).toHaveLength(1)
 })
 
+test('a cache saved with CRLF line ends is read the same', async ($: any, on: any) => {
+  const seen = world(on, { tool: 'NEVER', verdict: 'PASS' })
+  await notion($, { text: 'x' })
+  const path = Object.keys(seen.files).find(p => p.includes('/mcp-tools-'))!
+  seen.files[path] = 'mcp__notion__create_page NEVER\r\nmcp__notion__create_page CAN_PUBLISH\r\n'
+  await notion($, { text: 'x' })
+  expect(seen.tool).toHaveLength(1)
+  expect(seen.reader).toHaveLength(1)
+})
+
 test('a tool classifier reply in any other form is doubt: the reader runs and nothing is kept', async ($: any, on: any) => {
   const doubt = world(on, { tool: 'It might publish.', verdict: 'PASS' })
   await notion($, { text: 'x' })
