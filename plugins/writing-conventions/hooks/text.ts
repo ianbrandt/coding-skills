@@ -26,9 +26,9 @@ function bytes(s: string): number {
   return n
 }
 
-// drafts(reply): the fenced blocks tagged `draft` in a reply. One scanner, two
-// readers: the gate sends the blocks to the model, and the lint unwraps them so
-// that it still sees them as the prose they are.
+// drafts(reply): the fenced blocks tagged `draft` in a reply. The gate sends the
+// blocks to the model, and the lint unwraps them so that they are still linted
+// as the prose they are.
 //   drafts(reply)                    the text of each draft block, each followed
 //                                    by a line holding only \x01, so that no
 //                                    quote can match across two of them
@@ -128,8 +128,8 @@ export function excerpt(newText: string, fileText: string, cap: number): string 
 // findings(verdict, sources): the findings in a reader's verdict that quote the
 // text under review, which is `sources`. The first line of a verdict is SKIP,
 // PASS, VIOLATION, or LOCAL, and only the last two have findings. LOCAL is
-// VIOLATION for text that only goes into a local file, and the gate decides what
-// it changes. A finding is one line:
+// VIOLATION for text that only goes into a local file, and what it changes is
+// in gate.ts. A finding is one line:
 //   "fragment" + "fragment" -> rewrite
 // It is verified when every fragment, with runs of whitespace collapsed, is in
 // one of the sources; the fragments need not share a source. The reader can see

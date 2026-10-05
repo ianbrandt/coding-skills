@@ -25,8 +25,8 @@ const CHECKED = [2, 1, 289]
 
 let warned = false
 
-// Whether CLI version `base` is the checked one or later. dash.ts asks this
-// with a version it read through its own $.
+// Whether CLI version `base` is the checked one or later. dash.ts calls this
+// with a version read through its own $.
 export function atLeast(base: unknown): boolean {
   const v = String(base).split('.').map(Number)
   for (let i = 0; i < 3; i++) if (v[i] !== CHECKED[i]) return v[i] > CHECKED[i]
@@ -160,8 +160,8 @@ type Bodies = { read: { name: string; text: string }[]; unread: string[] }
 // issue, or release body in, and a line for each one that is not read.
 // bodyFiles() finds the files, from the flags written down there, and the reader
 // never chooses one. A file is read only when the text on disk is the text the
-// command will publish, as far as can be told: a literal path that no other
-// word of the command names, since a command that writes the file first
+// command will publish, as far as can be told: a literal path that is in no
+// other word of the command, since a command that writes the file first
 // publishes other text; relative to the directory the command starts in, with
 // no cd and no git -C; a readable regular file, not a link, in the project or a
 // temporary directory; and at most 1 MB with no NUL in its first 8 KB. Up to 4
@@ -316,7 +316,7 @@ async function stop($: any, e: any): Promise<Verdict> {
   const text = drafts(String(e.last_assistant_message ?? '')).slice(0, CAP)
   // Blocking is counted per turn, by the prompt_id, which is the same on every
   // Stop of one turn. Without one nothing can be counted, so nothing is blocked
-  // and a call would buy nothing.
+  // and no call is made.
   const turn = String(e.prompt_id ?? '')
   if (text === '' || turn === '') return {}
   // The reader is sent the drafts and nothing else. Each one stays a source of
@@ -343,7 +343,7 @@ async function gate($: any, check: () => Promise<Verdict>): Promise<Verdict> {
 
 // The reply lint and the reminders around it. None of them blocks: a Stop hook
 // cannot patch a reply, so blocking one costs a full re-emission of an answer
-// the reader has already seen. The correction lands on the next reply instead.
+// the user has already seen. The correction is made in the next reply instead.
 const REMINDER = 'Style, for this reply and any prose written to files: an inanimate subject takes no agentive verb—"the entry declared in the `plugins` block", never "the `plugins` block owns/says/gives". Em dashes unspaced (word—word). Plain words.'
 const NUDGE = "You just wrote prose to a file. Re-read it now for inanimate agency (report/build/entry/declaration as subject of says/gives/owns/configures/carries), spaced em dashes, and banned vocabulary; fix in place before moving on. If this text will publish under the user's name, have a fresh-context subagent sweep it against the rules before hand-over."
 
@@ -352,8 +352,8 @@ const TOOL = 'mcp__writing-conventions__lint'
 
 // Where the note on a session's last reply is kept until the next prompt: a
 // file named for the session, so that a resumed session still gets it. With no
-// session id there is no safe place, since a shared file would hand one
-// session's note to another.
+// session id there is no safe place, since one session's note in a shared
+// file would be read by another.
 // The temporary directory: TMPDIR, or TEMP or TMP as Windows has them.
 async function tmp($: any): Promise<string> {
   return (await $.env.get('TMPDIR')) || (await $.env.get('TEMP')) || (await $.env.get('TMP')) || '/tmp'

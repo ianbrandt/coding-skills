@@ -97,8 +97,8 @@ Everything but the `SessionStart` rules runs in the plugin's hooks module,
 no shell is involved. The `SessionStart` hook is a plain `cat` of `rules.md`.
 
 The function-hook API is early access, and 2.1.289 is the CLI the module was checked on. On an older
-CLI the module does nothing, and says so once in a toast. The rules still load at session start
-there, but the lint, the dash rewrite, the gate, and the rules for subagents are off. The same is true, with no toast,
+CLI the module does nothing, and the user is told once in a toast. The rules still load at session
+start there, but the lint, the dash rewrite, the gate, and the rules for subagents are off. The same is true, with no toast,
 where function hooks are switched off: `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1` in the environment
 turns them on, and `claude --debug` logs a module that did not load.
 
@@ -109,7 +109,7 @@ bodies, comments, issue bodies, commit messages, docs. A lint over chat never se
 `tool.call` hook watches the commands that publish them: `git commit`, every `gh pr`, `gh issue`,
 and `gh release` subcommand, and any other command that can publish (see "Other shell commands"),
 through the `Bash` tool and through the `PowerShell` tool both. Covering only `Bash` leaves every commit ungated on a Windows session where the PowerShell tool
-is the shell. [`hooks/gate.ts`](hooks/gate.ts) hands the command
+is the shell. [`hooks/gate.ts`](hooks/gate.ts) sends the command
 to a model, which pulls out the commit message or the title and body and checks that text against the
 four prohibitions: inanimate agency, mechanics (spaced em dashes and the Oxford comma), the banned
 words, and epigrams. A fifth check is a string match rather than a judgment: a Markdown heading or a
@@ -132,8 +132,8 @@ when that is unset; set it in the `env` block of a settings file to any id the s
 serves.
 
 An alias is enough there because `$.model.complete` resolves one the way `--model` does, through
-`ANTHROPIC_DEFAULT_SONNET_MODEL` and friends, so the default holds on a first-party install and on a
-LiteLLM proxy in front of Bedrock or Vertex alike. That is the reason the check is not a prompt-type
+`ANTHROPIC_DEFAULT_SONNET_MODEL` and the related variables, so the default holds on a first-party
+install and on a LiteLLM proxy in front of Bedrock or Vertex alike. That is the reason the check is not a prompt-type
 hook, where the `model` field resolves nothing: `"model": "sonnet"` there reaches the API verbatim, a proxy
 answers HTTP 400 `Invalid model name passed in model=sonnet`, and Claude Code logs
 `unrecognized_model` with `query_source: hook_prompt`. Since that field is a free-form string checked

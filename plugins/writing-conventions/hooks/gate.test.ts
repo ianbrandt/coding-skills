@@ -20,7 +20,7 @@ type World = {
   links?: string[]
 }
 
-// world(on, w): answers everything the gate asks of the engine, and records the
+// world(on, w): answers every call the gate makes to the engine, and records the
 // model calls by the prompt file each was made with, the files written, and the
 // toasts. A test calls it once, before its first event, and changes `w`
 // afterwards for a different reply.
@@ -103,7 +103,7 @@ test('a reply in any other form lets the command through', async ($: any, on: an
   }
 })
 
-test('a gate that cannot reach a model does not stop a commit, and says so once', async ($: any, on: any) => {
+test('a gate that cannot reach a model does not stop a commit, and the user is told once', async ($: any, on: any) => {
   const seen = world(on, { down: true })
   expect((await bash($, SAYS)).result).toEqual({ stdout: 'ran' })
   expect((await bash($, SAYS)).result).toEqual({ stdout: 'ran' })
@@ -112,13 +112,13 @@ test('a gate that cannot reach a model does not stop a commit, and says so once'
   expect(seen.toasts[0]).toContain('model review is off')
 })
 
-test('a check that cannot read the session lets the command through, and says so', async ($: any, on: any) => {
+test('a check that cannot read the session lets the command through, and the user is told', async ($: any, on: any) => {
   const seen = world(on, { verdict: FINDING, noSession: true })
   expect((await bash($, SAYS)).result).toEqual({ stdout: 'ran' })
   expect(seen.toasts.join()).toContain('model review is off')
 })
 
-test('a CLI older than the one the module was checked on makes no call, and says so', async ($: any, on: any) => {
+test('a CLI older than the one the module was checked on makes no call, and the user is told', async ($: any, on: any) => {
   const seen = world(on, { verdict: FINDING, base: '2.1.288' })
   expect((await bash($, SAYS)).result).toEqual({ stdout: 'ran' })
   expect(seen.reader).toHaveLength(0)

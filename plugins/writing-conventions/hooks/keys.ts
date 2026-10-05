@@ -1,4 +1,4 @@
-// A shell command split into the keys the gate looks up to decide whether the
+// A shell command split into the keys that are looked up to find whether the
 // command can publish, with no command name written down here, and the walk of
 // those keys through the classifier cache. All three were ported from awk
 // scripts function for function, and keys.test.ts has the fixture they are
@@ -27,8 +27,9 @@
 // git -C, or cd and the like anywhere in the command. The flags are written down
 // here, per command, because a word is an operand only when no earlier flag
 // takes it as its value. An operand of "-" is stdin, which is the heredoc
-// already in the command, and is left out. A command that cannot be split gives
-// 1<TAB>"" when it has a body-file flag at all, so that the gate reports it.
+// already in the command, and is left out. For a command that cannot be split
+// the result is 1<TAB>"" when it has a body-file flag at all, so that it is
+// reported at the gate.
 //
 // The rules are a character loop with no grammar. The text is read twice. Pass 1
 // drops heredoc bodies and turns a quoted span into its content, or into the
@@ -129,8 +130,8 @@ function unreadable(x: string): boolean {
 // cands(w, m, from): the subcommand candidates in words from..m, each with its
 // position. A word is a candidate position while every word before it is a flag,
 // a redirection, or a word directly after a flag with no "=", which may be that
-// flag's value. A word that cannot be read as a name gives "?". Directly after
-// such a flag it gives "?" only when no name is found at this depth:
+// flag's value. The candidate for a word that cannot be read as a name is "?".
+// Directly after such a flag it is "?" only when no name is found at this depth:
 // `git -C "$WT" status` has a subcommand, and `hg -v "$verb"` does not.
 function cands(w: string[], m: number, from: number): [string, number][] {
   const found: [string, number][] = []

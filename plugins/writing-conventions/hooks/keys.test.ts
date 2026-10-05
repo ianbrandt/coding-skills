@@ -213,7 +213,7 @@ function command(text: string): string {
   return text.replace(/\\\\/g, '\x01').replace(/\\n/g, '\n').replace(/\\t/g, '\t').replace(/\x01/g, '\\')
 }
 
-test('every fixture case gives its keys, or its body files with the mode suffix "files"', () => {
+test('every fixture case has its keys, or its body files with the mode suffix "files"', () => {
   let cases = 0
   for (const line of FIXTURE.split('\n')) {
     if (line === '' || line.startsWith('#')) continue

@@ -21,7 +21,7 @@
 // task writes a file, which rules.md allows as a program doing its job), and
 // "notes" is nearly always the noun. The finite subject patterns are tried
 // shortest first, so "the report says we decided" is caught on "the report says"
-// before the longer span that swallows the human clause is tried.
+// before the longer span that includes the human clause is tried.
 // The fifth group is a bulleted or numbered item that opens on bold text
 // ("- **Label.** text"), matched on the raw line outside a fence.
 //
