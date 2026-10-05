@@ -114,8 +114,7 @@ words, and epigrams. A fifth check is a string match rather than a judgment: a M
 bullet changelog in a commit message, an issue, a pull request, or a comment. Length is never judged,
 and no other form is. The model replies `PASS`, `SKIP` for a command that publishes nothing new
 (`gh pr view`, `gh pr checks`, `--amend --no-edit`, a label change), or `VIOLATION` with one line per
-offending sentence: the quoted words, then a plain rewrite. A body read from a file path is not in
-the command, so it is not checked.
+offending sentence: the quoted words, then a plain rewrite.
 
 `findings()` in [`hooks/text.ts`](hooks/text.ts) looks for each
 quote in the command, with runs of whitespace collapsed. A finding with its quote in the command
