@@ -20,7 +20,7 @@ run costs four times what it needed to.
 
 ## 1. The model tiers
 
-**Table current as of 2026-09-24.** Model names age fast; re-tune this table when releases land,
+**Table current as of 2026-10-04.** Model names age fast; re-tune this table when releases land,
 and treat every other skill's tier language ("the apex tier", "a task hero") as pointing here rather
 than at a name. No other part of this plugin includes a model name.
 
@@ -28,7 +28,7 @@ than at a name. No other part of this plugin includes a model name.
 |---|---|---|---|
 | Apex | Fable 5.1 | A narrow set: architecture or strategy with no precedent to follow, a tie-break when an everyday verify and the build disagree on something that fails silently, and a question the everyday tier has already tried and left open. | Roughly 4x the effective cost of the everyday tier—2x usage against a weekly budget half the size. Aim it; never default to it. |
 | Everyday | Opus 5.5 | The orchestrator and the workhorse: the main loop, design, adversarial verification, and judge stages. Raise its effort before reaching for the apex tier. | The baseline. |
-| Task hero | Sonnet 5 | Any unit that is well-specified and objectively verifiable, inside a Workflow or not. Test-driven work is the ideal case. | Cheap enough to fan out. |
+| Task hero | Sonnet 5.5 | Any unit that is well-specified and objectively verifiable, inside a Workflow or not. Test-driven work is the ideal case. | Cheap enough to fan out. |
 | Mechanical | Haiku 4.5 | Stages with a loud oracle: tests, compiles, a verifiable count, bulk reads, fixture sweeps, doc updates. | Cheapest. Only where failure is loud. |
 
 **A stage is not apex work because of its kind.** Design and verify stages run on the everyday
