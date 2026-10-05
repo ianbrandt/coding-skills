@@ -1,5 +1,9 @@
 # To do
 
+- Needs a Windows machine, for `writing-conventions` 0.44.0 and `ghostwriting-skills` 0.8.0: check
+  that the hooks module loads with `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS` unset (`claude --debug` logs
+  a module that did not load), that a `git commit` through the PowerShell tool is read at the gate,
+  that a body file passed by a `C:\` path is read, and that the two toasts fit in four lines.
 - Needs a Windows machine, for the `session-skills` snippets and their `powershell.md` versions:
   check that `git worktree list --porcelain` prints forward-slash paths that both shells parse,
   that the `SessionStart` `cat` hook loads under Git Bash and under PowerShell with no Git Bash,
