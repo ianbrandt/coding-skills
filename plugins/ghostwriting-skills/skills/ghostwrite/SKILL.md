@@ -20,7 +20,8 @@ user reads it first: **drafting is yours, posting is theirs.**
 **If a `## Voice data, loaded by the plugin` section follows this skill's text, the plugin's hooks
 module already did this section's snippet and §1's reads**: the spec, the corpus, and the always-on
 rules file are in that section, each whole. Use them from there, skip the snippet, and read none of
-those files again. Without that section, on a host that runs no hooks module, do it by hand:
+those files again. A file the plugin could not read or find is listed there instead, for you to read.
+Without that section, on a host that runs no hooks module, do it by hand:
 
 The plugin's `voice_dir` option is substituted into the first line below (empty when the user set
 none); then `$GHOSTWRITING_DIR`, then the default.

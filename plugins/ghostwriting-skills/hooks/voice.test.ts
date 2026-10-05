@@ -5,19 +5,26 @@ const SPEC = '/v/voice-spec.md'
 const CACHE = '/home/.claude/plugins/cache'
 
 // files <path to text>: answers the reads, and lists a directory from the paths
-// under it. `env` answers $.env.get.
-function files(on: any, texts: Record<string, string>, env: Record<string, string> = {}) {
+// under it. `env` answers $.env.get. A path in `locked` is there and cannot be
+// read. The paths read are returned.
+function files(on: any, texts: Record<string, string>, env: Record<string, string> = {}, locked: string[] = []) {
+  const reads: string[] = []
   on('env.get', (_$: any, e: any) => ({ value: { HOME: '/home', GHOSTWRITING_DIR: '/v', ...env }[e.name as string] }))
-  on('fs.read', (_$: any, e: any) => (e.path in texts ? { value: texts[e.path] } : { deny: 'no such file' }))
+  on('fs.read', (_$: any, e: any) => {
+    reads.push(e.path)
+    return e.path in texts && !locked.includes(e.path) ? { value: texts[e.path] } : { deny: 'no such file' }
+  })
+  on('fs.exists', (_$: any, e: any) => ({ value: e.path in texts }))
   on('fs.list', (_$: any, e: any) => {
     const names = new Set<string>()
     for (const path of Object.keys(texts)) {
       if (path.startsWith(e.path + '/')) names.add(path.slice(e.path.length + 1).split('/')[0])
     }
     if (names.size === 0) return { deny: 'no such directory' }
-    return { value: [...names].map(name => ({ name, kind: Object.keys(texts).includes(`${e.path}/${name}`) ? 'file' : 'dir', size: 1, mtimeMs: 0, isLink: false })) }
+    return { value: [...names].map(name => ({ name, kind: Object.keys(texts).includes(`${e.path}/${name}`) ? 'file' : 'dir', size: (texts[`${e.path}/${name}`] ?? '').length, mtimeMs: 0, isLink: false })) }
   })
   on('skill.prompt', (_$: any, e: any) => ({ text: e.text }))
+  return reads
 }
 
 test('the spec, every sample, and the newest rules file follow the skill text', async ($: any, on: any) => {
@@ -59,4 +66,49 @@ test('another skill gets its text unchanged', async ($: any, on: any) => {
   files(on, { [SPEC]: 'SPEC TEXT' })
   const { text } = await $.skill.prompt({ skill: 'ghostwriting-skills:share-ghostwriting-spec', text: 'SKILL' })
   expect(text).toBe('SKILL')
+})
+
+test('a spec that is there and cannot be read is not a bootstrap', async ($: any, on: any) => {
+  files(on, { [SPEC]: 'SPEC TEXT' }, {}, [SPEC])
+  const { text } = await $.skill.prompt({ skill: 'ghostwrite', text: 'SKILL' })
+  expect(text).toBe('SKILL')
+})
+
+test('with no HOME the default directory is under USERPROFILE', async ($: any, on: any) => {
+  files(on, { '/u/.claude/ghostwriting/voice-spec.md': 'PROFILE SPEC' }, { GHOSTWRITING_DIR: '', HOME: '', USERPROFILE: '/u' })
+  const { text } = await $.skill.prompt({ skill: 'ghostwrite', text: 'SKILL' })
+  expect(text).toContain('PROFILE SPEC')
+})
+
+test('a sample that cannot be read is listed, and the corpus is not called whole', async ($: any, on: any) => {
+  files(on, { [SPEC]: 'SPEC TEXT', '/v/corpus/issues.md': 'ISSUE SAMPLE', '/v/corpus/pr-bodies.md': 'PR SAMPLE' }, {}, ['/v/corpus/pr-bodies.md'])
+  const { text } = await $.skill.prompt({ skill: 'ghostwrite', text: 'SKILL' })
+  expect(text).toContain('ISSUE SAMPLE')
+  expect(text).not.toContain('every sample')
+  expect(text).toMatch(/could not read[^\n]*`\/v\/corpus\/pr-bodies\.md`/)
+})
+
+test('a corpus far over the cap is not read at all', async ($: any, on: any) => {
+  const reads = files(on, { [SPEC]: 'SPEC TEXT', '/v/corpus/a.txt': 'x'.repeat(300000) })
+  const { text } = await $.skill.prompt({ skill: 'ghostwrite', text: 'SKILL' })
+  expect(text).toContain('`/v/corpus/a.txt`')
+  expect(reads).not.toContain('/v/corpus/a.txt')
+})
+
+test('a cache entry that is not a version is passed over', async ($: any, on: any) => {
+  files(on, {
+    [SPEC]: 'SPEC TEXT',
+    [`${CACHE}/m/writing-conventions/.DS_Store`]: 'x',
+    [`${CACHE}/m/writing-conventions/0.44.0/hooks/rules.md`]: 'NEW RULES',
+    [`${CACHE}/m/writing-conventions/main/hooks/rules.md`]: 'BRANCH RULES',
+  })
+  const { text } = await $.skill.prompt({ skill: 'ghostwrite', text: 'SKILL' })
+  expect(text).toContain('NEW RULES')
+  expect(text).not.toContain('BRANCH RULES')
+})
+
+test('with no rules file the skill is told to re-read it by hand', async ($: any, on: any) => {
+  files(on, { [SPEC]: 'SPEC TEXT' })
+  const { text } = await $.skill.prompt({ skill: 'ghostwrite', text: 'SKILL' })
+  expect(text).toContain('did not find the always-on rules file')
 })
