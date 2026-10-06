@@ -168,6 +168,10 @@ fi
 echo "worktree: $WT   main checkout: $MAIN"
 ```
 
+**On Windows Git Bash**, `ln -s` copies the directory rather than linking it, and
+`MSYS=winsymlinks:nativestrict` makes it fail without Developer Mode. Use `powershell.md` §3's
+junction instead, which needs no privilege.
+
 **`--no-track` leaves the new branch with no upstream.** A branch tracking `origin/<default>` is
 checked against it by `git branch -d`, so while a public push is held, a branch already merged into
 the local default branch is refused and §4's reap leaves it behind. `git push -u` sets an upstream
