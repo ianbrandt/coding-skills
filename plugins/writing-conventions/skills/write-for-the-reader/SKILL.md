@@ -342,7 +342,7 @@ signatures that fit on one line stay there." Splitting at the "and" does not rep
 sentences of the same build side by side are the same figure. An ordinary compound sentence is not
 this: a cause and its effect, a change and its result, or two facts about one subject belong
 together, and their clauses rarely match. The lint cannot flag it, since whether two facts are
-related is not visible to a pattern, so scan for it by eye. The gate does judge it.
+related is not visible to a pattern, so scan for it by eye. It is checked at the gate.
 
 **Every pronoun resolves.** Each "it", "this", and "that" points at one named thing the reader can
 find in the same paragraph, and a bare "this" opening a sentence usually stands in for a whole
