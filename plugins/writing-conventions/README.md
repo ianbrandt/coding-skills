@@ -10,6 +10,10 @@ became a rule. `write-for-the-reader` is where a word you flag gets logged into 
 `ghostwriting-skills` plugin, which drafts text that ships under your name, the general rules that
 come out of your edits are added to the same file when this plugin is installed.
 
+Claude Code 2.1.286 is the oldest version supported. The rules load at session start on any
+version, through a command hook. Everything else runs in a hooks module, which is a Claude Code mod,
+and is off on an older version (see [What runs the hooks](#what-runs-the-hooks)).
+
 ## What loads every session
 
 A `SessionStart` hook injects [`hooks/rules.md`](hooks/rules.md) into every session, including
@@ -97,7 +101,8 @@ Everything but the `SessionStart` rules runs in the plugin's hooks module,
 [`hooks/register.ts`](hooks/register.ts), so a Windows session runs the same code as any other and
 no shell is involved. The `SessionStart` hook is a plain `cat` of `rules.md`.
 
-The function-hook API is early access, and 2.1.286 is the oldest CLI the module was checked on. The
+The function-hook API is early access, and 2.1.286 is the oldest CLI the module was checked on.
+Mods are listed in the Claude Code changelog from 2.1.287, but the module loads on 2.1.286 too. The
 gate, the lint tool, the nudge after a written file, the rules for subagents, the dash rewrite, and
 the lint note on the next turn were each checked in a live session on 2.1.286 and on 2.1.288
 through 2.1.291. No older CLI was tried. On an older CLI the module does nothing, and the user is
