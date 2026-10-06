@@ -10,8 +10,8 @@
 // alias is resolved the way `--model` resolves one, on a first-party install and
 // on a proxy in front of Bedrock or Vertex alike.
 //
-// A gate that cannot reach a model must not stop a commit, so every failure
-// lets the event through, and the user is told once. Only a finding with its
+// A commit must not be stopped because no model could be called, so every
+// failure lets the event through, and the user is told once. Only a finding with its
 // quote in the text under review blocks a command, a call, or a reply.
 import type { Register } from 'claude-code'
 import { bodyFiles, keys, walk } from './keys'

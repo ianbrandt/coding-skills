@@ -103,7 +103,7 @@ test('a reply in any other form lets the command through', async ($: any, on: an
   }
 })
 
-test('a gate that cannot reach a model does not stop a commit, and the user is told once', async ($: any, on: any) => {
+test('a commit is not stopped when the model call fails, and the user is told once', async ($: any, on: any) => {
   const seen = world(on, { down: true })
   expect((await bash($, SAYS)).result).toEqual({ stdout: 'ran' })
   expect((await bash($, SAYS)).result).toEqual({ stdout: 'ran' })

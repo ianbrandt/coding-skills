@@ -6,9 +6,9 @@ injected at the start of every session and every subagent, so they bind without 
 skill.
 
 Every rule in that list arrived the same way: a specific draft came back wrong, and the correction
-became a rule. `write-for-the-reader` is where a word you flag gets logged into the list. The
-`ghostwriting-skills` plugin, which drafts text that ships under your name, routes the general rules
-it learns from your edits into the same file when this plugin is installed.
+became a rule. `write-for-the-reader` is where a word you flag gets logged into the list. With the
+`ghostwriting-skills` plugin, which drafts text that ships under your name, the general rules that
+come out of your edits are added to the same file when this plugin is installed.
 
 ## What loads every session
 
@@ -27,8 +27,8 @@ roughly 1,650 tokens per session and per subagent, against about 1,600 words for
 and load only when that skill does.
 
 Prohibitions bind everywhere, `SKILL.md` files included, because they are about precision rather
-than register. Form rules—bold, redundancy, length, the reader-facing voice—stop at the
-agent-facing line, so those files are formatted for whatever a model reads best.
+than register. Form rules—bold, redundancy, length, the reader-facing voice—do not apply to
+agent-facing files, so those files are formatted for whatever a model reads best.
 
 The reply lint runs on both ends of a turn, from the plugin's hooks module
 ([`hooks/gate.ts`](hooks/gate.ts)). On `Stop` the final reply is linted and what is found is saved.
@@ -43,18 +43,19 @@ prose, or is a source file with comments and test names in it (`.md`, `.markdown
 A word is letters and digits in ASCII and Latin-1, so `café` is one word, and a character outside
 those is read whole.
 
-It flags the mechanically detectable subset of the rules: the banned vocabulary, spaced em dashes,
-a missing Oxford comma in a list of single words, an inanimate subject paired with a verb of
-speech, volition, or cognition, and a bulleted or numbered item that opens on bold text. The Oxford comma check needs two commas before the final "and" or
-"or", because a one-comma list ("a, b and c") matches too many ordinary clauses. The agency set is
-deliberately narrow. An earlier version also matched possession verbs (holds, carries, keeps) and
-scored about 40% precision on a hand-checked sample, mostly on code mechanics such as a map that
-holds a value; the current set trades recall for a hit the model can act on.
+The lint flags the mechanically detectable subset of the rules: the banned vocabulary, spaced em
+dashes, a missing Oxford comma in a list of single words, an inanimate subject paired with a verb of
+speech, volition, or cognition, and a bulleted or numbered item that opens on bold text. The Oxford
+comma check needs two commas before the final "and" or "or", because a one-comma list ("a, b and c")
+matches too many ordinary clauses. The agency set is deliberately narrow. An earlier version also
+matched possession verbs (holds, carries, keeps) and scored about 40% precision on a hand-checked
+sample, mostly on code mechanics such as a map that holds a value; with the current set fewer
+sentences are flagged, and each hit is one the model can act on.
 
-The lint never blocks, and that is the whole design. A `Stop` hook cannot patch a reply, so
-blocking one buys a corrected answer at the price of re-emitting the entire original, which you
-have already read and which stays in the transcript beside it. Carrying the hits into the next turn
-costs a few dozen tokens instead, and the flagged reply stands as sent.
+The lint never blocks. A `Stop` hook cannot patch a reply, so blocking one gets a corrected answer
+only by re-emitting the entire original, which you have already read and which stays in the
+transcript beside it. Carrying the hits into the next turn costs a few dozen tokens instead, and the
+flagged reply stands as sent.
 
 Each line of the note ends with the rule that line is about, because a note with only the
 pattern in it, deferring to "the rules loaded at session start" measured no better than sending nothing:
@@ -62,8 +63,8 @@ across six two-turn trials per arm, no note left 6 of 6 next replies dirty, the 
 5 of 6 dirty, and the same mechanism with the rule stated inline left 0 of 6 dirty. Literal senses
 stay ("a Slack channel", "an array shape"), text inside code fences, backticks, and double quotes is
 never matched, and a clean reply clears whatever the previous one left pending. Rules that need
-judgment to detect stay where they were, in the model's own review passes; the lint is the floor
-under them, and a construction it cannot match mechanically is still a violation.
+judgment to detect are left to the model's review passes, and a construction the lint cannot match
+is still a violation.
 
 ## Spaced em dashes in a reply
 
@@ -104,19 +105,20 @@ turns them on, and `claude --debug` logs a module that did not load.
 
 ## The gate at publication
 
-The census behind this plugin found that 101 of 107 corrections landed on text that ships: PR
-bodies, comments, issue bodies, commit messages, docs. A lint over chat never sees those, so a
-`tool.call` hook watches the commands that publish them: `git commit`, every `gh pr`, `gh issue`,
-and `gh release` subcommand, and any other command that can publish (see "Other shell commands"),
-through the `Bash` tool and through the `PowerShell` tool both. Covering only `Bash` leaves every commit ungated on a Windows session where the PowerShell tool
-is the shell. [`hooks/gate.ts`](hooks/gate.ts) sends the command
-to a model, which pulls out the commit message or the title and body and checks that text against the
-four prohibitions: inanimate agency, mechanics (spaced em dashes and the Oxford comma), the banned
-words, and epigrams. A fifth check is a string match rather than a judgment: a Markdown heading or a
-bullet changelog in a commit message, an issue, a pull request, or a comment. Length is never judged,
-and no other form is. The model replies `PASS`, `SKIP` for a command that publishes nothing new
-(`gh pr view`, `gh pr checks`, `--amend --no-edit`, a label change), or `VIOLATION` with one line per
-offending sentence: the quoted words, then a plain rewrite.
+The census behind this plugin found that 101 of 107 corrections were to text that ships: PR bodies,
+comments, issue bodies, commit messages, docs. A lint over chat is never run on those, so a
+`tool.call` hook checks the commands that publish them: `git commit`, every `gh pr`, `gh issue`, and
+`gh release` subcommand, and any other command that can publish (see "Other shell commands"),
+through the `Bash` tool and through the `PowerShell` tool both. Covering only `Bash` leaves every
+commit ungated on a Windows session where the PowerShell tool is the shell.
+[`hooks/gate.ts`](hooks/gate.ts) sends the command to a model, which pulls out the commit message or
+the title and body and checks that text against the four prohibitions: inanimate agency, mechanics
+(spaced em dashes and the Oxford comma), the banned words, and epigrams. A fifth check is a string
+match rather than a judgment: a Markdown heading or a bullet changelog in a commit message, an
+issue, a pull request, or a comment. Length is never judged, and no other form is. The model replies
+`PASS`, `SKIP` for a command that publishes nothing new (`gh pr view`, `gh pr checks`, `--amend
+--no-edit`, a label change), or `VIOLATION` with one line per offending sentence: the quoted words,
+then a plain rewrite.
 
 `findings()` in [`hooks/text.ts`](hooks/text.ts) looks for each
 quote in the command, with runs of whitespace collapsed. A finding with its quote in the command
@@ -137,14 +139,14 @@ install and on a LiteLLM proxy in front of Bedrock or Vertex alike. That is the 
 hook, where the `model` field resolves nothing: `"model": "sonnet"` there is sent to the API verbatim, a proxy
 answers HTTP 400 `Invalid model name passed in model=sonnet`, and Claude Code logs
 `unrecognized_model` with `query_source: hook_prompt`. Since that field is a free-form string checked
-at call time rather than at load time, the only symptom was a hook error on every commit, with the
-gate silently absent.
+at call time rather than at load time, the only symptom was a hook error on every commit, and the
+check never ran.
 
-Sonnet is the default because Claude Code's own default for a check like this is Haiku, which denied
-10 of 24 checks on a dozen clean commit messages and then rejected its own suggested rewrites, so a
-session could not commit at all. Sonnet 5 allowed 23 of those 24, and both models denied all 16 checks
-on planted violations. Sonnet 5.5, which the alias resolves to on CLI 2.1.289, had the same two counts on
-2026-10-05, and over five runs it allowed 57 of 60 and denied 40 of 40.
+Sonnet is the default because Claude Code's default for a check like this is Haiku, which denied 10
+of 24 checks on a dozen clean commit messages and then rejected its own suggested rewrites, so a
+session could not commit at all. Sonnet 5 allowed 23 of those 24, and both models denied all 16
+checks on planted violations. Sonnet 5.5, which the alias resolves to on CLI 2.1.289, had the same
+two counts on 2026-10-05, and over five runs it allowed 57 of 60 and denied 40 of 40.
 
 On Sonnet 5.5 the median call took 1.6 seconds on a planted commit message, 3.6 seconds on a clean
 one, and 5.9 seconds on the text of a PR, an issue, or a comment, and the longest of 317 calls took
@@ -152,10 +154,10 @@ one, and 5.9 seconds on the text of a PR, an issue, or a comment, and the longes
 medians fell to 1.3 and 2.3 seconds, but over two runs of 60 posted texts that an earlier review
 found clean, a finding was kept on 63 of 120 checks against 42 at the model's default.
 
-Every failure lets the command through, so a gate that cannot reach a model does not block a
-commit. The first time in a session that a check fails, the user is told once that model review is
-off, in a toast, which is shown to the user and not to the model. A reply from a call that was
-answered is not such a failure, whatever its form.
+Every failure lets the command through, so a commit is not blocked when no model can be called. The
+first time in a session that a check fails, the user is told once that model review is off, in a
+toast, which is shown to the user and not to the model. A reply from a call that was answered is not
+such a failure, whatever its form.
 
 The cost is one call per `git commit` and per `gh pr`, `gh issue`, or `gh release` command, read-only
 ones included. One hook covers all four command families, because the command text is
@@ -177,12 +179,11 @@ single-quoted text and heredoc bodies do not. [`hooks/keys.test.ts`](hooks/keys.
 on 147 commands.
 
 Each key has one of five classes: `NEVER`, `CAN_PUBLISH`, `DESCEND` when the answer depends on the
-subcommand (`git`, `hg`), `PROJECT` when the words after it are the project's own task names
-(`make`, `npm run`, `./gradlew`), or `RUNS_CODE` for an interpreter or `curl`. Keys with no class
-cost one classifier call for the whole command, with
-[`hooks/classify-command.md`](hooks/classify-command.md) as the prompt. A key missing from the reply
-is doubt: it reads as `CAN_PUBLISH` and is not kept. A command with keys that are all `NEVER` makes
-no call.
+subcommand (`git`, `hg`), `PROJECT` when the words after it are the project's task names (`make`,
+`npm run`, `./gradlew`), or `RUNS_CODE` for an interpreter or `curl`. Keys with no class cost one
+classifier call for the whole command, with [`hooks/classify-command.md`](hooks/classify-command.md)
+as the prompt. A key missing from the reply is doubt: it reads as `CAN_PUBLISH` and is not kept. A
+command with keys that are all `NEVER` makes no call.
 
 The answers are appended to
 `${CLAUDE_CONFIG_DIR:-~/.claude}/writing-conventions/shell-commands-<hash>.txt`, one line each:
@@ -190,13 +191,14 @@ The answers are appended to
 directory for a task name or a program run by path. The file is yours to read and edit, and for one
 key a `CAN_PUBLISH` line wins over the other classes.
 
-The four command families above are reviewed whatever is in the file, so a wrong `NEVER` can
-lose new coverage but never theirs. A command is also reviewed when it has a quote left open, or a
-word that cannot be read as a name in a subcommand position, such as `hg "$verb"`. A `RUNS_CODE` command is
-read only when it contains a sentence: six or more words, the first capitalized and the last ending
-in `.`, `!`, or `?`. A `\n` or `\t` escape between words counts as a space, and a word may be quoted. Interpreters run in about 16% of commands on the machine this was measured on,
-and a short message posted through `curl` or a script is not read.
-`WRITING_CONVENTIONS_SHELL_CLASSIFIER=0` turns this off and leaves the four families.
+The four command families above are reviewed whatever is in the file, so a wrong `NEVER` can only
+cost coverage of other commands. A command is also reviewed when it has a quote left open, or a word
+that cannot be read as a name in a subcommand position, such as `hg "$verb"`. A `RUNS_CODE` command
+is read only when it contains a sentence: six or more words, the first capitalized and the last
+ending in `.`, `!`, or `?`. A `\n` or `\t` escape between words counts as a space, and a word may be
+quoted. Interpreters run in about 16% of commands on the machine this was measured on, and a short
+message posted through `curl` or a script is not read. `WRITING_CONVENTIONS_SHELL_CLASSIFIER=0`
+turns this off and leaves the four families.
 
 A command that only writes a local file is not blocked, just as a `Write` or `Edit` to a prose file
 is not (see "Prose files"). A session in a worktree edits a file that lives only in the primary
@@ -227,12 +229,12 @@ Where one command passes two body flags, only the last one is read, as git and g
 are read per command, 50,000 characters in all. Each file that is not read is listed back to the
 session with the reason, in the block reason or as `additionalContext`.
 
-The test by file name has two known costs. A command that rewrites the file without naming it, such
-as `make notes && gh release create v1 -F notes.md`, has the old text read. A command that names
-the file again only to delete it, such as `git commit -F msg.txt && rm msg.txt`, has no file read.
-A body flag is not found at all after a wrapper that takes a value (`sudo -u me`, `nice -n 5`) or
-in a program called by path (`/usr/bin/git`), and nothing is reported for it. A body file for any
-other command, such as `hg commit -l`, is not read.
+The test by file name has two known costs. A command that rewrites the file without its name
+appearing, such as `make notes && gh release create v1 -F notes.md`, has the old text read. A
+command in which the name appears again only to delete the file, such as `git commit -F msg.txt &&
+rm msg.txt`, has no file read. A body flag is not found at all after a wrapper that takes a value
+(`sudo -u me`, `nice -n 5`) or in a program called by path (`/usr/bin/git`), and nothing is reported
+for it. A body file for any other command, such as `hg commit -l`, is not read.
 
 Replayed from an empty cache over 122,260 shell commands from one machine's history, 3.6% of
 commands made a classifier call and 9.5% were reviewed, against 4.1% for the four families
@@ -301,17 +303,17 @@ it stops after two; the third time, the user is told that review is unresolved, 
 stands. `WRITING_CONVENTIONS_STOP_READER=0` turns this check off.
 
 Tagging keeps this cheap, and the rate was measured before any of it was built and again with the
-rule text that ships, at n = 12 per arm with `claude -p --model sonnet` and the draft named only as
-a by-product of a coding task. With no rule, a drafting skill fired on 3 of 12 runs, and of the 9
+rule text that ships, at n = 12 per arm with `claude -p --model sonnet` and the draft mentioned only
+as a by-product of a coding task. With no rule, a drafting skill fired on 3 of 12 runs, and of the 9
 replies that included a draft, 6 were in a plain fence, 2 in a blockquote, and 1 between `---`
 rules; a plain fence of 8 words or more also trips on 4 of 12 ordinary replies. With the rule text
 that ships, 8 of the 9 replies that included a draft tagged it, and 0 of 12 ordinary replies used
-the tag while 11 of them carried some other fence. The miss gave review feedback as the body of the
+the tag while 11 of them had some other fence. The miss gave review feedback as the body of the
 reply rather than as a block. On Sonnet 5.5, with the prompts of that second run on 2026-10-05, a
 drafting skill fired on 2 of 12 runs with no rule, and of the 9 drafts 3 were in a plain fence and 6
 in a blockquote. With the rule, 9 of the 10 replies that included a draft tagged it, with the same
-miss, and 0 of 12 ordinary replies used the tag while all 12 had another fence. A draft the session does not tag is not read by the model at all; the
-reply lint is all that sees it.
+miss, and 0 of 12 ordinary replies used the tag while all 12 had another fence. A draft the session
+does not tag is not read by the model at all, and is checked by the reply lint alone.
 
 The lint drops every closed fenced block before matching, so the `draft` fences are unwrapped
 first (`drafts()` in [`hooks/text.ts`](hooks/text.ts), the same scanner the `Stop` check uses), and the
@@ -340,13 +342,12 @@ clean facts the scores with and without the plugin differed little. Each
 case has three free regex graders (spaced dashes, the banned words that have no literal sense, and
 a narrow personification pattern over present-tense verbs and a fixed noun list), a judge-model
 grader for personification, and where the genre calls for it, a judge grader for form. The form
-graders check only this plugin's own rules: lead with the outcome, and no narration of how the
-change came about. Sentence counts and heading limits are left to `ghostwrite`, since a limit
-stated in the prompt measures whether the model follows the prompt.
-The personification judge fails a draft only for a sentence it can quote. With the looser wording
-and the default Haiku judge, it failed 11 of 24 runs both with and without the plugin loaded, and
-only one of the 11 flagged drafts had a real violation.
-Run it from the plugin directory:
+graders check only this plugin's rules: lead with the outcome, and no narration of how the change
+came about. Sentence counts and heading limits are left to `ghostwrite`, since a limit stated in the
+prompt measures whether the model follows the prompt. The personification judge fails a draft only
+for a sentence it can quote. With the looser wording and the default Haiku judge, it failed 11 of 24
+runs both with and without the plugin loaded, and only one of the 11 flagged drafts had a real
+violation. Run it from the plugin directory:
 
 ```bash
 claude plugin eval . --runs 2 --judge-model sonnet --no-publish
@@ -375,11 +376,11 @@ gain of 0.04. Plugin-loaded drafts failed no regex grader, the personification j
 
 ### `write-for-the-reader`
 
-Governs what the agent writes to you: chat replies, summaries, wrap-ups. Assumes you have read
-nothing since your last message, so no back-reference to "the fix above," no term coined three
-tool calls ago, and the file, decision, and outcome named in full every time. Picks the amount of
-detail from what you will do next rather than from how much work happened: a routine call gets one
-line, a call you might have made differently gets one sentence naming the alternative it rejected.
-Links a file with an absolute path instead of pasting its contents, and leaves out what you can
-already see for yourself, like a local test-suite pass CI already reports. When you flag a word as
-jargon, this skill is what logs it into `hooks/rules.md`.
+Covers what the agent writes to you: chat replies, summaries, wrap-ups. The agent is told to assume
+you have read nothing since your last message, so there is no back-reference to "the fix above," no
+term coined three tool calls ago, and the file, decision, and outcome are written out in full every
+time. The amount of detail follows what you will do next rather than how much work happened: a
+routine call gets one line, and a call you might have made differently gets one sentence on the
+alternative that was rejected. A file is linked with an absolute path instead of pasted, and what
+you can already see for yourself is left out, like a local test-suite pass CI already reports. When
+you flag a word as jargon, the agent logs it into `hooks/rules.md` under this skill.

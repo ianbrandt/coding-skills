@@ -23,9 +23,9 @@ invoked.
 ```
 
 - [`writing-conventions`](plugins/writing-conventions) changes how a session writes: to you, in
-  repo docs, and in anything published under your name. Replies drop the jargon, the personified
-  subjects, and the back-references a cold reader cannot follow, and a lint reports each miss in
-  the next turn.
+  repo docs, and in anything published under your name. Jargon, personified subjects, and
+  back-references a cold reader cannot follow are kept out of replies, and a lint reports each miss
+  in the next turn.
 - [`orchestration-skills`](plugins/orchestration-skills) changes how a session hands work to other
   agents. It covers what is worth delegating and at what tier, puts scope and prohibitions in
   every brief, isolates the agents that would corrupt a shared worktree, and treats a stage that
@@ -43,18 +43,18 @@ invoked.
 ```
 
 - [`ghostwriting-skills`](plugins/ghostwriting-skills) drafts text that ships under your name from a
-  voice spec built out of your own writing, hands each draft over for your go, and learns from your
-  edits. With `writing-conventions` installed, the general rules it learns land in that plugin's
-  always-on file.
+  voice spec built out of your own writing, hands each draft over for your go, and logs what your
+  edits change. With `writing-conventions` installed, the general rules from those edits are added
+  to that plugin's always-on file.
 - [`session-skills`](plugins/session-skills) puts a unit of work in its own git worktree and gets it
   back out again, landing it by what the repo actually is rather than by a mode you declare. It also
-  carries two small session-start rules: the session-title format a session ends with, and a
-  per-turn judgment of whether the work is better served by continuing here or handing off to a
-  fresh session.
+  has two small session-start rules: the session-title format a session ends with, and a per-turn
+  judgment of whether the work is better served by continuing here or handing off to a fresh
+  session.
 - [`parallel-session-skills`](plugins/parallel-session-skills) keeps two or three sessions off each
-  other's files, through a claim ledger of the paths each lane will touch. It also carries the
-  unattended conductor that runs several lanes at once and refills them as they finish.
-  Install it if you run more than one session against a repo at a time; it needs `session-skills`.
+  other's files, through a claim ledger of the paths each lane will touch. It also has the
+  unattended conductor that runs several lanes at once and refills them as they finish. Install it
+  if you run more than one session against a repo at a time; it needs `session-skills`.
 - [`roadmap-skills`](plugins/roadmap-skills) backs a lane with a markdown backlog: `Rn` items in
   priority order, claimed one at a time or fed to the conductor in a batch. Claiming one needs
   `session-skills`; feeding the conductor needs `parallel-session-skills` as well.
