@@ -4,14 +4,18 @@ import { expect, test } from 'claude-code/testing'
 function world(on: any, base = '2.1.289', env: Record<string, string> = {}) {
   on('session.version', () => ({ value: { version: base, base, builtAt: '' } }))
   const files: Record<string, string> = {}
+  // On Windows an engine-level step turns a "/foo" path into "C:\foo" before the
+  // mock sees it, so each lookup reads it back as POSIX.
+  const posix = (p: string) => p.replace(/^[A-Za-z]:/, '').replace(/\\/g, '/')
   on('env.get', (_$: any, e: any) => ({ value: env[e.name as string] }))
   on('fs.read', (_$: any, e: any) => {
-    if (e.path.endsWith('.md')) return { value: `<${e.path.split('/').pop()}>` }
-    if (!(e.path in files)) throw new Error('ENOENT')
-    return { value: files[e.path] }
+    const p = posix(e.path)
+    if (p.endsWith('.md')) return { value: `<${p.split('/').pop()}>` }
+    if (!(p in files)) throw new Error('ENOENT')
+    return { value: files[p] }
   })
-  on('fs.exists', (_$: any, e: any) => ({ value: e.path in files }))
-  on('fs.write', (_$: any, e: any) => { files[e.path] = e.text; return { value: undefined } })
+  on('fs.exists', (_$: any, e: any) => ({ value: posix(e.path) in files }))
+  on('fs.write', (_$: any, e: any) => { files[posix(e.path)] = e.text; return { value: undefined } })
   on('ui.toast', () => ({ value: undefined }))
   on('classic.Stop', () => ({}))
   on('classic.UserPromptSubmit', () => ({ additionalContext: ['from a settings hook'] }))

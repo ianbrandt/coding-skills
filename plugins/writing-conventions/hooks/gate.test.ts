@@ -28,6 +28,10 @@ function world(on: any, w: World = {}) {
   const base = w.base ?? '2.1.289'
   const files: Record<string, string> = { ...w.files }
   const seen = { reader: [] as string[], commands: [] as string[], tool: [] as string[], system: '', toasts: [] as string[], files, ran: 0 }
+  // On Windows an engine-level step turns a "/foo" path into "C:\foo" before the
+  // mock sees it, so each lookup reads it back as POSIX. The project directory
+  // and the hook files always sit on the same drive in the mock.
+  const posix = (p: string) => p.replace(/^[A-Za-z]:/, '').replace(/\\/g, '/')
   mock.env(on, { CLAUDE_CONFIG_DIR: '/cfg', TMPDIR: '/tmp', ...w.env })
   on('session.version', () => ({ value: { version: base, base, builtAt: '' } }))
   on('session.id', () => { if (w.noSession) throw new Error('no session'); return { value: 's1' } })
@@ -35,16 +39,18 @@ function world(on: any, w: World = {}) {
   on('session.root', () => ({ value: '/proj' }))
   on('ui.toast', (_$: any, e: any) => { seen.toasts.push(JSON.stringify(e)); return { value: undefined } })
   on('fs.read', (_$: any, e: any) => {
+    const p = posix(e.path)
     // A prompt file of the plugin's is answered with its name.
-    if (/\/hooks\/[a-z-]+\.md$/.test(e.path)) return { value: `<${e.path.split('/').pop()}>` }
-    if (!(e.path in files)) throw new Error('ENOENT')
-    return { value: files[e.path] }
+    if (/\/hooks\/[a-z-]+\.md$/.test(p)) return { value: `<${p.split('/').pop()}>` }
+    if (!(p in files)) throw new Error('ENOENT')
+    return { value: files[p] }
   })
-  on('fs.write', (_$: any, e: any) => { files[e.path] = e.text; return { value: undefined } })
+  on('fs.write', (_$: any, e: any) => { files[posix(e.path)] = e.text; return { value: undefined } })
   on('fs.stat', (_$: any, e: any) => {
-    if (!(e.path in files) && !['/proj', '/tmp', '/elsewhere'].includes(e.path)) throw new Error('ENOENT')
-    const isFile = e.path in files
-    return { value: { kind: isFile ? 'file' : 'dir', size: isFile ? files[e.path].length : 0, mtimeMs: 0, isLink: !!w.links?.includes(e.path), realPath: e.path } }
+    const p = posix(e.path)
+    if (!(p in files) && !['/proj', '/tmp', '/elsewhere'].includes(p)) throw new Error('ENOENT')
+    const isFile = p in files
+    return { value: { kind: isFile ? 'file' : 'dir', size: isFile ? files[p].length : 0, mtimeMs: 0, isLink: !!w.links?.includes(p), realPath: p } }
   })
   on('model.complete', (_$: any, e: any) => {
     seen.system = e.system
@@ -61,6 +67,7 @@ function world(on: any, w: World = {}) {
 }
 
 const bash = ($: any, command: string) => $.tool.call({ tool: 'Bash', command, tool_use_id: 'toolu_1' })
+const pwsh = ($: any, command: string) => $.tool.call({ tool: 'PowerShell', command, tool_use_id: 'toolu_1' })
 const cacheOf = (seen: { files: Record<string, string> }, name: string) =>
   Object.entries(seen.files).filter(([p]) => p.startsWith(`${CONFIG}/${name}-`)).map(([, text]) => text).join('')
 
@@ -185,6 +192,18 @@ test('a body passed by path is read, sent after the input, and may be quoted', a
   const ran = await bash($, 'gh pr create --title x --body-file body.md')
   expect(seen.reader[0]).toContain('\n\nFile: body.md\n\nThe report says so.\n')
   expect(ran.deny).toBeDefined()
+})
+
+test('a body passed through PowerShell by a Windows path is read', async ($: any, on: any) => {
+  // Backslash paths were reported as not read before: "C:\" did not match the
+  // "/" prefix test and backslash was not in the literal-path character class.
+  const seen = world(on, { verdict: FINDING, files: { '/proj/body.md': 'The report says so.\n' } })
+  const absolute = await pwsh($, 'git commit -F C:\\proj\\body.md')
+  expect(seen.reader[0]).toContain('\n\nFile: C:\\proj\\body.md\n\nThe report says so.\n')
+  expect(absolute.deny).toBeDefined()
+  const relative = await pwsh($, 'git commit -F sub\\..\\body.md')
+  expect(seen.reader[1]).toContain('\n\nFile: sub\\..\\body.md\n\nThe report says so.\n')
+  expect(relative.deny).toBeDefined()
 })
 
 test('a body file that is not read is listed with the reason', async ($: any, on: any) => {

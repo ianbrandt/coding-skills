@@ -168,24 +168,36 @@ type Bodies = { read: { name: string; text: string }[]; unread: string[] }
 // files are read, with CAP characters in all.
 async function bodies($: any, cmd: string, mode: 'bash' | 'pwsh', base: string, proj: string): Promise<Bodies> {
   const out: Bodies = { read: [], unread: [] }
-  const real = async (p: string | undefined) => (p ? (await $.fs.stat(p, { resolve: true }).catch(() => undefined))?.realPath : undefined)
+  // A Windows path uses "\" as the separator; the checks below all read "/", so
+  // every path is normalized in pwsh mode, and the realPath returned by stat is
+  // normalized too. In bash mode "\" is left alone, since it may be a character
+  // in a POSIX filename.
+  const toSlash = (p: string) => (mode === 'pwsh' ? p.replace(/\\/g, '/') : p)
+  const real = async (p: string | undefined) => {
+    if (!p) return undefined
+    const rp = (await $.fs.stat(p, { resolve: true }).catch(() => undefined))?.realPath
+    return rp ? toSlash(rp) : undefined
+  }
+  const baseN = toSlash(base)
   let total = 0
   for (const line of bodyFiles(cmd, mode)) {
     const tab = line.indexOf('\t')
     const moved = line.slice(0, tab) === '1'
     const op = line.slice(tab + 1)
+    const opN = toSlash(op)
     let why = ''
     let text = ''
-    const path = /^(\/|[A-Za-z]:\/)/.test(op) ? op : `${base}/${op}`
-    if (op === '' || /[^A-Za-z0-9._/+@,:=-]/.test(op)) why = 'it is not a literal path'
-    else if (path !== op && moved) why = 'the command may change directory first'
-    else if (cmd.split(op.slice(op.lastIndexOf('/') + 1)).length > 2) why = 'the command names it more than once, so it may write the file before reading it'
+    const path = /^(\/|[A-Za-z]:\/)/.test(opN) ? opN : `${baseN}/${opN}`
+    if (opN === '' || /[^A-Za-z0-9._/+@,:=-]/.test(opN)) why = 'it is not a literal path'
+    else if (path !== opN && moved) why = 'the command may change directory first'
+    else if (cmd.split(opN.slice(opN.lastIndexOf('/') + 1)).length > 2) why = 'the command names it more than once, so it may write the file before reading it'
     else {
       const stat = await $.fs.stat(path, { resolve: true }).catch(() => undefined)
       if (!stat || stat.isLink || stat.kind !== 'file' || !stat.realPath) why = 'it is not a regular file'
       else {
+        const realPath = toSlash(stat.realPath)
         const roots = [await real(proj), await real(await tmp($)), await real('/tmp')]
-        const dir = stat.realPath.slice(0, stat.realPath.lastIndexOf('/') + 1)
+        const dir = realPath.slice(0, realPath.lastIndexOf('/') + 1)
         if (!roots.some(r => r && dir.startsWith(`${r.replace(/\/$/, '')}/`))) why = 'it is outside the project and the temporary directory'
         else if (stat.size > 1048576) why = 'it is over 1 MB'
         else {
