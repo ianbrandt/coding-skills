@@ -370,7 +370,10 @@ plugin-loaded drafts, in each of two separate runs.
 With `--judge-model sonnet` the judge is Sonnet 5.5 from CLI 2.1.289 on, so a score from before
 that is not comparable with a later one. On 2026-10-05 the plugin scored 0.95 and no plugin 0.91, a
 gain of 0.04. Plugin-loaded drafts failed no regex grader, the personification judge on 2 runs of
-24, both in the same PR body case, and the form judge on 4.
+24, both in the same PR body case, and the form judge on 4. A second run that day, after `rules.md`
+and `write-for-the-reader` were reworded, scored 0.95 and 0.86, a gain of 0.09, with the same
+failures in the plugin-loaded drafts. The score without the plugin moved by 0.05 between two runs of
+the same prompts, so the gain from a single run is known only to within about that much.
 
 ## Skills
 

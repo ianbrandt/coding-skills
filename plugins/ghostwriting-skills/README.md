@@ -69,9 +69,10 @@ claude plugin eval . --scaffold --runs 4 --judge-model sonnet --no-publish
 ```
 
 The cases grant no shell and load no `writing-conventions`, so the lint step in `ghostwrite` does
-not run, and the rewrite pass is all the suite measures. Every prompt is a single turn, and on those the default register
-is already clean: every arm, including no plugin, passes personification on nearly every run.
-Results land under `evals/results/`, which is ignored.
+not run. Each body is short, so the rewrite is skipped as well: a subagent ran in 1 of 24
+plugin-loaded runs on 2026-10-05. What is measured is drafting from the spec. Every prompt is a
+single turn, and on those the default register is already clean: every arm, including no plugin,
+passes personification on nearly every run. Results land under `evals/results/`, which is ignored.
 
 On 2026-09-13, with three runs per case, the plugin scored lower than no plugin, by 0.28 on
 average. The drafted bodies met the spec's limits about as often in both runs. The gap came from
@@ -105,7 +106,8 @@ With `--judge-model sonnet` the judge is Sonnet 5.5 from Claude Code 2.1.289 on,
 are not comparable with a later run. On 2026-10-05, with four runs per case, the plugin scored 0.97
 on average and no plugin 0.92, a gap of +0.06. Every plugin-loaded body passed form, and two on the
 report PR failed the facts judge. One run without the plugin ended on an API error and is in its
-average.
+average. A second run that day, after the skills were reworded, scored 0.99 with the plugin and 1.00
+without, a gap of -0.01, so no difference between the two was measured.
 
 ## Works with `writing-conventions`
 
