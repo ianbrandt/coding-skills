@@ -97,8 +97,11 @@ Everything but the `SessionStart` rules runs in the plugin's hooks module,
 [`hooks/register.ts`](hooks/register.ts), so a Windows session runs the same code as any other and
 no shell is involved. The `SessionStart` hook is a plain `cat` of `rules.md`.
 
-The function-hook API is early access, and 2.1.289 is the CLI the module was checked on. On an older
-CLI the module does nothing, and the user is told once in a toast. The rules still load at session
+The function-hook API is early access, and 2.1.286 is the oldest CLI the module was checked on. The
+gate, the lint tool, the nudge after a written file, the rules for subagents, the dash rewrite, and
+the lint note on the next turn were each checked in a live session on 2.1.286 and on 2.1.288
+through 2.1.291. No older CLI was tried. On an older CLI the module does nothing, and the user is
+told once in a toast. The rules still load at session
 start there, but the lint, the dash rewrite, the gate, and the rules for subagents are off. The same is true, with no toast,
 where function hooks are switched off: `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1` in the environment
 turns them on, and `claude --debug` logs a module that did not load.

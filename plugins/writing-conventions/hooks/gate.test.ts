@@ -118,11 +118,11 @@ test('a check that cannot read the session lets the command through, and the use
   expect(seen.toasts.join()).toContain('model review is off')
 })
 
-test('a CLI older than the one the module was checked on makes no call, and the user is told', async ($: any, on: any) => {
-  const seen = world(on, { verdict: FINDING, base: '2.1.288' })
+test('a CLI older than the oldest one the module was checked on makes no call, and the user is told', async ($: any, on: any) => {
+  const seen = world(on, { verdict: FINDING, base: '2.1.285' })
   expect((await bash($, SAYS)).result).toEqual({ stdout: 'ran' })
   expect(seen.reader).toHaveLength(0)
-  expect(seen.toasts.join()).toContain('2.1.289')
+  expect(seen.toasts.join()).toContain('2.1.286')
 })
 
 test('a cold key costs one classifier call, and its answer is kept', async ($: any, on: any) => {

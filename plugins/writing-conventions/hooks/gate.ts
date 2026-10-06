@@ -19,13 +19,13 @@ import { lint } from './lint'
 import { drafts, excerpt, findings } from './text'
 
 // The function-hook API is early access and moves between releases. This is the
-// CLI the module was checked on. On an older one the module does nothing, and
-// the user is told once.
-const CHECKED = [2, 1, 289]
+// oldest CLI the module was checked on, by the live checks in the README. On an
+// older one the module does nothing, and the user is told once.
+const CHECKED = [2, 1, 286]
 
 let warned = false
 
-// Whether CLI version `base` is the checked one or later. dash.ts calls this
+// Whether CLI version `base` is the oldest checked one or later. dash.ts calls this
 // with a version read through its own $.
 export function atLeast(base: unknown): boolean {
   const v = String(base).split('.').map(Number)
