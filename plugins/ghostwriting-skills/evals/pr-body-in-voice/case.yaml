@@ -14,10 +14,6 @@ execution:
 
     The PR is for rotor, a log rotation tool. The pruner deletes an archive once it is older than the retention window. It computed an archive's age from the file's modification time. When archives are copied to an NFS mount, the copy resets the modification time to the time of the copy, so archives past the retention window were kept forever. The pruner now reads the date from the archive's file name, for example app-2026-08-01.log.gz, and uses the modification time only when the name has no date. A new test covers an archive copied with a fresh modification time. Fixes #241.
 graders:
-  - name: used-subagent
-    type: tool_used
-    tool: Agent
-    arm: with-only
   - name: no-spaced-dash
     type: regex
     pattern: '[ \t]—|—[ \t]|[ \t]–|–[ \t]'

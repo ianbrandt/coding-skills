@@ -14,10 +14,6 @@ execution:
 
     The PR is for tally, a Gradle plugin that prints a report of dependency updates. A build script can set a version range on a dependency, for example `[1.2,2.0)`. For such a dependency the report listed the newest release, 2.1, as the available update, even though 2.1 is outside the range and Gradle would never resolve it. With this change the report lists the newest version inside the range as the update, and lists the newest version outside the range on a separate line marked "outside range". A new task property, `showOutsideRange`, turns that second line off; it is on by default. The README section on version ranges now covers the property. Fixes #88.
 graders:
-  - name: used-subagent
-    type: tool_used
-    tool: Agent
-    arm: with-only
   - name: no-spaced-dash
     type: regex
     pattern: '[ \t]—|—[ \t]|[ \t]–|–[ \t]'

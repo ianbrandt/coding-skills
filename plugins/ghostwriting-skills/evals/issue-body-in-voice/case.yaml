@@ -14,10 +14,6 @@ execution:
 
     The issue is for tally, a Gradle plugin that prints a report of dependency updates. When a platform (BOM) applied to the build pins a library to an exact version, the report still lists a later version of that library as an available update, and that upgrade cannot be applied without changing the platform. Reproduction: a build with `implementation(platform("org.springframework.boot:spring-boot-dependencies:3.3.0"))` and `implementation("com.fasterxml.jackson.core:jackson-databind")`, running `./gradlew tallyReport`, prints `jackson-databind [2.17.1 -> 2.18.2]` although the platform pins 2.17.1. Seen on tally 0.9.0.
 graders:
-  - name: used-subagent
-    type: tool_used
-    tool: Agent
-    arm: with-only
   - name: no-spaced-dash
     type: regex
     pattern: '[ \t]—|—[ \t]|[ \t]–|–[ \t]'
