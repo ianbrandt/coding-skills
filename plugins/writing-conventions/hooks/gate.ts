@@ -18,9 +18,9 @@ import { bodyFiles, keys, walk } from './keys'
 import { lint } from './lint'
 import { drafts, excerpt, findings } from './text'
 
-// The function-hook API is early access and moves between releases. This is the
-// oldest CLI the module was checked on, by the live checks in the README. On an
-// older one the module does nothing, and the user is told once.
+// The first CLI where hooks modules are on by default, and the oldest one the
+// module was checked on, by the live checks in the README. On an older one the
+// module does nothing, and the user is told once.
 const CHECKED = [2, 1, 286]
 
 let warned = false

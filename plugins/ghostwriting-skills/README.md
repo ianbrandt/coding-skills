@@ -15,7 +15,7 @@ directory can be a symlink into a private repo.
 loads, through a `skill.prompt` hook: the spec, every corpus sample up to 64,000 characters in all,
 and the `writing-conventions` rules file when that plugin is installed. Past that size the samples
 are listed by name for the model to read by genre. A hooks module is a Claude Code mod, and this
-one was checked on Claude Code 2.1.286 and on 2.1.288 through 2.1.291. With no hooks module
+one was checked on Claude Code 2.1.286 through 2.1.291, where hooks modules are on by default. With no hooks module
 running, as on an older version, the model reads the files itself. [`hooks/voice.test.ts`](hooks/voice.test.ts) runs under `claude plugin test`.
 
 ## Skills
