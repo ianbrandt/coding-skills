@@ -192,7 +192,8 @@ inherited construction gets fixed where it came from rather than copied forward 
 
 Scan sentence form too, not only vocabulary. An epigram—a line that would work as a slide title—and
 a rhetorical antithesis ("they chose to skip it; we chose to fix it") are tells at the sentence
-level, and a word check finds neither. Rewrite each as the plain fact it stands for.
+level, and a word check finds neither. Rewrite each as the plain fact it stands for. Two unrelated
+facts in two matched clauses joined by "and" are a third: give the sentence one predicate.
 
 **One idea per sentence, 10 to 20 words.** A sentence with two subordinate clauses gets split. First
 drafts land at 30 to 40 words, which is the usual reason a paragraph reads as written by a model, so
@@ -329,6 +330,19 @@ document already full of the construction is not a defence for new text.
 rewritten as the plain fact it stands for. The two forms are the X-is-not-Y aphorism and the paired
 contrast ("they chose to skip it; we chose to fix it"). The pull is strongest in a document about
 rules, where an aphorism reads as authority.
+
+**No matched clauses for unrelated facts.** Two facts that have nothing to do with each other,
+written as two clauses of the same grammar and about the same length and joined by "and", read as
+composed rather than said. The figure is isocolon, and with two members a bicolon. A commit message
+drafted as "A chain of four or more calls is no longer forced onto multiple lines, and a class with
+one constructor parameter stays on one line" was flagged as AI-written for the construction alone,
+since every word in it is plain. The repair is one sentence with one predicate that covers both
+facts: "Two defaults are changed in `.editorconfig` so that call chains and one-parameter class
+signatures that fit on one line stay there." Splitting at the "and" does not repair it, because two
+sentences of the same build side by side are the same figure. An ordinary compound sentence is not
+this: a cause and its effect, a change and its result, or two facts about one subject belong
+together, and their clauses rarely match. The lint cannot flag it, since whether two facts are
+related is not visible to a pattern, so scan for it by eye. The gate does judge it.
 
 **Every pronoun resolves.** Each "it", "this", and "that" points at one named thing the reader can
 find in the same paragraph, and a bare "this" opening a sentence usually stands in for a whole

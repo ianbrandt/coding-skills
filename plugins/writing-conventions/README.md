@@ -22,13 +22,13 @@ after `/clear`, compaction, and a fork. The hooks module adds the same file to e
 subagent as it starts, since a subagent's report is
 what a later summary is built from. The file is eleven named
 anti-patterns, one line and one drafted-to-accepted pair each: inanimate agency, mechanics
-(spaced em dashes, the Oxford comma, and consistent units), a banned-vocabulary list, epigrams and paired contrasts,
+(spaced em dashes, the Oxford comma, and consistent units), a banned-vocabulary list, epigrams, paired contrasts, and matched clauses,
 narration, sentence order, coinages, writing for a reader who has read nothing since their last
 message, saying a fact once, evidence, and erring short. Three standing rules follow: a
 rule broken in a draft is swept across the branch, the user's private circumstances stay out
 of public artifacts, and a draft for publication goes in a fenced block with the info string
-`draft`, which is what the `Stop` check below looks for. It runs about 1,250 words, so it costs
-roughly 1,650 tokens per session and per subagent, against about 1,600 words for the long form; the reasoning behind each rule, and its edge cases, sit in `write-for-the-reader` §8
+`draft`, which is what the `Stop` check below looks for. It runs about 1,350 words, so it costs
+roughly 1,800 tokens per session and per subagent, against about 1,600 words for the long form; the reasoning behind each rule, and its edge cases, sit in `write-for-the-reader` §8
 and load only when that skill does.
 
 Prohibitions bind everywhere, `SKILL.md` files included, because they are about precision rather
@@ -56,6 +56,11 @@ matches too many ordinary clauses. The agency set is deliberately narrow. An ear
 matched possession verbs (holds, carries, keeps) and scored about 40% precision on a hand-checked
 sample, mostly on code mechanics such as a map that holds a value; with the current set fewer
 sentences are flagged, and each hit is one the model can act on.
+
+Matched clauses are left to the gate. A pattern for two clauses of similar length joined by "and"
+matched 44 of 582 sentences in this repo's last 400 commit messages and 27 of 419 in its READMEs,
+nearly all of them ordinary compound sentences, and it did not match the sentence the rule was
+written from. Whether two facts are related cannot be told from a pattern match.
 
 The lint never blocks. A `Stop` hook cannot patch a reply, so blocking one gets a corrected answer
 only by re-emitting the entire original, which you have already read and which stays in the
@@ -122,7 +127,8 @@ through the `Bash` tool and through the `PowerShell` tool both. Covering only `B
 commit ungated on a Windows session where the PowerShell tool is the shell.
 [`hooks/gate.ts`](hooks/gate.ts) sends the command to a model, which pulls out the commit message or
 the title and body and checks that text against the four prohibitions: inanimate agency, mechanics
-(spaced em dashes and the Oxford comma), the banned words, and epigrams. A fifth check is a string
+(spaced em dashes and the Oxford comma), the banned words, and rule 4's epigrams, paired
+contrasts, and matched clauses. A fifth check is a string
 match rather than a judgment: a Markdown heading or a bullet changelog in a commit message, an
 issue, a pull request, or a comment. Length is never judged, and no other form is. The model replies
 `PASS`, `SKIP` for a command that publishes nothing new (`gh pr view`, `gh pr checks`, `--amend
@@ -156,6 +162,12 @@ of 24 checks on a dozen clean commit messages and then rejected its own suggeste
 session could not commit at all. Sonnet 5 allowed 23 of those 24, and both models denied all 16
 checks on planted violations. Sonnet 5.5, which the alias resolves to on CLI 2.1.289, had the same
 two counts on 2026-10-05, and over five runs it allowed 57 of 60 and denied 40 of 40.
+
+Matched clauses were checked on 2026-10-06, on the `sonnet` alias with CLI 2.1.291. Four planted
+commit messages, each with two unrelated facts in matched clauses, were denied on 17 of 18 runs, and
+on none of 4 runs before the rule was added. Sixteen commit messages from this repo's history, each
+with a sentence of two similar-length clauses joined by "and", got a matched-clause finding on 1 of
+40 runs.
 
 On Sonnet 5.5 the median call took 1.6 seconds on a planted commit message, 3.6 seconds on a clean
 one, and 5.9 seconds on the text of a PR, an issue, or a comment, and the longest of 317 calls took

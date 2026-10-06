@@ -29,9 +29,15 @@ Eleven anti-patterns. Each reads as AI writing; the literal phrasing is always a
    a mechanism's name ("nag" for a deprecation warning). An open question takes a question mark.
    Rarely right: "name" as a verb; say declare, print, report, state. No intensifiers: "Gradle's
    own" is "Gradle's". Rewrite the clause rather than swapping in a synonym.
-4. **Epigrams and paired contrasts.** A line that would work as a slide title, or "they chose X;
-   we chose Y", becomes the plain fact.
+4. **Epigrams, paired contrasts, and matched clauses.** A line that would work as a slide title,
+   or "they chose X; we chose Y", becomes the plain fact. Two unrelated facts are not written as
+   two clauses of matching length and grammar joined by "and": write one sentence with one
+   predicate that covers both.
    - "two ranks fit where three do not" → "the third rank is dropped"
+   - "A chain of four or more calls is no longer forced onto multiple lines, and a class with one
+     constructor parameter stays on one line."
+     → "Two defaults are changed in `.editorconfig` so that call chains and one-parameter class
+     signatures that fit on one line stay there."
 5. **Narration.** Lead with what is true now, not the path there: in a PR body, what the change
    does; in a commit body, the problem, then the change. No draft history, no answers to
    objections nobody raised.

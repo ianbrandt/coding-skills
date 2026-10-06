@@ -34,7 +34,13 @@ references are exempt. How to read the five:
    "and", are not a list of three, so they need no comma.
 3. Flag only the words listed as "Never". The "Rarely right" words and the intensifiers are not
    yours to judge.
-4. "not X but Y" is a paired contrast too.
+4. "not X but Y" is a paired contrast too. Matched clauses are two unrelated facts, each a full
+   clause with its own subject, built on the same grammar at about the same length and joined by
+   "and". Most sentences with "and" in them are not that: a cause and its effect, a change and its
+   result, two steps in order, or two facts about one thing are ordinary sentences, and so are two
+   clauses of different build. When unsure whether the two facts are related, do not flag it.
+   The rewrite is one sentence with one predicate that covers both facts, not the same two clauses
+   split at the "and".
 5. A Markdown heading, a line starting with one or more `#`, or a bullet changelog, a bulleted list
    of the changes the diff already shows, in a commit message, an issue, a pull request, or a
    comment. Quote the heading or the first bullet. This one is a literal match, not a judgment of
