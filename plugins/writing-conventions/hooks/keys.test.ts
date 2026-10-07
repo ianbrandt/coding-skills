@@ -136,7 +136,7 @@ pwsh	echo ${T}date${T}	1:echo | 1:echo date | 1:+echo date
 # prints the operand of each body-file flag in a git commit or a gh pr, issue, or
 # release command instead of keys, one line each: 1 when the command may change
 # directory first (cd and the like anywhere in it, or git -C), else 0, then the
-# operand. An operand of "-" is the command's own stdin and is left out.
+# operand. An operand of "-" is the command's stdin and is left out.
 bashfiles	git commit -F msg.txt	0:msg.txt
 bashfiles	git commit --file=msg.txt	0:msg.txt
 bashfiles	git commit --file msg.txt -a	0:msg.txt
@@ -194,7 +194,7 @@ bashfiles	git --work-tree wt commit -F msg.txt	1:msg.txt
 bashfiles	GIT_WORK_TREE=wt git commit -F msg.txt	1:msg.txt
 bashfiles	git --git-dir=wt/.git commit -F msg.txt	0:msg.txt
 # A command that cannot be split has its body files reported as not read, when
-# it has a body-file flag at all.
+# it has a body-file flag.
 bashfiles	git commit -F m.txt -m "open	1:""
 bashfiles	git commit -m "open	-
 pwshfiles	git commit -F msg.txt	0:msg.txt
@@ -207,8 +207,8 @@ pwshfiles	git commit -F "$env:TEMP\m.txt"	0:$env:TEMP\m.txt
 pwshfiles	git commit -F C:\work\m.txt	0:C:\work\m.txt
 `
 
-// A fixture command as the shell gets it: \n is a newline, \t a tab, and \\ a
-// backslash.
+// A fixture command as it is passed to the shell: \n is a newline, \t a tab,
+// and \\ a backslash.
 function command(text: string): string {
   return text.replace(/\\\\/g, '\x01').replace(/\\n/g, '\n').replace(/\\t/g, '\t').replace(/\x01/g, '\\')
 }
@@ -266,7 +266,7 @@ test('a command with an unanswered key is reviewed on the final walk', () => {
   expect(verdict('jj describe -m x', [], '/proj/a', true)).toEqual(['READER'])
 })
 
-test('a task name is read in its project only, and a task runner needs every task to be NEVER', () => {
+test('a task name is read in its project only, and a task runner is SAFE only when every task is NEVER', () => {
   expect(verdict('make check', MAKE)).toEqual(['SAFE'])
   expect(verdict('make check', MAKE, '/proj/b')).toEqual(['ASK', 'ASK\t/proj/b\tmake check'])
   expect(verdict('make', MAKE)).toEqual(['READER'])

@@ -9,16 +9,16 @@
 // comma is caught only in a list of single words with two commas before the
 // final "and" or "or" ("json, xml, html and plain"). A multi-word item, or a
 // list with one comma ("a, b and c"), looks too much like a clause to flag.
-// Inanimate agency is precision-first: a determiner-led or pronoun subject
-// followed by a verb of speech, volition, cognition, or configuration (finite,
-// or a participle such as "a file declaring an alias"), with the subject checked
-// against an animate list, passives and adjectival participles excluded by the
-// gap words, reduced passives ("the rule stated in", "three named endpoints")
-// excluded by the word after the verb, and the noun-or-verb forms (names,
-// states, claims, offers) kept only when an object-like word follows. Left out
-// on purpose: holds, keeps, writes, uses, adds, sets, and "notes". A hand check
-// of 90 hits found the first group mostly code mechanics (a map holds a value, a
-// task writes a file, which rules.md allows as a program doing its job), and
+// Inanimate agency is precision-first. A match is a determiner-led or pronoun
+// subject followed by a verb of speech, volition, cognition, or configuration
+// (finite, or a participle such as "a file declaring an alias"). The subject is
+// checked against an animate list. Passives and adjectival participles are
+// excluded by the gap words, and reduced passives ("the rule stated in", "three
+// named endpoints") by the word after the verb. The noun-or-verb forms (names,
+// states, claims, offers) are kept only when an object-like word follows. Left out
+// on purpose: holds, keeps, writes, uses, adds, sets, and "notes". In a hand
+// check of 90 hits the first group was mostly code mechanics (a map holds a value,
+// a task writes a file, allowed in gate-prompt.md as a program doing its job), and
 // "notes" is nearly always the noun. The finite subject patterns are tried
 // shortest first, so "the report says we decided" is caught on "the report says"
 // before the longer span that includes the human clause is tried.

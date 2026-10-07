@@ -184,7 +184,7 @@ test('a finding in text that only goes into a local file comes back as context',
   expect(ran.result).toEqual({ stdout: 'ran' })
   expect(ran.context.join()).toContain('The report says so.')
   expect(ran.context.join()).toContain('after the command runs')
-  // The four families block on LOCAL as on VIOLATION.
+  // A command in the four families is blocked on LOCAL as on VIOLATION.
   expect((await bash($, SAYS)).deny).toBeDefined()
   expect(seen.ran).toBe(1)
 })
@@ -299,7 +299,7 @@ test('a tool classifier reply that opens on a bare carriage return is doubt', as
   expect((await notion($, { text: 'The report says so.' })).result).toEqual({ stdout: 'ran' })
 })
 
-test('the plugin\'s own lint tool is not gated', async ($: any, on: any) => {
+test('the plugin\'s lint tool is not gated', async ($: any, on: any) => {
   const seen = world(on, { tool: 'CAN_PUBLISH', verdict: FINDING })
   await $.tool.call({ tool: 'mcp__writing-conventions__lint', text: 'The report says so.' })
   expect(seen.tool).toHaveLength(0)
@@ -325,7 +325,7 @@ test('a file that is not prose, and a tool that writes none, make no call', asyn
   expect(seen.reader).toHaveLength(0)
 })
 
-test('an edit is reviewed as the paragraphs that hold it', async ($: any, on: any) => {
+test('an edit is reviewed as the paragraphs that contain it', async ($: any, on: any) => {
   const text = 'First one.\n\nThe report says so. It is short.\n\nThird one.\n'
   const seen = world(on, { verdict: FINDING, files: { '/proj/a.md': text } })
   const ran = await $.classic.PostToolUse(edit('/proj/a.md', 'says'))
@@ -359,7 +359,7 @@ test('only the text in a draft fence is read, and a reply without one costs no c
 test('a finding that quotes text outside every draft fence does not block', async ($: any, on: any) => {
   world(on, { verdict: FINDING })
   expect((await $.classic.Stop(reply('p2', 'The report says so.\n~draft\nPlain text.\n~'))).block).toBeUndefined()
-  // Two drafts are two sources: one quote cannot span both.
+  // Each draft is a source of its own, so one quote cannot span two.
   expect((await $.classic.Stop(reply('p2', '~draft\nThe report\n~\n~draft\nsays so.\n~'))).block).toBeUndefined()
 })
 

@@ -25,12 +25,12 @@ test('only `draft` as the first word of the info string opens a draft', () => {
 
 // A four-backtick fence is closed by its own marker, so a code fence inside a
 // draft does not end it.
-test('a longer fence holds a code fence inside the draft', () => {
+test('a draft in a longer fence can contain a code fence', () => {
   const inside = `Plain text.\n\n${F}py\nx = 1\n${F}\n\nThe report says so.\n`
   expect(drafts(`${F}\`draft\n${inside}${F}\``)).toBe(inside + END)
 })
 
-test('each of two drafts ends on its own separator line', () => {
+test('each of two drafts ends on a separator line', () => {
   expect(drafts(`${F}draft\nThe report \n${F}\n\nAnd the second:\n\n${F}draft\nsays so.\n${F}`)).toBe(`The report \n${END}says so.\n${END}`)
 })
 
@@ -54,9 +54,9 @@ test('unwrap takes the fence lines of a draft off and leaves the rest', () => {
 
 const DOC = '# Title\n\nThe report says the version. It is short.\n\nSecond paragraph stays.\n\nThird one here.\n'
 
-// A one-word edit is reviewed as the whole paragraphs that hold it, so a
+// A one-word edit is reviewed as the whole paragraphs that contain it, so a
 // finding can quote the sentence around the word.
-test('the excerpt is the paragraph that holds the new text', () => {
+test('the excerpt is the paragraph that contains the new text', () => {
   expect(excerpt('says', DOC, 50000)).toBe('The report says the version. It is short.\n')
   expect(excerpt('says\n', DOC, 50000)).toBe('The report says the version. It is short.\n')
   expect(excerpt('# Title', DOC, 50000)).toBe('# Title\n')
@@ -119,7 +119,7 @@ test('the fragments of one finding can be in different sources', () => {
   expect(findings('VIOLATION\n"The report says so." -> x\n', ['The report', 'says so.'])).toBe('')
 })
 
-// Two draft fences are two sources: one quote cannot span both, and a
+// Two draft fences are two sources: one quote cannot span both, but a
 // two-fragment finding that quotes each of them can.
 test('no quote is matched across two drafts', () => {
   const two = [drafts(`${F}draft\nThe report \n${F}\n\nAnd the second:\n\n${F}draft\nsays so.\n${F}`)]

@@ -8,7 +8,7 @@ email; and updating a description, a summary, or a status note all count, whatev
 Reply with one word and nothing else:
 
 - `CAN_PUBLISH` when it can, or when you are not sure. A tool with a free-text field that a person
-  will read later is `CAN_PUBLISH` even when this input leaves that field empty.
+  will read later is `CAN_PUBLISH` even when that field is empty in this input.
 - `NEVER` when the tool only reads (get, list, search, fetch, query, view, download), or when it
   writes nothing a person reads as prose: a transition, a label, an assignee, a reaction, a
   navigation step, a click.

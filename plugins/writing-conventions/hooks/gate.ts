@@ -1,7 +1,7 @@
 // Publication gate: check the human-facing text in a git commit, a gh command, a
-// call to an MCP tool that can publish, a prose file just written, or a draft the
-// reply puts in a `draft` fence, against the four prohibitions, before a reader
-// sees it.
+// call to an MCP tool that can publish, a prose file just written, or a draft in a
+// `draft` fence in the reply, against the four prohibitions, before a reader sees
+// it.
 //
 // The check is one `$.model.complete` call with gate-prompt.md as the system
 // prompt, rules.md appended to it so that the rules are written down once, and
@@ -26,7 +26,7 @@ const CHECKED = [2, 1, 286]
 let warned = false
 
 // Whether CLI version `base` is the oldest checked one or later. dash.ts calls this
-// with a version read through its own $.
+// with a version read through its $.
 export function atLeast(base: unknown): boolean {
   const v = String(base).split('.').map(Number)
   for (let i = 0; i < 3; i++) if (v[i] !== CHECKED[i]) return v[i] > CHECKED[i]
@@ -49,8 +49,8 @@ type Verdict = { block?: string; context?: string }
 const CAP = 50000
 const ADVICE = 'Each rewrite after -> is only a suggestion; where one reads stiffly, write the sentence the way a person would say it.'
 
-// Commands in four families are always reviewed, whatever is cached, so a wrong
-// NEVER from the classifier can never lose them. Matching the command text
+// Commands in four families are always reviewed, whatever is cached, even after
+// a wrong NEVER from the classifier. Matching the command text
 // covers `git -C <path> commit`, which no `Bash(git commit *)` rule matches.
 const FAMILIES = /git commit|git -C[\s\S]*commit|gh pr |gh issue |gh release /
 
@@ -221,7 +221,7 @@ async function bodies($: any, cmd: string, mode: 'bash' | 'pwsh', base: string, 
 // read($, prompt, sources): the review model's verdict on `prompt`, and the
 // findings in it that quote one of `sources`. The model can see text quoted from an
 // untrusted source, so no finding is acted on until its quote is found in the
-// text the gate chose to review.
+// text under review.
 async function read($: any, prompt: string, sources: string[]): Promise<{ found: string; local: boolean }> {
   const verdict = await ask($, ['gate-prompt.md', 'rules.md'], prompt)
   const head = verdict.split('\n').find(l => /[^ \t\r]/.test(l)) ?? ''
@@ -248,8 +248,8 @@ async function shell($: any, input: any): Promise<Verdict> {
   if (found === '') return notRead ? { context: notRead } : {}
   // The review model answers LOCAL when the text only goes into a file on this
   // machine, such as a script that rewrites a local file. That is the file
-  // check's case, so the findings come back and nothing is blocked. The four
-  // families always block.
+  // check's case, so the findings come back and nothing is blocked. In the four
+  // families a finding always blocks.
   if (toFile && local) return { context: join(found, `Fix the quoted text in the file after the command runs. ${ADVICE}`, notRead) }
   return { block: join(found, `Rewrite the quoted text and run the command again. ${ADVICE}`, notRead) }
 }
@@ -270,7 +270,7 @@ async function mcp($: any, input: any): Promise<Verdict> {
   let cls = mine.some(w => w[1] === 'CAN_PUBLISH') ? 'CAN_PUBLISH' : mine.some(w => w[1] === 'NEVER') ? 'NEVER' : ''
   if (cls === '') {
     const reply = await ask($, ['classify-prompt.md'], JSON.stringify(input))
-    // The first line that is not blank. A line holding only a carriage return
+    // The first line that is not blank. A line with only a carriage return
     // counts, so the answer after it is doubt.
     cls = (reply.split('\n').find(l => /[^ \t]/.test(l)) ?? '').replace(/\r$/, '')
     // A reply in any other form is doubt, which reads as CAN_PUBLISH and is not kept.
@@ -287,7 +287,7 @@ async function mcp($: any, input: any): Promise<Verdict> {
 
 // A prose file just written. Only the file the tool wrote is read, and the
 // review model is sent the text under review, not the hook input, which for a Write
-// holds the whole file. A file is cheap to fix after the fact and a blocked edit
+// includes the whole file. A file is cheap to fix after the fact and a blocked edit
 // stops the turn, so the findings come back as context and nothing is blocked.
 async function file($: any, e: any): Promise<Verdict> {
   const path = String(e.tool_input?.file_path ?? '')
@@ -317,13 +317,13 @@ async function file($: any, e: any): Promise<Verdict> {
 // each rewrite.
 const blocked = new Map<string, number>()
 
-// A reply the session has tagged as a draft for publication. Only the text
-// inside a `draft` fence is reviewed, so nothing else in the reply is judged by
-// the model, and a reply with no such fence costs no call at all. An untagged
-// draft is read by the reply lint alone.
+// A reply in which a draft for publication is tagged. Only the text inside a
+// `draft` fence is reviewed, so nothing else in the reply is judged by the
+// model, and a reply with no such fence costs no call. An untagged draft is read
+// by the reply lint alone.
 async function stop($: any, e: any): Promise<Verdict> {
   if ((await $.env.get('WRITING_CONVENTIONS_STOP_READER')) === '0') return {}
-  // Each draft ends on a line holding only \x01, and the cap comes off before
+  // Each draft ends on a line with only \x01, and the cap comes off before
   // the review model is sent them, so a quote from past it is never verified.
   const text = drafts(String(e.last_assistant_message ?? '')).slice(0, CAP)
   // Blocking is counted per turn, by the prompt_id, which is the same on every
@@ -344,7 +344,7 @@ async function stop($: any, e: any): Promise<Verdict> {
   return { block: join(found, `Rewrite the quoted text and emit the corrected draft. ${ADVICE}`) }
 }
 
-// One check, which must not stop an event it could not make.
+// Runs one check. A check that throws does not stop the event.
 async function gate($: any, check: () => Promise<Verdict>): Promise<Verdict> {
   try {
     return (await isChecked($)) ? await check() : {}
@@ -363,9 +363,9 @@ const NUDGE = "You just wrote prose to a file. Re-read it now for inanimate agen
 const TOOL = 'mcp__writing-conventions__lint'
 
 // Where the note on a session's last reply is kept until the next prompt: a
-// file named for the session, so that a resumed session still gets it. With no
-// session id there is no safe place, since one session's note in a shared
-// file would be read by another.
+// file named for the session, so that it is still read in a resumed session.
+// With no session id there is no safe place, since one session's note in a
+// shared file would be read by another.
 // The temporary directory: TMPDIR, or TEMP or TMP as Windows has them.
 async function tmp($: any): Promise<string> {
   return (await $.env.get('TMPDIR')) || (await $.env.get('TEMP')) || (await $.env.get('TMP')) || '/tmp'
@@ -416,7 +416,7 @@ export const register: Register = on => {
     if (await isChecked($).catch(() => false)) {
       const note = lint(drafts(text, { unwrap: true }), { note: true })
       const path = await notePath($, e.session_id).catch(() => '')
-      // A clean reply clears what the one before it left.
+      // After a clean reply the note from the one before it is cleared.
       if (path && (note || (await $.fs.exists(path).catch(() => false)))) await $.fs.write(path, note).catch(() => {})
     }
     const verdict = text.includes('draft') ? await gate($, () => stop($, e)) : {}
@@ -434,8 +434,8 @@ export const register: Register = on => {
     return { ...ran, additionalContext: [...(ran.additionalContext ?? []), note + REMINDER] }
   })
 
-  // A file just written. One that holds prose, code comments included, gets the
-  // nudge, and the gate's findings on a prose file come back beside it.
+  // A file just written. For one with prose in it, code comments included, the
+  // nudge is added, and the gate's findings on a prose file come back beside it.
   on('classic.PostToolUse', async ($, e: any, next: any) => {
     if (e.tool_name !== 'Write' && e.tool_name !== 'Edit') return next(e)
     const verdict = await gate($, () => file($, e))

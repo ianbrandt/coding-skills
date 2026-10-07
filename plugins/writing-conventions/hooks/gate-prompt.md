@@ -57,7 +57,7 @@ form, with nothing else in the reply:
 
 "the offending words" -> a plain rewrite
 
-For a shell command whose text only goes into a file on this machine, such as a script that
+For a shell command with text that only goes into a file on this machine, such as a script that
 rewrites a local file, with nothing in the command sending text anywhere else, the first line is
 `LOCAL` instead of `VIOLATION`. When unsure, it is `VIOLATION`.
 

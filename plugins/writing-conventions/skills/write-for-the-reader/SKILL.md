@@ -15,8 +15,8 @@ description: >-
 
 # Write for the reader—register, context, and altitude
 
-This skill governs writing **to** the user. `ghostwrite`, in the `ghostwriting-skills` plugin,
-governs writing **as** the user, for text they sign and post, when that plugin is installed. Without
+This skill governs writing **to** the user. Writing **as** the user, for text they sign and post, is
+governed by `ghostwrite` in the `ghostwriting-skills` plugin when that plugin is installed. Without
 it, this skill covers that text too. Escalation—when to stop and hand over
 a decision—belongs to `ask-when-needed` in the `orchestration-skills` plugin; write none of it here.
 
@@ -31,9 +31,9 @@ are formatted for whatever a model reads best.
 The user does not read the transcript. They read your last message, and they read it after a gap
 during which they were doing something else.
 
-- **No back-references.** Not "the fix above", not "as noted earlier", not "that file". Name the
-  file, the function, and the decision in full, every time, even when you named them two messages
-  ago.
+- **No back-references.** Not "the fix above", not "as noted earlier", not "that file". Write out
+  the file, the function, and the decision in full, every time, even when you wrote them out two
+  messages ago.
 - **No term you coined mid-session.** A label you invented to think with ("the guard path", "the
   cold branch") means nothing to someone who was not thinking alongside you. Replace it with the
   concrete thing it stands for.
@@ -43,7 +43,7 @@ during which they were doing something else.
   when the conclusion drawn from them stays in your head. "Most builds won't need a rule at all" is
   a bare fact; the point was that nothing has to be migrated to take the improvement up. Ask of
   each paragraph what the reader is meant to do with it, and write that sentence.
-- **Re-establish the subject at the top of a wrap-up.** One clause naming the repo, branch, or
+- **Re-establish the subject at the top of a wrap-up.** One clause stating the repo, branch, or
   feature costs nothing and rescues a reader who has three sessions open.
 - **A set the reader has not met takes the bare plural.** "This PR corrects defects found in a
   review", not "the defects". A reader takes the definite article to mean a set they already know,
@@ -56,12 +56,13 @@ during which they were doing something else.
 
 Write the amount of detail that lets the reader do the next thing, and no more.
 
-- **Show reasoning only where the reader could reasonably have chosen differently.** A decision
-  with one conventional answer gets one line stating what you did. A decision where you rejected a
-  plausible alternative gets one sentence naming the alternative and the fact that ruled it out.
-  When reasoning is shown for a call nobody would question, the calls that do need it are harder to
-  find.
-- **Name a mechanism when the reader will touch it; describe the outcome when they will not.**
+- **Show reasoning only where the reader could reasonably have chosen differently.** Give a
+  decision with one conventional answer one line stating what you did. Give a decision where you
+  rejected a plausible alternative one sentence stating the alternative and the fact that ruled it
+  out. When reasoning is shown for a call nobody would question, the calls that do need it are
+  harder to find.
+- **Write a mechanism's name only when the reader will touch it, and otherwise describe the
+  outcome.**
   "Cached the fetch with `@lru_cache(maxsize=1000)`" when they may tune the size; "responses are
   cached now" when they will not. The reader has no use for the name of a mechanism in code they
   never open, and has to ask a second question when given only an outcome where they need the
@@ -71,7 +72,7 @@ Write the amount of detail that lets the reader do the next thing, and no more.
   questioned the choice and the paragraph exists to justify it, delete the paragraph. Defending a
   simplification in prose puts back the complexity that was cut.
 - **Hedge a judgment, state a measurement.** Certainty is part of altitude. A verdict on intent, on
-  someone else's report, or on anything you cannot see carries its hedge; a number you measured is
+  someone else's report, or on anything you cannot see is hedged; a number you measured is
   stated flat, and hedging that understates evidence you have. A claim you could check gets checked
   before it gets hedged, because otherwise the reader has to do the checking.
 - **Match the altitude to the reader's next move.** Someone reviewing a diff needs enough to
@@ -84,15 +85,15 @@ Write the amount of detail that lets the reader do the next thing, and no more.
 - **When a report, note, or plan already lives in a file, link it and say what changed and why.**
   Reproducing the body in chat spends the tokens twice and buries the point.
 - **Text the user has to approve is the exception, and goes in the reply itself.** A draft they will
-  post under their name, or any text whose purpose is to get their go, gets pasted into a fenced
+  post under their name, or any text written to get their go, gets pasted into a fenced
   block. Tool output is displayed to you, not reliably to them, so after a `cat`, a Read, or "I
   wrote it to `draft.md`" the user has seen nothing. Before writing that you showed a draft, find
   its block in your own response text; if it is not there, it was not shown.
 - **Link any file worth opening with an absolute path.** Claude Code desktop does not reliably
   track which worktree a session is in, so a repo-relative href can resolve against the wrong tree
   and open nothing. This matters most when a session's notes and its code sit in different trees.
-- **Name the file and link it in the same breath.** Never a bare filename, never an unlinked "wrote
-  it to `notes/`". When a reply cites files from two trees, link both.
+- **Write the file's name and link it in the same breath.** Never a bare filename, never an
+  unlinked "wrote it to `notes/`". When files from two trees are cited in a reply, link both.
 
 ## 4. Cut what the reader can already see
 
@@ -104,8 +105,8 @@ Write the amount of detail that lets the reader do the next thing, and no more.
   one click away in a linked file, a prose walkthrough duplicates it; a closing paragraph that
   repeats the opening one is filler.
 - **Check text already in the repo before reusing it.** A claim copied from a doc, a comment, or an
-  earlier draft gets checked the way one you wrote does, and the source it came from gets the same
-  fix when the edit lands. An approved draft goes stale the same way: where later work in the
+  earlier draft gets checked the way one you wrote does, and the same fix is made in the source it
+  came from when the edit lands. An approved draft goes stale the same way: where later work in the
   session changes the fact, re-check the draft against what was found after it, not only against
   these rules.
 - **Say a fact once.** A mechanism and the consequence that follows from it are one fact, so a
@@ -122,9 +123,9 @@ Write the amount of detail that lets the reader do the next thing, and no more.
   messages, issues, and PR bodies in a repo, the second is the limit that matters: the reader's
   limit is how much of it they can follow well enough to review, and every unneeded paragraph uses
   part of it. Short is the norm here for those reasons, not as a preference.
-- **Every fact the reader needs, not every fact.** A true sentence still goes when nothing the
-  reader does next depends on it. An aside on release status is the common case: that a change is
-  not in a release yet, or that nothing released is affected, is accurate, and a reviewer of the
+- **Keep every fact the reader needs, and cut the rest.** A true sentence still goes when nothing
+  the reader does next depends on it. An aside on release status is the common case: that a change
+  is not in a release yet, or that nothing released is affected, is accurate, and a reviewer of the
   change acts the same without it. Keep it only where it changes what the reader does, such as a
   migration they would otherwise plan for.
 - **Short is relative to the change.** A one-sentence body on a large, complex PR fails this rule
@@ -142,8 +143,8 @@ Write the amount of detail that lets the reader do the next thing, and no more.
 
 At the end of a significant task, a few lines: **what is left**, stated plainly ("nothing apparent"
 counts), and **where to do it**—this session or a fresh one, with a one-line reason. Where the
-user's global instructions define the wrap-up contents, those govern what goes in it; this governs
-how it reads. Keep it short enough that the reader takes it in at a glance.
+wrap-up contents are defined in the user's global instructions, follow those for what goes in it and
+this section for how it reads. Keep it short enough that the reader takes it in at a glance.
 
 **Open items and next steps are a bulleted list of specific instructions, never prose.** Prose makes
 the reader extract the actions themselves, and an action buried mid-paragraph reads as commentary
@@ -164,12 +165,13 @@ copied in one gesture; a fenced block has a copy control on the desktop surface,
 to quote it. This covers shell commands, slash commands, skill invocations, and launch prompts for a
 fresh session. Two forms, and the distinction matters:
 
-- **A shell command** gets a `bash`-tagged block, one command per block, no leading `$` and no
+- **A shell command** goes in a `bash`-tagged block, one command per block, no leading `$`, and no
   output interleaved inside the fence.
-- **A prompt** gets a plain untagged block, because it is typed to an agent rather than to a shell.
-  Tagging it `bash` mislabels it and can attach a run control to something that is not a command.
+- **A prompt** goes in a plain untagged block, because it is typed to an agent rather than to a
+  shell. Tagging it `bash` mislabels it and can attach a run control to something that is not a
+  command.
 
-Inline code stays right for naming a file, a flag, a function, or a command being discussed rather
+Inline code stays right for a file, a flag, a function, or a command that is being discussed rather
 than handed over to run.
 
 ## 6. Catch the jargon you coined this session
@@ -179,8 +181,8 @@ list. The larger risk is vocabulary you invented an hour ago and no longer hear 
 
 Before sending, scan your reply for any noun phrase that is not one of: a name in the codebase, a
 standard term of the craft, or a plain English word. Anything left is a term you minted. Either
-replace it with the concrete thing, or define it in the same sentence on first use. A term that
-needed a definition usually did not need to exist.
+replace it with the concrete thing, or define it in the same sentence on first use. Replacing is
+usually the better of the two, since a term that has to be defined is rarely needed.
 
 The same scan catches abstraction drift: in a sentence about "the approach" or "the mechanism" where
 the concrete noun would fit, the reader cannot tell what the sentence is about.
@@ -227,7 +229,7 @@ survives that check usually means the defect is one line down, in the constructi
 the word.
 
 When the user calls something jargon, or rewrites a phrase of yours into plainer English, add it to
-the Register list in this plugin's `hooks/rules.md`. Log the **rule**, not the instance: the word
+the Vocabulary rule in this plugin's `hooks/rules.md`. Log the **rule**, not the instance: the word
 plus the plain alternative that replaces it, one line, in the same form as the entries already
 there. Do not paste diffs, and do not log a word you used once and caught yourself on.
 
@@ -278,14 +280,14 @@ thing instead of abstracting it. Banned in chat replies, not only in published p
   thing itself ("system properties", "the command line"). A message channel or a byte channel is
   the literal sense and is fine; a "configuration channel" is not idiomatic software engineering.
 - Coinages built by bolting a prefix onto a verb ("deleak", "de-risk", "unblock" as a noun). If the
-  word isn't already English, say what actually happens: "remove the coupling", "cut the risk".
-- Intensifiers—drop them: "Gradle's own" is "Gradle's". The bare noun or verb makes the same claim,
-  and the intensifier reads as the writer leaning on it.
+  word isn't already English, say what happens: "remove the coupling", "cut the risk".
+- Intensifiers—drop them: "Gradle's own" is "Gradle's". The claim is the same with the bare noun or
+  verb, and the intensifier reads as the writer leaning on it.
 - A deferential frame around a question ("worth your ruling", "I'd defer to you on", "your call").
   An open question takes a question mark and stands on its own. With the frame the ask reads as
   narration, in a courtier's voice. Offering to do the work is a different act and is not covered
-  here: "I could restore binary compatibility in a v0.58.1" states a capability, and the reader can
-  decline it without a round trip.
+  here: "I could restore binary compatibility in a v0.58.1" is a statement of a capability, and the
+  reader can decline it without a round trip.
 
 - A judgment stood in for a mechanism's name—"nag" for a deprecation warning, "noise" for a
   report's output. Print the mechanism's name and let the reader judge it. This one binds a local
@@ -360,7 +362,7 @@ build". "And" reads as continuation, so the reader is past the turn before notic
 
 **Prefer a finite coordinated clause over a trailing participle**, even at a couple more words:
 "and was closed as not planned", not ", closed as not planned". The participial tail reads as
-compressed, and the finite clause reads at speaking pace.
+compressed next to the finite clause, which reads at speaking pace.
 
 **Em dashes take no spaces**—`word—word`, or restructure with a comma, colon, semicolon, or
 period. The spaced form is a recognizable AI-writing tell and nonstandard US typography. It binds

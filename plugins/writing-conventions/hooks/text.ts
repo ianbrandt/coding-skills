@@ -28,9 +28,9 @@ function bytes(s: string): number {
 
 // drafts(reply): the fenced blocks tagged `draft` in a reply. The gate sends the
 // blocks to the model, and the lint unwraps them so that they are still linted
-// as the prose they are.
+// as prose.
 //   drafts(reply)                    the text of each draft block, each followed
-//                                    by a line holding only \x01, so that no
+//                                    by a line that is only \x01, so that no
 //                                    quote can match across two of them
 //   drafts(reply, { unwrap: true })  the whole text with the opening and closing
 //                                    fence lines of each draft block removed,
@@ -38,13 +38,14 @@ function bytes(s: string): number {
 // A block opens on three or more backticks or tildes with `draft` as the info
 // string, and closes on the first later fence of the same character that is at
 // least as long and has nothing after it. A code fence inside a draft therefore
-// has to be shorter or of the other character, which is what rules.md asks for.
+// has to be shorter or of the other character, which is the rule in rules.md.
 // A block left open at the end runs to the end. An empty block is no draft.
 //
 // fenced() in lint.ts closes on a marker whatever follows it. The difference
 // shows only on a line like "``` and more" inside a draft: here the draft runs
-// past it, which is CommonMark's rule and reviews more text, and after the
-// unwrap that line opens a fence fenced() never closes, which it keeps as prose.
+// past it, which is CommonMark's rule and means more text is reviewed, and after
+// the unwrap that line opens a fence fenced() never closes, which it keeps as
+// prose.
 export function drafts(reply: string, options?: { unwrap?: boolean }): string {
   const unwrap = !!options?.unwrap
   let out = ''
@@ -79,7 +80,7 @@ export function drafts(reply: string, options?: { unwrap?: boolean }): string {
 }
 
 // excerpt(newText, fileText, cap): the whole paragraphs of an edited file that
-// hold the text an Edit put there. A paragraph is bounded by blank lines. A
+// contain the text an Edit put there. A paragraph is bounded by blank lines. A
 // one-word edit can make a violation that the word alone does not show, so the
 // sentences around it are what gets reviewed, and the size of the excerpt
 // follows the edit and not the file. The text is matched line by line, because
@@ -134,7 +135,7 @@ export function excerpt(newText: string, fileText: string, cap: number): string 
 // It is verified when every fragment, with runs of whitespace collapsed, is in
 // one of the sources; the fragments need not share a source. The model can see
 // text quoted from an untrusted source, so no finding is acted on until its
-// quote is found in the text the gate chose to review. Anything else returns
+// quote is found in the text that was sent for review. Anything else returns
 // nothing: a verdict line with a second word, a finding that does not parse, a
 // quote that is nowhere in the sources.
 export function findings(verdict: string, sources: string[]): string {

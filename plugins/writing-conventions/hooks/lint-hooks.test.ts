@@ -36,7 +36,7 @@ test('the note on a reply opens the next turn, once, before the reminder', async
   expect((await prompt($))[1]).toMatch(/^Style, for this reply/)
 })
 
-test('a clean reply clears the note, and a note stays with its session', async ($: any, on: any) => {
+test('the note is cleared after a clean reply, and is kept per session', async ($: any, on: any) => {
   world(on)
   await stop($, 'The build is load-bearing.')
   await stop($, 'The build passed.')
@@ -46,7 +46,7 @@ test('a clean reply clears the note, and a note stays with its session', async (
   expect((await prompt($, 's2'))[1]).toMatch(/^A house-style lint/)
 })
 
-test('a draft is linted as the prose it is', async ($: any, on: any) => {
+test('the text in a draft fence is linted as prose', async ($: any, on: any) => {
   world(on)
   const F = '```'
   await stop($, `Here it is.\n${F}draft\nThe build is load-bearing.\n${F}\n`)
@@ -55,7 +55,7 @@ test('a draft is linted as the prose it is', async ($: any, on: any) => {
   expect((await prompt($))[1]).toMatch(/^Style/)
 })
 
-test('a prose or source file just written gets the nudge, in any letter case', async ($: any, on: any) => {
+test('the nudge is added for a prose or source file just written, in any letter case', async ($: any, on: any) => {
   world(on)
   const wrote = async (tool_name: string, file_path: string) =>
     (await $.classic.PostToolUse({ tool_name, tool_input: { file_path, content: '' }, tool_response: {}, tool_use_id: 't' })).additionalContext ?? []
@@ -70,7 +70,7 @@ test('a subagent starts with the rules', async ($: any, on: any) => {
   expect((await $.classic.SubagentStart({ agent_id: 'a1', agent_type: 'Explore' })).additionalContext).toEqual(['<rules.md>'])
 })
 
-test('the lint tool answers with the flagged lines, or clean', async ($: any, on: any) => {
+test('the lint tool returns the flagged lines, or clean', async ($: any, on: any) => {
   world(on)
   expect((await $.tool.call({ tool: 'mcp__writing-conventions__lint', text: 'The build is load-bearing.' })).result).toBe('banned word\tload-bearing')
   expect((await $.tool.call({ tool: 'mcp__writing-conventions__lint', text: 'The build passed.' })).result).toBe('clean')

@@ -79,9 +79,9 @@ export function feed(s: Dash, piece: string, end = false): string {
         const newline = text.indexOf('\n', marker)
         if (newline < 0 && !end) break
         const stop = newline < 0 ? text.length : newline + 1
-        // A marker closes a fence of its own character that is no longer than it,
+        // A marker closes a fence of the same character that is no longer than it,
         // with nothing after it on the line. Inside a draft any other marker line
-        // opens a fence of its own.
+        // opens an inner fence.
         const m = text.slice(indent, marker)
         const rest = text.slice(marker, stop).trim()
         const closes = (open: string) => m[0] === open[0] && m.length >= open.length && rest === ''
@@ -165,7 +165,7 @@ export function feed(s: Dash, piece: string, end = false): string {
 export const register: Register = on => {
   on('turn.step', async function* ($, e, next) {
     // The chunk format is part of an early-access API, so on a CLI the module was
-    // not checked on the reply is passed through as written.
+    // not checked on, the reply is passed through as written.
     if (!atLeast((await $.session.version().catch(() => ({}))).base)) return yield* next(e)
     const blocks = new Map<number, Dash>()
     const stream = next(e)[Symbol.asyncIterator]()

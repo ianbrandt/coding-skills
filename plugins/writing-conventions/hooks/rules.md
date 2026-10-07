@@ -94,8 +94,8 @@ clients, unreleased plans) never enter a public artifact.
 
 A draft for publication—any text the user will paste, post, send, or file somewhere else—goes in
 its own fenced block with the info string `draft`, even mid-task, and in a longer fence when the
-draft itself holds one. Nothing else takes that info string. A draft written to a file goes through
-`Write` or `Edit`, never a shell redirect.
+draft itself contains one. Nothing else takes that info string. A draft written to a file goes
+through `Write` or `Edit`, never a shell redirect.
 
 The full form of each rule, and where a newly flagged word is logged: the `write-for-the-reader`
 skill.

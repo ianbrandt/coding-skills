@@ -28,8 +28,8 @@
 // here, per command, because a word is an operand only when no earlier flag
 // takes it as its value. An operand of "-" is stdin, which is the heredoc
 // already in the command, and is left out. For a command that cannot be split
-// the result is 1<TAB>"" when it has a body-file flag at all, so that it is
-// reported at the gate.
+// the result is 1<TAB>"" when it has a body-file flag, so that it is reported at
+// the gate.
 //
 // The rules are a character loop with no grammar. The text is read twice. Pass 1
 // drops heredoc bodies and turns a quoted span into its content, or into the
@@ -376,7 +376,7 @@ function extract(src: string, mode: Mode, files: boolean): string[] {
         if (opt.includes(c)) break
         if (!vshort.includes(c)) continue
         let rest = x.slice(k + 1)
-        // gh drops the "=" in -F=file, and git keeps it as part of the name.
+        // gh drops the "=" in -F=file, but git keeps it as part of the name.
         if (c === 'F') {
           if (rest !== '') { if (eq) rest = rest.replace(/^=/, ''); last = rest; found = true }
           else if (j < m) { last = w[++j]; found = true }
