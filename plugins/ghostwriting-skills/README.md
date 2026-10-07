@@ -62,7 +62,8 @@ Two judge-model checks follow: the body kept every fact it was given, and it fit
 for the genre. No length or format is given in any prompt, so a form pass means the limit was read
 from the spec. The spec's location is in the prompt for both runs, and the run without the plugin
 reads the spec too, so the two runs differ by the drafting procedure rather than by access to the
-spec. Run it
+spec. The fixture spec has no Procedure section, so a run without the plugin gets none of the
+drafting procedure from it. Run it
 from the plugin directory:
 
 ```bash
@@ -113,10 +114,12 @@ average. A second run that day, after the skills were reworded, scored 0.99 with
 without, a gap of -0.01, so no difference between the two was measured.
 
 On 2026-10-07 the README-section case was added, with a limit and a sample for docs in the fixture
-spec. With four runs per case, the plugin scored 0.99 on average and no plugin 0.97, a gap of +0.02.
-On the new case both scored 1.00, and a subagent rewrote the draft in all 8 runs. A fresh-context
-rewrite is a step in the fixture spec's procedure, and it was followed without the plugin too, so
-both pass the subagent check.
+spec, and the Procedure section was removed from that spec. With four runs per case, the plugin
+scored 0.99 on average and no plugin 0.93, a gap of +0.06. On the new case the plugin scored 1.00
+and no plugin 0.82. A subagent rewrote the draft in all 4 runs with the plugin and in none without,
+which is one check of seven, and one body without the plugin failed the facts judge. With the
+Procedure section still in the spec, a subagent rewrote the draft in every run of that case, with
+and without the plugin.
 
 ## Works with `writing-conventions`
 

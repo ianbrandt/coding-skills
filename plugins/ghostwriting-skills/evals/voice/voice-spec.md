@@ -45,10 +45,3 @@ Drafted, then accepted:
 ## Delta log
 
 (empty)
-
-## Procedure
-
-1. Read this spec and a matching corpus sample before drafting.
-2. Draft to the genre's cap, imitating the corpus and the contrast pairs.
-3. Self-review, have a fresh-context subagent rewrite the draft, check the rewrite, then hand over.
-4. After the maintainer edits a draft, log the delta.
