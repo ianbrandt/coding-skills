@@ -108,14 +108,15 @@ Everything but the `SessionStart` rules runs in the plugin's hooks module,
 no shell is involved. The `SessionStart` hook is a plain `cat` of `rules.md`.
 
 2.1.286 is the first CLI where hooks modules are on by default. They are listed in the Claude Code
-changelog as Mods from 2.1.287. The gate, the lint tool, the nudge after a written file, the rules
-for subagents, the dash rewrite, and the lint note on the next turn were each checked in a live
-session on 2.1.286 through 2.1.291. Hooks modules are in 2.1.285 and older as well, but they are off
-there unless `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1` is set, and the module was not checked on those
-versions. On an older CLI the module does nothing, and the user is told once in a toast. The rules still load at session
-start there, but the lint, the dash rewrite, the gate, and the rules for subagents are off. The same is true, with no toast,
-where function hooks are switched off: `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1` in the environment
-turns them on, and `claude --debug` logs a module that did not load.
+changelog as Mods from 2.1.287. The gate, the lint tool, the re-read request after a written file,
+the rules for subagents, the dash rewrite, and the lint note on the next turn were each checked in a
+live session on 2.1.286 through 2.1.291. Hooks modules are in 2.1.285 and older as well, but they
+are off there unless `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1` is set, and the module was not checked on
+those versions. On an older CLI the module does nothing, and the user is told once in a toast. The
+rules still load at session start there, but the lint, the dash rewrite, the gate, and the rules for
+subagents are off. The same is true, with no toast, where function hooks are switched off:
+`CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1` in the environment turns them on, and `claude --debug` logs a
+module that did not load.
 
 ## The gate at publication
 
@@ -308,9 +309,9 @@ is looked for on its own and nothing is joined.
 A `Write` or `Edit` to a `.md`, `.markdown`, `.txt`, `.adoc`, or `.rst` file is read the same way
 after the fact, by a `PostToolUse` hook. Nothing is blocked, because a file is cheap to fix and a
 blocked edit stops the turn: a verified finding comes back as `additionalContext`, and the session
-fixes the file in place. The advisory nudge on `Write|Edit` is unchanged and still fires for the
-same files, so a session in which the review model cannot run keeps it. For a source file there is
-only the nudge.
+fixes the file in place. The advisory re-read request on `Write|Edit` is unchanged and still fires
+for the same files, so a session in which the review model cannot run keeps it. For a source file
+there is only the re-read request.
 
 The review model has no tools, so the gate reads, and only the file the tool just wrote. For a
 `Write` the text under review is `content`. For an `Edit` it is the whole paragraphs, bounded by

@@ -55,7 +55,7 @@ test('the text in a draft fence is linted as prose', async ($: any, on: any) => 
   expect((await prompt($))[1]).toMatch(/^Style/)
 })
 
-test('the nudge is added for a prose or source file just written, in any letter case', async ($: any, on: any) => {
+test('the re-read request is added for a prose or source file just written, in any letter case', async ($: any, on: any) => {
   world(on)
   const wrote = async (tool_name: string, file_path: string) =>
     (await $.classic.PostToolUse({ tool_name, tool_input: { file_path, content: '' }, tool_response: {}, tool_use_id: 't' })).additionalContext ?? []

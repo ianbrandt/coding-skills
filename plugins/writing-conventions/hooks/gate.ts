@@ -435,7 +435,8 @@ export const register: Register = on => {
   })
 
   // A file just written. For one with prose in it, code comments included, the
-  // nudge is added, and the gate's findings on a prose file come back beside it.
+  // re-read request is added, and the gate's findings on a prose file come back
+  // beside it.
   on('classic.PostToolUse', async ($, e: any, next: any) => {
     if (e.tool_name !== 'Write' && e.tool_name !== 'Edit') return next(e)
     const verdict = await gate($, () => file($, e))
