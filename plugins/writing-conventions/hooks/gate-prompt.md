@@ -5,7 +5,7 @@ wrote; or one or more drafts that the session wrote for its user to post somewhe
 
 First decide whether the message has new text for a human-facing destination: a commit message, a
 pull request, an issue, a comment, a review, a release note, a chat or email message, a wiki page, a
-document, or a prose file. Find that text under whatever flag or field name it has:
+document, or a prose file. Find that text under whatever flag or field name it has.
 
 Reply with the single word `SKIP` only to hook input, when nothing in it is new text for a human
 reader (view, list, search, fetch, checks, status, diff, `--dry-run`, `--amend --no-edit`, `-C` or
