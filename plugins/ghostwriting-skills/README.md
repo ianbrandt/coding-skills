@@ -27,8 +27,7 @@ no hooks module running, as on an older version, the model reads the files itsel
 The drafting protocol and the correction loop it runs inside.
 
 - Read the spec, then draft to its caps for the genre, imitating your corpus samples and the spec's
-  contrast pairs rather than writing from a rule list. A cap is a maximum, and a draft is not
-  written up to it.
+  contrast pairs rather than writing from a rule list. Most drafts should come in under the cap.
 - Self-review, lint, then a fresh-context rewrite by a subagent given only the draft, the rules, and
   your spec's contrast pairs, since a draft's tells read as natural to the model that produced it.
   The lint is the `writing-conventions` plugin's, when that plugin is installed. The rewrite is
