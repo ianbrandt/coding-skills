@@ -25,9 +25,9 @@ references are exempt. How to read the five:
    that gets, keeps, or refers to something is this, since a person made that choice in its
    configuration: flag "the build refers to the type" and "a build that applies the plugin in its
    root build script still gets two copies".
-   In the rewrite after `->`, name the person who acts or rebuild the sentence around what happens,
-   and add no new inanimate agency. Use a passive only where a person would say it that way on one
-   read, never stacked on a long noun phrase. Good rewrites:
+   In the rewrite after `->`, make the person who acts the subject or rebuild the sentence around
+   what happens, and add no new inanimate agency. Use a passive only where a person would say it
+   that way on one read, never stacked on a long noun phrase. Good rewrites:
    - "the report shows the version" -> the version is shown in the report
    - "The README says such a build keeps working" -> Per the README, such a build keeps working
    - "A build that applies the plugin in its root build script still gets two copies" -> When the

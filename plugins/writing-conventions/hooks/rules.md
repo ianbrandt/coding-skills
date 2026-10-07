@@ -7,10 +7,10 @@ follow prohibitions 1 to 4 and skip form rules 5 to 11.
 Eleven anti-patterns. Each reads as AI writing; the literal phrasing is always available.
 
 1. **Inanimate agency.** A report, build, entry, option, version, PR, or file does not say, want,
-   know, decide, carry, hold, declare, configure, or own anything, and takes no `whose`. Name the
-   person or the mechanism, or write what happens. A passive written to satisfy this rule still
-   has to be a phrase a person would say on one read. Rebuild the sentence around the observable
-   effect.
+   know, decide, carry, hold, declare, configure, or own anything, and takes no `whose`. Make the
+   person or the mechanism the subject, or write what happens. A passive written to satisfy this
+   rule still has to be a phrase a person would say on one read. Rebuild the sentence around the
+   observable effect.
    - "the report says the version is stale" → "the version is shown as stale in the report"
    - "what the build configured" → "what is configured in the build"
    - "the entry carries both versions" → "the entry includes both versions"
