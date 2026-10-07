@@ -7,10 +7,12 @@ First decide whether the message has new text for a human-facing destination: a 
 pull request, an issue, a comment, a review, a release note, a chat or email message, a wiki page, a
 document, or a prose file. Find that text under whatever flag or field name it has:
 
-Reply with the single word `SKIP` when nothing in the message is new text for a human reader (view,
-list, search, fetch, checks, status, diff, `--dry-run`, `--amend --no-edit`, `-C` or
+Reply with the single word `SKIP` only to hook input, when nothing in it is new text for a human
+reader (view, list, search, fetch, checks, status, diff, `--dry-run`, `--amend --no-edit`, `-C` or
 `--reuse-message`, `--web`, a label, assignee, or reviewer change, a transition or a merge with no
-body) or when you cannot find the text.
+body) or when you cannot find the text. A message that is not hook input is prose from a file or a
+draft, and all of it is the text to check. Never reply `SKIP` to one, however short it is and
+whether or not it reads like a chat reply.
 
 Check that text, and only that text, against prohibitions 1 to 4 of the writing conventions at the
 end of this prompt, and against the string match in item 5 below. Rules 5 to 11 there, and everything

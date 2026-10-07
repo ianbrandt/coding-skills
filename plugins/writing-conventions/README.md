@@ -169,6 +169,12 @@ on none of 4 runs before the rule was added. Sixteen commit messages from this r
 with a sentence of two similar-length clauses joined by "and", got a matched-clause finding on 1 of
 40 runs.
 
+A 265-character comment draft that was corrected after the gate had read it was replayed on
+2026-10-06, on the `sonnet` alias with CLI 2.1.292. It was answered with `SKIP` on 9 of 10 runs, and
+again on 9 of 10 with a "The README says" sentence added to it. With the `SKIP` paragraph of the
+prompt reworded, the draft was read on 10 of 10 runs, and with the added sentence it was denied on
+10 of 10.
+
 On Sonnet 5.5 the median call took 1.6 seconds on a planted commit message, 3.6 seconds on a clean
 one, and 5.9 seconds on the text of a PR, an issue, or a comment, and the longest of 317 calls took
 16 seconds. A call is given at most 60 seconds. No effort is set on it. At `low` the last two
