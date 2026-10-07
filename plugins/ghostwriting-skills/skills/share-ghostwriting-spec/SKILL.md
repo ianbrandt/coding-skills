@@ -30,9 +30,9 @@ No spec ⇒ stop and say so; bootstrap first (ghostwrite §5).
 Start from `voice-spec.md` and keep every body section except the delta log: **Voice**, the
 per-genre form, **Procedure**, and any further house-style sections that were added to the spec
 (posting mechanics for a platform, register with a particular kind of collaborator). Match that
-section by what it holds—one entry per genre, giving what goes in, in what order, and what never
-appears—not by its title. In `ghostwrite` §5 it is **Per-genre form**, and a spec written before
-that convention may title it something else, **Per-genre caps** among them.
+section by what is in it—one entry per genre, giving what goes in, in what order, and what never
+appears—not by its title. In `ghostwrite` §5 it is **Per-genre form**, and in a spec written
+before that convention it may be titled something else, **Per-genre caps** among them.
 
 - **The delta log and the corpus never ship.** Replace the log with an empty one. Sweep the
   dropped log for any rule not yet promoted into the body; carry the rule text over, never an

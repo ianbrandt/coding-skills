@@ -37,8 +37,8 @@ The drafting protocol and the correction loop it runs inside.
   run, a question to settle before posting, or the part that runs over a cap because a fact you gave
   would not fit. Posting is left to you.
 - Log the delta once, after you edit or give the go, never in the hand-over. A rule missing from
-  the spec gets a new entry. A rule that was in the spec and was broken anyway is recorded as a
-  procedure failure, with no new rule. A rule general enough to bind every reply is routed to the
+  the spec is added as a new entry. A rule that was in the spec and was broken anyway is recorded as
+  a procedure failure, with no new rule. A rule general enough to bind every reply is routed to the
   always-on writing rules file your session loads, when one does (the `writing-conventions` plugin's
   `hooks/rules.md`, or your global `CLAUDE.md`); everything about the form and size of one genre
   stays in your spec.
@@ -52,7 +52,7 @@ Exports your spec as an anonymized seed a teammate can bootstrap from. The per-g
 procedure are kept as house style; the delta log and corpus are left out; names, repos, URLs, and
 quoted drafts are scrubbed; and the export is written to a file beside your spec for you to read
 before it goes anywhere. A recipient runs the `ghostwrite` bootstrap with the seed, which keeps
-your caps as a starting point and derives the voice rules from the recipient's own samples.
+your caps as a starting point and derives the voice rules from the recipient's samples.
 
 ## Measuring it
 
@@ -88,11 +88,12 @@ The form and facts judges were also told that notes around the body are not part
 judge now fails a run only when it can state a missing fact or quote an added claim. With three runs
 per case, the plugin and no plugin both scored 0.91, a gap of 0.00. No plugin-loaded reply had a
 spaced dash, rewrite notes, or a delta-log entry. Each one ended with a one-line note that the lint
-did not run, which is expected, since the cases grant no shell. Both arms scored 1.00 on the pruner
-PR. On the report PR the plugin scored 0.11 higher: all three bodies without the plugin failed the
-facts judge, and two of them left out that `showOutsideRange` is on by default. On the issue the
-plugin scored 0.11 lower: all three plugin-loaded bodies failed form, and two of them put a sentence
-of prose after the fenced exhibits, which is not allowed under the spec's issue limit.
+did not run, which is expected, since no shell is granted in the cases. Both arms scored 1.00 on the
+pruner PR. On the report PR the plugin scored 0.11 higher: all three bodies without the plugin
+failed the facts judge, and two of them were missing the fact that `showOutsideRange` is on by
+default. On the issue the plugin scored 0.11 lower: all three plugin-loaded bodies failed form, and
+two of them had a sentence of prose after the fenced exhibits, which is not allowed under the spec's
+issue limit.
 
 Later on 2026-09-13, `ghostwrite` was changed to check the end of a body against the genre's form,
 so a fact left after the exhibits goes in a one-fact bullet. With three runs per case, the plugin

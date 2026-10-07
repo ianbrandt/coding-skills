@@ -3,7 +3,7 @@ name: ghostwrite
 description: >-
   Draft text that ships under the user's name (issues, PRs, comments, commit
   messages, docs, code comments) in their voice, from a voice spec derived from
-  their own hand-written samples: read the spec, draft to its caps, self-review,
+  their hand-written samples: read the spec, draft to its caps, self-review,
   and log the delta after the user edits. Derives the spec from samples when the
   user has none. Trigger on drafting or reviewing anything the user will post
   under their name, and on "log the delta" / "update my voice spec". NOT for
@@ -13,8 +13,8 @@ description: >-
 
 # Ghostwrite—draft in the user's voice
 
-This skill has the method, and the voice comes from the user's data (§0). The user signs the text,
-so the user reads it first: **you draft, and only the user posts.**
+Only the method is in this skill: the voice is read from the user's data (§0). The user signs the
+text, so the user reads it first: **you draft, and only the user posts.**
 
 ## 0. Locate the voice data—and detect the mode
 **If a `## Voice data, loaded by the plugin` section follows this skill's text, the plugin's hooks
@@ -45,9 +45,9 @@ instead. Check which of those loaded in this session, and follow a pointer rathe
 file; `voice-spec.md` is the positive spec, read on demand. Both are maintained here (§4, §5). With
 no always-on file at all, the prohibitions go in the spec too.
 
-**The spec holds no copy of what the always-on file covers.** This skill adds to that file, so a
+**The spec has no copy of what the always-on file covers.** This skill adds to that file, so a
 rule general enough to bind every surface is routed there and deleted from the spec, not kept in
-both. What stays in the spec is the user's own register and their per-genre form. The two copies of
+both. What stays in the spec is the user's register and their per-genre form. The two copies of
 a duplicated rule get edited apart, and the weaker one is the one read at drafting time.
 
 ## 1. Read the spec before drafting
@@ -58,7 +58,7 @@ delta log and the latest rules are.
 Re-read the spec per session, even with a summary of it in context. No corpus, or no sample for the
 genre ⇒ draft on the spec alone and record the gap in §4.
 
-**Re-read the always-on rules file §0 names in the same pass**, even though it loaded at session
+**Re-read the always-on rules file from §0 in the same pass**, even though it loaded at session
 start: by drafting time that copy sits far back in the context, where it is weakly attended, and
 most rule breaks happen deep in long sessions. Reading it again immediately before drafting puts
 the prohibitions where they bind.
@@ -68,7 +68,7 @@ agent, or by you hours ago. Before calling a draft ready, do the same reads.
 
 ## 2. Draft to the spec
 Write to the spec's entry for the genre—its form and size. No entry ⇒ use the nearest neighbor
-and record the gap in §4. **Treat a cap as a maximum, and do not write up to it**: exceed one only
+and record the gap in §4. **Most drafts should come in under the cap**: exceed one only
 when the content forces it, never for thoroughness. A fact the user gave always forces it: never
 drop a given fact to fit a cap. Keep the fact, and use the hand-over line (§3) to say which part
 runs over. Everything else about the draft comes from the spec, not your defaults.
@@ -102,7 +102,7 @@ Self-review is not enough for register tells in a longer draft: you re-read your
 same tendency that produced it, and its tells read as natural. A report of violations is not enough
 either, since each fix comes from that same tendency, and rounds of find-and-fix rarely converge. So
 before the first hand-over of such a piece, **have a fresh-context subagent rewrite it**. Give the
-subagent nothing but the draft verbatim, the always-on rules file §0 names (or the spec's
+subagent nothing but the draft verbatim, the always-on rules file from §0 (or the spec's
 prohibitions when there is none), the spec's **Contrast pairs** section verbatim, the spec's entry
 for the genre verbatim, the corpus samples §1 read for the genre, the genre's cap, and this brief:
 
@@ -150,12 +150,12 @@ hand-over. Diff their version against yours, add the rule breaks you fixed yours
 **classify each change first**; the two failures take opposite fixes:
 
 - **Missing rule**—the spec didn't cover it. Append a delta-log entry: date, the piece, what you
-  wrote, what they changed it to, and the rule that generalizes. Name any entry it amends or
+  wrote, what they changed it to, and the rule that generalizes. Say which entry it amends or
   supersedes.
 - **Procedure failure**—the spec covered it and the draft broke it anyway. Record it as one; add
   **no** new rule.
 
-Route each new rule by the §0 split: must hold in every response ⇒ the always-on file §0 names;
+Route each new rule by the §0 split: must hold in every response ⇒ the always-on file from §0;
 genre form or size ⇒ `voice-spec.md`. When that always-on file ships from a plugin, the edit is a
 plugin change: make it in the repo the plugin is published from, not the installed cache, and bump
 the plugin's `version` in that repo's `.claude-plugin/marketplace.json` in the same commit, unless
@@ -166,7 +166,7 @@ the old list. When
 an entry changes a standing rule, promote it into the spec's body, so that every standing rule is
 read there.
 
-A failure that **recurs** gets a second promotion: into the spec's **Contrast pairs** section, as
+A failure that **recurs** is promoted a second time: into the spec's **Contrast pairs** section, as
 the drafted sentence and the user's rewrite, verbatim. The pairs are what §2 imitates. The tendency
 that produced the draft reads the rule-breaking form as natural, so an example of the idiomatic
 alternative prevents the next instance better than the generalized rule alone.
@@ -181,21 +181,21 @@ guessing. One-time setup; afterwards proceed from §1.
    user's own unassisted writing.
 2. **Collect them into `$VOICE/corpus/`** by copy or symlink. Never rewrite a sample.
 3. **Extract observable regularities**, per genre: sentence length and structure, person and
-   hedging, how evidence is carried, openings and closings, formatting habits (headings, bullets,
+   hedging, how evidence is presented, openings and closings, formatting habits (headings, bullets,
    emphasis, links), title style, and typical length. Sort each finding by the §0 split as you go.
 4. **Write `voice-spec.md`** with five sections: **Voice** (cross-genre rules), **Per-genre form**
    (one entry per genre: what goes in, in what order, and what never appears), **Contrast pairs** (seeded with one before→after pair
    contrasting a default-register draft with the samples), **Delta log** (starts empty), and
    **Procedure** (§1–§4 in a line each, so the spec stands alone).
 5. **Route the always-on rules** the samples imply: the step-3 prohibitions belong in the always-on
-   file §0 names, which already includes the typography and banned-vocabulary rules when it is the
+   file from §0, which already includes the typography and banned-vocabulary rules when it is the
    `writing-conventions` file—add only what it lacks. With no always-on file, they go in the spec's
    prohibitions section. Show any edit and ask before making it, and where the file ships from a
    plugin, bump its `version` in that repo's `.claude-plugin/marketplace.json` by the rule in §4.
-6. **Say what you could not derive.** A genre with no sample gets no entry—don't invent one.
+6. **Say what you could not derive.** Write no entry for a genre with no sample—don't invent one.
 
 A **seed spec**—a `share-ghostwriting-spec` export—replaces derivation from scratch: copy it in as
 the starting `voice-spec.md`, keep its per-genre form, refit its Voice placeholder from the user's
 samples (steps 1–3), and note in the delta log any seed rule the samples contradict.
 
-One spec describes one person; don't blend samples from several writers.
+A spec describes one writer, so don't blend samples from several writers.

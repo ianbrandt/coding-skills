@@ -42,7 +42,7 @@ test('the spec, every sample, and the newest rules file follow the skill text', 
   for (const part of ['NOT A SAMPLE', 'OLD RULES']) expect(text).not.toContain(part)
 })
 
-test('with no spec the skill is sent to its bootstrap section', async ($: any, on: any) => {
+test('with no spec the model is sent to the bootstrap section', async ($: any, on: any) => {
   files(on, { '/v/corpus/issues.md': 'ISSUE SAMPLE' })
   const { text } = await $.skill.prompt({ skill: 'ghostwrite', text: 'SKILL' })
   expect(text).toContain('MODE=bootstrap')
@@ -62,7 +62,7 @@ test('without GHOSTWRITING_DIR the default directory is read', async ($: any, on
   expect(text).toContain('HOME SPEC')
 })
 
-test('another skill gets its text unchanged', async ($: any, on: any) => {
+test('the text of another skill is left unchanged', async ($: any, on: any) => {
   files(on, { [SPEC]: 'SPEC TEXT' })
   const { text } = await $.skill.prompt({ skill: 'ghostwriting-skills:share-ghostwriting-spec', text: 'SKILL' })
   expect(text).toBe('SKILL')
@@ -107,7 +107,7 @@ test('a cache entry that is not a version is passed over', async ($: any, on: an
   expect(text).not.toContain('BRANCH RULES')
 })
 
-test('with no rules file the skill is told to re-read it by hand', async ($: any, on: any) => {
+test('with no rules file the model is told to re-read it by hand', async ($: any, on: any) => {
   files(on, { [SPEC]: 'SPEC TEXT' })
   const { text } = await $.skill.prompt({ skill: 'ghostwrite', text: 'SKILL' })
   expect(text).toContain('did not find the always-on rules file')

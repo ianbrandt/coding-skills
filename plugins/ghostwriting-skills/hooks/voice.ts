@@ -52,8 +52,8 @@ async function voice($: any, configured: string | undefined): Promise<string> {
     spec = await $.fs.read(`${dir}/voice-spec.md`)
   } catch {
     // Only a spec that is not there is a bootstrap, which ends in writing a new
-    // one. After any other failure nothing is appended, and the skill's own
-    // snippet runs.
+    // one. After any other failure nothing is appended, and the snippet in the
+    // skill runs.
     if (await $.fs.exists(`${dir}/voice-spec.md`).catch(() => true)) return ''
     return `${head}MODE=bootstrap: there is no \`${dir}/voice-spec.md\`. Go to §5.\n`
   }
@@ -85,7 +85,7 @@ async function voice($: any, configured: string | undefined): Promise<string> {
   const path = await rules($, (await $.env.get('CLAUDE_CONFIG_DIR')) || `${home}/.claude`)
   const found = path === '' ? undefined : await $.fs.read(path).catch(() => undefined)
   if (found !== undefined) out += `\nThe always-on rules file, re-read for §1:\n\n${file(path, found)}`
-  else out += '\nThe plugin did not find the always-on rules file. Re-read the one §0 names yourself, for §1.\n'
+  else out += '\nThe plugin did not find the always-on rules file. Re-read the one from §0 yourself, for §1.\n'
   return out
 }
 

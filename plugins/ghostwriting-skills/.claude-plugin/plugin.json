@@ -1,6 +1,6 @@
 {
   "name": "ghostwriting-skills",
-  "description": "Drafts text that ships under your name—issues, PRs, comments, commit messages, docs—in your voice, from a spec derived from your own writing, and keeps that spec current from your edits.",
+  "description": "Drafts text that ships under your name—issues, PRs, comments, commit messages, docs—in your voice, from a spec derived from your writing, and keeps that spec current from your edits.",
   "author": {
     "name": "Ian Brandt"
   },
