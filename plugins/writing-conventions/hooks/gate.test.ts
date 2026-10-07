@@ -29,9 +29,11 @@ function world(on: any, w: World = {}) {
   const files: Record<string, string> = { ...w.files }
   const seen = { reader: [] as string[], commands: [] as string[], tool: [] as string[], system: '', toasts: [] as string[], files, ran: 0 }
   // On Windows an engine-level step turns a "/foo" path into "C:\foo" before the
-  // mock sees it, so each lookup reads it back as POSIX. The project directory
-  // and the hook files always sit on the same drive in the mock.
-  const posix = (p: string) => p.replace(/^[A-Za-z]:/, '').replace(/\\/g, '/')
+  // mock sees it, so each lookup reads it back as POSIX. On macOS a "C:/foo"
+  // path is not absolute, so the engine prepends the cwd and the drive letter
+  // lands past the start; the prefix up to it is dropped too. The project
+  // directory and the hook files always sit on the same drive in the mock.
+  const posix = (p: string) => p.replace(/\\/g, '/').replace(/^(.*\/)?[A-Za-z]:(?=\/)/, '')
   mock.env(on, { CLAUDE_CONFIG_DIR: '/cfg', TMPDIR: '/tmp', ...w.env })
   on('session.version', () => ({ value: { version: base, base, builtAt: '' } }))
   on('session.id', () => { if (w.noSession) throw new Error('no session'); return { value: 's1' } })
