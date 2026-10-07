@@ -185,10 +185,11 @@ export const register: Register = on => {
         yield s.off ? chunk : { ...chunk, text: feed(s, chunk.text) }
         continue
       }
-      // Anything else can end a block, so what is held is written ahead of it. In
-      // a long reply nothing else arrived inside a block, so text for a block
-      // after this is a retry or a cut the position cannot be trusted across, and
-      // it is passed through as written.
+      // Any other chunk can end a text block, so held text is written ahead of it
+      // and the block is switched off. No other chunk was seen inside a block in
+      // a long reply, so later text with the same index comes from a retry or a
+      // cut-off reply. Its position in the block is unknown, and it is passed
+      // through as written.
       for (const [index, s] of blocks) {
         const text = s.off ? '' : feed(s, '', true)
         s.off = true

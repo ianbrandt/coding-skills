@@ -154,9 +154,9 @@ test('a 40,000-line reply is counted line by line', () => {
   expect(lint(reply, { note: true })).toContain('- banned word x40000, e.g. "shape".')
 })
 
-// Where the awk script had no answer to copy: in a UTF-8 locale macOS awk stops
-// on a multibyte character after a past form, and it cuts the example at the
-// wrong byte after a letter such as İ.
+// These expected values are not copied from the awk script, which was wrong in
+// a UTF-8 locale: macOS awk stops on a multibyte character after a past form,
+// and it cuts the example at the wrong byte after a letter such as İ.
 test('a character outside ASCII is one character', () => {
   expect(lint('a 😀vacuous😀 b')).toBe('banned word\t😀vacuous😀\n')
   expect(lint('The naïve report says so.')).toBe('inanimate agency\tThe naïve report says\n')
