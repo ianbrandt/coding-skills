@@ -6,9 +6,9 @@
 - Needs a Windows machine: `a body passed through PowerShell by a Windows path is read` in
   `plugins/writing-conventions/hooks/gate.test.ts` fails on macOS. `C:/proj/body.md` is not
   absolute there, so the path reaches the `fs.stat` mock as `<cwd>/C:/proj/body.md` and the drive
-  letter is not at the start, where `posix` removes it. This `posix` gives 92 of 92 on macOS:
-  `p.replace(/\\/g, '/').replace(/^(.*\/)?[A-Za-z]:(?=\/)/, '')`. Confirm it on Windows with
-  `claude plugin test plugins/writing-conventions`, then commit it.
+  letter is not at the start, where it is removed in `posix`. All 92 tests pass on macOS with
+  `p.replace(/\\/g, '/').replace(/^(.*\/)?[A-Za-z]:(?=\/)/, '')` as `posix`. Confirm it on Windows
+  with `claude plugin test plugins/writing-conventions`, then commit it.
 - Needs a machine where `claude plugin eval` can grant Bash (on this Mac the Docker Desktop links in
   `~/.docker` break the sandbox): two live-git `session-skills` eval cases, a repo-root path in
   context still lands the edit in the worktree, and a stale local default branch still branches
