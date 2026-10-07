@@ -74,7 +74,7 @@ type to `bin` and keeps the old checksum, so the next build fails verification.
 ```
 
 A root `build` does not fan out across included builds. If it does not transitively cover an upgraded
-wrapper's build, also run that build's own `./gradlew build` or the aggregator task reaching it; when
+wrapper's build, also run that build's `./gradlew build` or the aggregator task reaching it; when
 the task set is not obvious, confirm it with the maintainer.
 
 Sub-agent returns only `PASS` (with the `BUILD SUCCESSFUL` marker), or `FAIL` with the failing task
@@ -82,7 +82,7 @@ and actionable error block (compiler errors with `file:line`, failed test names 
 Must pass before reporting.
 
 `--rerun-tasks` is your judgement: up-to-date checks ignore the Gradle version, so add it when the
-validation must genuinely re-exercise the build. Validation build only.
+validation must re-exercise the build. Validation build only.
 
 ### 5. Reporting
 

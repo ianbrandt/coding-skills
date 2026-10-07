@@ -27,7 +27,7 @@ Updates come from the [Gradle Versions Plugin](https://github.com/ben-manes/grad
 
 Guides Claude through upgrading the Gradle wrapper to the latest available version.
 
-**Requires:** nothing. The latest version comes from Gradle's own [version service](https://services.gradle.org/versions/current), so no plugin needs to be applied.
+**Requires:** nothing. The latest version comes from Gradle's [version service](https://services.gradle.org/versions/current), so no plugin needs to be applied.
 
 **Works with:** any Gradle project with a [Gradle wrapper](https://docs.gradle.org/current/userguide/gradle_wrapper.html), single or composite: every wrapper in the project is upgraded, each in its own build.
 
@@ -68,7 +68,7 @@ The dependency update workflow runs `./gradlew` tasks and `git` commands (it com
 }
 ```
 
-`git add` and `git commit` are used on every dependency run; `git push` is only needed if you opt into push. If you choose verification tasks beyond the defaults (e.g. a `clean` cumulative run), add matching `Bash(./gradlew …)` entries.
+`git add` and `git commit` are used on every dependency run, but `git push` is needed only if you opt into push. If you choose verification tasks beyond the defaults (e.g. a `clean` cumulative run), add matching `Bash(./gradlew …)` entries.
 
 `upgrade-gradle` reads the latest Gradle version and its checksum from [services.gradle.org](https://services.gradle.org/versions/current) over HTTPS (via `curl` or a web fetch). Allow that mechanism if you want to avoid a prompt for it.
 
