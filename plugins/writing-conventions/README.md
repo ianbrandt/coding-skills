@@ -175,6 +175,15 @@ again on 9 of 10 with a "The README says" sentence added to it. With the `SKIP` 
 prompt reworded, the draft was read on 10 of 10 runs, and with the added sentence it was denied on
 10 of 10.
 
+A PR body draft was replayed the same way. Its sentence "A build that applies
+`io.github.ben-manes.versions` in its root build script still gets two copies of the plugin" was
+allowed on 8 of 10 runs, with "the build gets two copies" already quoted in item 1 of the prompt.
+With item 1 reworded, the draft was denied on 10 of 10 runs. On 60 posted texts that an earlier
+review found clean, a finding was kept on 34 of 120 checks, against 31 before the rewording. The
+only one that quoted a build as the subject was "a build that relies on that fallback gets the same
+report as before", in both runs. Five read-only commands were still answered with `SKIP`, on 4 of 4
+runs each.
+
 On Sonnet 5.5 the median call took 1.6 seconds on a planted commit message, 3.6 seconds on a clean
 one, and 5.9 seconds on the text of a PR, an issue, or a comment, and the longest of 317 calls took
 16 seconds. A call is given at most 60 seconds. No effort is set on it. At `low` the last two
