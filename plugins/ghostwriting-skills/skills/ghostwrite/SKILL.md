@@ -158,8 +158,11 @@ hand-over. Diff their version against yours, add the rule breaks you fixed yours
 Route each new rule by the §0 split: must hold in every response ⇒ the always-on file §0 names;
 genre form or size ⇒ `voice-spec.md`. When that always-on file ships from a plugin, the edit is a
 plugin change: make it in the repo the plugin is published from, not the installed cache, and bump
-the plugin's `version` in that repo's `.claude-plugin/marketplace.json` in the same commit, or the
-installed session keeps serving the old list. When
+the plugin's `version` in that repo's `.claude-plugin/marketplace.json` in the same commit, unless
+it is already ahead of the last published version. Where a push publishes the plugin, that is the
+version on the remote's default branch (`git show origin/main:.claude-plugin/marketplace.json`). One
+bump covers every commit waiting to be published. Without one, the installed session keeps serving
+the old list. When
 an entry changes a standing rule, promote it into the spec's body, so that every standing rule is
 read there.
 
@@ -188,7 +191,7 @@ guessing. One-time setup; afterwards proceed from §1.
    file §0 names, which already includes the typography and banned-vocabulary rules when it is the
    `writing-conventions` file—add only what it lacks. With no always-on file, they go in the spec's
    prohibitions section. Show any edit and ask before making it, and where the file ships from a
-   plugin, bump its `version` in that repo's `.claude-plugin/marketplace.json` in the same commit.
+   plugin, bump its `version` in that repo's `.claude-plugin/marketplace.json` by the rule in §4.
 6. **Say what you could not derive.** A genre with no sample gets no entry—don't invent one.
 
 A **seed spec**—a `share-ghostwriting-spec` export—replaces derivation from scratch: copy it in as
