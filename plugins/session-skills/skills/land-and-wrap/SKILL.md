@@ -45,9 +45,9 @@ echo "origin: ${VIS:-unknown}"
   **nothing reaches the remote host** (§3).
 - **No `upstream`** means the repo is yours, and the work lands by its **landing mode** (below):
   `merge` fast-forwards it into the default branch, and `pr` pushes the branch and opens a pull
-  request (both §2). The push depends on visibility: **private pushes; public holds** for the
-  user's explicit go, because a public push is published under their name and can't be taken back.
-  The user can lift that hold per clone (below).
+  request (both §2). The push depends on visibility: **push to a private `origin`, and hold a push
+  to a public one** for the user's explicit go, because a public push is published under their name
+  and can't be taken back. The user can lift that hold per clone (below).
 
 The per-repo `git config` value comes first and works on any host. `gh` and `glab` are only
 shortcuts, for a GitHub and a GitLab `origin`, and each is skipped when it is not installed or not
@@ -59,7 +59,7 @@ git config session-skills.originVisibility private                # or public
 ```
 
 Until the value is known, treat the repo as public and hold the push—the safe direction of a wrong
-guess. Only `private` pushes; `internal` and anything else hold.
+guess. Push only on `private`, and hold on `internal` and anything else.
 
 ### The landing mode
 
@@ -82,7 +82,7 @@ case "$PROT" in true) MODE=pr ;; false) MODE=merge ;; esac
 echo "landing: ${MODE:-unknown}"
 ```
 
-GitLab gets no shortcut: it protects the default branch of every new project, so protection there
+GitLab has no shortcut: it protects the default branch of every new project, so protection there
 does not separate a team repo from a solo one. Where a Bitbucket MCP server is connected, a branch
 restriction on the default branch means `pr`. Reading restrictions can need admin rights, and with
 no answer the question below runs. A team that works through PRs on an unprotected branch sets the
@@ -107,15 +107,15 @@ git config session-skills.holdPrText false        # open a PR without first show
 ```
 
 These are independent of the backlog. A repo you own can track its work in an untracked, local-only
-roadmap and still merge into its own default branch; that combination is ordinary, not a deviation.
-Fork-ness and the landing mode decide whether work merges, and visibility and the holds decide
-whether it is pushed.
+roadmap and still merge into its default branch; that combination needs no special handling.
+Whether work merges depends on fork-ness and the landing mode, and whether it is pushed depends on
+visibility and the holds.
 
 ## 2. Landing in a repo you own
 
 **Bring the docs first.** Finishing includes every piece of documentation the change touches: the
 subsystem's design doc (the durable *why*) plus any user-facing surface. Then **record it done**
-through whatever backlog plugin the repo uses (`work-in-worktree` §0), in that backlog's own form. With
+through whatever backlog plugin the repo uses (`work-in-worktree` §0), in that backlog's form. With
 no backlog at all, the landing commit is the record and there is nothing else to write. Keep any
 such edit minimal, localized, and in its own final commit—a backlog file is a collision seam every
 other lane is also editing.
@@ -134,7 +134,7 @@ runbook), otherwise land by the mode from §1.
    can't fast-forward, say so rather than forcing a merge commit.
 4. **Push if private**, or with the public-push hold lifted (§1). Otherwise, on a public repo,
    present the unpushed range (`origin/main..main`) and stop there; the user reads it before it
-   publishes.
+   is published.
 
 ### `pr`
 
@@ -185,25 +185,25 @@ With `session-skills.holdFork false`, a fork lands like `pr` mode with the PR ai
 push the branch to `origin` under the visibility rule, then the same wait on the text. A fork of a
 public project is usually public too, so its push still holds unless `holdPublicPush` is also
 lifted. Open it with `gh pr create --repo <upstream owner/repo> --head <fork owner>:"$BRANCH"`, or
-`glab mr create -R <upstream project> -H <fork project>`. The fork's branch gets a name for its
+`glab mr create -R <upstream project> -H <fork project>`. The fork's branch is named for its
 destination in `work-in-worktree` §3, before the first push. The steps below are the default.
 
 1. **Commit atomically on the feature branch**—decomposition-ordered, past-tense, one logical change
    each, in the target project's commit style. The branch and worktree are **left in place** for the
    user to review and sync; never merge or push them.
 2. **Draft outreach as local files**—`NNN-issue-draft.md`, `NNN-pr-draft.md`,
-   `NNN-comment-draft.md`, keyed by the upstream number once known and by the work's own ID before
+   `NNN-comment-draft.md`, keyed by the upstream number once known and by the work's ID before
    then, in whatever local notes directory the repo keeps them in, or `.claude/pr-drafts/` where it
    has none (snippet in §2 `pr` step 6). **Filing an issue, opening a PR, and posting a comment
    are the user's actions, never yours.**
-3. **Record it done** through the backlog plugin, in a form that says how far the work got: built
+3. **Record it done** through the backlog plugin, in a form that shows how far the work got: built
    locally, drafted, filed, or merged upstream are different states to the person who has to sync
    it.
 
 **Fetch upstream before designing, not just before filing.** `git fetch upstream` and diff
 `HEAD..upstream/$DEFAULT` at the *start* of a session. A stacked or resumed branch skips the
 "branched from upstream" check by construction, and a held branch keeps aging while it waits. The
-likeliest overlap is the user's own earlier contributions, since those touch the code still being
+likeliest overlap is the user's earlier contributions, since those touch the code still being
 worked in. If the diff is non-empty, read those commits before writing code: duplicating merged work
 is a wasted branch at best, and a hand-rolled reimplementation of a public API at worst.
 
@@ -215,7 +215,7 @@ a session that did releases it whether or not the work finished. A lease covers 
 work, and one held past its session blocks its lane for every unattended run until something expires
 it.
 
-**The plugin that owns the ledger carries the release step**—run it now. Identify the lane by the
+**The release step is in the plugin that maintains the ledger**—run it now. Identify the lane by the
 `$WT` `work-in-worktree` set, **written out literally, never re-derived with `git rev-parse
 --show-toplevel`**: a session launched from the repo root works the lane through absolute paths and
 leaves its cwd in the primary checkout, so `--show-toplevel` returns `$MAIN`, and a release keyed off
@@ -223,26 +223,26 @@ the wrong tree removes nothing and leaks the real lease. Confirm the lease is go
 on.
 
 **Unfinished work's resume record is its branch and worktree**, plus the backlog's pin when it
-records one. Leave both standing, and name the branch in the wrap-up—that is what the next
+records one. Leave both standing, and state the branch name in the wrap-up—that is what the next
 session finds.
 
 The rest, in order:
 
 - **Stop stray background tasks.** A superseded search, an abandoned build or server: stop each
   one, with the host's tool for background tasks where it has one (`TaskStop` in Claude Code), or
-  by pid. A wrap-up delivered while a stray task is still running isn't a wrap-up. A todo list is
-  not a process list—check real processes (`pgrep -fl`) before claiming a session is clear.
+  by pid. Do not deliver a wrap-up while a stray task is still running. A todo list is not a
+  process list—check real processes (`pgrep -fl`) before claiming a session is clear.
 - **Capture what belongs outside this session.** Durable conventions go to the repo's versioned
   docs; machine-local facts go to memory. Nothing that the repo already records.
 - **Say what's left**, plainly, and where to do it: this session (it holds the context) or a fresh
-  one (new scope, or this context has grown long). A fresh one gets a **launch snippet** in the
-  format this plugin's `hooks/rules.md` specifies, including the model and effort in the picker's
-  terms, chosen from `tier-model-and-effort` where it is installed rather than from memory. Where the repo has a
-  backlog plugin (`work-in-worktree` §0's backlog seam), its invocation is the snippet's entry
-  point: it finds the in-flight work itself, so name the unfinished **branch** alongside it and
-  leave the recap out.
-- **Suggest a session title** if the session did substantive work, in the format this plugin's
-  `hooks/rules.md` specifies—it loads at every session start, so the format is already in context.
+  one (new scope, or this context has grown long). For a fresh one, write a **launch snippet** in
+  the format given in this plugin's `hooks/rules.md`, including the model and effort in the picker's
+  terms, chosen from `tier-model-and-effort` where it is installed rather than from memory. Where
+  the repo has a backlog plugin (`work-in-worktree` §0's backlog seam), its invocation is the
+  snippet's entry point: it finds the in-flight work itself, so state the unfinished **branch**
+  alongside it and leave the recap out.
+- **Suggest a session title** if the session did substantive work, in the format given in this
+  plugin's `hooks/rules.md`—it loads at every session start, so the format is already in context.
 
 How the wrap-up reads is covered in `write-for-the-reader`, where it is installed: what to include,
 what the reader can already see, and why open items go as instructions rather than prose.

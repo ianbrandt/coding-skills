@@ -2,7 +2,7 @@ SESSION RULES ACTIVE
 
 ## Suggest a session title
 
-A session that did substantive work owes a title suggestion at its end. Nothing announces that
+End a session that did substantive work with a title suggestion. Nothing announces that
 end—a turn that hands a decision back to the user is one of them—so emit the block whenever a turn
 closes a unit of work. It goes last in the reply, as a `**Session title:**` label line followed by
 the bare title alone in a plain untagged fenced block, so the user copies it in one gesture:
@@ -17,11 +17,11 @@ Parser aggregation core
 
 Nothing but the title inside the fence—no quotes, no label—because everything in it gets copied.
 **Capitalize the first word.** Spell words out ("package", not "pkg"), keeping established type and
-API names as they are. Trivial Q&A owes nothing.
+API names as they are. Trivial Q&A takes no title block.
 
-Last means last. Where the reply also carries the launch snippet from the handoff section below,
-that snippet comes first and this block closes the reply. Both are plain untagged fences, and
-emitting the launch snippet does not discharge this one.
+The block is the last thing in the reply, with no exception. Where the reply also includes the
+launch snippet from the handoff section below, that snippet comes first and this block closes the
+reply. Both are plain untagged fences, and emitting the launch snippet does not replace this one.
 
 A skill may also emit this earlier, when a unit of work is claimed and its name is already known.
 That title and this one are the same block, byte-identical, revised at the end only if the work
@@ -34,21 +34,22 @@ still goes in the reply.
 
 At the end of a turn that closed a unit of work, weigh continuing against handing off, silently. Say
 nothing unless a tell below trips: a turn that ends with a paragraph about session length costs more
-than the handoff it was hedging against. That silence is this judgment's alone—the title block above
-runs on its own trigger and is never suppressed by it.
+than the handoff it was hedging against. That silence applies to this judgment only—the title block
+above runs on its own trigger and is never suppressed by it.
 
-A turn that hands a decision back closes a unit too, and it is where a session most often actually
-ends: work stops until the user answers, and the answer may come in a different session or not at
-all. Naming the open items is half of it—say for each one whether this session takes it or a fresh
-one does. A list of open items with no owner is neither a handoff nor an invitation to continue, and
-the session stops between the two.
+A turn that hands a decision back closes a unit too, and it is where a session most often ends: work
+stops until the user answers, and the answer may come in a different session or not at all. Listing
+the open items is half of it—say for each one whether this session takes it or a fresh one does.
+After a list of open items with no owner, the user has no handoff to launch and no sign that this
+session will continue, so the work stops.
 
 Hand off when:
 
-- **The claimed unit just landed** and the next one touches different files. The repo holds the
-  state now, so a fresh session re-derives it for the price of one backlog entry.
+- **The claimed unit just landed** and the next one touches different files. The state is in the
+  repo now, so a fresh session re-derives it for the price of one backlog entry.
 - **The session has been compacted**, or is re-reading files it already read, or re-deriving a fact
-  it established earlier. Those are one tell: the transcript has stopped carrying the work.
+  it established earlier. Those three count as one tell, that the work can no longer be read back
+  from the transcript.
 - **The next thing is a different repo, a different lane, or a different kind of work.** Context
   built for the last unit is dead weight against the new one, and it is re-read on every turn.
 
@@ -77,7 +78,7 @@ Recommending a fresh session comes with a launch snippet. Three parts, all requi
 for it.** "Next session starts clean on the parser item" is this handoff in a form nobody can
 copy, with no tier attached. Write the block instead, and never both.
 
-Where the repo tracks work in a backlog, the entry point is that backlog plugin's own invocation.
+Where the repo tracks work in a backlog, the entry point is that backlog plugin's invocation.
 It resolves in-flight work by itself, from the primary checkout, so the snippet needs no worktree
 path—and a freehand prompt reconstructing that state is how a resume becomes a second branch on
 work already half-built.
@@ -90,7 +91,7 @@ room for no context and no discussion, and in a repo with a backlog it is a seco
 that backlog.
 
 Where the finding should outlive the session, write it into the repo's backlog in that backlog's
-own form, including work that needs a machine or an account this session does not have. A
+form, including work that needs a machine or an account this session does not have. A
 suggested task is worth adding only alongside that, never instead of it, and only for
 self-contained work that needs no decision from the user and would start in its own worktree now.
 

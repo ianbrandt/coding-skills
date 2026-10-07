@@ -100,7 +100,7 @@ if ($LASTEXITCODE -eq 0) {
 
 See `SKILL.md` §4 for what each printed line means.
 
-Before removing your own worktree, list its untracked files as `SKILL.md` §4 describes:
+Before removing your own worktree, list its untracked files as described in `SKILL.md` §4:
 
 ```powershell
 git -C $Wt status --porcelain -uall |

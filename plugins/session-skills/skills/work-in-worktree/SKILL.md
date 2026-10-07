@@ -5,7 +5,7 @@ description: >-
   the branch point is current rather than whatever the checkout was left at,
   locate the primary checkout and your own worktree, adopt the worktree the work
   is already in flight on instead of opening a second one, and open a fresh
-  worktree and branch when it isn't. Carries the rule that costs the most when
+  worktree and branch when it isn't. Includes the rule that costs the most when
   it is missed—a repo-root path handed over in context means the primary
   checkout, so taking it literally lands the edit on the default branch—plus
   how to edit a file that lives only there, the prune that keeps stale worktrees
@@ -26,8 +26,8 @@ You work in your own git worktree, never in the checkout the repo was cloned int
 the right one **before** you write code: adopt the worktree it is already in flight on, or open a
 fresh one.
 
-On a judgment call about place—which tree, which branch, whose worktree to touch—these steps decide,
-over the repo's contributor docs. Those docs govern the code; this governs where the code lands.
+On a judgment call about place—which tree, which branch, whose worktree to touch—follow these steps
+over the repo's contributor docs, which apply to the code and not to where the code lands.
 
 **Platform names.** The snippets default to worktrees under `$MAIN/.claude/worktrees/` and branches
 under `claude/`, which is what Claude Code's tooling creates. Under another host, set `WTROOT` and
@@ -43,7 +43,7 @@ codex --add-dir "$PWD/.git" -c sandbox_workspace_write.network_access=true
 
 A session started with `codex --worktree` begins on a detached HEAD in
 `$CODEX_HOME/worktrees/<n>/<repo>`, outside the primary checkout. It also needs `--add-dir "$PWD"`
-for the files that live only there, and §3 gives it a branch.
+for the files that live only there, and it is put on a branch in §3.
 
 **When other sessions are working the same repo at once**, this is half the job: a concurrency
 plugin (§0's lease seam) adds the shared lease that keeps two lanes off the same files. Nothing here
@@ -55,24 +55,25 @@ PowerShell 7, matched by section number.
 ## 0. The two seams
 
 These skills don't decide *what* to work on. Where a repo keeps a backlog—a roadmap file, GitHub
-issues, Jira—a plugin for it answers three questions, and nothing here cares how it stores them:
+issues, Jira—a plugin for it answers three questions, and how it stores the answers does not matter
+here:
 
 1. **What is workable?** Open work, with its prerequisites already met. Sequencing between units of
-   work is the backlog's data: it is known before any session exists, and only the backlog can say
-   whether the thing that gates this one is done.
+   work is the backlog's data: it is known before any session exists, and whether the thing that
+   gates this one is done is recorded only in the backlog.
 2. **Where is this already in flight?** A pin resolving a unit of work to a branch or worktree (§2).
 3. **Record it done**, in whatever form that backlog uses (`land-and-wrap` §2, or §3 on a fork).
 
-With no backlog plugin at all, these skills still work: the user names the task, and the landing
+With no backlog plugin at all, these skills still work: the user states the task, and the landing
 commit is the record. What does **not** come from a backlog is **disjointness**—whether two lanes
-touch the same files. No issue tracker knows that; it is the other seam's data.
+touch the same files. No issue tracker records that; it is the other seam's data.
 
 **The lease seam.** Where several sessions work one repo at once, a concurrency plugin leases each
-session a lane: it answers whether this lane's files are disjoint from every sibling's, it holds the
-lease evidence a dead session leaves behind (§2), and it expects the lease released at session end,
-finished or not—a lease covers the session, not the work. Nothing here cares how it stores leases. A
-session working alone, or a repo with no such plugin, skips every lease step, and these skills still
-work.
+session a lane. Use it to check whether this lane's files are disjoint from every sibling's and to
+read the lease evidence a dead session leaves behind (§2), and release the lease at session end,
+finished or not—a lease covers the session, not the work. How the plugin stores leases does not
+matter here. A session working alone, or a repo with no such plugin, skips every lease step, and
+these skills still work.
 
 ## 1. Locate the two checkouts
 
@@ -94,22 +95,23 @@ PFX="claude/"                                # and the branch prefix it uses
 NOTES="notes.local"                          # the repo's local-only notes directory, if it has one
 ```
 
-**Nothing local tells you the checkout is current**, and a clean working tree least of all: another
-machine, or another session, may have pushed since anyone last fetched here. Branching from a stale
-`$DEFAULT` bakes the staleness into the branch, where it surfaces at push time as a rejected
-non-fast-forward, or never surfaces at all and the work merges clean on top of code it never saw.
+**There is no local way to tell whether the checkout is current**, a clean working tree least of
+all: another machine, or another session, may have pushed since anyone last fetched here. Branching
+from a stale `$DEFAULT` bakes the staleness into the branch, where it surfaces at push time as a
+rejected non-fast-forward, or never surfaces and the work merges clean on top of commits it was not
+written against.
 Fetching costs one round trip at the start of the session and removes both cases. A fetch that
 fails, offline or behind an expired credential, leaves `$BASE` as stale as before and looks
 identical to a clean one, so let the failure print rather than discarding it, and say so rather
 than reporting the branch point as current.
 
 **A file written for another machine to read**—a handoff list, a shared to-do, a status note—is
-where this bites hardest, because a second machine editing it is the whole point of the file. Fetch
+where this bites hardest, because a second machine editing it is the purpose of the file. Fetch
 before editing one even when no worktree is involved and the edit is a single line.
 
 ## 2. Resume before you branch
 
-When the work names something specific—a unit of work, an item ID, "keep going on the parser"—
+When the task refers to something specific—a unit of work, an item ID, "keep going on the parser"—
 establish whether it **already has a branch** before you create one. Check all three tells; any one
 of them means the work is already in flight, and its existing worktree is *your* worktree:
 
@@ -118,8 +120,8 @@ of them means the work is already in flight, and its existing worktree is *your*
 2. **An existing worktree or branch named for it** (`git worktree list`), with commits the
    default branch doesn't have. A worktree directory starting with the work's backlog ID and a
    hyphen counts (`r78-` for R78, §3), whatever its branch is named.
-3. **A live lease naming it**, where the repo runs a concurrency plugin (§0's lease seam)—that
-   plugin says how to read its ledger; consult it now, before deciding. A lease whose worktree still
+3. **A live lease on it**, where the repo runs a concurrency plugin (§0's lease seam)—how to read
+   the ledger is in that plugin; consult it now, before deciding. A lease with a worktree that still
    exists catches only a session that died mid-flight.
 
 **The lease is not the trigger, and an empty ledger is no evidence the work is free.** A lease
@@ -133,7 +135,7 @@ WT="$WTROOT/<the matching worktree dir>"   # resume: work here
 
 Set `WT` to it and `BRANCH` to that worktree's checked-out branch, skip §3, and read the branch's
 state before writing anything: `git -C "$WT" log --oneline "$BASE..HEAD"` and `git -C "$WT"
-status` tell you what already landed and what is half-done. Build on those commits; don't redo them,
+status` show what already landed and what is half-done. Build on those commits; don't redo them,
 and don't reset or rewrite them without saying why.
 
 **Opening a fresh worktree instead strands that branch's commits and silently restarts the work**—
@@ -185,17 +187,17 @@ worktree directory, for §2's tell 2.
 **Name the branch for its destination when the work lands as a pull request**: on a fork, or in a
 repo whose landing mode is `pr` (`land-and-wrap` §1). A pushed branch becomes a pull request's head,
 and a PR head name is permanent and visible to everyone who reviews it. Rename the generated name
-to the target project's own convention now, before anything records it—`git -C "$WT" branch -m
+to the target project's convention now, before anything records it—`git -C "$WT" branch -m
 add-jvm-target-flag`. Absent a stated convention, a short descriptive slug. **The name
 chosen then is final**: filing an issue afterwards is not a reason to renumber it to
 `fix-issue-<N>`, which desyncs the branch from its worktree directory and from anything else that
 recorded the name.
-In `merge` mode the generated name is fine, since nothing outside this machine ever sees it. A
+In `merge` mode the generated name is fine, since the name never leaves this machine. A
 renamed branch escapes §4's merged-branch reap. Once pushed, it is deleted by §4's gone-upstream
 check after its PR merges. A held fork branch is never pushed, so it stays until the user removes it.
 
 **Translate every context-supplied `<repo-root>/…` path to `$WT/…`** before any file read or edit.
-A git status summary the host injects, memories, and doc links all cite the bare repo-root path,
+A git status summary the host injects, memories, and doc links all contain the bare repo-root path,
 and taking it literally silently lands edits on the default branch in the primary checkout. Reserve
 `$MAIN` for files that live only there and for the final merge. After your first edit, confirm it
 shows in `git -C "$WT" status` and NOT in `git -C "$MAIN" status`.
@@ -280,6 +282,6 @@ You are in the right tree with `$MAIN`, `$WT`, `$BRANCH`, and `$DEFAULT` in hand
 from here, and neither is required to start:
 
 - **the concurrency plugin filling §0's lease seam**—when other sessions are working this repo,
-  claim a lane and write its lease declaring the paths this lane will touch, before writing code.
+  claim a lane and write its lease with the paths this lane will touch, before writing code.
 - **`land-and-wrap`**—when the work is committed and ready to leave the branch, and at the end of
   any session, finished or not.

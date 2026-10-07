@@ -1,6 +1,6 @@
 {
   "name": "session-skills",
-  "description": "Puts a session in its own git worktree and gets it back out again: adopt the worktree work is already in flight on or open a fresh one, and land the work by what the repo actually is rather than by a declared mode.",
+  "description": "Puts a session in its own git worktree and gets it back out again: adopt the worktree work is already in flight on or open a fresh one, and land the work by what the repo is rather than by a declared mode.",
   "author": {
     "name": "Ian Brandt"
   },
