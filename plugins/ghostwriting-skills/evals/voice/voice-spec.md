@@ -27,6 +27,9 @@ person's writing is in this file.
 - **Issue**: one to three sentences stating the problem, then exhibits only: a fenced reproduction,
   fenced output, or short one-fact bullets. No section headings, and no proposed fix unless asked.
 - **Commit message**: a subject under 60 characters in the imperative; a body only for the reason.
+- **Docs section**: one heading, then short paragraphs of prose addressed to "you". A fenced example
+  wherever the reader would type something. No bullet list, no bold, and no history of how the
+  feature came to be.
 
 ## Contrast pairs
 

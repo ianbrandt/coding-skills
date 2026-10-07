@@ -1,0 +1,69 @@
+schema_version: "1.0"
+name: docs-section-in-voice
+description: Ghostwrite a README section long enough that the rewrite subagent runs, and check that it ran, the register, and dropped facts.
+tags: [docs, ghostwrite]
+runs: 4
+context:
+  scaffold_script: scaffold.sh
+execution:
+  max_turns: 30
+  timeout_seconds: 900
+  allowed_tools: [Read, Glob, Grep, Skill, Agent]
+  prompt: |
+    Ghostwrite a README section I'll commit under my name. My voice data is in ./voice (voice-spec.md and corpus/). Reply with the section only; I'll review it before committing.
+
+    The README is for tally, a Gradle plugin that prints a report of dependency updates. The section is "Version ranges". A build script can set a version range on a dependency, for example `[1.2,2.0)`. For such a dependency the report lists the newest version inside the range as the update, and lists the newest version outside the range on a second line marked "outside range". The task property `showOutsideRange` turns that second line off; it is on by default. It is set like this in build.gradle.kts: `tasks.named<TallyReport>("tally") { showOutsideRange = false }`. A dynamic version such as `1.+` is treated as the range it stands for, here `[1.0,2.0)`. A range with no upper bound, such as `[1.2,)`, gets no "outside range" line. A pre-release inside the range is listed as the update only when `includePreReleases` is set. A `strictly` rich version is treated as a range, and a `prefer` version is not. Ranges are handled from tally 0.9.0 on.
+graders:
+  - name: used-subagent
+    type: tool_used
+    tool: Agent
+  - name: no-spaced-dash
+    type: regex
+    pattern: '[ \t]—|—[ \t]|[ \t]–|–[ \t]'
+    match: not_contains
+  - name: no-banned-word
+    type: regex
+    pattern: '\b(load-bearing|vacuous(ly)?|non-vacuous|owed?|owes|de-?risk|deleak)\b'
+    flags: i
+    match: not_contains
+  - name: no-agency-regex
+    type: regex
+    pattern: '\b(the|a|an|this|that|its|each|every|no)\s+(\w+\s+){0,2}(report|build|entry|option|version|pr|file|commit|test|spec|setting|config|range|constraint|property|task|plugin|dependency|readme|section|line|change|body|script|hook)\s+(says|tells|wants|knows|decides|claims|asks|declares|carries|holds|owns|names|states|expects|believes|thinks|intends|refuses|assumes|promises|configures|judges|offers|teaches|respects)\b|\b(report|build|entry|option|version|pr|file|commit|test|spec|setting|config|range|constraint|property|task|plugin|dependency|readme|section|script|hook),?\s+whose\b'
+    flags: i
+    match: not_contains
+  - name: no-agency
+    type: llm
+    criteria: >-
+      The reply may wrap the docs section in notes to the user; judge only the docs section.
+      Judge the text for personification of inanimate things. FAIL only for a sentence you can quote in which an inanimate
+      subject (a report, build, build script, range, constraint, property, task, version, README, PR, or similar)
+      takes a verb of speech, volition, cognition, or possession: says, tells, wants, knows, decides, claims,
+      asks, declares, carries, holds, owns, names, judges, offers, teaches, respects, documents, or "whose"
+      directly after such a noun. A program doing its runtime job is not personification: the plugin prints a report, Gradle resolves a
+      version, a property turns a line off, a function returns. A sentence written around what happens, with no agent,
+      passes. PASS in every other case, including when you are unsure. When failing, start with the quoted sentence.
+  - name: form
+    type: llm
+    criteria: >-
+      The reply may wrap the docs section in notes to the user; judge only the docs section. Notes
+      before or after the section are not part of it, including a single closing line about a check
+      that did not run or a question for the user.
+      PASS if the section has exactly one heading, is otherwise prose paragraphs and fenced examples
+      with no bullet list and no bold text, and has a fenced example setting `showOutsideRange`. FAIL
+      otherwise, and name the part that breaks the limit.
+  - name: facts-kept
+    type: llm
+    criteria: >-
+      The reply may wrap the docs section in notes to the user; judge only the docs section. Notes
+      before or after the section are not part of it, including a single closing line about a check
+      that did not run or a question for the user.
+      PASS if the section states all of these: for a dependency with a version range such as
+      `[1.2,2.0)`, the report lists the newest version inside the range as the update; the newest
+      version outside the range is listed on a second line marked "outside range"; `showOutsideRange`,
+      on by default, turns that line off; a dynamic version such as `1.+` is treated as the range
+      `[1.0,2.0)`; a range with no upper bound gets no "outside range" line; a pre-release inside the
+      range is listed only when `includePreReleases` is set; a `strictly` version is treated as a
+      range and a `prefer` version is not; and ranges are handled from tally 0.9.0 on. A close
+      paraphrase counts. FAIL only when you can name a fact that is missing or stated wrongly, or
+      quote a sentence of the section that adds a claim about behavior beyond them, and start with
+      that fact or quote. PASS in every other case, including when you are unsure.

@@ -55,7 +55,7 @@ their starting point, while their voice comes from their own samples.
 
 ## Measuring it
 
-[`evals/`](evals/) is a `claude plugin eval` suite of two PR-body drafting tasks and one issue-body task. Each case runs
+[`evals/`](evals/) is a `claude plugin eval` suite of two PR-body drafting tasks, one issue-body task, and one README-section task. Each case runs
 `ghostwrite` against a fixture voice spec for an invented maintainer, copied into the workspace by a
 scaffold script, and grades the reply for spaced dashes, banned words, and personified subjects.
 Two judge-model checks follow: the body kept every fact it was given, and it fits the spec's limit
@@ -70,8 +70,10 @@ claude plugin eval . --scaffold --runs 4 --judge-model sonnet --no-publish
 ```
 
 The cases grant no shell and load no `writing-conventions`, so the lint step in `ghostwrite` does
-not run. Each body is short, so the rewrite is skipped as well: a subagent ran in 1 of 24
-plugin-loaded runs on 2026-10-05. What is measured is drafting from the spec. Every prompt is a
+not run. The PR and issue bodies are short, so the rewrite is skipped on those three cases: a
+subagent ran in 1 of 24 plugin-loaded runs on 2026-10-05. The README section is longer than five
+sentences, so it is rewritten by a subagent, and a run with no subagent call fails a scored check.
+Every prompt is a
 single turn, and on those the default register is already clean: every arm, including no plugin,
 passes personification on nearly every run. Results land under `evals/results/`, which is ignored.
 
@@ -109,6 +111,12 @@ on average and no plugin 0.92, a gap of +0.06. Every plugin-loaded body passed f
 report PR failed the facts judge. One run without the plugin ended on an API error and is in its
 average. A second run that day, after the skills were reworded, scored 0.99 with the plugin and 1.00
 without, a gap of -0.01, so no difference between the two was measured.
+
+On 2026-10-07 the README-section case was added, with a limit and a sample for docs in the fixture
+spec. With four runs per case, the plugin scored 0.99 on average and no plugin 0.97, a gap of +0.02.
+On the new case both scored 1.00, and a subagent rewrote the draft in all 8 runs. A fresh-context
+rewrite is a step in the fixture spec's procedure, and it was followed without the plugin too, so
+both pass the subagent check.
 
 ## Works with `writing-conventions`
 
