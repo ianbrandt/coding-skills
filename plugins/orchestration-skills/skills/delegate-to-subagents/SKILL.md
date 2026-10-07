@@ -2,7 +2,7 @@
 name: delegate-to-subagents
 description: >-
   Hand a unit of work to another agent without losing control of it: what is worth
-  delegating at all, what every brief must carry verbatim, how to bound a read-heavy
+  delegating at all, what every brief must include verbatim, how to bound a read-heavy
   fan-out, which agents need worktree isolation and which are broken by it, how to
   integrate parallel worktree diffs into atomic commits, and how to tell a finished stage
   from one that merely stopped talking. Trigger before launching a subagent, an Agent
@@ -31,12 +31,12 @@ Keep in the main loop: emergent work, fuzzy work, anything where the definition 
 you are still discovering.
 
 **Verification is part of what a delegation costs.** A delegated diff stays unreviewed until you
-review it, so a stage you cannot afford to check is a stage you cannot afford to launch. Weigh it
-against the context you have left, not against the context the launch itself consumes. In one
-session an implementation agent went out in the same turn that acknowledged the session was nearly
-out of room; its diff reached the next session uncommitted, never read line by line, with the
-binary-compatibility gate unrun. Hand the whole unit to a fresh session instead. That costs a
-re-read and arrives with someone able to check the result.
+review it, so do not launch a stage you cannot afford to check. Weigh it against the context you
+have left, not against the context the launch consumes. In one session an implementation agent went
+out in the same turn where the orchestrator acknowledged the session was nearly out of room; its
+diff reached the next session uncommitted, never read line by line, with the binary-compatibility
+gate unrun. Hand the whole unit to a fresh session instead. That costs a re-read and arrives with
+someone able to check the result.
 
 Delegate outward regardless of size: **bulky reads**. A search agent that reads twenty files and
 returns a conclusion keeps twenty files out of your context, which matters most when the
@@ -46,8 +46,8 @@ orchestrator is the one holding the long-running plan.
 
 State each delegation and its rationale **before** launching it, and summarize what came back.
 
-Subagent output returns to you, not to the user's transcript. Work you never summarize is work the
-user never saw happen. A fan-out of five agents that produces one line of "done" is five agents'
+Subagent output returns to you, not to the user's transcript. The user never sees work you do not
+summarize. A fan-out of five agents that produces one line of "done" is five agents'
 worth of findings thrown away.
 
 ## 3. Write the brief as if it inherits nothing
@@ -65,14 +65,14 @@ brief, verbatim:
   it can drive a browser reports a Cloudflare 403 as a dead end.
 
 Reading global conventions is not the same as applying them. The verbatim copy is the cheap half
-of this rule; section 6 is the half that catches what the copy misses.
+of this rule, and the check in section 6 catches what the copy misses.
 
 The file-drop half of the reporting contract is what makes the return text survivable. In one
-session the two briefs demanding findings on disk both returned cleanly; the third asked only for a
-return value, and that agent wrote its code, finished `clean build`, went silent, and was killed
-twenty minutes in having reported nothing. Its result—457 tests, 67 failures—was recovered by
-reading the worktree's build reports directly. Only the on-disk copy made that possible; nothing
-else recorded what the agent had found.
+session the two agents whose briefs required findings on disk both returned cleanly; the third was
+asked only for a return value, and that agent wrote its code, finished `clean build`, went silent,
+and was killed twenty minutes in having reported nothing. Its result—457 tests, 67 failures—was
+recovered by reading the worktree's build reports directly. Only the on-disk copy made that
+possible; nothing else recorded what the agent had found.
 
 ## 4. Bound a read-heavy fan-out
 
@@ -116,11 +116,11 @@ gets treated as reviewed. It is not reviewed. Nobody read it.
 
 State in every brief that a stage ending without a structured report is treated as failed. Saying so
 is **not sufficient**: in one run two stages ended on holding messages, the second against a brief
-carrying that prohibition verbatim, and both unreported diffs shipped a silent defect. One built a
-detached configuration that emptied the facts a report depended on while every test stayed green;
-the other swapped two constructor arguments, flipping report rows from outdated to up-to-date. Both
-were one-liners a reader would have waved through—which is the point. The check is a **probe**, not
-a read.
+that included that prohibition verbatim, and both unreported diffs shipped a silent defect. One
+built a detached configuration that emptied the facts a report depended on while every test stayed
+green; the other swapped two constructor arguments, flipping report rows from outdated to
+up-to-date. Both were one-liners a reader would have waved through—which is the point. The check is
+a **probe**, not a read.
 
 **Noticing that a stage stopped is your job, not the user's.** A background agent that hangs or dies
 sends no notification, so nothing arrives to tell you. Check liveness before reporting on a run, and
@@ -166,4 +166,4 @@ never told about.
   that do not match what the test does.
 - Reconcile shared docs once, yourself, since no delegate was allowed to touch them.
 - Commit serially and atomically. A diff spanning several features gets hunk-split so each commit is
-  one logical change and reverts on its own.
+  one logical change and can be reverted on its own.

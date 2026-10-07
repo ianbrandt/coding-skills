@@ -55,7 +55,7 @@ If both readings lead to the same work, there is no question—pick one and move
 
 ## 3. Present the choice as a real tradeoff
 
-Use `AskUserQuestion`. Two to four options, each carrying **what you get** and **what it
+Use `AskUserQuestion`. Two to four options, each with **what you get** and **what it
 costs**. An option with no downside listed usually means the downside was never looked for.
 
 - Put the recommended option first and mark it `(Recommended)`.

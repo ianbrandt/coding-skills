@@ -2,8 +2,8 @@
 name: tier-model-and-effort
 description: >-
   Pick the model and the reasoning effort for each stage of a piece of work, as two
-  independent knobs: capability class versus deliberation need. Carries the dated model
-  tier table this repo's other skills defer to, the effort labels the user's picker shows,
+  independent knobs: capability class versus deliberation need. Includes the dated model
+  tier table used by this repo's other skills, the effort labels shown in the user's picker,
   the rule that a session running hot should not make every stage pay for it, and what
   opting into Workflow orchestration does and does not include. Trigger when planning a
   multi-stage run, when writing per-stage model or effort overrides, when a stage is
@@ -13,10 +13,10 @@ description: >-
 
 # Tier model and effort—two knobs, set per stage
 
-Model and effort are independent. Model is the stage's **capability class**; effort is its
-**deliberation need**. A capability shortfall wants a bigger model, not more thinking. Careful
-multi-step bookkeeping wants more effort, not a bigger model. Setting both high everywhere is how a
-run costs four times what it needed to.
+Model and effort are independent. Set model by the stage's **capability class** and effort by its
+**deliberation need**. Fix a capability shortfall with a bigger model, not more thinking, and give
+careful multi-step bookkeeping more effort, not a bigger model. Setting both high everywhere is how
+a run costs four times what it needed to.
 
 ## 1. The model tiers
 
@@ -39,7 +39,7 @@ accounted for about a fifth of the session's tokens and, at its rate, about half
 **"Mechanical" means failure is loud.** A stage that could fail silently is not mechanical, however
 rote it looks. Give it a task-hero model and a real check.
 
-**A unit holding both kinds of work is two stages.** When one agent runs a mechanical harvest and
+**A unit with both kinds of work is two stages.** When one agent runs a mechanical harvest and
 then makes the judgment the whole result rests on, the judgment inherits the harvest's tier and gets
 no deliberation of its own. One corpus agent fetched metadata for 1,870 artifacts—loud enough that a
 path bug showed up as 664 consecutive 404s—and in the same run decided whether suffixes like `.SP2`
@@ -83,7 +83,7 @@ Rough fit:
   A task-hero stage starts at Medium: the vendor
   recalibrated that model's levels as of 2026-10-04, and Medium is its documented starting point
   for agentic coding. At Low it sometimes reports a change as done without running a check that
-  exercises it, so a task-hero brief at Low requires test or build output in the result.
+  exercises it, so in a task-hero brief at Low, require test or build output in the result.
 - **Extra**—design, adversarial verification, judge stages, and careful multi-step bookkeeping.
 - **Max**—only a stage where an Extra pass has already stalled on the same question, and after a
   second provider where one is installed (§1). Past Extra,
@@ -102,8 +102,8 @@ loop there, and set the tier explicitly on the stages that need something else.
 
 **The two knobs are not both available everywhere.** The `Agent` tool takes `model` and has no
 effort parameter, so a subagent launched that way inherits the session's effort no matter what you
-announce. Only a Workflow's `agent(..., {model, effort})` sets both. A stage that genuinely needs a
-different effort is itself a reason to reach for a Workflow; a stage that only needs a different
+announce. Only a Workflow's `agent(..., {model, effort})` sets both. A stage that needs a
+different effort is a reason to reach for a Workflow, but a stage that only needs a different
 model is fine on `Agent`. Never announce an effort setting you have no way to apply.
 
 **A delegated call to another CLI is a third case.** A second provider's CLI, or a nested
@@ -115,7 +115,7 @@ that should be recorded in the log. In one session a second provider's default e
 and a plan review would have run at that effort had the runner call not passed `--effort high`.
 
 **Announce each stage's tier in the message that launches it.** An up-front plan is worth
-writing—it tells the user what a run will cost before it starts—but nothing later checks it, and a
+writing—the user sees what a run will cost before it starts—but nothing later checks it, and a
 plan written before the stages are known describes stages that never happen. So plan only what you
 actually intend to delegate, restate the tier as you launch each stage, and say plainly when a
 planned stage turns out not to run. In one session the plan `Workflow—design@high, implement@medium,
@@ -134,9 +134,9 @@ The apex tier can be spawned unattended for the narrow set in the table. Its cos
 It is deliberately non-persistent—no settings key, no environment variable, no hook. Opt in per turn
 (the keyword `ultracode`, or asking for a workflow) or per session (`/effort ultracode`).
 
-A `SKILL.md` that says to **use the Workflow tool** opts that skill into orchestration on its own,
-scoped to its own task. That grants orchestration **only**, not the effort half. Extra effort still
-needs the explicit opt-in.
+An instruction in a `SKILL.md` to **use the Workflow tool** opts that skill into orchestration on
+its own, scoped to its own task. That grants orchestration **only**, not the effort half. Extra
+effort still needs the explicit opt-in.
 
 ## 5. Open-ended scope: pick and recommend
 

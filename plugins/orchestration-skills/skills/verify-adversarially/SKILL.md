@@ -4,7 +4,7 @@ description: >-
   Run one independent pass whose only job is to construct an input that makes
   correctness-critical transform logic produce silently wrong or silently skipped output:
   position-preserving text rewriters, AST rewriters, name re-keying, anything that fails by
-  succeeding quietly with corrupted state. Carries the known blind spots to probe (prefix
+  succeeding quietly with corrupted state. Includes the known blind spots to probe (prefix
   hijacks, masked pre-checks, dual-used helpers), the rule that each hypothesis is settled
   by a live probe rather than a code trace, and the requirement that every confirmed finding
   becomes a regression test. Trigger after implement-review-fix on transform or rewrite
@@ -17,7 +17,7 @@ description: >-
 
 For correctness-critical transform and rewrite logic, a green suite plus a standard review is
 **necessary but not sufficient**. Silently wrong logic never throws. It succeeds, quietly, with
-corrupted state. "All green" is exactly the confidence such a bug needs to ship.
+corrupted state. Such a bug ships with the suite "all green".
 
 ## 1. When this pass is required
 
@@ -46,7 +46,7 @@ Probe these first. Each one has shipped past a green suite and a human review:
 
 ## 3. Settle each hypothesis with a live probe
 
-A code trace produces a plausible story. A probe produces a result.
+A code trace produces a plausible story but no result, so run a probe.
 
 - Write a temporary test against the real code wherever it is feasible, and run it.
 - Probe against compiled classes, not against the diff.
@@ -69,6 +69,6 @@ test written by the stage that produced the fix proves nothing about the fix.
 
 The verifier writes: scratch probes, and mutations to the code under test to prove a check actually
 distinguishes the branch it names. That makes it a writer, with all the isolation consequences that
-carries. Run verify agents serially or give each its own scratch copy, and keep them out of
+follow. Run verify agents serially or give each its own scratch copy, and keep them out of
 worktree isolation, which would branch them off the wrong commit. The full rules are in the sibling
 skill `delegate-to-subagents`.
