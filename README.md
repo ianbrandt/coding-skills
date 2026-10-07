@@ -30,8 +30,8 @@ invoked.
 - [`orchestration-skills`](plugins/orchestration-skills) changes how a session hands work to other
   agents. It covers what is worth delegating and at what tier, puts scope and prohibitions in
   every brief, isolates the agents that would corrupt a shared worktree, and treats a stage that
-  stopped talking as failed rather than finished. A decision you cannot undo comes back as a
-  question instead of a done deal.
+  stopped producing output as failed rather than finished. You are asked before a decision you
+  cannot undo is made.
 
 ### Add for the work you do
 
@@ -44,14 +44,13 @@ invoked.
 ```
 
 - [`ghostwriting-skills`](plugins/ghostwriting-skills) drafts text that ships under your name from a
-  voice spec built out of your own writing, hands each draft over for your go, and logs what your
-  edits change. With `writing-conventions` installed, the general rules from those edits are added
-  to that plugin's always-on file.
+  voice spec built out of your writing, hands each draft over for your go, and logs what your edits
+  change. With `writing-conventions` installed, the general rules from those edits are added to
+  that plugin's always-on file.
 - [`session-skills`](plugins/session-skills) puts a unit of work in its own git worktree and gets it
-  back out again, landing it by what the repo actually is rather than by a mode you declare. It also
-  has two small session-start rules: the session-title format a session ends with, and a per-turn
-  judgment of whether the work is better served by continuing here or handing off to a fresh
-  session.
+  back out again, landing it by what the repo is rather than by a mode you declare. It also has two
+  small session-start rules: the session-title format a session ends with, and a per-turn judgment
+  of whether the work is better served by continuing here or handing off to a fresh session.
 - [`parallel-session-skills`](plugins/parallel-session-skills) keeps two or three sessions off each
   other's files, through a claim ledger of the paths each lane will touch. It also has the
   unattended conductor that runs several lanes at once and refills them as they finish. Install it
