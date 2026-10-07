@@ -16,10 +16,10 @@ The plan of record lives in one of two places, and this skill finds it:
 - **tracked** at the repo root, in a repo you own. The landing commit that
   deletes the item is the done-record, so there is no changelog.
 - **local-only**, for an upstream OSS project you contribute to via a fork. The
-  roadmap and its companions are untracked, so git history can't hold the
-  done-record and `ROADMAP-CHANGELOG.local.md` does.
+  roadmap and its companions are untracked, so the done-record is written to
+  `ROADMAP-CHANGELOG.local.md` instead of git history.
 
-Naming follows that split: tracked repos carry `ROADMAP.md` plus
+Naming follows that split: tracked repos have `ROADMAP.md` plus
 `ROADMAP-PARKED.md` and `ROADMAP-DECLINED.md` as needed; a local-only plan uses
 the same names with a `.local.md` suffix, which is both the never-commit signal
 and what keeps a shadow roadmap from colliding with an upstream project's real
@@ -35,39 +35,40 @@ An optional lane hint (`/next-roadmap-item R1`) biases the pick without
 overriding the no-collision rules. Point the hint at an item that's already in
 flight and partially built and the skill **resumes** it, adopting that item's
 existing worktree and continuing its branch instead of opening a new one off the
-default branch. It finds the lane from the roadmap's own pin or an existing
+default branch. It finds the lane from the pin in the roadmap or an existing
 worktree, not from the claim ledger—a session releases its claim at wrap whether
 or not its item finished.
 
 ### `execute-roadmap`
 
-The roadmap half of an unattended run. The conductor loop itself—the in-flight
-cap, the fill loop, retries, the build gate, the stop conditions—is
+The roadmap half of an unattended run. The conductor loop—the in-flight cap,
+the fill loop, retries, the build gate, the stop conditions—is
 `parallel-session-skills`' `conduct-a-pipeline`, which works the same way
-whatever the backlog is. This skill supplies that loop's two roadmap-shaped inputs: the
-ordered candidate list (open, ungated, and on a fork not flagged as requiring
-you present) and, once an item is green, deleting it from the roadmap or
-appending its changelog entry, or, for a PR not yet merged, pinning it to its
-branch.
+whatever the backlog is. This skill supplies the two inputs that loop takes from
+the roadmap: the ordered candidate list (open, ungated, and on a fork not
+flagged as requiring you present) and, once an item is green, deleting it from
+the roadmap or appending its changelog entry, or, for a PR not yet merged,
+pinning it to its branch.
 
-The split is why the loop is worth having: a conductor holding several lanes
-open is the reader that needs mechanical disjointness, and nothing about holding
-those lanes open is specific to tracking work in a markdown file.
+The loop is kept in `parallel-session-skills` because a conductor with several
+lanes open needs the disjointness check on the claim ledger, and none of that
+work depends on the backlog being a markdown file.
 
 ## What it pairs with
 
-`session-skills` owns the worktree and landing, and `parallel-session-skills`
-owns the claim ledger; this plugin is a **backlog plugin** for both, answering
-what is workable, where an item is already in flight, and how a landed item gets
-recorded—backed by a markdown file rather than an issue tracker. The dependency
-runs one way: these skills call into those, never the reverse, so a different
-backlog (issues, a tracker) plugs into the same seam without touching it.
+The worktree and landing are handled in `session-skills`, and the claim ledger
+in `parallel-session-skills`. This plugin is a **backlog plugin** for both: it
+supplies what is workable, where an item is already in flight, and how a landed
+item gets recorded, from a markdown file rather than an issue tracker. The
+dependency runs one way: these skills call into those, never the reverse, so a
+different backlog (issues, a tracker) plugs into the same seam without touching
+it.
 
-`next-roadmap-item` needs only `session-skills`, and says so and runs
-uncoordinated when there is no ledger to read. `execute-roadmap` needs
-`parallel-session-skills` too, since the conductor loop lives there.
+`next-roadmap-item` needs only `session-skills`. When there is no ledger to
+read, it runs uncoordinated and reports that in one line. `execute-roadmap`
+needs `parallel-session-skills` too, since the conductor loop is defined there.
 
-Sequencing lives here, because a gate between two items is known before any
-session starts and only the backlog can answer it. Disjointness does not: which
-files a lane touches is a fact about the working tree, and the claim ledger
-carries it.
+Sequencing is recorded in the roadmap, because a gate between two items is
+known before any session starts and is written only in the backlog. Which files
+a lane touches is a fact about the working tree, so disjointness is checked
+against the claim ledger.

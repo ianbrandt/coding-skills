@@ -16,7 +16,7 @@ description: >-
 This skill is the roadmap half of an unattended run. The conductor loop—the in-flight cap, the fill
 loop, the watchdog, processing each completion, retries and flags, the build gate, and the stop
 conditions—lives in `parallel-session-skills`' `conduct-a-pipeline`. Run that skill; this one
-supplies its two backlog-shaped inputs and consumes its output.
+supplies the two inputs it takes from the backlog and consumes its output.
 
 It requires both `session-skills` and `parallel-session-skills` installed—**check for both by name,
 and stop if either is missing**. A run that finds `conduct-a-pipeline` but not `work-in-worktree`
@@ -40,21 +40,22 @@ first—that interview is allowed here, since a repo's first roadmap run is inhe
 the fresh roadmap has no items, stop without starting a pipeline.
 
 On a fork, the roadmap header's **House style block** is the style guide `conduct-a-pipeline` §2
-requires in every build brief. Paste it verbatim; a brief that points at it does not apply it.
+requires in every build brief. Paste it verbatim; the style is not applied when the brief has only
+a pointer to it.
 
 ## 2. Deriving candidates
 
-`conduct-a-pipeline` §2 re-derives candidates after every completion and asks the backlog for the
+Per `conduct-a-pipeline` §2, candidates are re-derived after every completion from the backlog's
 ordered workable list. From the roadmap that is:
 
 - **Open items only**—the active burndown. Parked, deferred, and declined items live in the
   `ROADMAP-PARKED` / `ROADMAP-DECLINED` variants and are never candidates.
 - **Ungated**—an item whose stated prerequisite hasn't landed is not workable yet. Sequencing is the
-  roadmap's data and only the roadmap can answer it.
+  roadmap's data and is recorded nowhere else.
 - **Not user-present**—on a fork, items the roadmap header flags as requiring the user (upstream
   outreach, packaging) are never claimable unattended. Skip them; they are the user's to run.
-- **In roadmap order**, priority-descending, so fills take the topmost eligible items first. The
-  `Rn` IDs carry no order.
+- **In roadmap order**, priority-descending, so fills take the topmost eligible items first. Order
+  is not encoded in the `Rn` IDs.
 
 Everything else the conductor filters on—claimed, not disjoint, already in flight, flagged or staged
 this run—is the session layer's and needs nothing from here.
@@ -95,8 +96,8 @@ long as it exists. On a local-only roadmap, append the changelog entry now under
 The pin is `work-in-worktree` §2's tell 1, so no later run re-picks the item, and the same merged-pin
 rule as §2 above clears it once the branch merges.
 
-The conductor's per-completion log line and its wrap-up name items by `Rn.m` and by the roadmap's own
-heading text.
+In the conductor's per-completion log line and its wrap-up, items are identified by `Rn.m` and by
+their heading text in the roadmap.
 
 ## 4. Suggest a session title
 
@@ -106,7 +107,7 @@ specify: a `**Session title:**` label line, then the bare title alone in a plain
 block.
 
 The title is always the literal prefix `Execute Roadmap: `, then a short phrase summarizing the items
-that actually landed, **spelled out with no abbreviations**—`Execute Roadmap: claim ledger and
-worktree prune`. Summarize what the run did, not how many items it took: name the two or three that
-carry the run, and where the items share a theme, name the theme instead. Items flagged or retried
-without landing don't enter the title.
+that landed, **spelled out with no abbreviations**—`Execute Roadmap: claim ledger and
+worktree prune`. Summarize what the run did, not how many items it took: state the two or three that
+account for most of the run, and where the items share a theme, state the theme instead. Items
+flagged or retried without landing don't enter the title.

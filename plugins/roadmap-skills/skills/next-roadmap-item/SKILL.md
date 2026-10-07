@@ -28,14 +28,14 @@ belongs to three skills this one calls rather than copies:
 - **`claim-a-lane`**—the shared claim ledger and sibling etiquette, where the repo runs one.
 - **`land-and-wrap`**—how finished work leaves its branch, and what every session does at its end.
 
-**Sequencing is this file's data; disjointness is the ledger's.** A gate ("R3 waits on R2") is known
-before any session exists and only the roadmap can answer it. Whether two items collide on the same
-files is a fact about the working tree, and it is settled by the `touches` globs in the claim
-ledger, not by reading item names.
+**Take sequencing from the roadmap and disjointness from the claim ledger.** A gate ("R3 waits on
+R2") is known before any session exists and is recorded only in the roadmap. Whether two items
+collide on the same files is a fact about the working tree, and it is settled by the `touches` globs
+in the claim ledger, not by reading item names.
 
 ## 1. Find the plan of record
 
-Two places it can live, and the fork check comes first: an upstream project's own `ROADMAP.md` must
+Two places it can live, and the fork check comes first: an upstream project's `ROADMAP.md` must
 never be mistaken for yours.
 
 ```bash
@@ -100,16 +100,17 @@ it and keep the edit minimal, localized, and last.
 - **Only the active burndown is pickable.** Items are claimable to-dos with stable `Rn` IDs
   (sub-items `Rn.m`); an ID is never reused and an item keeps it for life. Parked, deferred,
   declined, and out-of-scope work lives in the parked or declined file—don't go fishing there.
-- **Gates are the roadmap's half of the dependency graph.** An item tagged as gated is not
-  workable until its prerequisite lands—skip it, or claim the prerequisite instead. Tag new items
-  the same way, naming the item that gates them, so a later session doesn't have to infer the edge
-  from prose.
+- **Gates are the part of the dependency graph recorded in the roadmap.** An item tagged as gated
+  is not workable until its prerequisite lands—skip it, or claim the prerequisite instead. Tag new
+  items the same way, stating the item that gates them, so a later session doesn't have to infer
+  the edge from prose.
 - **Prefer an independent slice**, and record the collision seam an item is known to touch so the
   next session can declare it in `touches` without re-deriving it. Disjointness applies within a
   lane too.
 - **The roadmap is priority-ordered, top-down**, optionally in coarse bands (Now / Next / Later).
-  `Rn` IDs carry no order, so R17 above R3 is normal. **Absent a lane hint, take the topmost item
-  that passes these gates.** Insert new items at their priority position; end-of-band is fine.
+  Order is not encoded in `Rn` IDs, so R17 above R3 is normal. **Absent a lane hint, take the
+  topmost item that passes these gates.** Insert new items at their priority position; end-of-band
+  is fine.
   Wholesale reordering is grooming work for an empty ledger, never a rider on a landing.
 - **Items the roadmap's header flags as requiring the user present**—typically upstream outreach and
   packaging—are **never claimable unattended**. Skip them.
@@ -139,7 +140,7 @@ the last thing in the reply**, in the format `session-skills`' session rules spe
 `**Session title:**` label line, then the bare title alone in a plain untagged fenced block, e.g.
 `R1: aggregation core`.
 
-The title is always the claimed item's `Rn` ID, a colon, then a short noun phrase naming the
+The title is always the claimed item's `Rn` ID, a colon, then a short noun phrase for the
 deliverable, **spelled out with no abbreviations**—`R1: aggregation core`, never the phrase alone and
 never the ID alone. A sub-item keeps its own `Rn.m`. **Re-emit the same block at session end**,
 revised only if the work turned out to be something else. Byte-identical format at both points.
@@ -150,8 +151,8 @@ Model and effort are the **user's controls**: **start building immediately, no p
 end-of-turn checkpoint.** Sessions launch at the everyday baseline and the main loop stays there;
 escalate by **delegation, not the session pickers**.
 
-Immediately after the title line, emit a one-line **tier plan** naming the stages **this item
-actually has**, then execute it. Two decisions go into it, and they are independent:
+Immediately after the title line, emit a one-line **tier plan** stating the stages **this item
+has**, then execute it. Two decisions go into it, and they are independent:
 
 - **How much verification the item needs.** The question: **would this repo's test suite catch this
   item going silently wrong?** A loud suite lets the implement stage run cheap and the verify run at
@@ -163,7 +164,7 @@ actually has**, then execute it. Two decisions go into it, and they are independ
   until some condition holds, or several units to drive deterministically. A mechanical lap—polish,
   a doc move, roadmap grooming—stays inline at launch settings: `Tier plan: inline.`
 
-**Name a model for every delegated stage, and an effort only for a Workflow stage.** The `Agent`
+**State a model for every delegated stage, and an effort only for a Workflow stage.** The `Agent`
 tool has no effort parameter, so an effort announced for a plain subagent never applies.
 
 Write the plan against the item in front of you. One derived from a real item reads like this:
@@ -174,12 +175,12 @@ adversarial-verify agent at Extra against the merge logic.`
 The plan is a forecast, so restate each stage's tier in the message that launches it, and say so
 when a planned stage turns out not to run.
 
-`tier-model-and-effort` carries the current model table and the per-stage override syntax; name
-tiers from it rather than from memory, since model names age faster than the rules around them.
+`tier-model-and-effort` has the current model table and the per-stage override syntax; take tier
+names from it rather than from memory, since model names age faster than the rules around them.
 
 ## 6. Build it, then land it
 
-Work **test-first per THIS repo's conventions**—a failing test first, then match the repo's own
+Work **test-first per THIS repo's conventions**—a failing test first, then match the repo's
 style. For a repo you own that means its `CLAUDE.md`, `CONTRIBUTING`, and design docs. For a fork it
 means the **House style block** in `$ROADMAP`'s header, distilled from the project's `CONTRIBUTING`,
 `.editorconfig`, and observed neighbors; **paste that block verbatim into every implementation-agent
@@ -188,12 +189,12 @@ brief**. When in doubt, match the neighboring file, not your habits.
 **Orchestrate substantial items** with delegated agents—design → implement test-first → adversarial
 review → re-verify—scaled to size. *This instruction is itself the opt-in, so the orchestration runs
 even if the session never enabled `ultracode`*; it grants orchestration only, not extra effort. Keep
-genuinely small items (a one-file tweak, a doc move) inline. Reach for the **Workflow tool** in the
-cases §5 names—fan-out, a loop until some condition holds, several units driven
+small items (a one-file tweak, a doc move) inline. Reach for the **Workflow tool** in the
+cases listed in §5—fan-out, a loop until some condition holds, several units driven
 deterministically—rather than as the default vehicle for a single item.
 
-Then hand off to **`land-and-wrap`**, which decides how the work leaves its branch and what the
-session does at its end. Two things it defers back to this skill:
+Then hand off to **`land-and-wrap`** for how the work leaves its branch and what the session does
+at its end. Two things it defers back to this skill:
 
 - **Bring the docs.** Finishing an item includes every piece of documentation it touches—the
   subsystem's design doc plus any user-facing surface.
@@ -216,9 +217,9 @@ session does at its end. Two things it defers back to this skill:
 
 **The claim is released at session end even when the item isn't finished.** The unfinished item's
 resume record is its branch and worktree, plus its pin in `$ROADMAP`; leave all of it standing and
-name the branch in the wrap-up. The next session's entry point is `/next-roadmap-item <Rn>`, or
+state the branch in the wrap-up. The next session's entry point is `/next-roadmap-item <Rn>`, or
 `/execute-roadmap` for an unattended run—§2's resume path adopts that item's existing worktree from
-the ID alone, launched from the primary checkout, so the handoff carries no worktree path and no
+the ID alone, launched from the primary checkout, so the handoff includes no worktree path and no
 account of what was already built.
 
 ## 7. Bootstrapping a repo with no roadmap
@@ -243,8 +244,8 @@ tracked family. Ambiguous, ask.
      >> .git/info/exclude
    mkdir -p notes.local
    ```
-3. **Stamp out `ROADMAP.local.md`** with a header carrying the per-repo config as prose—this header
-   *is* the config:
+3. **Stamp out `ROADMAP.local.md`** with a header containing the per-repo config as prose—this
+   header *is* the config:
    - a one-line banner: local-only, excluded via `.git/info/exclude`, never commit or push;
    - a **forward-only** note pointing landed work at `ROADMAP-CHANGELOG.local.md`;
    - the fork and upstream remote names;
