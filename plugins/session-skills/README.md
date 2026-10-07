@@ -77,8 +77,9 @@ plugin rather than sitting in a personal global `CLAUDE.md`. No `SubagentStart` 
 doesn't end a session.
 
 Editing any skill or the rules file here is a plugin release: an installed session reads a
-version-keyed cache, so the plugin's `version` in `.claude-plugin/marketplace.json` has to bump in
-the same commit or the session keeps serving the old copy.
+version-keyed cache, so the plugin's `version` in `.claude-plugin/marketplace.json` has to go up in
+the same commit, unless it is already ahead of the version on `origin/main`. One bump covers every
+commit waiting to be pushed. Without one, the session keeps serving the old copy.
 
 ## Platform
 

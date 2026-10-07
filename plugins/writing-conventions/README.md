@@ -363,7 +363,8 @@ A `git push` is not read, because a branch name is chosen long before it.
 
 Adding a word to the banned list is a plugin release rather than a local edit: an installed session
 reads a version-keyed cache, so the plugin's `version` in `.claude-plugin/marketplace.json` has to
-bump in the same commit or the session keeps serving the old list.
+go up in the same commit, unless it is already ahead of the version on `origin/main`. One bump
+covers every commit waiting to be pushed. Without one, the session keeps serving the old list.
 
 ## Measuring it
 

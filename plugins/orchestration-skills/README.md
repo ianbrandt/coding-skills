@@ -57,8 +57,9 @@ settled silently. The rest of the file governs the agent doing the delegating, n
 carrying out the task, so it stays out of subagents.
 
 Editing `hooks/rules.md` or any skill is a plugin release: an installed session reads a
-version-keyed cache, so the plugin's `version` in `.claude-plugin/marketplace.json` has to bump in
-the same commit or the session keeps serving the old copy.
+version-keyed cache, so the plugin's `version` in `.claude-plugin/marketplace.json` has to go up in
+the same commit, unless it is already ahead of the version on `origin/main`. One bump covers every
+commit waiting to be pushed. Without one, the session keeps serving the old copy.
 
 ## The incident numbers
 

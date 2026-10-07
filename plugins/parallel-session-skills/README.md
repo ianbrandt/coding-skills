@@ -61,5 +61,6 @@ net silently, which is why `claim-a-lane` checks what it can see and says so. `h
 carries its own self-check in `release-claim.test.sh`; run it with `sh release-claim.test.sh`.
 
 Editing any skill here is a plugin release: an installed session reads a version-keyed cache, so the
-plugin's `version` in `.claude-plugin/marketplace.json` has to bump in the same commit or the
-session keeps serving the old copy.
+plugin's `version` in `.claude-plugin/marketplace.json` has to go up in the same commit, unless it
+is already ahead of the version on `origin/main`. One bump covers every commit waiting to be pushed.
+Without one, the session keeps serving the old copy.
