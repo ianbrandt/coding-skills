@@ -1,8 +1,8 @@
 #!/bin/sh
 # Release this session's claim from the shared ledger when the session ends.
 #
-# The net, not the path: land-and-wrap releases at wrap, which hands the lane back
-# immediately. This catches the session that ends without wrapping.
+# A safety net: land-and-wrap releases at wrap, which hands the lane back
+# immediately. This hook covers the session that ends without wrapping.
 #
 # Best-effort by design. Every unexpected condition is a silent no-op, because a
 # hook that errors at session end is noise, and a hook that deletes the wrong claim

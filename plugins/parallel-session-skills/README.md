@@ -1,25 +1,26 @@
 # parallel-session-skills
 
 A [Claude Code](https://claude.ai/code) plugin for a repo that several sessions are working at once.
-Each session sits in its own git worktree and can see none of the others' context, so the only
-coordination that exists is what git and a shared claim ledger can carry. These skills are that
-ledger, and the conductor that drives several lanes off it.
+Each session sits in its own git worktree and can see none of the others' context, so the sessions
+coordinate only through git and a shared claim ledger. The skills here cover writing to that ledger
+and running several lanes from one conductor session.
 
 ## Skills
 
 ### `claim-a-lane`
 
-Write an atomic claim to the ledger before touching code. The claim declares which paths the lane
-expects to edit, which is what turns "are these two tasks disjoint?" from a guess about their names
-into a glob comparison—and it is the one fact no issue tracker can supply, since Jira has no idea
-two issues collide on a dependency manifest. The skill also covers the dead-claim reap: a claim is
-dead when `git worktree list` shows no worktree on its branch. Merge state is no guide, since a
-just-claimed session's branch tip equals the default branch. And the etiquette: never `git worktree
-remove` a sibling's directory, because a live session between tasks looks exactly like an abandoned one.
+Write an atomic claim to the ledger before touching code. The paths the session expects to edit
+are listed in the claim, so whether two tasks are disjoint is settled by comparing globs instead of
+guessing from the task names. No issue tracker can supply that fact: two Jira issues that both edit
+a dependency manifest look unrelated in Jira. The skill also covers the dead-claim reap: a claim is
+dead when `git worktree list` shows no worktree on its branch. Merge state cannot be used for this,
+since a just-claimed session's branch tip equals the default branch. And the etiquette: never `git
+worktree remove` a sibling's directory, because a live session between tasks looks the same as an
+abandoned one.
 
 The rule that costs the most when it's missed: an empty ledger is not evidence the work is free. A
-session releases its claim at its own finish rather than the work's, so the ordinary handoff leaves
-work in flight with no claim at all.
+session releases its claim when the session ends, whether or not the work is finished, so after an
+ordinary handoff the work is in flight with no claim.
 
 ### `conduct-a-pipeline`
 
@@ -29,23 +30,24 @@ refilling until the candidates run out. Everything in it that looks paranoid is 
 nobody is watching. A Workflow's self-reported `ready` has been wrong on a red tree, so the
 conductor runs the build gate itself and treats a report that fails it as a failure. A Workflow that
 dies sends no completion notification, so a watchdog covers the pipeline that went quiet rather than
-finished. A second real failure flags the unit and the run continues without it, and a flagged unit
-stays out of later refills so it isn't re-picked and re-burned every pass.
+finished. After a second real failure the unit is flagged and the run continues without it, and a
+flagged unit stays out of later refills so it isn't re-picked and re-burned every pass.
 
-It takes its candidates from a backlog plugin and hands each finished unit back to it to record.
+Candidates come from a backlog plugin, and each finished unit is recorded there.
 
 ## What it needs
 
-`session-skills`, which owns the worktree these skills claim a lane in: `work-in-worktree` locates
-the primary checkout, adopts the worktree work is already in flight on, and opens a fresh one
-otherwise, and `land-and-wrap` gets the work back out. This plugin fills the lease seam
-`work-in-worktree` §0 defines. The dependency runs one way—`session-skills` works alone and names no
-plugin that fills its seams, this plugin does not work without it, and `claim-a-lane` stops and says
-so when `work-in-worktree` is absent. Nothing in the manifest format enforces that, so the check is
-the skill's own.
+`session-skills`, which provides the worktree these skills claim a lane in: `work-in-worktree`
+locates the primary checkout, adopts the worktree work is already in flight on, and opens a fresh
+one otherwise, and `land-and-wrap` gets the work back out. This plugin fills the lease seam defined
+in `work-in-worktree` §0. The dependency runs one way: `session-skills` works alone and does not
+refer to any plugin that fills its seams, but this plugin does not work without `session-skills`.
+Nothing in the manifest format enforces that, so the check is in `claim-a-lane`, where the session
+is told to stop and report when `work-in-worktree` is absent.
 
-A backlog plugin is optional on top of both. It answers what is workable and where something is
-already in flight; disjointness stays here, in the ledger, because no issue tracker knows it.
+A backlog plugin is optional on top of both. It supplies what is workable and where something is
+already in flight. Disjointness is still checked in the ledger, because an issue tracker has no
+record of which paths a task edits.
 
 ## How it is wired
 
@@ -53,12 +55,13 @@ No `SessionStart` hook, and so no always-on token cost: nothing here applies to 
 opens a lane, and the skill descriptions are enough to trigger both skills.
 
 One `SessionEnd` hook, which injects nothing into any session because it runs after the session is
-over. It releases any claim carrying the ending session's id, so a session that dies or exits without
-wrapping hands its lane back anyway. It is a net rather than the path: `land-and-wrap` still releases
-at wrap, which returns the lane immediately instead of whenever the session exits. Restricted hooks
-(`disableAllHooks`, `allowManagedHooksOnly`, a managed policy, or an untrusted workspace) disarm the
-net silently, which is why `claim-a-lane` checks what it can see and says so. `hooks/release-claim.sh`
-carries its own self-check in `release-claim.test.sh`; run it with `sh release-claim.test.sh`.
+over. It releases any claim that includes the ending session's id, so a session that dies or exits
+without wrapping hands its lane back anyway. The hook is a safety net: `land-and-wrap` still
+releases at wrap, which returns the lane immediately instead of whenever the session exits.
+Restricted hooks (`disableAllHooks`, `allowManagedHooksOnly`, a managed policy, or an untrusted
+workspace) disarm the net silently, which is why `claim-a-lane` has a step that checks for the
+restrictions visible to the session and reports them. The self-check for `hooks/release-claim.sh`
+is `release-claim.test.sh`; run it with `sh release-claim.test.sh`.
 
 Editing any skill here is a plugin release: an installed session reads a version-keyed cache, so the
 plugin's `version` in `.claude-plugin/marketplace.json` has to go up in the same commit, unless it

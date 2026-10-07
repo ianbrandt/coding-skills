@@ -6,7 +6,7 @@ description: >-
   run the hygiene pass that reaps dead claims without killing a live sibling,
   and write an atomic claim recording which paths this lane will touch. Two
   lanes collide when their declared paths overlap, which is the one fact no
-  issue tracker can supply. Carries the tie-break for two sessions that claim
+  issue tracker can supply. Includes the tie-break for two sessions that claim
   the same thing, and the rule that a claim leases a session rather than the
   work. Trigger after getting into a worktree and before writing any code, when
   another session may be working the same repo, and on "claim a lane" or "am I
@@ -22,9 +22,8 @@ You are probably one of 2–3 sessions working this repo at once, each in its ow
 coordinating **only** through git and a shared claim ledger. Nobody can see anyone else's context.
 Claim a lane whose file-touch set is disjoint from every other session's **before** you write code.
 
-On a judgment call about the lane itself—what to claim, whose worktree to touch—these steps decide,
-over the repo's contributor docs. Those docs govern the code; this governs the coordination between
-sessions they can't see.
+On a judgment call about the lane itself—what to claim, whose worktree to touch—follow these steps
+over the repo's contributor docs, which govern the code and not the coordination between sessions.
 
 **This skill fills `work-in-worktree` §0's lease seam**, and requires it. `work-in-worktree`, in
 `session-skills`, locates `$MAIN` and `$WT`, adopts the worktree the work is already in flight on,
@@ -33,14 +32,14 @@ not among the available skills, stop and tell the user to install `session-skill
 fails loudly without it, and no manifest enforces the dependency.
 
 **Re-derive `$MAIN` here rather than inheriting it.** Shell state doesn't persist between calls, and
-an unset `$MAIN` is the one failure this skill hides instead of raising: `cat
+an unset `$MAIN` is the one failure that stays hidden here instead of being raised: `cat
 "$MAIN"/.claude/claims/*.json` on an empty variable globs against `/.claude/claims/`, matches
-nothing, and falls through to the same "no claims" message a genuinely empty ledger prints. The
+nothing, and falls through to the same "no claims" message that is printed for an empty ledger. The
 session then reads a repo full of live siblings as idle and claims a colliding lane. `$WT` is set by
 `work-in-worktree`; unset, §3's first command fails loudly, which is the safe direction.
 
 **Platform names.** Worktrees under `$MAIN/.claude/worktrees/` and claims under
-`$MAIN/.claude/claims/` are what Claude Code's tooling produces; name whatever your tooling actually
+`$MAIN/.claude/claims/` are what Claude Code's tooling produces; substitute whatever your tooling
 creates.
 
 ## 1. Orient against siblings
@@ -61,7 +60,7 @@ resolve and the "no claims" line means nothing.
 The ledger is a **live lease board, not a log**: entries are
 `{"item","branch","started","session","touches"}`, deleted by their own session at *its* finish—which
 is not the work's finish. **Empty is normal, and it does
-not mean the repo is idle**; `work-in-worktree` §2 has the tells that do settle that.
+not mean the repo is idle**; the tells that do settle that are in `work-in-worktree` §2.
 
 ## 2. Reap dead claims
 
@@ -118,13 +117,13 @@ cat "$MAIN"/.claude/claims/*.json            # re-read to confirm no clash
 path one expects to edit falls inside a glob the other declared—compare before claiming, and treat
 an overlap as a collision even when the two units of work are unrelated. It is a declared intent,
 not a measurement, so it will sometimes be wrong: **when the work spreads past what you declared,
-rewrite the claim** (same atomic write) before editing the new paths. A lane that genuinely can't
+rewrite the claim** (same atomic write) before editing the new paths. A lane that can't
 predict its paths declares the broadest glob it might reach rather than a narrow lie.
 
 Two files are collision seams almost everywhere and are worth declaring even for a one-line edit: a
 dependency manifest, and—where the backlog is a file in the repo—the backlog file itself. Keep edits to both minimal, localized, and last.
 
-If another claim names the **same work**, the **lexicographically smaller branch name keeps it**;
+If another claim is for the **same work**, the **lexicographically smaller branch name keeps it**;
 the other backs off and picks something else. Write-then-check leaves you blind to a claim written
 after your check, so **re-read the ledger once more right before starting the work**; a clash found
 then resolves by the same rule. On a re-pick, prefer work no live claim sits near.
@@ -138,8 +137,8 @@ write one now for the **existing** branch, as above.
 
 ## Releasing it
 
-Your claim is released at **session** end, finished or not: the ledger leases sessions, not progress.
-`land-and-wrap` §4 is the trigger; this is the step it runs.
+Your claim is released at **session** end, finished or not: a claim is a lease on the session, not
+on the work's progress. `land-and-wrap` §4 runs this step.
 
 ```bash
 MAIN=$(git worktree list --porcelain | sed -n '1s/^worktree //p')   # re-derive—shell state doesn't persist
@@ -151,9 +150,9 @@ ls "$MAIN"/.claude/claims/                                      # confirm—rm -
 rev-parse --show-toplevel` returns `$MAIN` in a session launched from the repo root, whose branch is
 the default branch, so the `rm` removes a file that never existed and the real claim leaks.
 
-This plugin's `SessionEnd` hook releases any claim carrying this session's id when a session ends
-without wrapping. It is the net, not the path: releasing at wrap hands the lane back immediately
-rather than whenever the session eventually exits.
+This plugin's `SessionEnd` hook releases any claim that includes this session's id when a session
+ends without wrapping. It is a safety net and no substitute for releasing at wrap, which hands the
+lane back immediately rather than whenever the session eventually exits.
 
 **Say out loud when the net isn't armed.** Restricted hooks make the release above the *only* path,
 and a session that doesn't know that is the one that leaks a lease nothing can expire:
@@ -169,4 +168,4 @@ print("hooks RESTRICTED:",hits,"— SessionEnd net will not fire") if hits else 
 **A clean result is not proof.** The same message names two causes this check cannot see—a managed
 policy, and an untrusted workspace—and a malformed `hooks.json` loads a plugin with no hooks at all,
 silently. So treat the net as best-effort in every session: release at wrap regardless, and when the
-check does trip, name it in one line so nobody counts on a hook that is off.
+check does trip, report it in one line so nobody counts on a hook that is off.

@@ -4,7 +4,7 @@ description: >-
   Run several lanes at once, unattended, as one conductor session: hold 2–5
   file-disjoint units of work in flight, build each in its own worktree via a
   background Workflow, and process each as it finishes—rolling, refilled after
-  every completion, until the work runs out or the plan is invalidated. Carries
+  every completion, until the work runs out or the plan is invalidated. Includes
   the deviations that exist only because no human is in the loop: the mandatory
   build gate on a self-reported green, the retry-then-flag rule, the watchdog for
   a pipeline that died without notifying, and the stop conditions. Trigger on
@@ -16,10 +16,10 @@ description: >-
 
 # Conduct a pipeline
 
-One session conducts; Workflows build. The conductor holds up to N file-disjoint units of work in
-flight, builds each in its own worktree via a background Workflow, and processes each as it
-finishes—a rolling pipeline, refilled after every completion, running until candidates run out or
-the plan is invalidated.
+One session conducts and delegates each build to a Workflow. The conductor holds up to N
+file-disjoint units of work in flight, builds each in its own worktree via a background Workflow,
+and processes each as it finishes—a rolling pipeline, refilled after every completion, running until
+candidates run out or the plan is invalidated.
 
 Per-lane mechanics come from `work-in-worktree` for the worktree and the backlog seam,
 `claim-a-lane` for the claim ledger, and `land-and-wrap` for landing. This skill adds the conductor
@@ -27,7 +27,7 @@ layer and the **unattended deviations**—each one exists because there is no hu
 *This skill is the Workflow orchestration opt-in for every unit built under it.*
 
 **Candidates come from the backlog** (`work-in-worktree` §0), not from here. A backlog plugin supplies
-an ordered list of workable units and records each one done in its own form; this skill decides how
+an ordered list of workable units and records each one done in its own form; this skill covers how
 many run at once, what happens when one fails, and when to stop. With no backlog plugin, the user
 supplies the list up front and the conductor runs it dry.
 
@@ -71,13 +71,13 @@ No pause follows—this skill runs unattended.
 
 **Every wake begins the same way**—Workflow-completion notification or watchdog: re-read the
 run-state file, then **poll the status of every in-flight task**. A Workflow that died without
-completing sends no notification: found by polling it is treated exactly as a `failed` report; left
+completing sends no notification: found by polling it is treated the same as a `failed` report; left
 unpolled it occupies its slot forever. So **whenever builds are in flight, arm a bounded watchdog**
 (Monitor with an until-condition on task completion and a 30–60 minute timeout)—the all-dead
 pipeline is the one stall no completion event can break.
 
 **Candidates:** re-derive after every completion. The backlog supplies what is workable and in what
-order (`work-in-worktree` §0); this skill removes what the session layer knows to be unavailable:
+order (`work-in-worktree` §0); from that list, remove what is unavailable at the session layer:
 
 - **claimed**—it is listed in a live claim;
 - **not disjoint**—any path it expects to edit falls inside a live claim's `touches` globs, or inside
@@ -115,7 +115,7 @@ sized to the work: design → implement test-first → adversarial review → fi
 research → synthesize for design and research work. Small units (a note, a doc move) skip the
 Workflow: the conductor does them inline in the worktree and processes them in the same pass.
 
-**Every build brief carries, verbatim:**
+**Every build brief includes, verbatim:**
 
 - work ONLY under `<absolute worktree path>`—never the main checkout, never another worktree;
 - you MAY create WIP checkpoint commits at stage boundaries (message `WIP: <stage>`)—a failed-stage
@@ -152,9 +152,9 @@ unit's worktree while processing the completion.
    retry resuming the Workflow from its run ID (byte-identical stages cache-hit). **A retry
    re-occupies the unit's slot—it is not a completion and does not trigger a refill.** A recognizable
    **infra failure** (build-tool lock timeout, daemon OOM) gets one extra uncounted retry and must
-   not feed the stop rules. A second real failure **flags** the unit: record it in `flagged`, release
-   its claim, leave its worktree + branch (WIP commits are autopsy evidence), name it in the wrap-up,
-   continue with the others.
+   not feed the stop rules. On a second real failure, **flag** the unit: record it in `flagged`, release
+   its claim, leave its worktree + branch (WIP commits are autopsy evidence), report it in the
+   wrap-up, continue with the others.
 2. `ready` → inspect the diff (`git -C $WT status` / `diff`), strip any surviving agent artifacts,
    then **squash the WIP checkpoints into atomic, past-tense commits** (soft-reset to the merge-base,
    re-commit in logical units).
@@ -270,4 +270,4 @@ Re-emit the session-title line. No stop path skips the notification and wrap-up.
 The conductor is a peer, not an owner: honor foreign claims when picking (a human session may be
 working that unit right now), never `git worktree remove` a worktree it didn't create, and keep its
 own claims accurate—one per in-flight unit, written atomically, deleted at completion. Everything
-`claim-a-lane` says about the ledger binds here N-fold.
+in `claim-a-lane` about the ledger binds here N-fold.

@@ -1,9 +1,9 @@
 #!/bin/sh
 # Self-check for release-claim.sh. Run it directly: sh release-claim.test.sh
 #
-# The property that matters: the hook releases exactly its own session's claim and
-# never a sibling's. A hook that over-deletes kills a live lane; one that
-# under-deletes leaks a lease nothing can expire.
+# The property under test: the hook releases the ending session's claim and no
+# other. Both errors are costly: deleting a sibling's claim kills a live lane, and
+# a claim left behind is a lease nothing can expire.
 set -u
 S="$(cd "$(dirname "$0")" && pwd)/release-claim.sh"
 T=$(mktemp -d) || exit 1
@@ -35,11 +35,11 @@ check "releases own claim from a worktree outside the primary checkout" "b.json 
 
 seed
 CLAUDE_SESSION_ID=NOBODY CLAUDE_PROJECT_DIR="$T/primary" sh "$S"
-check "unmatched id deletes nothing" "a.json b.json c.json" "$(claims)"
+check "deletes nothing for an unmatched id" "a.json b.json c.json" "$(claims)"
 
 seed
 (unset CLAUDE_SESSION_ID CLAUDE_CODE_SESSION_ID; CLAUDE_PROJECT_DIR="$T/primary" sh "$S")
-check "missing session id deletes nothing" "a.json b.json c.json" "$(claims)"
+check "deletes nothing without a session id" "a.json b.json c.json" "$(claims)"
 
 seed
 printf '{ "session": "", "item": "d" }\n' > "$T/primary/.claude/claims/d.json"
@@ -52,7 +52,7 @@ check "non-repo project dir is a no-op" "a.json b.json c.json" "$(claims)"
 
 seed; rm -rf "$T/primary/.claude/claims"
 CLAUDE_SESSION_ID=MINE CLAUDE_PROJECT_DIR="$T/primary" sh "$S"
-check "absent ledger exits clean" "" "$(claims)"
+check "exits clean when the ledger is absent" "" "$(claims)"
 
 P="$T/with space"; mkdir -p "$P/.claude/claims"
 git -C "$P" init -q .; git -C "$P" commit -q --allow-empty -m init
