@@ -9,7 +9,9 @@ description: >-
   the other sessions. Also resumes an item already in flight and partially
   built—more building on an in-flight item is this skill, which adopts that
   item's existing worktree. An optional lane hint ("R1") only biases the pick.
-  NOT for reading, summarizing, or editing the roadmap, and NOT for the worktree
+  Also the way into a task the user states directly ("upgrade X", "fix Y") in a
+  repo that has a roadmap: write the task as an item, then run this skill on
+  that item's ID. NOT for reading, summarizing, or editing the roadmap, and NOT for the worktree
   mechanics themselves (that's work-in-worktree) or the claim ledger (that's
   claim-a-lane) or landing finished work (that's land-and-wrap).
 ---
@@ -126,6 +128,12 @@ that already pass those gates; it never relaxes them.** Match it against item ID
 
 If everything worthwhile is claimed, don't force a collision: wait for a session to finish (its
 claim disappears, or a commit lands), then pick. A hint doesn't change this.
+
+**A task the user stated directly, with no item yet.** Write the item before anything else: the next
+free ID, at its priority position, with the problem and the paths it touches. Then it is a hinted
+pick like any other, and the gates above still apply to it. The same instruction is injected at
+session start by this plugin's hook, in every repo that has a roadmap, because a session handed
+"upgrade X" does not otherwise reach this skill.
 
 **Resuming an item already in flight.** The pick is already made—skip these gates entirely. A claim
 on the item you are resuming is *yours*, not a collision, and re-picking on it is the bug
