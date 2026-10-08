@@ -30,11 +30,13 @@ test('a worktree is named for its backlog ID, lowercased, then its pair', () => 
 })
 
 // A primary checkout at /repo. `git` answers a command, given without its
-// `-C <dir>`, with its stdout, an exit code, or nothing for an empty success. A
-// program other than git cannot start unless `other` answers for it. A file
-// reads as empty unless `files` has it. The session's directory is a worktree
-// that was removed, so no program starts unless it is run in /repo.
-function world(on: any, git: (argv: string) => string | number | void, other?: (argv: string) => string | void, paths: string[] = [], files: Record<string, string> = {}, root = '/repo') {
+// `-C <dir>`, with its stdout, an exit code, a whole result, or nothing for an
+// empty success. A program other than git cannot start unless `other` answers
+// for it. A file reads as empty unless `files` has it. The session's directory
+// is a worktree that was removed, so no program starts unless it is run in
+// /repo.
+type Said = string | number | void | { exitCode: number; stdout: string; stderr: string }
+function world(on: any, git: (argv: string) => Said, other?: (argv: string) => string | void, paths: string[] = [], files: Record<string, string> = {}, root = '/repo') {
   const calls: string[] = []
   on('session.repo', () => ({ value: { root, remote: null, internal: false } }))
   on('session.cwd', () => ({ value: '/repo/.claude/worktrees/removed' }))
@@ -49,6 +51,7 @@ function world(on: any, git: (argv: string) => string | number | void, other?: (
     calls.push(line)
     const said = isGit ? git(line) : other?.(line)
     if (!isGit && said === undefined) throw new Error('ENOENT')
+    if (typeof said === 'object') return { value: said }
     return { value: typeof said === 'number' ? { exitCode: said, stdout: '', stderr: 'fatal: no' } : { exitCode: 0, stdout: said ? `${said}\n` : '', stderr: '' } }
   })
   return calls
@@ -284,6 +287,26 @@ test('prune_branches force-deletes nothing when a check or the fetch fails', asy
   now = line => (line.includes('fetch') ? 1 : one(line))
   expect((await call($, 'prune_branches')).result).toContain('warning: fetch failed, so no branch with a gone upstream was checked')
   expect(deleted(calls)).toEqual(Array(checks.length + 2).fill('branch -d claude/done'))
+})
+
+// A conflict is a merge that has changes the base lacks. A merge that cannot
+// run, as with a git before 2.43, is neither merged nor unmerged.
+test('prune_branches keeps a branch with git\'s message where the merge cannot run, and with the base\'s content note where it conflicts', async ($: any, on: any) => {
+  const one = (line: string) => (line.startsWith('for-each-ref --format') ? 'feat-squash\t[gone]' : reap(line))
+  let now = one
+  const calls = world(on, line => now(line))
+  now = line => (line === whole('feat-squash') ? 128 : one(line))
+  expect((await call($, 'prune_branches')).result).toContain('kept: feat-squash (upstream gone, check failed: fatal: no)')
+  now = line => (line === since('feat-squash', 'c1') ? 129 : one(line))
+  expect((await call($, 'prune_branches')).result).toContain('kept: feat-squash (upstream gone, check failed: fatal: no)')
+  const usage = { exitCode: 129, stdout: '', stderr: "error: unknown option `write-tree'\nusage: git merge-tree <base-tree> <branch1> <branch2>\n" }
+  now = line => (line === whole('feat-squash') ? usage : one(line))
+  expect((await call($, 'prune_branches')).result).toBe("deleted: claude/done (merged into main)\nkept: feat-squash (upstream gone, check failed: error: unknown option `write-tree')")
+  now = line => (line === whole('feat-squash') ? { exitCode: 2, stdout: '', stderr: '' } : one(line))
+  expect((await call($, 'prune_branches')).result).toContain('kept: feat-squash (upstream gone, check failed: exit 2)')
+  now = line => (line === whole('feat-squash') ? 1 : one(line))
+  expect((await call($, 'prune_branches')).result).toContain('kept: feat-squash (upstream gone, content not on origin/main)')
+  expect(deleted(calls)).toEqual(Array(5).fill('branch -d claude/done'))
 })
 
 // feat-hand has a merge commit, M, with a tree that differs from the automatic

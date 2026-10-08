@@ -56,6 +56,7 @@ const out = async (ran: Promise<Ran>) => {
   const r = await ran
   return r.exitCode === 0 ? r.stdout.trim() : ''
 }
+const firstLine = (text: string) => text.trim().split(/\r?\n/)[0] ?? ''
 async function must($: any, cwd: string, ...argv: string[]): Promise<string> {
   const r = await run($, gitArgv(cwd, argv), gitTimeout(argv))
   if (r.exitCode !== 0) throw new Error(`git ${argv.join(' ')} in ${cwd}: ${r.stderr.trim() || `exit ${r.exitCode}`}`)
@@ -173,17 +174,18 @@ async function openWorktree($: any, e: any): Promise<string> {
   return [...lines, ...warnings.map(w => `warning: ${w}`)].join('\n')
 }
 
-const firstLine = (text: string) => text.trim().split(/\r?\n/)[0] ?? ''
-
 // The tree left by merging `ref` into `base`, or nothing where the merge
-// conflicts or cannot run. No .gitattributes, no attributes file from the
-// user's config, and no merge.default is read: a driver such as `union`, or one
-// that keeps the base's side, settles a conflict without the branch's change,
-// and the result reads as merged.
+// conflicts (exit 1). Any other failure, as on a git before 2.43, throws with
+// git's message. No .gitattributes, no attributes file from the user's config,
+// and no merge.default is read: a driver such as `union`, or one that keeps the
+// base's side, settles a conflict without the branch's change, and the result
+// reads as merged.
 // ponytail: the system-wide attributes file is still read. GIT_ATTR_NOSYSTEM turns it off, and is an environment variable.
 async function mergedTree($: any, main: string, empty: string, base: string, ref: string, from = ''): Promise<string> {
   const argv = ['-c', 'merge.default=text', '-c', 'core.attributesFile=/dev/null', `--attr-source=${empty}`, 'merge-tree', '--write-tree', ...(from ? [`--merge-base=${from}`] : []), base, ref]
-  return out(run($, gitArgv(main, argv)))
+  const r = await run($, gitArgv(main, argv))
+  if (r.exitCode > 1) throw new Error(`check failed: ${firstLine(r.stderr) || `exit ${r.exitCode}`}`)
+  return r.exitCode === 0 ? r.stdout.trim() : ''
 }
 
 // git has no switch that turns off .git/info/attributes, so a merge driver set
@@ -212,7 +214,7 @@ async function amended($: any, main: string, empty: string, m: string): Promise<
 // part of it is found there, and not in the first merge. A merge commit is
 // taken the same way when its tree differs from the automatic merge of its
 // parents, since a change made in the merge itself is in no other commit. A
-// check that fails never reads as merged.
+// check that fails never reads as merged, and a merge that cannot run throws.
 // ponytail: one merge a commit, so a branch of thousands of commits is slow.
 async function onBase($: any, main: string, empty: string, tree: string, base: string, ref: string): Promise<boolean> {
   if ((await mergedTree($, main, empty, base, ref)) !== tree) return false
@@ -271,7 +273,13 @@ async function pruneBranches($: any): Promise<string> {
     const refs = await must($, main, 'for-each-ref', '--format=%(refname:lstrip=2)%09%(upstream:track)', 'refs/heads')
     for (const [b, track] of refs.split(/\r?\n/).map(l => l.split('\t'))) {
       if (track !== '[gone]') continue
-      if (!(await onBase($, main, empty, tree, baseRef, `refs/heads/${b}`))) lines.push(`kept: ${b} (upstream gone, content not on ${base})`)
+      let why = ''
+      try {
+        if (!(await onBase($, main, empty, tree, baseRef, `refs/heads/${b}`))) why = `content not on ${base}`
+      } catch (err) {
+        why = (err as Error).message
+      }
+      if (why) lines.push(`kept: ${b} (upstream gone, ${why})`)
       else if (checkedOut(b)) lines.push(`merged, still checked out: ${b}`)
       else {
         const gone = await git($, main, 'branch', '-D', b)
