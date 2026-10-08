@@ -69,6 +69,12 @@ test('a line with an info string does not close a fence', () => {
   expect(deleteItem(s, 'R1').text).toBe('## R3: three\n')
 })
 
+// A checkout with core.autocrlf has a carriage return at the end of each line.
+test('a fence closes in a file with CRLF line ends, and with a tab after it', () => {
+  expect(deleteItem('## R1: one\r\n```\r\ncode\r\n```\r\n## R2: two\r\n', 'R1').text).toBe('## R2: two\r\n')
+  expect(deleteItem('## R1: one\n```\ncode\n```\t\n## R2: two\n', 'R1').text).toBe('## R2: two\n')
+})
+
 const TOOL = 'mcp__roadmap-skills__delete_item'
 const PATH = '/repo/ROADMAP.local.md'
 

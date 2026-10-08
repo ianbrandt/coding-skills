@@ -9,7 +9,7 @@ export function deleteItem(text: string, id: string): { text: string; removed: s
   let at = 0
   for (const line of text.split('\n')) {
     if (fence) {
-      const close = /^ {0,3}(`{3,}|~{3,}) *$/.exec(line)?.[1]
+      const close = /^ {0,3}(`{3,}|~{3,})[ \t\r]*$/.exec(line)?.[1]
       if (close && close[0] === fence[0] && close.length >= fence.length) fence = ''
     } else {
       const open = /^ {0,3}(?:(`{3,})[^`]*|(~{3,}.*))$/.exec(line)
