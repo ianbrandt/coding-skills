@@ -196,6 +196,10 @@ names from it rather than from memory, since model names age faster than the rul
 
 ## 6. Build it, then land it
 
+**Before the first edit, call `mcp__parallel-session-skills__read_ledger` once more**, where the
+repo has a ledger. A claim written after yours is seen only then, and `claim-a-lane` §3 has the rule
+for a clash.
+
 Work **test-first per THIS repo's conventions**—a failing test first, then match the repo's
 style. For a repo you own that means its `CLAUDE.md`, `CONTRIBUTING`, and design docs. For a fork it
 means the **House style block** in `$ROADMAP`'s header, distilled from the project's `CONTRIBUTING`,
