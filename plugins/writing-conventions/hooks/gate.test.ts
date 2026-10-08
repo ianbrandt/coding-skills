@@ -305,6 +305,23 @@ test('the plugin\'s lint tool is not gated', async ($: any, on: any) => {
   expect(seen.tool).toHaveLength(0)
 })
 
+// The tool classifier answered CAN_PUBLISH for both tools in every live run
+// (README, "MCP calls"), and a finding then blocked a roadmap edit and a claim.
+test('a tool of this marketplace that writes a local file is not classified or blocked, and a prose edit is read as a file', async ($: any, on: any) => {
+  const seen = world(on, { tool: 'CAN_PUBLISH', verdict: FINDING, files: { '/proj/notes.md': '# Notes\n\nThe report says so.\n' } })
+  const edited = await $.tool.call({ tool: 'mcp__session-skills__edit_primary_file', tool_use_id: 'toolu_6', path: '/proj/notes.md', old: '', new: 'The report says so.\n' })
+  expect(edited.deny).toBeUndefined()
+  expect(edited.result).toEqual({ stdout: 'ran' })
+  expect(edited.context.join('\n')).toContain('Fix the quoted text in /proj/notes.md.')
+  expect(seen.reader).toEqual(['File: /proj/notes.md\n\nThe report says so.\n'])
+  // A claim is JSON, so none of it is read.
+  const claimed = await $.tool.call({ tool: 'mcp__parallel-session-skills__write_claim', tool_use_id: 'toolu_7', worktree: '/wt/a', item: 'The report says so.', touches: [] })
+  expect(claimed).toEqual({ result: { stdout: 'ran' } })
+  expect(seen.ran).toBe(2)
+  expect(seen.reader).toHaveLength(1)
+  expect(seen.tool).toHaveLength(0)
+})
+
 const write = (path: string, content: string) => ({ tool_name: 'Write', tool_input: { file_path: path, content }, tool_response: {}, tool_use_id: 'toolu_3' })
 const edit = (path: string, fresh: string) => ({ tool_name: 'Edit', tool_input: { file_path: path, old_string: 'x', new_string: fresh }, tool_response: {}, tool_use_id: 'toolu_4' })
 const gateNote = (ran: any) => ran.additionalContext.filter((c: string) => !c.startsWith('You just wrote prose') && c !== 'from a settings hook').join('\n')

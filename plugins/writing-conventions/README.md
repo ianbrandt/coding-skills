@@ -239,14 +239,18 @@ message posted through `curl` or a script is not read. `WRITING_CONVENTIONS_SHEL
 turns this off and leaves the four families.
 
 A command that only writes a local file is not blocked, just as a `Write` or `Edit` to a prose file
-is not (see "Prose files"). A session in a worktree edits a file that lives only in the primary
-checkout with the `edit_primary_file` tool of `session-skills`, because a worktree guard can refuse an `Edit` there. The
+is not (see "Prose files"). The
 review model answers `LOCAL` in place of `VIOLATION` when nothing in the command sends the text anywhere
 else, and doubt is `VIOLATION`. The findings then come back as `additionalContext`, and the session
 fixes the file after the command runs. A `LOCAL` answer still blocks the four families and an MCP
 call. In a live run on Sonnet 5.5, two local-file scripts came back `LOCAL` 6 times out of 6. Four
 scripts that post their text through a webhook, `gh api`, `hg commit -l`, or `glab release create`
 were blocked 12 times out of 12.
+
+A session in a worktree edits a file that lives only in the primary checkout with the
+`edit_primary_file` tool of `session-skills`, because a worktree guard can refuse an `Edit` there.
+That is an MCP call and not a command, so no `LOCAL` answer applies to it. It is read after it runs,
+as an `Edit` is (see "MCP calls").
 
 A body passed by file path is read by the gate, for the four families only: `git commit -F` or
 `--file`, and `-F`, `--body-file`, or `--notes-file` on `gh pr`, `gh issue`, and `gh release`. The
@@ -286,7 +290,7 @@ four went through.
 
 A team that publishes through an MCP server, such as Jira and Bitbucket with no `gh` installed, gets
 the same read. The `tool.call` hook that reads a shell command reads a call to any `mcp__` tool. No
-server or tool name is written in it. The first call to a tool costs one classifier call, with
+server or tool name is written in it, but for two local tools of this marketplace (below). The first call to a tool costs one classifier call, with
 [`hooks/classify-prompt.md`](hooks/classify-prompt.md) as the system prompt: can this tool hand text
 to a human-facing destination? The answer is `CAN_PUBLISH` or `NEVER`, doubt is `CAN_PUBLISH`, and
 a reply in any other form is treated as doubt and not kept. On 30 hand-labeled tools with sample
@@ -305,6 +309,20 @@ split across short fields is read together. A finding has to quote the decoded s
 `tool_input`. In a rich-text body such as Atlassian Document Format one sentence can be split
 across text nodes, and the review model quotes it as its pieces, `"The report " + "says so."`; each piece
 is looked for on its own and nothing is joined.
+
+Two tools of this marketplace write a file on this machine and send text nowhere else:
+`edit_primary_file` of `session-skills` and `write_claim` of `parallel-session-skills`. Both are
+listed in `gate.ts`, and a call to either is never classified or blocked. After an
+`edit_primary_file` call the new text is read as an `Edit` to that file is (see "Prose files"), and
+the findings come back as context. A claim is JSON, so no part of a `write_claim` call is read.
+Before the two were listed, in a live run on Sonnet 5.5, the classifier answered `CAN_PUBLISH` for
+each tool 10 times out of 10, and a call with three planted violations was blocked each time.
+`delete_item` of `roadmap-skills` came back `NEVER` 13 times out of 13.
+
+A tool that a plugin registers is answered by that plugin's `tool.call` handler. When that plugin
+is loaded before this one, its handler answers first and the gate is never called: in 9 live runs
+with `--plugin-dir` in that order, no call was classified or read. The 33 runs above had this
+plugin first.
 
 ### Prose files
 

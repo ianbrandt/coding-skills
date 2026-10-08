@@ -262,8 +262,8 @@ function strings(value: unknown): string[] {
 
 // A call to an MCP tool. Whether the tool can publish is asked of a model once
 // per tool and kept, one line per answer, so no server or tool name is written
-// here. For one tool a CAN_PUBLISH line wins over a NEVER line, and a line in
-// any other form is ignored.
+// here but the ones in LOCAL_TOOLS. For one tool a CAN_PUBLISH line wins over a
+// NEVER line, and a line in any other form is ignored.
 async function mcp($: any, input: any): Promise<Verdict> {
   const path = await cachePath($, 'mcp-tools', 'classify-prompt.md')
   const mine = (await cached($, path)).map(l => l.split(/[ \t]+/).filter(w => w !== '')).filter(w => w.length === 2 && w[0] === input.tool_name)
@@ -310,6 +310,17 @@ async function file($: any, e: any): Promise<Verdict> {
   }
   const { found } = await read($, `File: ${path}\n\n${text}`, [text])
   return { context: join(found && `${found}\nFix the quoted text in ${path}. ${ADVICE}`, unread) }
+}
+
+// Tools of this marketplace's plugins that write a file on this machine and
+// send text nowhere else. The tool classifier answered CAN_PUBLISH for each in
+// every live run (README, "MCP calls"), and a blocked edit stops the turn. Such
+// a call is read as the file check reads an Edit, after it runs, and nothing is
+// blocked. The two fields are the file's path and the new text. A tool with
+// none writes no prose: a claim is JSON.
+const LOCAL_TOOLS: Record<string, [string, string] | null> = {
+  'mcp__session-skills__edit_primary_file': ['path', 'new'],
+  'mcp__parallel-session-skills__write_claim': null,
 }
 
 // The blocks of each turn's replies, by prompt_id. A blocked Stop costs a whole
@@ -383,6 +394,14 @@ export const register: Register = on => {
     // A draft may come inside its fence, and lint() drops every closed fence.
     if (e.tool === TOOL) return { result: lint(drafts(String((e as any).text ?? ''), { unwrap: true })).replace(/\n+$/, '') || 'clean' }
     if (!/^(Bash$|PowerShell$|mcp__)/.test(e.tool)) return next(e)
+    if (e.tool in LOCAL_TOOLS) {
+      const ran = await next(e)
+      const fields = LOCAL_TOOLS[e.tool]
+      if (!fields || ran.deny !== undefined || (ran as any).isError) return ran
+      const [path, fresh] = fields.map(f => (e as any)[f])
+      const found = await gate($, () => file($, { tool_name: 'Edit', tool_input: { file_path: path, new_string: fresh } }))
+      return found.context ? { ...ran, context: [...(ran.context ?? []), found.context] } : ran
+    }
     const { tool, tool_use_id, agentId, ...tool_input } = e as any
     const verdict = await gate($, async () => {
       const input = { session_id: await $.session.id(), cwd: await $.session.cwd(), tool_name: tool, tool_input, tool_use_id }
