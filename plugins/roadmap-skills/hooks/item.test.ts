@@ -79,8 +79,10 @@ const TOOL = 'mcp__roadmap-skills__delete_item'
 const PATH = '/repo/ROADMAP.local.md'
 
 // The primary checkout is /repo, and the files are the ones in it.
-function world(on: any, files: Record<string, string>) {
+// `worktrees` are the linked ones git lists, which can be anywhere.
+function world(on: any, files: Record<string, string>, worktrees: string[] = []) {
   const w = { files, reads: 0, wrote: false, read: (path: string): string => w.files[path] }
+  on('process.run', () => ({ value: { exitCode: 0, stdout: ['/repo', ...worktrees].map(p => `worktree ${p}\nHEAD 0\n`).join('\n'), stderr: '' } }))
   on('session.repo', () => ({ value: { root: '/repo', remote: null, internal: false } }))
   on('fs.read', (_$: any, e: any) => { w.reads++; return { value: w.read(e.path) } })
   on('fs.write', (_$: any, e: any) => { w.wrote = true; w.files[e.path] = e.text; return { value: undefined } })
@@ -122,6 +124,15 @@ test('a path outside the primary checkout, or with a .. segment, is refused', as
   expect(w.wrote).toBe(false)
   const ok = await $.tool.call({ tool: TOOL, path: '/repo/.claude/worktrees/x/ROADMAP.md', id: 'R102' })
   expect(ok.text).not.toContain('not inside')
+})
+
+// A tracked roadmap is edited in the lane's worktree, and a worktree the host
+// opened or one made by hand is not under the primary checkout.
+test('a path in a worktree outside the primary checkout is taken', async ($: any, on: any) => {
+  const w = world(on, { '/work/wt/r5/ROADMAP.md': ROADMAP, '/work/wt/r50/ROADMAP.md': ROADMAP }, ['/work/wt/r5'])
+  expect((await $.tool.call({ tool: TOOL, path: '/work/wt/r5/ROADMAP.md', id: 'R102' })).result).toContain('removed:')
+  expect((await $.tool.call({ tool: TOOL, path: '/work/wt/r50/ROADMAP.md', id: 'R102' })).text).toContain('not inside the primary checkout')
+  expect(w.files['/work/wt/r50/ROADMAP.md']).toBe(ROADMAP)
 })
 
 test('the tool writes nothing when the file changed after it was first read', async ($: any, on: any) => {

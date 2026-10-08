@@ -35,7 +35,7 @@ export const register: Register = on => {
       inputSchema: {
         type: 'object',
         properties: {
-          path: { type: 'string', description: 'Absolute path to the roadmap file.' },
+          path: { type: 'string', description: 'Absolute path to the roadmap file, inside the primary checkout or one of its worktrees.' },
           id: { type: 'string', description: 'The item ID its heading starts with, such as R12 or R12.3.' },
         },
         required: ['path', 'id'],
@@ -75,8 +75,10 @@ export const register: Register = on => {
       const main = (await $.session.repo())?.root
       if (!main) throw new Error('not inside a git repository')
       const path = String(e.path).replace(/\\/g, '/')
-      const root = main.replace(/\\/g, '/').replace(/\/$/, '')
-      if (!path.startsWith(`${root}/`) || path.split('/').includes('..')) throw new Error(`${e.path} is not inside the primary checkout ${main}`)
+      // A tracked roadmap is edited in a lane's worktree, which can be anywhere.
+      const listed = await $.process.run(['git', '-C', main, 'worktree', 'list', '--porcelain'], { cwd: main }).catch(() => ({ stdout: '' }))
+      const roots = [main, ...[...String(listed.stdout).matchAll(/^worktree (.+)$/gm)].map(m => m[1])].map(r => r.replace(/\\/g, '/').replace(/\/$/, ''))
+      if (!roots.some(r => path.startsWith(`${r}/`)) || path.split('/').includes('..')) throw new Error(`${e.path} is not inside the primary checkout ${main} or one of its worktrees`)
       const before = await $.fs.read(e.path)
       const { text, removed } = deleteItem(before, String(e.id))
       // Another session may have added an item since the read above.
