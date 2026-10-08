@@ -446,6 +446,13 @@ export const register: Register = on => {
     return added.length > 0 ? { ...ran, additionalContext: [...(ran.additionalContext ?? []), ...added] } : ran
   })
 
+  // A session starts with the rules, on any version the module runs on.
+  on('classic.SessionStart', async ($, e: any, next: any) => {
+    const ran = await next(e)
+    const rules = await $.fs.read(`${$.plugin.root}/hooks/rules.md`).catch(() => '')
+    return rules ? { ...ran, additionalContext: [...(ran.additionalContext ?? []), rules] } : ran
+  })
+
   // A subagent starts with the rules the session started with.
   on('classic.SubagentStart', async ($, e: any, next: any) => {
     const ran = await next(e)

@@ -11,15 +11,13 @@ became a rule. `write-for-the-reader` is where a word you flag gets logged into 
 come out of your edits are added to the same file when this plugin is installed.
 
 Claude Code 2.1.286 is the oldest version supported: it is the first where hooks modules are on by
-default. The rules load at session start on any
-version, through a command hook. Everything else runs in a hooks module, which is a Claude Code mod,
-and is off on an older version (see [What runs the hooks](#what-runs-the-hooks)).
+default. Everything runs in a hooks module, which is a Claude Code mod (see
+[What runs the hooks](#what-runs-the-hooks)).
 
 ## What loads every session
 
-A `SessionStart` hook injects [`hooks/rules.md`](hooks/rules.md) into every session, including
-after `/clear`, compaction, and a fork. The hooks module adds the same file to every subagent as it
-starts, since a subagent's report is what a later summary is built from. The file is eleven named
+The hooks module adds [`hooks/rules.md`](hooks/rules.md) to every session at its start, including
+after `/clear`, compaction, and a fork, and to every subagent as it starts, since a subagent's report is what a later summary is built from. The file is eleven named
 anti-patterns, several with drafted-to-accepted pairs: inanimate agency, mechanics (spaced
 em dashes, the Oxford comma, and consistent units), a banned-vocabulary list, epigrams, paired
 contrasts, and matched clauses, narration, sentence order, coinages, writing for a reader who has
@@ -103,20 +101,19 @@ because `hooks.json` may list only one module.
 
 ## What runs the hooks
 
-Everything but the `SessionStart` rules runs in the plugin's hooks module,
-[`hooks/register.ts`](hooks/register.ts), so a Windows session runs the same code as any other and
-no shell is involved. The `SessionStart` hook is a plain `cat` of `rules.md`.
+Everything runs in the plugin's hooks module, [`hooks/register.ts`](hooks/register.ts), so a
+Windows session runs the same code as any other and no shell is involved.
 
 2.1.286 is the first CLI where hooks modules are on by default. They are listed in the Claude Code
 changelog as Mods from 2.1.287. The gate, the lint tool, the re-read request after a written file,
 the rules for subagents, the dash rewrite, and the lint note on the next turn were each checked in a
 live session on 2.1.286 through 2.1.291. Hooks modules are in 2.1.285 and older as well, but they
 are off there unless `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1` is set, and the module was not checked on
-those versions. On an older CLI the module does nothing, and the user is told once in a toast. The
-rules still load at session start there, but the lint, the dash rewrite, the gate, and the rules for
-subagents are off. The same is true, with no toast, where function hooks are switched off:
-`CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1` in the environment turns them on, and `claude --debug` logs a
-module that did not load.
+those versions. On an older CLI with that variable set, the rules still load at session start, but
+the lint, the dash rewrite, the gate, and the rules for subagents are off, and the user is told once
+in a toast. Where function hooks are switched off nothing in this plugin runs, the session-start
+rules included, and there is no toast: `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1` in the environment
+turns them on, and `claude --debug` logs a module that did not load.
 
 ## The gate at publication
 

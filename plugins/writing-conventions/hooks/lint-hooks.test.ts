@@ -21,6 +21,7 @@ function world(on: any, base = '2.1.289', env: Record<string, string> = {}) {
   on('classic.UserPromptSubmit', () => ({ additionalContext: ['from a settings hook'] }))
   on('classic.PostToolUse', () => ({}))
   on('classic.SubagentStart', () => ({}))
+  on('classic.SessionStart', () => ({}))
   return files
 }
 
@@ -63,6 +64,11 @@ test('the re-read request is added for a prose or source file just written, in a
   expect((await wrote('Edit', '/p/a.md')).join()).toContain('You just wrote prose')
   expect(await wrote('Write', '/p/a.py')).toEqual([])
   expect(await wrote('Read', '/p/a.md')).toEqual([])
+})
+
+test('a session starts with the rules, on an older CLI too', async ($: any, on: any) => {
+  world(on, '2.1.200')
+  expect((await $.classic.SessionStart({ source: 'fork' })).additionalContext).toEqual(['<rules.md>'])
 })
 
 test('a subagent starts with the rules', async ($: any, on: any) => {
