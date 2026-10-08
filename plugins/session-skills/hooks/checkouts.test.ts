@@ -290,6 +290,11 @@ test('prune_branches reports that nothing was checked when the base tree or the 
   expect((await call($, 'prune_branches')).result).toContain('warning: no branch with a gone upstream was checked: the empty tree could not be read')
 })
 
+test('prune_branches has no warning in a repo with no origin', async ($: any, on: any) => {
+  world(on, line => (line === 'remote get-url origin' || line === `rev-parse --verify -q ${BASE}^{tree}` ? 128 : reap(line)))
+  expect((await call($, 'prune_branches')).result).toBe('deleted: claude/done (merged into main)')
+})
+
 test('prune_branches checks the gone upstreams where there is no local default branch', async ($: any, on: any) => {
   const calls = world(on, line => (line === 'rev-parse --verify -q refs/heads/main' || line.startsWith('for-each-ref --merged') ? 128 : reap(line)))
   expect((await call($, 'prune_branches')).isError).toBeFalsy()
