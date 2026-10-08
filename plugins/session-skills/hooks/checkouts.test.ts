@@ -34,15 +34,16 @@ test('a worktree is named for its backlog ID, lowercased, then its pair', () => 
 // program other than git cannot start unless `other` answers for it. A file
 // reads as empty unless `files` has it. The session's directory is a worktree
 // that was removed, so no program starts unless it is run in /repo.
-function world(on: any, git: (argv: string) => string | number | void, other?: (argv: string) => string | void, paths: string[] = [], files: Record<string, string> = {}) {
+function world(on: any, git: (argv: string) => string | number | void, other?: (argv: string) => string | void, paths: string[] = [], files: Record<string, string> = {}, root = '/repo') {
   const calls: string[] = []
-  on('session.repo', () => ({ value: { root: '/repo', remote: null, internal: false } }))
+  on('session.repo', () => ({ value: { root, remote: null, internal: false } }))
   on('session.cwd', () => ({ value: '/repo/.claude/worktrees/removed' }))
-  on('fs.exists', (_$: any, e: any) => ({ value: paths.includes(e.path) }))
+  // A drive-letter path is resolved against the test's directory on a POSIX host.
+  on('fs.exists', (_$: any, e: any) => ({ value: paths.includes(String(e.path).replace(/^.*\/(?=[A-Za-z]:\/)/, '')) }))
   on('fs.read', (_$: any, e: any) => ({ value: files[e.path] ?? '' }))
   on('process.run', (_$: any, e: any) => {
     const argv = e.argv as string[]
-    if (e.init?.cwd !== '/repo') throw new Error(`ENOENT: no such file or directory, posix_spawn '${argv[0]}'`)
+    if (e.init?.cwd !== root) throw new Error(`ENOENT: no such file or directory, posix_spawn '${argv[0]}'`)
     const isGit = argv[0] === 'git'
     const line = (isGit ? argv.slice(3) : argv).join(' ')
     calls.push(line)
@@ -130,6 +131,39 @@ test('open_worktree refuses a name that is not a hyphenated pair, and reports a 
   }
   expect(calls.filter(c => c.startsWith('worktree add'))).toEqual([])
   expect((await call($, 'open_worktree', { name: 'a-b' })).result).toContain('warning: notes.local was not linked')
+})
+
+test('open_worktree does not link the notes directory over one that is already in the worktree', async ($: any, on: any) => {
+  const calls = world(on, held, line => (line.startsWith('ln -s') ? '' : undefined), ['/repo/notes.local', '/repo/.claude/worktrees/a-b/notes.local'])
+  const text = (await call($, 'open_worktree', { name: 'a-b' })).result
+  expect(text).toContain('warning: notes.local was not linked into the worktree, so write notes to /repo/notes.local: it is already there')
+  expect(calls.filter(c => c.startsWith('ln'))).toEqual([])
+})
+
+test('open_worktree takes a notes name of letters, digits, dots, underscores, and hyphens only', async ($: any, on: any) => {
+  const calls = world(on, held, line => (line.startsWith('ln -s') ? '' : undefined), ['/repo/notes.local', '/repo/notes_2-x'])
+  for (const notes of ['notes&calc', '%X%', 'a b', '.', '..', '', 'a"b']) {
+    const ran = await call($, 'open_worktree', { name: 'a-b', notes })
+    expect(ran.isError).toBe(true)
+    expect(ran.text).toContain('is not the name of a directory at the repo root')
+  }
+  expect(calls.filter(c => c.startsWith('worktree add'))).toEqual([])
+  expect((await call($, 'open_worktree', { name: 'a-b', notes: 'notes_2-x' })).result).toContain('notes: /repo/.claude/worktrees/a-b/notes_2-x links to')
+})
+
+test('open_worktree links a Windows notes directory with a junction', async ($: any, on: any) => {
+  const cmd = (line: string) => (line.startsWith('cmd') ? '' : undefined)
+  const plain = world(on, held, cmd, ['C:/repo/notes.local'], {}, 'C:/repo')
+  expect((await call($, 'open_worktree', { name: 'a-b' })).result).toContain('notes: C:/repo/.claude/worktrees/a-b/notes.local links to')
+  expect(plain.filter(c => c.startsWith('cmd'))).toEqual(['cmd /c mklink /J C:\\repo\\.claude\\worktrees\\a-b\\notes.local C:\\repo\\notes.local'])
+})
+
+// In an argument, cmd reads these as operators or expands them.
+test('open_worktree runs no cmd for a Windows path with a character that cmd reads as an operator', async ($: any, on: any) => {
+  const calls = world(on, held, line => (line.startsWith('cmd') ? '' : undefined), ['C:/my%X%repo/notes.local'], {}, 'C:/my%X%repo')
+  const text = (await call($, 'open_worktree', { name: 'a-b' })).result
+  expect(text).toContain('warning: notes.local was not linked into the worktree, so write notes to C:/my%X%repo/notes.local: ')
+  expect(calls.filter(c => c.startsWith('cmd'))).toEqual([])
 })
 
 // Every gone branch but feat-declined has the base's tree when merged.

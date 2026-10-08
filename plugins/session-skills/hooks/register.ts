@@ -135,6 +135,9 @@ async function findCheckouts($: any): Promise<string> {
 // elsewhere. $.fs has no link call.
 // ponytail: Windows is read off a drive-letter path, there being no platform call.
 async function link($: any, target: string, at: string): Promise<Ran> {
+  if (/^[A-Za-z]:[\\/]/.test(target) && /[&|<>^%()"]/.test(target + at)) {
+    return { exitCode: 1, stdout: '', stderr: 'a character in the path is an operator in cmd' }
+  }
   return /^[A-Za-z]:[\\/]/.test(target)
     ? run($, ['cmd', '/c', 'mklink', '/J', at.replace(/\//g, '\\'), target.replace(/\//g, '\\')])
     : run($, ['ln', '-s', target, at])
@@ -146,7 +149,7 @@ async function openWorktree($: any, e: any): Promise<string> {
   if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(pair)) throw new Error(`name ${JSON.stringify(pair)} is not lowercase words joined by hyphens`)
   if (id && !/^[A-Za-z0-9.]+$/.test(id)) throw new Error(`id ${JSON.stringify(id)} is not a backlog ID such as R78`)
   const notes = String(e.notes ?? 'notes.local')
-  if (!notes || /[\\/]|^\.\.?$/.test(notes)) throw new Error(`notes ${JSON.stringify(notes)} is not the name of a directory at the repo root`)
+  if (!/^[A-Za-z0-9._-]+$/.test(notes) || /^\.\.?$/.test(notes)) throw new Error(`notes ${JSON.stringify(notes)} is not the name of a directory at the repo root`)
   const { main, def, base, baseRef, warnings } = await locate($)
   const root = `${main}/.claude/worktrees`
   const wanted = worktreeName(pair, id)
@@ -156,7 +159,10 @@ async function openWorktree($: any, e: any): Promise<string> {
   await must($, main, 'worktree', 'add', '--no-track', path, '-b', `claude/${name}`, baseRef)
   const lines = [`worktree: ${path}`, `branch: claude/${name}`, `opened from: ${base}`, `primary checkout: ${main}`, `default branch: ${def}`]
   if (await $.fs.exists(`${main}/${notes}`)) {
-    const linked = await link($, `${main}/${notes}`, `${path}/${notes}`)
+    // `ln -s` into a directory that is there links inside it, and reports success.
+    const linked = (await $.fs.exists(`${path}/${notes}`))
+      ? { exitCode: 1, stdout: '', stderr: 'it is already there' }
+      : await link($, `${main}/${notes}`, `${path}/${notes}`)
     if (linked.exitCode === 0) lines.push(`notes: ${path}/${notes} links to ${main}/${notes}`)
     else warnings.push(`${notes} was not linked into the worktree, so write notes to ${main}/${notes}: ${linked.stderr.trim() || `exit ${linked.exitCode}`}`)
   }
