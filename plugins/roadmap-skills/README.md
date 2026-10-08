@@ -72,3 +72,16 @@ Sequencing is recorded in the roadmap, because a gate between two items is
 known before any session starts and is written only in the backlog. Which files
 a lane touches is a fact about the working tree, so disjointness is checked
 against the claim ledger.
+
+## How it is wired
+
+One `SessionStart` hook, `hooks/roadmap-rule.sh`. In a repo that has a roadmap it injects a short
+rule: a task the user states directly ("upgrade X") is written as an item first, then entered
+through `next-roadmap-item`, and landed through `land-and-wrap`. Without the rule such a session
+never loads a skill from this plugin, and it writes no item, opens no worktree, and decides the
+landing from whatever standing instruction it finds. In a repo with no roadmap the hook prints
+nothing. The self-check is `sh hooks/roadmap-rule.test.sh`.
+
+The roadmap is looked up as in `next-roadmap-item` §1: a `ROADMAP.local.md` in the primary checkout,
+else a tracked `ROADMAP.md` or `docs/roadmap.md` in a repo with no `upstream` remote. A fork's
+tracked `ROADMAP.md` is the upstream project's, so the hook stays silent there.
