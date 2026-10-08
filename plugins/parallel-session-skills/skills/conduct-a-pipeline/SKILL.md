@@ -100,8 +100,9 @@ branch per `work-in-worktree` §3 and write its claim per `claim-a-lane` §3, **
 `touches` globs**—the conductor is the one reader that depends on them being accurate, since it is
 holding several lanes open at once. Where the branch needs a name for its destination
 (`work-in-worktree` §3: `pr` mode or a fork), give it one then, since nobody is present at landing to
-supply one. **Name the worktree directory with the unit's ID as a prefix**—`$WTROOT/<id>-<color-animal>`,
-keeping `work-in-worktree` §3's generated pair as the suffix—while the branch keeps its own name.
+supply one. **Pass the unit's ID as `open_worktree`'s `id` input.** It names the worktree directory
+`<id>-<color-animal>` and the branch `claude/<id>-<color-animal>`; a branch named for its destination
+is renamed after the worktree opens (`work-in-worktree` §3), while the directory keeps its name.
 A backlog that pins a unit by branch or worktree name (`work-in-worktree` §2's tell 1 or 2) can then
 read the ID straight off the worktree directory for as long as it exists, which matters most in `pr`
 mode, where the worktree outlives the fill that opened it.
