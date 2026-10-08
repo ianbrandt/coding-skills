@@ -75,12 +75,18 @@ against the claim ledger.
 
 ## How it is wired
 
-One `SessionStart` hook, `hooks/roadmap-rule.sh`. In a repo that has a roadmap it injects a short
+One `SessionStart` command hook, `hooks/roadmap-rule.sh`. In a repo that has a roadmap it injects a short
 rule: a task the user states directly ("upgrade X") is written as an item first, then entered
 through `next-roadmap-item`, and landed through `land-and-wrap`. Without the rule such a session
 never loads a skill from this plugin, and it writes no item, opens no worktree, and decides the
 landing from whatever standing instruction it finds. In a repo with no roadmap the hook prints
 nothing. The self-check is `sh hooks/roadmap-rule.test.sh`.
+
+One hooks module, `hooks/register.ts`, which is a Claude Code mod and needs Claude Code 2.1.286 or
+later. It registers the tool `mcp__roadmap-skills__delete_item`, called from `next-roadmap-item` to
+delete a landed item: from the item's heading to the next heading of the same or a higher level,
+with headings inside a fenced block skipped. The deletion is a pure function in `hooks/item.ts`,
+checked by `claude plugin test` with `hooks/item.test.ts`.
 
 The roadmap is looked up as in `next-roadmap-item` §1: a `ROADMAP.local.md` in the primary checkout,
 else a tracked `ROADMAP.md` or `docs/roadmap.md` in a repo with no `upstream` remote. A fork's
