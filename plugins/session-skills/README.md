@@ -66,8 +66,13 @@ in the marketplace's README.
 ## How it is wired
 
 One hooks module, `hooks/register.ts`, which is a Claude Code mod and needs Claude Code 2.1.286 or
-later, the oldest version supported. No shell is involved. At session start `hooks/rules.md` is
-added to every session, including after `/clear` and compaction. That file has three rules that cannot go in a skill. One is the session-title suggestion
+later, the oldest version supported. It registers the tool `mcp__session-skills__edit_primary_file`,
+called from `work-in-worktree` §3 to edit a file that is only in the primary checkout, such as an
+untracked roadmap: one passage is replaced, or text is appended, and nothing is written when the
+passage has drifted. `hooks/register.test.ts` runs under `claude plugin test`.
+
+At session start the module adds `hooks/rules.md` to every session, including after `/clear` and
+compaction. That file has three rules that cannot go in a skill. One is the session-title suggestion
 made at the end of a session, in a format the user copies in one gesture. Another runs every turn:
 weigh continuing this session against handing off to a fresh one, silently, and speak only when a
 tell trips—the unit just landed, the session has been compacted, or the next thing is unrelated

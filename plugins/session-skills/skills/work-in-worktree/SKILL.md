@@ -203,11 +203,11 @@ directory, and any shared ledger a plugin keeps there never propagate to a workt
 design, one shared copy
 rather than per-worktree forks of it. A worktree-guard hook, where the environment has one, blocks
 file-edit tools against the primary checkout while a worktree session is active; that is right for
-source files and wrong for this family. Don't relocate the file to satisfy the guard. Splice the
-edit through a plain shell command instead: a heredoc `python3 - <<'PYEOF'` with an `assert old in s`
-before the replace, so a drifted anchor fails loudly instead of silently doing nothing, or write the
-whole file to a scratch path and `cp scratch target`. Such guards typically reject
-a *compound* command (`A && B`, `VAR=x; cmd`)—split it into plain single commands.
+source files and wrong for this family. Don't relocate the file to satisfy the guard. Make the edit
+with the `mcp__session-skills__edit_primary_file` tool instead, passing the file's absolute path, the
+passage to replace, and its replacement, or an empty passage to append. A passage that has drifted
+or occurs twice is an error and nothing is written. Never write the whole file back from a copy read
+earlier: another session's edit made in between is lost.
 
 **Write durable notes to the primary checkout, never into the worktree.** `git worktree remove`
 deletes a worktree's untracked files without a warning, and the loss shows up only when a later
