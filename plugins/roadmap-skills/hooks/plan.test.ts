@@ -41,6 +41,7 @@ test('the rule is added in a repo with a roadmap, read from the primary checkout
   const added = await start($)
   expect(added[0]).toBe('from a settings hook')
   expect(added[1]).toMatch(/^ROADMAP RULE ACTIVE\n\nThis repo's plan of record is `ROADMAP.local.md`, in the primary checkout at `\/repo`\./)
+  expect(added[1]).toContain("A tracked one is edited in the lane's worktree copy")
   expect(w.argvs).toHaveLength(2)
   expect(w.argvs.every(a => a[0] === 'git' && a[1] === '-C' && a[2] === '/repo')).toBe(true)
 })

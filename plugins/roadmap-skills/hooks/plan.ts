@@ -20,8 +20,10 @@ A task the user states directly is handled like an item picked off the roadmap. 
 edit to a file that will be committed:
 
 1. Find the task in \`${roadmap}\`. If it is not there, write it as a new item at its priority
-   position: the problem in a sentence or two, and the paths it touches. Take the next free \`Rn\`
-   ID, checked against the parked, declined, and changelog files too, since an ID is never reused.
+   position: the problem in a sentence or two, and the paths it touches. A local-only roadmap is
+   edited in the primary checkout. A tracked one is edited in the lane's worktree copy, and the edit
+   is committed there. Take the next free \`Rn\` ID, checked against the parked, declined, and
+   changelog files too, since an ID is never reused.
 2. Run \`next-roadmap-item <Rn>\`. The worktree, the branch name, the claim, and the landing all
    come from there. Run it even when a task-specific skill, an upgrade or a refactor, covers the
    work: from that skill you learn what to change, not where to make the change or how it leaves

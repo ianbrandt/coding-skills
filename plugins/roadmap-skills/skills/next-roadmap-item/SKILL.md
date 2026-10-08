@@ -43,6 +43,8 @@ never be mistaken for yours.
 Call the `mcp__roadmap-skills__find_roadmap` tool. It reads the primary checkout from any worktree
 and returns a `kind`, with absolute paths for `roadmap` and `history` where there are any. `$ROADMAP`
 and `$HISTORY` below are those two paths.
+A tracked roadmap is read at `$ROADMAP` and edited at the same repo-relative path under `$WT`, where
+the edit is committed. Only a local-only roadmap is edited in the primary checkout.
 
 - `local-only`: `ROADMAP.local.md` exists. `$HISTORY` is `ROADMAP-CHANGELOG.local.md` beside it.
 - `tracked`: `ROADMAP.md` or `docs/roadmap.md` is tracked in a repo with no `upstream` remote. There
@@ -222,7 +224,8 @@ at its end. Two things it defers back to this skill:
   discussed or deferred rather than queued.
 
 **Delete a landed item with the `mcp__roadmap-skills__delete_item` tool**, passing the absolute
-path of `$ROADMAP` in the primary checkout and the item's ID. The tool deletes from the item's
+path of the roadmap and the item's ID: `$ROADMAP` in the primary checkout for a local-only roadmap, the
+copy under `$WT` for a tracked one. The tool deletes from the item's
 heading to the next heading of the same or a higher level, sub-items included, and returns the
 headings it removed. Other sessions add items while this one builds, so the item below yours when
 you picked is not necessarily the one below it now, and an untracked roadmap has no history to
