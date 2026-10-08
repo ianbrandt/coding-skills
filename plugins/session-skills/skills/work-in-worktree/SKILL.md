@@ -207,22 +207,26 @@ Call `mcp__session-skills__prune_branches`. It never removes a worktree. In orde
 Step 4 is for a PR branch the host squashed or rebased on merge, which `--merged` misses, so those
 pile up. Once the host deletes the remote copy, the local branch's upstream is gone. That alone is no
 proof of a merge: a declined PR with its branch deleted looks the same. So a branch is deleted only
-when merging it into `origin/$DEFAULT` now would change nothing (`git merge-tree`, git 2.40+). The
+when merging it into `origin/$DEFAULT` now would change nothing (`git merge-tree`, git 2.43+). The
 same merge is then taken from each of the branch's commits, so that what the branch changed after
 that commit is on `origin/$DEFAULT` too: a commit made after the host's merge that only undoes
-part of it leaves the first merge with nothing to change. The repo's merge drivers are not run. Any
-check that fails leaves the branch in place. Step 4 checks nothing after a fetch that failed, or
-where a merge driver is set in `.git/info/attributes`, which git has no switch to turn off: the
-result then has a `warning:` line to repeat in the reply.
+part of it leaves the first merge with nothing to change. A merge commit whose tree differs from
+the automatic merge of its parents is checked from that commit too, since a change made in the
+merge itself is in no other commit. The repo's merge drivers are not run. Any check that fails
+leaves the branch in place. Step 4 checks nothing after a fetch that failed, where a merge driver
+is set in `.git/info/attributes`, which git has no switch to turn off, or where the tree of
+`origin/$DEFAULT` or the empty tree cannot be read: the result then has a `warning:` line to repeat
+in the reply.
 
 The result has one line per branch: `deleted:`, `kept:`, `merged, still checked out:`, or `left:`
 with git's reason where a deletion was refused.
 
 A merge commit, a rebase merge, and a squash merge all pass. A declined PR, a squash the reviewer
 edited, and a branch with a change committed since the merge print `kept`. List those in the wrap-up
-and leave them. A merged branch still checked out in a worktree prints `merged, still checked out`:
-remove that worktree if it is yours, by the rules below, then call the tool again. List any other in
-the wrap-up.
+and leave them. `merged, still checked out` is printed only for a branch with a gone upstream. A
+merged `claude/` or `worktree-` branch that is checked out is skipped with no line, so after a
+merge, remove your own worktree by the rules below, then call the tool. List any
+`merged, still checked out` branch that is not yours in the wrap-up.
 
 **Never `git worktree remove` a worktree you didn't create.** A live session between tasks looks
 identical to an abandoned one, and removing its directory kills it mid-flight. Leftovers are
