@@ -330,7 +330,7 @@ export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     await $.tool.register({
       name: 'edit_primary_file',
-      description: "Edit a file in the repo's primary checkout from a worktree session: replace one passage, or append. The file is read and written in one call. Nothing is written when the passage is absent or occurs more than once.",
+      description: "Edit a file in the repo's primary checkout from a worktree session: replace one passage, or append. The file is read and written in one call. Nothing is written when the passage is absent or occurs more than once, or when the file changes during the call. The path is checked as text, so a link inside the checkout is followed.",
       inputSchema: {
         type: 'object',
         properties: {
@@ -366,8 +366,12 @@ export const register: Register = on => {
       const path = String(e.path).replace(/\\/g, '/')
       const root = main.replace(/\\/g, '/').replace(/\/$/, '')
       if (!path.startsWith(`${root}/`) || path.split('/').includes('..')) throw new Error(`${e.path} is not inside the primary checkout ${main}`)
-      const text = (await $.fs.exists(e.path)) ? await $.fs.read(e.path) : ''
-      await $.fs.write(e.path, splice(text, String(e.old), String(e.new)))
+      const read = async (): Promise<string> => ((await $.fs.exists(e.path)) ? $.fs.read(e.path) : '')
+      const text = await read()
+      const next = splice(text, String(e.old), String(e.new))
+      // Another session may have written the file since the read above.
+      if ((await read()) !== text) throw new Error(`${e.path} changed while it was being edited. Nothing was written. Call the tool again.`)
+      await $.fs.write(e.path, next)
       return { result: `edited ${e.path}` }
     } catch (err) {
       const text = `edit_primary_file: ${(err as Error).message}`

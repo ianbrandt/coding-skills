@@ -28,11 +28,16 @@ test('a passage is replaced where it occurs once, and a replacement with $& in i
 })
 
 const EDIT = 'mcp__session-skills__edit_primary_file'
-function repo(on: any, files: Record<string, string>) {
+function repo(on: any, files: Record<string, string>, afterRead: (n: number) => void = () => {}) {
+  let reads = 0
   const posix = (p: string) => p.replace(/^[A-Za-z]:/, '').replace(/\\/g, '/')
   on('session.repo', () => ({ value: { root: '/repo', remote: null, internal: false } }))
   on('fs.exists', (_$: any, e: any) => ({ value: posix(e.path) in files }))
-  on('fs.read', (_$: any, e: any) => ({ value: files[posix(e.path)] }))
+  on('fs.read', (_$: any, e: any) => {
+    const value = files[posix(e.path)]
+    afterRead(++reads)
+    return { value }
+  })
   on('fs.write', (_$: any, e: any) => { files[posix(e.path)] = e.text; return { value: undefined } })
   return files
 }
@@ -52,4 +57,12 @@ test('the tool writes nothing for a drifted passage or a path outside the primar
     expect(ran.text).toContain(why)
   }
   expect(files).toEqual({ '/repo/a.md': 'a\n', '/elsewhere/a.md': 'a\n' })
+})
+
+test('the tool writes nothing when the file changed after it was first read', async ($: any, on: any) => {
+  const files = repo(on, { '/repo/a.md': 'a\n' }, n => { if (n === 1) files['/repo/a.md'] = 'a\nadded by a sibling\n' })
+  const ran = await $.tool.call({ tool: EDIT, path: '/repo/a.md', old: 'a\n', new: 'b\n' })
+  expect(ran.isError).toBe(true)
+  expect(ran.text).toContain('changed')
+  expect(files['/repo/a.md']).toBe('a\nadded by a sibling\n')
 })
