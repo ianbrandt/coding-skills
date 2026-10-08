@@ -6,8 +6,8 @@ skills for software work, published under the `ianbrandt` marketplace.
 ## Install
 
 Add the marketplace, then install the plugins below. The Claude Code Desktop plugin UI does both
-without the commands. `writing-conventions` needs Claude Code 2.1.286 or later for everything but
-its session-start rules.
+without the commands. Claude Code 2.1.286 is the oldest version supported: hooks and tools run in
+hooks modules, which are Claude Code mods and are on by default from that version.
 
 ```sh
 /plugin marketplace add IanBrandt/coding-skills
