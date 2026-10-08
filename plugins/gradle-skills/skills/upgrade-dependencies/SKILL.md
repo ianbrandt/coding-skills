@@ -25,13 +25,14 @@ find . \( -name 'settings.gradle.kts' -o -name 'settings.gradle' -o -type d -nam
   -not -path '*/build/*' -not -path '*/.claude/worktrees/*'
 ```
 
-## Sub-agent delegation
+## Running a verification build
 
-Delegate **verification** (steps 5 and 6), one single-shot general-purpose sub-agent per build, on a
-small, fast model: the job is running a command and trimming its output. It returns only step 5's
-summary contract. A sub-agent **must not** edit files, run `git`, fix failures, or move on to another
-dependency; on failure it returns enough to act on, never a bare "FAIL". Everything else stays in the
-main thread. Relay what comes back.
+Run every **verification** build (steps 5 and 6) from the main thread, as one background command
+(`run_in_background` in Claude Code) with its output redirected to a log file in a temp or scratch
+directory outside the repo. Do not delegate it to a sub-agent: a sub-agent is not re-invoked when a
+background command it started exits, and a foreground call is capped at 10 minutes, so a sub-agent
+either returns before the build has a verdict, which kills the build, or cannot run a longer build at
+all.
 
 ## Workflow
 
@@ -164,10 +165,10 @@ version). Explain why; still one round, one commit.
 
 ### 5. Verification
 
-After each version change, in a sub-agent:
+After each version change:
 
 ```
-./gradlew <per-round tasks>
+./gradlew <per-round tasks> > <log> 2>&1
 ```
 
 Single-build default `./gradlew build buildHealth`; composite, the step-1 set, e.g.
@@ -178,20 +179,20 @@ result—a toolchain / compiler-plugin or code-generator upgrade, signs of stale
 reported `UP-TO-DATE` that the change should have touched, or entries under `.exceeded`), or a
 deliberate from-scratch check.
 
-The sub-agent returns only:
+Wait for the command's exit notification:
 
-- **Success:** `PASS`, with the `BUILD SUCCESSFUL` marker and—when `buildHealth` ran—its "no issues"
-  confirmation.
-- **Failure:** `FAIL`, which task failed, and the actionable error block (compiler errors with
-  `file:line`, failed test names with the assertion, or the `buildHealth` advice), trimmed to what
-  the main thread needs to decide fix-vs-revert. No fix attempt, no other dependency touched.
+- **Success:** exit code 0. The log stays unread, except that when `buildHealth` ran, confirm with
+  `grep -a` on the log that it reported no issues.
+- **Failure:** any other exit code. Take which task failed and the actionable error block (compiler
+  errors with `file:line`, failed test names with the assertion, or the `buildHealth` advice) from
+  the log with `grep -a`, not by reading the whole log: only what is needed to decide fix-vs-revert.
 
 Verification must pass before a round is committed.
 
 ### 6. Final verification, then push
 
-After every round has passed and been committed, run `./gradlew <final tasks>` once in a sub-agent
-with the step-5 return contract. May use the heavier step-1 set; a from-scratch check is often worth
+After every round has passed and been committed, run `./gradlew <final tasks>` once, the same
+way as step 5. May use the heavier step-1 set; a from-scratch check is often worth
 `--rerun-tasks` even when the per-round builds ran without it.
 
 - If it fails, **stop and report; do not push.**

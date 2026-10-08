@@ -8,11 +8,13 @@ paths: "**/gradle-wrapper.properties"
 
 Upgrade every Gradle wrapper to the latest stable version and validate the build. No prerequisites.
 
-## Sub-agent delegation
+## Running the validation build
 
-Run the step-4 validation build in a single-shot general-purpose sub-agent; keep discovery, edits,
-wrapper regeneration, and reporting in the main thread. Sub-agents must not edit files, run `git`, or
-fix failures. Relay what they return.
+Run the step-4 validation build from the main thread, as one background command (`run_in_background`
+in Claude Code) with its output redirected to a log file in a temp or scratch directory outside the
+repo. Do not delegate it to a sub-agent: a sub-agent is not re-invoked when a background command it
+started exits, and a foreground call is capped at 10 minutes, so a sub-agent either returns before
+the build has a verdict, which kills the build, or cannot run a longer build at all.
 
 ## Workflow
 
@@ -70,16 +72,17 @@ type to `bin` and keeps the old checksum, so the next build fails verification.
 ### 4. Validation
 
 ```
-./gradlew build
+./gradlew build > <log> 2>&1
 ```
 
 A root `build` does not fan out across included builds. If it does not transitively cover an upgraded
 wrapper's build, also run that build's `./gradlew build` or the aggregator task reaching it; when
 the task set is not obvious, confirm it with the maintainer.
 
-Sub-agent returns only `PASS` (with the `BUILD SUCCESSFUL` marker), or `FAIL` with the failing task
-and actionable error block (compiler errors with `file:line`, failed test names with the assertion).
-Must pass before reporting.
+Wait for the command's exit notification: exit code 0 is a pass, and the log stays unread. On any
+other exit code, take the failing task and the actionable error block (compiler errors with
+`file:line`, failed test names with the assertion) from the log with `grep -a`, not by reading the
+whole log. Must pass before reporting.
 
 `--rerun-tasks` is your judgement: up-to-date checks ignore the Gradle version, so add it when the
 validation must re-exercise the build. Validation build only.

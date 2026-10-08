@@ -21,7 +21,7 @@ Updates come from the [Gradle Versions Plugin](https://github.com/ben-manes/grad
 4. Verify with the chosen tasks after each change (adding `--rerun-tasks` when a from-scratch check is warranted); when a major-version bump fails, retry once at the latest minor
 5. Commit each verified change and continue automatically through every update; push only after a final verification passes, and only if you opted into push
 
-**Sub-agents:** Each verification build runs in a sub-agent on a small, fast model that returns only a short summary. This keeps the raw Gradle output out of the main conversation, reducing context and plan (token) usage across a multi-round run.
+**Build output:** Each verification build runs in the background with its output written to a log file, and only the verdict is read back. The raw Gradle output stays out of the conversation, reducing context and plan (token) usage across a multi-round run.
 
 ### `upgrade-gradle`
 
@@ -37,7 +37,7 @@ Guides Claude through upgrading the Gradle wrapper to the latest available versi
 3. For each: if that build's script has a `wrapper` task configuration, update the version there; otherwise pass it with `--gradle-version`, along with the distribution type and checksum where the build pins them. Either way, run `./gradlew wrapper` twice: the second run, on the new Gradle, regenerates `gradle-wrapper.jar` and the `gradlew` scripts
 4. Run `build` to validate the upgrade (composite-aware: a root build may not reach every included build)
 
-**Sub-agents:** Discovery and the validation build run in sub-agents that return a short summary, keeping verbose Gradle output out of the main conversation.
+**Build output:** The validation build runs in the background with its output written to a log file, and only the verdict is read back.
 
 ## Installation
 
