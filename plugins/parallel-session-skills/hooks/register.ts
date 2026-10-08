@@ -22,7 +22,7 @@ const TOOLS = {
     },
   },
   release_claim: {
-    description: 'Delete the claim for the branch checked out in a worktree. Returns the claims that remain. An error when that branch has no claim.',
+    description: 'Delete the claim for the branch checked out in a worktree. Returns the claims that remain. Once the worktree is gone, releases the claims of this session instead. An error when there is no claim.',
     inputSchema: {
       type: 'object',
       properties: { worktree: { type: 'string', description: "Absolute path of the lane's worktree, never the primary checkout." } },
@@ -132,6 +132,14 @@ async function writeClaim($: any, main: string, e: any): Promise<string> {
 }
 
 async function releaseClaim($: any, main: string, e: any): Promise<string> {
+  // A worktree that is gone has no branch to look up. The claims of this
+  // session are the ones it can release.
+  if (!(await $.fs.exists(String(e.worktree)))) {
+    const mine = ownedBy(await entries($, main), await $.session.id())
+    if (!mine.length) throw new Error(`no claim of this session, and ${e.worktree} is gone\n${render(main, await entries($, main))}`)
+    for (const m of mine) await remove($, main, m.name)
+    return `released: ${mine.map(m => m.name).join(', ')} (${e.worktree} is gone, so the claims of this session were released)\n${render(main, await entries($, main))}`
+  }
   const name = fileOf(await lane($, main, String(e.worktree)))
   if (!(await $.fs.exists(`${main}/${DIR}/${name}`))) throw new Error(`no claim ${name}\n${render(main, await entries($, main))}`)
   await remove($, main, name)

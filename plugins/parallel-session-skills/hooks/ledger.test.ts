@@ -61,7 +61,10 @@ function world(on: any, worktrees: Record<string, string>, files: Record<string,
     if (w.torn?.name === name) { const { text } = w.torn; w.torn = null; return { value: text } }
     return { value: w.files[name] }
   })
-  on('fs.exists', (_$: any, e: any) => ({ value: posix(e.path).slice(dir.length) in w.files }))
+  on('fs.exists', (_$: any, e: any) => {
+    const path = posix(e.path)
+    return { value: path.startsWith(dir) ? path.slice(dir.length) in w.files : path === '/repo' || path in w.worktrees || path in other }
+  })
   on('fs.write', (_$: any, e: any) => { w.files[posix(e.path).slice(dir.length)] = e.text; return { value: undefined } })
   on('process.run', (_$: any, e: any) => {
     if (e.init?.cwd !== '/repo') throw new Error("ENOENT: no such file or directory, posix_spawn 'git'")
@@ -127,7 +130,8 @@ test("write_claim files the claim under the worktree's branch with this session'
 test('the primary checkout, a detached HEAD, and a path that is no worktree are refused', async ($: any, on: any) => {
   const w = world(on, { '/wt/d': 'HEAD' }, {})
   for (const [worktree, why] of [['/repo', 'is the primary checkout'], ['/wt/d', 'detached HEAD'], ['/nowhere', 'rev-parse']]) {
-    for (const name of ['write_claim', 'release_claim']) {
+    // A path that does not exist is a worktree that was removed, and release_claim treats it as that.
+    for (const name of worktree === '/nowhere' ? ['write_claim'] : ['write_claim', 'release_claim']) {
       const ran = await call($, name, { worktree, item: 'x', touches: [] })
       expect(ran.isError).toBe(true)
       expect(ran.text).toContain(why)
@@ -180,9 +184,23 @@ test("the end of a session deletes that session's claims and no other", async ($
 })
 
 // A process is started in the session's directory unless another is given.
-test("a claim is released after the session's directory is removed, by the tool and at session end", async ($: any, on: any) => {
-  const w = world(on, { '/wt/a': 'claude/a' }, { 'claude-a.json': claim('claude/a', 'MINE'), 'claude-b.json': claim('claude/b', 'MINE') })
-  expect((await call($, 'release_claim', { worktree: '/wt/a' })).result).toContain('released: claude-a.json')
+test("a claim is released after the lane's worktree is removed, by the tool and at session end", async ($: any, on: any) => {
+  const w = world(on, {}, { 'claude-a.json': claim('claude/a', 'MINE'), 'claude-b.json': claim('claude/b', 'MINE') })
+  const ran = await call($, 'release_claim', { worktree: '/wt/a' })
+  expect(ran.result).toContain('released: claude-a.json, claude-b.json')
+  expect(ran.result).toContain('/wt/a is gone')
+  expect(w.files).toEqual({})
+  w.files['claude-c.json'] = claim('claude/c', 'MINE')
   await $.classic.SessionEnd({ reason: 'other', session_id: 'MINE' })
   expect(w.files).toEqual({})
+})
+
+test("a removed worktree's release leaves another session's claim, and with none of this session's it is an error", async ($: any, on: any) => {
+  const w = world(on, {}, { 'claude-a.json': claim('claude/a', 'SIBLING'), 'claude-b.json': claim('claude/b', 'MINE') })
+  expect((await call($, 'release_claim', { worktree: '/wt/gone' })).result).toContain('released: claude-b.json')
+  expect(Object.keys(w.files)).toEqual(['claude-a.json'])
+  const again = await call($, 'release_claim', { worktree: '/wt/gone' })
+  expect(again.isError).toBe(true)
+  expect(again.text).toContain('no claim of this session')
+  expect(Object.keys(w.files)).toEqual(['claude-a.json'])
 })
