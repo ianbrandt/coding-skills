@@ -47,7 +47,7 @@ test('an empty session id matches no claim', () => {
 function world(on: any, worktrees: Record<string, string>, files: Record<string, string>, session = 'MINE', other: Record<string, string> = {}) {
   const posix = (p: string) => p.replace(/^[A-Za-z]:/, '').replace(/\\/g, '/')
   const dir = '/repo/.claude/claims/'
-  const w = { files, worktrees, now: 1_000_000, root: '/repo' as string | null, torn: null as { name: string; text: string } | null }
+  const w = { files, worktrees, now: 1_000_000, root: '/repo' as string | null, torn: null as { name: string; text: string } | null, writing: null as string | null }
   on('session.repo', () => ({ value: w.root ? { root: w.root, remote: null, internal: false } : null }))
   on('session.id', () => ({ value: session }))
   on('clock.now', () => ({ value: w.now }))
@@ -59,8 +59,11 @@ function world(on: any, worktrees: Record<string, string>, files: Record<string,
     const name = posix(e.path).slice(dir.length)
     // A claim being rewritten reads as torn text once.
     if (w.torn?.name === name) { const { text } = w.torn; w.torn = null; return { value: text } }
+    // One whose write is still in progress reads as torn every time, and has that write's time.
+    if (w.writing === name) return { value: '{ "item": "a", "bran' }
     return { value: w.files[name] }
   })
+  on('fs.stat', (_$: any, e: any) => ({ value: { kind: 'file', size: 1, mtimeMs: w.writing === posix(e.path).slice(dir.length) ? w.now : 0, isLink: false } }))
   on('fs.exists', (_$: any, e: any) => {
     const path = posix(e.path)
     return { value: path.startsWith(dir) ? path.slice(dir.length) in w.files : path === '/repo' || path in w.worktrees || path in other }
@@ -109,6 +112,19 @@ test('a claim that is whole but for a branch in no worktree is still reaped afte
   const w = world(on, { '/wt/a': 'claude/a' }, { 'claude-gone.json': claim('claude/gone') })
   w.torn = { name: 'claude-gone.json', text: '{ "item": "a", "bran' }
   expect((await call($, 'read_ledger')).result).toContain('reaped dead claim: claude-gone.json')
+  expect(w.files).toEqual({})
+})
+
+test('a claim torn on both reads by a write that began after the ledger was listed is kept', async ($: any, on: any) => {
+  const w = world(on, { '/wt/a': 'claude/a' }, { 'claude-a.json': claim('claude/a') })
+  w.writing = 'claude-a.json'
+  expect((await call($, 'read_ledger')).result).not.toContain('reaped')
+  expect(Object.keys(w.files)).toEqual(['claude-a.json'])
+})
+
+test('a file that parses on neither read and is a minute old is reaped', async ($: any, on: any) => {
+  const w = world(on, { '/wt/a': 'claude/a' }, { 'junk.json': '{ "item": "a", "bran' })
+  expect((await call($, 'read_ledger')).result).toContain('reaped dead claim: junk.json')
   expect(w.files).toEqual({})
 })
 

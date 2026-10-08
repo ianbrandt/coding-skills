@@ -102,13 +102,13 @@ async function readLedger($: any, main: string): Promise<string> {
   const gone: Entry[] = []
   for (const e of dead(all, branches, now, detached)) {
     // A file that did not parse may have been read while another session wrote
-    // it. It is judged again as a claim if it parses now.
+    // it, so it is read and judged again. Its age is taken after the read: a
+    // file still torn by a write in progress then has that write's time.
     if (!parse(e.text)) {
-      const text = await $.fs.read(`${main}/${DIR}/${e.name}`).catch(() => '')
-      if (parse(text)) {
-        e.text = text
-        if (!dead([e], branches, now, detached).length) continue
-      }
+      const path = `${main}/${DIR}/${e.name}`
+      e.text = await $.fs.read(path).catch(() => '')
+      e.mtimeMs = (await $.fs.stat(path).catch(() => e)).mtimeMs
+      if (!dead([e], branches, now, detached).length) continue
     }
     gone.push(e)
   }
