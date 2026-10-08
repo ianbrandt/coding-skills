@@ -64,19 +64,34 @@ async function remove($: any, main: string, name: string): Promise<void> {
   if (await $.fs.exists(`${main}/${DIR}/${name}`)) throw new Error(`${DIR}/${name} was not deleted`)
 }
 
+// The worktrees git lists, the primary checkout's first, with the branch each
+// has checked out. A detached worktree has none.
+async function worktrees($: any, main: string): Promise<{ path: string; branch: string | null }[]> {
+  const listed = await git($, main, 'worktree', 'list', '--porcelain')
+  return listed.split(/\n\n+/).filter(b => b.trim()).map(block => ({
+    path: /^worktree (.+)$/m.exec(block)?.[1] ?? '',
+    branch: /^branch refs\/heads\/(.+)$/m.exec(block)?.[1] ?? null,
+  }))
+}
+
 // Branches checked out in a worktree, the primary checkout's first.
 async function live($: any, main: string): Promise<string[]> {
   await git($, main, 'worktree', 'prune')
-  return [...(await git($, main, 'worktree', 'list', '--porcelain')).matchAll(/^branch refs\/heads\/(.+)$/gm)].map(m => m[1])
+  return (await worktrees($, main)).flatMap(w => (w.branch ? [w.branch] : []))
 }
 
-// The branch a lane's claim is filed under. The primary checkout is refused: a
-// path re-derived from a session's own directory is often that one, and a
-// release keyed off it would delete nothing.
+// The branch a lane's claim is filed under, found by the worktree's path in
+// git's list: a branch name alone would match a clone of another repo. The
+// primary checkout is refused: a path re-derived from a session's own directory
+// is often that one, and a release keyed off it would delete nothing.
 async function lane($: any, main: string, worktree: string): Promise<string> {
-  const branch = (await git($, worktree, 'rev-parse', '--abbrev-ref', 'HEAD')).trim()
-  if (branch === 'HEAD') throw new Error(`${worktree} is on a detached HEAD: put it on a branch first`)
-  if ((await live($, main))[0] === branch) throw new Error(`${worktree} is the primary checkout, on ${branch}: pass the lane's own worktree`)
+  const top = (await git($, worktree, 'rev-parse', '--show-toplevel')).trim()
+  const all = await worktrees($, main)
+  const at = all.findIndex(w => w.path === top)
+  if (at < 0) throw new Error(`${worktree} is not a worktree of this repo`)
+  const { branch } = all[at]
+  if (at === 0) throw new Error(`${worktree} is the primary checkout${branch ? `, on ${branch}` : ''}: pass the lane's own worktree`)
+  if (!branch) throw new Error(`${worktree} is on a detached HEAD: put it on a branch first`)
   return branch
 }
 

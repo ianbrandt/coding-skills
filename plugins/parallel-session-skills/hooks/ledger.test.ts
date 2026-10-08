@@ -39,7 +39,7 @@ test('an empty session id matches no claim', () => {
 // ledger's files. `git clean` deletes from `files`, as git does on disk. The
 // session's directory is a worktree that was removed, so git starts only when
 // it is run in /repo.
-function world(on: any, worktrees: Record<string, string>, files: Record<string, string>, session = 'MINE') {
+function world(on: any, worktrees: Record<string, string>, files: Record<string, string>, session = 'MINE', other: Record<string, string> = {}) {
   const posix = (p: string) => p.replace(/^[A-Za-z]:/, '').replace(/\\/g, '/')
   const dir = '/repo/.claude/claims/'
   const w = { files, worktrees, now: 1_000_000, root: '/repo' as string | null }
@@ -58,7 +58,7 @@ function world(on: any, worktrees: Record<string, string>, files: Record<string,
     const [, , cwd, ...argv] = e.argv as string[]
     const out = (stdout: string, exitCode = 0) => ({ value: { exitCode, stdout, stderr: exitCode ? 'fatal' : '' } })
     const all = { '/repo': 'main', ...w.worktrees }
-    if (argv[0] === 'rev-parse') return posix(cwd) in all ? out(all[posix(cwd)] + '\n') : out('', 128)
+    if (argv[0] === 'rev-parse') return posix(cwd) in all || posix(cwd) in other ? out(posix(cwd) + '\n') : out('', 128)
     if (argv.join(' ') === 'worktree list --porcelain') {
       return out(Object.entries(all).map(([p, b]) => `worktree ${p}\nHEAD 0\n${b === 'HEAD' ? 'detached' : `branch refs/heads/${b}`}\n`).join('\n'))
     }
@@ -100,6 +100,26 @@ test('the primary checkout, a detached HEAD, and a path that is no worktree are 
       expect(ran.text).toContain(why)
     }
   }
+  expect(w.files).toEqual({})
+})
+
+test("a repo that is not this one's worktree is refused, even on a claimed branch name", async ($: any, on: any) => {
+  const w = world(on, { '/wt/a': 'claude/a' }, { 'claude-a.json': claim('claude/a', 'SIBLING') }, 'MINE', { '/other': 'claude/a' })
+  for (const name of ['write_claim', 'release_claim']) {
+    const ran = await call($, name, { worktree: '/other', item: 'x', touches: [] })
+    expect(ran.isError).toBe(true)
+    expect(ran.text).toContain('is not a worktree of this repo')
+  }
+  expect(w.files).toEqual({ 'claude-a.json': claim('claude/a', 'SIBLING') })
+})
+
+test('with the primary checkout detached, the first linked worktree can claim and release', async ($: any, on: any) => {
+  const w = world(on, { '/repo': 'HEAD', '/wt/a': 'claude/a' }, {})
+  const refused = await call($, 'write_claim', { worktree: '/repo', item: 'x', touches: [] })
+  expect(refused.text).toContain('is the primary checkout')
+  expect((await call($, 'write_claim', { worktree: '/wt/a', item: 'x', touches: [] })).isError).toBeUndefined()
+  expect(Object.keys(w.files)).toEqual(['claude-a.json'])
+  expect((await call($, 'release_claim', { worktree: '/wt/a' })).result).toContain('released: claude-a.json')
   expect(w.files).toEqual({})
 })
 
