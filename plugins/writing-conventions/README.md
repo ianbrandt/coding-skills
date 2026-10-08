@@ -163,6 +163,11 @@ session could not commit at all. Sonnet 5 allowed 23 of those 24, and both model
 checks on planted violations. Sonnet 5.5, which the alias resolves to on CLI 2.1.289, had the same
 two counts on 2026-10-05, and over five runs it allowed 57 of 60 and denied 40 of 40.
 
+Haiku 5.5 had the same two counts as Sonnet 5.5 on 2026-10-07, but Sonnet is still the default. On
+a larger set of 35 texts with an inanimate-agency violation and 60 clean ones, each checked twice,
+Haiku 5.5 denied 58 of the 70 where Sonnet 5.5 denied 66, and it was no faster. At its default
+effort, 9 of its 190 calls ended with no reply, and a check with no reply is skipped.
+
 Matched clauses were checked on 2026-10-06, on the `sonnet` alias with CLI 2.1.291. Four planted
 commit messages, each with two unrelated facts in matched clauses, were denied on 17 of 18 runs, and
 on none of 4 runs before the rule was added. On sixteen commit messages from this repo's history,
