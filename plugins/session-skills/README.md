@@ -8,10 +8,12 @@ session does between those two points.
 
 ### `work-in-worktree`
 
-Fetch first, and branch from `origin/<default>` rather than the local default branch. There is no
-local way to tell whether the checkout is current. A stale branch point either surfaces at push time
-as a rejected non-fast-forward, or never surfaces, and the work merges on top of commits it was not
-written against. The same fetch guards a one-line edit to a file another machine also edits.
+Fetch first, and branch from `origin/<default>` rather than a local default branch that is behind
+it. There is no local way to tell whether the checkout is current. A stale branch point either
+surfaces at push time as a rejected non-fast-forward, or never surfaces, and the work merges on top
+of commits it was not written against. The same fetch guards a one-line edit to a file another
+machine also edits. When the local default branch is ahead after the fetch, as it is while commits
+are held for review before a push, the new branch is opened from it and includes those commits.
 
 Adopt the worktree work is already in flight on, or open a fresh one. Work is already in flight
 when any of three tells is present: a pin in the repo's backlog, an existing worktree with commits

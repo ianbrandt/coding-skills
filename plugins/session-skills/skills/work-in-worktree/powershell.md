@@ -11,11 +11,21 @@ $Branch = git rev-parse --abbrev-ref HEAD
 $Default = (git symbolic-ref --short refs/remotes/origin/HEAD 2>$null) -replace '^origin/', ''
 if (-not $Default) { $Default = 'main' }             # the repo's integration branch (main/master/…)
 
-$Base = "origin/$Default"                            # branch from this, never from the local default
+$Base = "origin/$Default"                            # branch from this, not from a local default that is behind it
 git fetch -q
 if ($LASTEXITCODE -ne 0) { Write-Warning "fetch failed: $Base may be behind" }   # do not swallow this
 git rev-parse --verify -q $Base *> $null
 if ($LASTEXITCODE -ne 0) { $Base = $Default }         # no remote: local is all there is
+else {
+  git merge-base --is-ancestor $Base $Default
+  if ($LASTEXITCODE -eq 0) { $Base = $Default }       # nothing missing locally, and any held commits come along
+  else {
+    git merge-base --is-ancestor $Default $Base
+    if ($LASTEXITCODE -ne 0) {
+      Write-Warning "local $Default has diverged from ${Base}: branching from $Base, without the local commits"
+    }
+  }
+}
 
 $WtRoot = "$Main/.claude/worktrees"                   # where this host's tooling creates worktrees
 $Pfx = 'claude/'                                      # and the branch prefix it uses

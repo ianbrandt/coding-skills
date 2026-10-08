@@ -86,9 +86,15 @@ BRANCH=$(git rev-parse --abbrev-ref HEAD)
 DEFAULT=$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's@^origin/@@')
 DEFAULT=${DEFAULT:-main}                     # the repo's integration branch (main/master/…)
 
-BASE="origin/$DEFAULT"                       # branch from this, never from the local default branch
+BASE="origin/$DEFAULT"                       # branch from this, not from a local default branch that is behind it
 git fetch -q || echo "fetch failed: $BASE may be behind" >&2      # do not swallow this
-git rev-parse --verify -q "$BASE" >/dev/null || BASE="$DEFAULT"   # no remote: local is all there is
+if ! git rev-parse --verify -q "$BASE" >/dev/null; then
+  BASE="$DEFAULT"                            # no remote: local is all there is
+elif git merge-base --is-ancestor "$BASE" "$DEFAULT"; then
+  BASE="$DEFAULT"                            # nothing missing locally, and any held commits come along
+elif ! git merge-base --is-ancestor "$DEFAULT" "$BASE"; then
+  echo "local $DEFAULT has diverged from $BASE: branching from $BASE, without the local commits" >&2
+fi
 
 WTROOT="$MAIN/.claude/worktrees"             # where this host's tooling creates worktrees
 PFX="claude/"                                # and the branch prefix it uses
@@ -104,6 +110,16 @@ Fetching costs one round trip at the start of the session and removes both cases
 fails, offline or behind an expired credential, leaves `$BASE` as stale as before and looks
 identical to a clean one, so let the failure print rather than discarding it, and say so rather
 than reporting the branch point as current.
+
+**Commits held on the local default branch are the one case for branching from it.** Where a push
+is held for review (`land-and-wrap` §1's public hold), the local default branch stays ahead of
+`origin/$DEFAULT` until the user pushes. A branch opened from `origin/$DEFAULT` then lacks the held
+commits and cannot fast-forward back into the local default branch. So after the fetch, a local
+default branch that includes all of `origin/$DEFAULT` is the base. One that is only behind is the
+ordinary stale checkout, and `origin/$DEFAULT` stays the base. One that has diverged is reported and
+left for the user: the new branch starts from `origin/$DEFAULT` without the local commits, and say
+so in the reply. In `pr` mode or on a fork the local default branch should never be ahead, so say so
+there too when it is, since those commits would be in the pull request.
 
 **A file written for another machine to read**—a handoff list, a shared to-do, a status note—is
 where this bites hardest, because a second machine editing it is the purpose of the file. Fetch
