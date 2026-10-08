@@ -19,11 +19,13 @@ export function parse(text: string): Claim | null {
 // A claim is dead when no worktree has its branch checked out. Merge state is
 // not the test: a branch just claimed has the default branch's tip. A file that
 // does not parse may be a claim another session is writing now, so it is dead
-// only once it is a minute old.
-export function dead(entries: Entry[], live: string[], now: number): Entry[] {
+// only once it is a minute old. A worktree in a rebase or a bisect is listed as
+// detached, so its branch is not in `live`: while one is, no claim that parses
+// is dead.
+export function dead(entries: Entry[], live: string[], now: number, detached = false): Entry[] {
   return entries.filter(e => {
     const c = parse(e.text)
-    return c ? !live.includes(c.branch) : now - e.mtimeMs > 60_000
+    return c ? !detached && !live.includes(c.branch) : now - e.mtimeMs > 60_000
   })
 }
 

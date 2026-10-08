@@ -23,6 +23,11 @@ test('a claim is dead when its branch is in no worktree, whatever its age', () =
   expect(dead(list, ['main', 'claude/a'], 10).map(e => e.name)).toEqual(['b.json'])
 })
 
+test('with a worktree detached, no claim that parses is dead', () => {
+  const list = [entry('b.json', claim('claude/b')), entry('t.json', '{ "item": "a", "bran', 1_000)]
+  expect(dead(list, ['main'], 62_000, true).map(e => e.name)).toEqual(['t.json'])
+})
+
 test('a file that does not parse is dead only after a minute', () => {
   const torn = [entry('t.json', '{ "item": "a", "bran', 1_000)]
   expect(dead(torn, [], 30_000)).toEqual([])
@@ -74,6 +79,15 @@ test('read_ledger deletes dead claims and returns the live ones', async ($: any,
   const w = world(on, { '/wt/a': 'claude/a' }, { 'claude-a.json': claim('claude/a'), 'claude-gone.json': claim('claude/gone') })
   expect((await call($, 'read_ledger')).result).toBe(`reaped dead claim: claude-gone.json\nledger: /repo/.claude/claims\n${claim('claude/a').trim()}`)
   expect(Object.keys(w.files)).toEqual(['claude-a.json'])
+})
+
+test('read_ledger reaps no claim while a linked worktree is detached, such as in a rebase', async ($: any, on: any) => {
+  const w = world(on, { '/wt/a': 'HEAD' }, { 'claude-gone.json': claim('claude/gone') })
+  const ran = await call($, 'read_ledger')
+  expect(ran.result).toBe(`a worktree is detached, so no claim was reaped\nledger: /repo/.claude/claims\n${claim('claude/gone').trim()}`)
+  expect(Object.keys(w.files)).toEqual(['claude-gone.json'])
+  w.worktrees = { '/wt/a': 'claude/a' }
+  expect((await call($, 'read_ledger')).result).toContain('reaped dead claim: claude-gone.json')
 })
 
 test('read_ledger reports an empty or absent ledger with its path', async ($: any, on: any) => {

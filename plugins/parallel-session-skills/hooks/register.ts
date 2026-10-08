@@ -6,7 +6,7 @@ import { type Entry, dead, fileOf, ownedBy } from './ledger'
 
 const TOOLS = {
   read_ledger: {
-    description: 'Read the claim ledger in the primary checkout, from any worktree. Dead claims are deleted first: a claim is dead when no worktree has its branch checked out. Returns the ledger path, the claims deleted, and every live claim.',
+    description: 'Read the claim ledger in the primary checkout, from any worktree. Dead claims are deleted first: a claim is dead when no worktree has its branch checked out, and none is deleted while a worktree is detached. Returns the ledger path, the claims deleted, and every live claim.',
     inputSchema: { type: 'object', properties: {} },
   },
   write_claim: {
@@ -74,12 +74,6 @@ async function worktrees($: any, main: string): Promise<{ path: string; branch: 
   }))
 }
 
-// Branches checked out in a worktree, the primary checkout's first.
-async function live($: any, main: string): Promise<string[]> {
-  await git($, main, 'worktree', 'prune')
-  return (await worktrees($, main)).flatMap(w => (w.branch ? [w.branch] : []))
-}
-
 // The branch a lane's claim is filed under, found by the worktree's path in
 // git's list: a branch name alone would match a clone of another repo. The
 // primary checkout is refused: a path re-derived from a session's own directory
@@ -100,10 +94,14 @@ const render = (main: string, list: Entry[]) =>
 
 async function readLedger($: any, main: string): Promise<string> {
   const all = await entries($, main)
-  const gone = dead(all, await live($, main), await $.clock.now())
+  await git($, main, 'worktree', 'prune')
+  const listed = await worktrees($, main)
+  const detached = listed.slice(1).some(w => !w.branch)
+  const gone = dead(all, listed.flatMap(w => (w.branch ? [w.branch] : [])), await $.clock.now(), detached)
   for (const e of gone) await remove($, main, e.name)
   const reaped = gone.map(e => `reaped dead claim: ${e.name}\n`).join('')
-  return reaped + render(main, all.filter(e => !gone.includes(e)))
+  const held = detached ? 'a worktree is detached, so no claim was reaped\n' : ''
+  return reaped + held + render(main, all.filter(e => !gone.includes(e)))
 }
 
 async function writeClaim($: any, main: string, e: any): Promise<string> {
