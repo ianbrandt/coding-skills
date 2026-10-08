@@ -32,15 +32,17 @@ test('a worktree is named for its backlog ID, lowercased, then its pair', () => 
 // A primary checkout at /repo. `git` answers a command, given without its
 // `-C <dir>`, with its stdout, an exit code, or nothing for an empty success. A
 // program other than git cannot start unless `other` answers for it. A file
-// reads as empty unless `files` has it.
+// reads as empty unless `files` has it. The session's directory is a worktree
+// that was removed, so no program starts unless it is run in /repo.
 function world(on: any, git: (argv: string) => string | number | void, other?: (argv: string) => string | void, paths: string[] = [], files: Record<string, string> = {}) {
   const calls: string[] = []
   on('session.repo', () => ({ value: { root: '/repo', remote: null, internal: false } }))
-  on('session.cwd', () => ({ value: '/repo' }))
+  on('session.cwd', () => ({ value: '/repo/.claude/worktrees/removed' }))
   on('fs.exists', (_$: any, e: any) => ({ value: paths.includes(e.path) }))
   on('fs.read', (_$: any, e: any) => ({ value: files[e.path] ?? '' }))
   on('process.run', (_$: any, e: any) => {
     const argv = e.argv as string[]
+    if (e.init?.cwd !== '/repo') throw new Error(`ENOENT: no such file or directory, posix_spawn '${argv[0]}'`)
     const isGit = argv[0] === 'git'
     const line = (isGit ? argv.slice(3) : argv).join(' ')
     calls.push(line)
@@ -71,6 +73,15 @@ test('find_checkouts reports the base and each worktree, and a fetch that failed
   expect(text).toContain('primary checkout: /repo\ndefault branch: main\nbase for a new branch: main\n')
   expect(text).toContain('  /repo  main\n  /repo/.claude/worktrees/r1-a  claude/r1-a  3 commits not on main')
   expect(text).toContain('warning: fetch failed, so origin/main may be behind')
+})
+
+// A process is started in the session's directory unless another is given, and
+// a session that removed the worktree it had changed into has none.
+test('the tools answer after the session\'s directory is removed', async ($: any, on: any) => {
+  world(on, line => (line === 'rev-parse --show-toplevel' ? 128 : line === 'config --get session-skills.originVisibility' ? 'public' : held(line)))
+  expect((await call($, 'find_checkouts')).result).toContain('session directory: /repo/.claude/worktrees/removed\n')
+  expect((await call($, 'prune_branches')).isError).toBeUndefined()
+  expect((await call($, 'landing_facts')).result).toContain('origin visibility: public (git config)')
 })
 
 // A bare `git fetch` reads the remote of the current branch's upstream, which

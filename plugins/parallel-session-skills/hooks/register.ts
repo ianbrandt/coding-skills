@@ -33,8 +33,11 @@ const TOOLS = {
 
 const DIR = '.claude/claims'
 
+// git is run in the primary checkout. The session's directory is the default,
+// and nothing starts there once a session has removed the worktree it had
+// changed into.
 async function git($: any, cwd: string, ...argv: string[]): Promise<string> {
-  const ran = await $.process.run(['git', '-C', cwd, ...argv])
+  const ran = await $.process.run(['git', '-C', cwd, ...argv], { cwd: await primary($) })
   if (ran.exitCode !== 0) throw new Error(`git ${argv.join(' ')} in ${cwd}: ${ran.stderr.trim() || `exit ${ran.exitCode}`}`)
   return ran.stdout
 }

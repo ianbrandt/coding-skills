@@ -38,9 +38,12 @@ type Ran = { exitCode: number; stdout: string; stderr: string }
 
 // A command that cannot start, or is still running at the timeout, is a failed
 // command here: gh and glab are optional, and a fetch can hang on a credential.
+// Each one is run in the primary checkout. The session's directory is the
+// default, and nothing starts there once a session has removed the worktree it
+// had changed into.
 async function run($: any, argv: string[], timeoutMs = 30_000): Promise<Ran> {
   try {
-    return await $.process.run(argv, { timeoutMs })
+    return await $.process.run(argv, { cwd: await primary($), timeoutMs })
   } catch (err) {
     return { exitCode: 127, stdout: '', stderr: (err as Error).message }
   }

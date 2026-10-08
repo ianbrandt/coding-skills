@@ -36,7 +36,9 @@ test('an empty session id matches no claim', () => {
 })
 
 // A primary checkout at /repo on main, worktrees by path and branch, and the
-// ledger's files. `git clean` deletes from `files`, as git does on disk.
+// ledger's files. `git clean` deletes from `files`, as git does on disk. The
+// session's directory is a worktree that was removed, so git starts only when
+// it is run in /repo.
 function world(on: any, worktrees: Record<string, string>, files: Record<string, string>, session = 'MINE') {
   const posix = (p: string) => p.replace(/^[A-Za-z]:/, '').replace(/\\/g, '/')
   const dir = '/repo/.claude/claims/'
@@ -52,6 +54,7 @@ function world(on: any, worktrees: Record<string, string>, files: Record<string,
   on('fs.exists', (_$: any, e: any) => ({ value: posix(e.path).slice(dir.length) in w.files }))
   on('fs.write', (_$: any, e: any) => { w.files[posix(e.path).slice(dir.length)] = e.text; return { value: undefined } })
   on('process.run', (_$: any, e: any) => {
+    if (e.init?.cwd !== '/repo') throw new Error("ENOENT: no such file or directory, posix_spawn 'git'")
     const [, , cwd, ...argv] = e.argv as string[]
     const out = (stdout: string, exitCode = 0) => ({ value: { exitCode, stdout, stderr: exitCode ? 'fatal' : '' } })
     const all = { '/repo': 'main', ...w.worktrees }
@@ -121,4 +124,12 @@ test("the end of a session deletes that session's claims and no other", async ($
   w.root = null
   await $.classic.SessionEnd({ reason: 'other', session_id: 'SIBLING' })
   expect(Object.keys(w.files)).toEqual(['b.json', 'c.json', 'd.json'])
+})
+
+// A process is started in the session's directory unless another is given.
+test("a claim is released after the session's directory is removed, by the tool and at session end", async ($: any, on: any) => {
+  const w = world(on, { '/wt/a': 'claude/a' }, { 'claude-a.json': claim('claude/a', 'MINE'), 'claude-b.json': claim('claude/b', 'MINE') })
+  expect((await call($, 'release_claim', { worktree: '/wt/a' })).result).toContain('released: claude-a.json')
+  await $.classic.SessionEnd({ reason: 'other', session_id: 'MINE' })
+  expect(w.files).toEqual({})
 })

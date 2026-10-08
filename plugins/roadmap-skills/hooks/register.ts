@@ -8,10 +8,13 @@ const DELETE = 'mcp__roadmap-skills__delete_item'
 const FIND = 'mcp__roadmap-skills__find_roadmap'
 
 // The primary checkout and its plan. Outside a git repository there is neither.
+// git is run in the primary checkout: the session's directory is the default,
+// and nothing starts there once a session has removed the worktree it had
+// changed into.
 async function find($: any): Promise<{ main: string; plan: Plan } | null> {
   const main = (await $.session.repo())?.root
   if (!main) return null
-  const git = (...argv: string[]) => $.process.run(['git', '-C', main, ...argv])
+  const git = (...argv: string[]) => $.process.run(['git', '-C', main, ...argv], { cwd: main })
   const hasLocal = await $.fs.exists(`${main}/ROADMAP.local.md`)
   const hasUpstream = (await git('remote', 'get-url', 'upstream')).exitCode === 0
   const tracked = (await git('ls-files', 'ROADMAP.md', 'docs/roadmap.md')).stdout.split('\n').filter(Boolean)

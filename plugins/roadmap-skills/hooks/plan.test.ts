@@ -20,11 +20,12 @@ test('a local-only roadmap comes first, then the fork check, then a tracked one'
 // are registered once per test, so a test changes the repo through `now`.
 type Repo = { root?: string; files?: string[]; hasUpstream?: boolean; tracked?: string[] }
 function world(on: any, first: Repo) {
-  const w = { now: first, argvs: [] as string[][] }
+  const w = { now: first, argvs: [] as string[][], cwds: [] as unknown[] }
   on('session.repo', () => ({ value: w.now.root ? { root: w.now.root, remote: null, internal: false } : null }))
   on('fs.exists', (_$: any, e: any) => ({ value: (w.now.files ?? []).includes(String(e.path).replace(/^[A-Za-z]:/, '').replace(/\\/g, '/')) }))
   on('process.run', (_$: any, e: any) => {
     w.argvs.push(e.argv)
+    w.cwds.push(e.init?.cwd)
     const out = (exitCode: number, stdout = '') => ({ value: { exitCode, stdout, stderr: '' } })
     return e.argv.includes('remote') ? out(w.now.hasUpstream ? 0 : 2) : out(0, (w.now.tracked ?? []).map(p => p + '\n').join(''))
   })
@@ -65,4 +66,12 @@ test('the tool returns absolute paths in the primary checkout', async ($: any, o
   expect(await found($)).toBe('main: /repo\nkind: fork-without-roadmap')
   w.now = {}
   expect(await found($)).toContain('kind: none')
+})
+
+// A process is started in the session's directory unless another is given, and
+// a session that removed the worktree it had changed into has none.
+test('git is run in the primary checkout, whatever the session\'s directory is', async ($: any, on: any) => {
+  const w = world(on, { root: '/repo', files: ['/repo/ROADMAP.local.md'] })
+  await found($)
+  expect(w.cwds).toEqual(['/repo', '/repo'])
 })
