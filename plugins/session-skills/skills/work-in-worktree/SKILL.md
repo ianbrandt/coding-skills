@@ -199,23 +199,30 @@ and merged branches.
 Call `mcp__session-skills__prune_branches`. It never removes a worktree. In order, it:
 
 1. runs `git worktree prune`, which only drops worktrees with a directory that is already gone;
-2. deletes each `claude/` and `worktree-` branch merged into `$DEFAULT` with `git branch -d`, leaving
+2. fetches `origin` with `--prune`;
+3. deletes each `claude/` and `worktree-` branch merged into `$DEFAULT` with `git branch -d`, leaving
    any that is checked out in a worktree;
-3. fetches with `--prune`, then checks each branch with an upstream that is gone.
+4. checks each branch with an upstream that is gone.
 
-Step 3 is for a PR branch the host squashed or rebased on merge, which `--merged` misses, so those
+Step 4 is for a PR branch the host squashed or rebased on merge, which `--merged` misses, so those
 pile up. Once the host deletes the remote copy, the local branch's upstream is gone. That alone is no
 proof of a merge: a declined PR with its branch deleted looks the same. So a branch is deleted only
-when merging it into `origin/$DEFAULT` now would change nothing (`git merge-tree`, git 2.38+), and
-any check that fails leaves the branch in place.
+when merging it into `origin/$DEFAULT` now would change nothing (`git merge-tree`, git 2.40+). The
+same merge is then taken from each of the branch's commits, so that what the branch changed after
+that commit is on `origin/$DEFAULT` too: a commit made after the host's merge that only undoes
+part of it leaves the first merge with nothing to change. The repo's merge drivers are not run. Any
+check that fails leaves the branch in place. Step 4 checks nothing after a fetch that failed, or
+where a merge driver is set in `.git/info/attributes`, which git has no switch to turn off: the
+result then has a `warning:` line to repeat in the reply.
 
 The result has one line per branch: `deleted:`, `kept:`, `merged, still checked out:`, or `left:`
 with git's reason where a deletion was refused.
 
-A merge commit, a rebase merge, and a squash merge all pass. A declined PR and a squash the reviewer
-edited print `kept`. List those in the wrap-up and leave them. A merged branch still checked out in
-a worktree prints `merged, still checked out`: remove that worktree if it is yours, by the rules
-below, then call the tool again. List any other in the wrap-up.
+A merge commit, a rebase merge, and a squash merge all pass. A declined PR, a squash the reviewer
+edited, and a branch with a change committed since the merge print `kept`. List those in the wrap-up
+and leave them. A merged branch still checked out in a worktree prints `merged, still checked out`:
+remove that worktree if it is yours, by the rules below, then call the tool again. List any other in
+the wrap-up.
 
 **Never `git worktree remove` a worktree you didn't create.** A live session between tasks looks
 identical to an abandoned one, and removing its directory kills it mid-flight. Leftovers are
