@@ -31,7 +31,7 @@ export const register: Register = on => {
     })
     await $.tool.register({
       name: 'delete_item',
-      description: 'Delete one landed item from a roadmap file: from its heading to the next heading of the same or a higher level, sub-items included. Returns the headings removed. Nothing is written when the ID matches no heading or more than one.',
+      description: 'Delete one landed item from a roadmap file: from its heading to the next heading of the same or a higher level, sub-items included. Returns the headings removed. Nothing is written when the ID matches no heading or more than one, or when the file changes during the call. Two calls at the same moment can both succeed with one edit lost, so read the file afterward where that matters.',
       inputSchema: {
         type: 'object',
         properties: {

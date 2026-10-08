@@ -343,7 +343,7 @@ export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     await $.tool.register({
       name: 'edit_primary_file',
-      description: "Edit a file in the repo's primary checkout from a worktree session: replace one passage, or append. The file is read and written in one call. Nothing is written when the passage is absent or occurs more than once, or when the file changes during the call. The path is checked as text, so a link inside the checkout is followed.",
+      description: "Edit a file in the repo's primary checkout from a worktree session: replace one passage, or append. The file is read and written in one call. Nothing is written when the passage is absent or occurs more than once, or when the file changes during the call. The path is checked as text, so a link inside the checkout is followed. Two calls at the same moment can both succeed with one edit lost, so read the file afterward where that matters.",
       inputSchema: {
         type: 'object',
         properties: {
