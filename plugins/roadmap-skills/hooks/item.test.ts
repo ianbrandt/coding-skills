@@ -117,3 +117,12 @@ test('a path outside the primary checkout, or with a .. segment, is refused', as
   const ok = await $.tool.call({ tool: TOOL, path: '/repo/.claude/worktrees/x/ROADMAP.md', id: 'R102' })
   expect(ok.text).not.toContain('not inside')
 })
+
+test('the tool writes nothing when the file changed after it was first read', async ($: any, on: any) => {
+  const w = world(on, { [PATH]: ROADMAP })
+  w.read = () => (w.reads === 1 ? ROADMAP : ROADMAP + '\n## R104: added meanwhile\n')
+  const ran = await $.tool.call({ tool: TOOL, path: PATH, id: 'R102' })
+  expect(ran.isError).toBe(true)
+  expect(ran.text).toContain('changed')
+  expect(w.wrote).toBe(false)
+})

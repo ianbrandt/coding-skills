@@ -79,6 +79,8 @@ export const register: Register = on => {
       if (!path.startsWith(`${root}/`) || path.split('/').includes('..')) throw new Error(`${e.path} is not inside the primary checkout ${main}`)
       const before = await $.fs.read(e.path)
       const { text, removed } = deleteItem(before, String(e.id))
+      // Another session may have added an item since the read above.
+      if ((await $.fs.read(e.path)) !== before) throw new Error(`${e.path} changed while the item was being deleted. Nothing was written. Call the tool again.`)
       await $.fs.write(e.path, text)
       return { result: `removed:\n${removed.join('\n')}` }
     } catch (err) {
