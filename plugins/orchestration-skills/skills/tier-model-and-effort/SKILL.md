@@ -106,6 +106,12 @@ announce. Only a Workflow's `agent(..., {model, effort})` sets both. A stage tha
 different effort is a reason to reach for a Workflow, but a stage that only needs a different
 model is fine on `Agent`. Never announce an effort setting you have no way to apply.
 
+**The mechanical tier inherits effort too.** Its model has taken an effort setting since 2026-10, so
+a mechanical agent launched through `Agent` from a session at Extra runs at Extra. On one rename
+task with a test oracle, Extra used about 4 times the output tokens and 2.5 times the wall time of
+Low, and all 3 runs passed at each. For a fan-out of mechanical agents, use a Workflow and set Low.
+For a single agent the difference is seconds, and `Agent` is fine.
+
 **A delegated call to another CLI is a third case.** A second provider's CLI, or a nested
 `claude -p`, reads its own configuration, and the host session cannot see what is set in it. Its
 default effort may sit below the session's, and it may report no observed model at all. So pass
