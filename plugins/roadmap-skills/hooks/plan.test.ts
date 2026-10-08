@@ -41,9 +41,26 @@ test('the rule is added in a repo with a roadmap, read from the primary checkout
   const added = await start($)
   expect(added[0]).toBe('from a settings hook')
   expect(added[1]).toMatch(/^ROADMAP RULE ACTIVE\n\nThis repo's plan of record is `ROADMAP.local.md`, in the primary checkout at `\/repo`\./)
-  expect(added[1]).toContain("A tracked one is edited in the lane's worktree copy")
   expect(w.argvs).toHaveLength(2)
   expect(w.argvs.every(a => a[0] === 'git' && a[1] === '-C' && a[2] === '/repo')).toBe(true)
+})
+
+// A local-only roadmap is one file in the primary checkout, so an item written
+// there is visible to every session at once. A tracked one is edited in a
+// lane's worktree, which is not open until next-roadmap-item has run.
+test('the item is written before next-roadmap-item on a local-only roadmap, and after it on a tracked one', async ($: any, on: any) => {
+  const w = world(on, { root: '/repo', files: ['/repo/ROADMAP.local.md'] })
+  const local = (await start($))[1]
+  expect(local.indexOf('write it as a new item')).toBeGreaterThan(0)
+  expect(local.indexOf('write it as a new item')).toBeLessThan(local.indexOf('Run `next-roadmap-item <Rn>`'))
+  expect(local).toContain('edited in the primary checkout')
+  expect(local).not.toContain('worktree directory names')
+  w.now = { root: '/repo', tracked: ['ROADMAP.md'] }
+  const tracked = (await start($))[1].replace(/\s+/g, ' ')
+  expect(tracked.indexOf('Run `next-roadmap-item <Rn>`')).toBeGreaterThan(0)
+  expect(tracked.indexOf('Run `next-roadmap-item <Rn>`')).toBeLessThan(tracked.indexOf("write the new item in the worktree's copy of `ROADMAP.md`"))
+  expect(tracked).toContain('one more than the highest among the roadmap, parked, and declined files, the open worktree directory names (`r78-...`), and the items in live claims')
+  expect(tracked).not.toContain('edited in the primary checkout')
 })
 
 test('nothing is added with no roadmap, in a fork with only a tracked one, outside a repo, or to a fork of a session', async ($: any, on: any) => {

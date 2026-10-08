@@ -52,7 +52,7 @@ export const register: Register = on => {
     if (e.source === 'fork') return ran
     const found = await find($).catch(() => null)
     if (!found || !('roadmap' in found.plan)) return ran
-    return { ...ran, additionalContext: [...(ran.additionalContext ?? []), rule(found.plan.roadmap, found.main)] }
+    return { ...ran, additionalContext: [...(ran.additionalContext ?? []), rule(found.plan, found.main)] }
   })
 
   on('tool.call', { tool: FIND }, async $ => {

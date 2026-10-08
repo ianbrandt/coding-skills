@@ -10,7 +10,8 @@ description: >-
   built—more building on an in-flight item is this skill, which adopts that
   item's existing worktree. An optional lane hint ("R1") only biases the pick.
   Also the way into a task the user states directly ("upgrade X", "fix Y") in a
-  repo that has a roadmap: write the task as an item, then run this skill on
+  repo that has a roadmap: the task gets an item, written first on a local-only
+  roadmap and in the lane's worktree on a tracked one, and this skill runs on
   that item's ID. NOT for reading, summarizing, or editing the roadmap, and NOT for the worktree
   mechanics themselves (that's work-in-worktree) or the claim ledger (that's
   claim-a-lane) or landing finished work (that's land-and-wrap).
@@ -129,11 +130,18 @@ that already pass those gates; it never relaxes them.** Match it against item ID
 If everything worthwhile is claimed, don't force a collision: wait for a session to finish (its
 claim disappears, or a commit lands), then pick. A hint doesn't change this.
 
-**A task the user stated directly, with no item yet.** Write the item before anything else: the next
-free ID, at its priority position, with the problem and the paths it touches. Then it is a hinted
-pick like any other, and the gates above still apply to it. The same instruction is injected at
-session start by this plugin's hook, in every repo that has a roadmap, because a session handed
-"upgrade X" does not otherwise reach this skill.
+**A task the user stated directly, with no item yet.** The item is new: the next free ID, at its
+priority position, with the problem and the paths it touches. On a local-only roadmap, write it
+before anything else. On a tracked roadmap, take the ID before §2 and write the item now, in the
+copy under `$WT`, and commit it there: the lane's worktree is where a tracked roadmap is edited,
+and it was not open before §2. Then it is a hinted pick like any other, and the gates above still
+apply to it. The same instruction is injected at session start by this plugin's hook, in every repo
+that has a roadmap, because a session handed "upgrade X" does not otherwise reach this skill.
+
+**The next free ID.** An ID is never reused, so check the parked, declined, and changelog files
+beside the roadmap. On a tracked roadmap an item written in another lane is committed only on that
+lane's branch, so the next free ID is one more than the highest among the roadmap, parked, and
+declined files, the open worktree directory names (`r78-...`), and the items in live claims.
 
 **Resuming an item already in flight.** The pick is already made—skip these gates entirely. A claim
 on the item you are resuming is *yours*, not a collision, and re-picking on it is the bug
@@ -219,7 +227,7 @@ at its end. Two things it defers back to this skill:
   item to its branch; the session that removes the worktree after the merge deletes the item.
 
 - **Record what was found in passing.** A defect or a gap noticed while building this item, and
-  outside it, becomes a new item with the next free ID at its priority position, never a fix
+  outside it, becomes a new item with the next free ID (§3) at its priority position, never a fix
   smuggled into the one in hand. Raise it in the reply as well, since the user may want it
   discussed or deferred rather than queued.
 
