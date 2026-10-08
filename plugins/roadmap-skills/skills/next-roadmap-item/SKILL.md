@@ -40,17 +40,15 @@ in the claim ledger, not by reading item names.
 Two places it can live, and the fork check comes first: an upstream project's `ROADMAP.md` must
 never be mistaken for yours.
 
-```bash
-if [ -f ROADMAP.local.md ]; then
-  ROADMAP=ROADMAP.local.md; HISTORY=ROADMAP-CHANGELOG.local.md    # local-only plan
-elif git remote get-url upstream >/dev/null 2>&1; then
-  ROADMAP=                                                        # a fork with no shadow roadmap yet—see §7
-elif R=$(git ls-files ROADMAP.md docs/roadmap.md | head -1) && [ -n "$R" ]; then
-  ROADMAP=$R; HISTORY=                                            # tracked plan; git history is the done-record
-else
-  ROADMAP=                                                        # no roadmap anywhere—see §7
-fi
-```
+Call the `mcp__roadmap-skills__find_roadmap` tool. It reads the primary checkout from any worktree
+and returns a `kind`, with absolute paths for `roadmap` and `history` where there are any. `$ROADMAP`
+and `$HISTORY` below are those two paths.
+
+- `local-only`: `ROADMAP.local.md` exists. `$HISTORY` is `ROADMAP-CHANGELOG.local.md` beside it.
+- `tracked`: `ROADMAP.md` or `docs/roadmap.md` is tracked in a repo with no `upstream` remote. There
+  is no `$HISTORY`, since git history is the done-record.
+- `fork-without-roadmap`: an `upstream` remote and no shadow roadmap yet. See §7.
+- `none`: no roadmap anywhere. See §7.
 
 **Naming, at the repo root.** Tracked: `ROADMAP.md`, plus `ROADMAP-PARKED.md` and
 `ROADMAP-DECLINED.md` as needed. Local-only: the same names suffixed `.local.md`—the never-commit
@@ -228,9 +226,8 @@ path of `$ROADMAP` in the primary checkout and the item's ID. The tool deletes f
 heading to the next heading of the same or a higher level, sub-items included, and returns the
 headings it removed. Other sessions add items while this one builds, so the item below yours when
 you picked is not necessarily the one below it now, and an untracked roadmap has no history to
-restore from. Where the tool is not listed, on a Claude Code older than 2.1.286, delete by hand
-under the same bounds and count the roadmap's headings before and after. A mention of the item
-elsewhere in the roadmap, such as a gate on another item, is edited separately.
+restore from. A mention of the item elsewhere in the roadmap, such as a gate on another item, is
+edited separately.
 
 **The claim is released at session end even when the item isn't finished.** The unfinished item's
 resume record is its branch and worktree, plus its pin in `$ROADMAP`; leave all of it standing and
@@ -255,11 +252,13 @@ tracked family. Ambiguous, ask.
    project, ideally with `git remote set-url --push upstream no_push`. If the remotes aren't wired
    that way, propose the rewiring and ask before touching remotes.
 2. **Exclude the local-only artifacts**—per-clone and uncommitted; never touch the tracked
-   `.gitignore`:
-   ```bash
-   printf '\n# Local-only planning artifacts (never commit/push upstream)\n/ROADMAP*.local.md\n/.claude/\n/notes.local\n' \
-     >> .git/info/exclude
-   mkdir -p notes.local
+   `.gitignore`. Append these lines to `.git/info/exclude` with a file edit. `notes.local/` is
+   created by the first note written there:
+   ```
+   # Local-only planning artifacts (never commit/push upstream)
+   /ROADMAP*.local.md
+   /.claude/
+   /notes.local
    ```
 3. **Stamp out `ROADMAP.local.md`** with a header containing the per-repo config as prose—this
    header *is* the config:

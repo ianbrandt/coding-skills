@@ -1,20 +1,3 @@
 {
-  "modules": [
-    "./register.ts"
-  ],
-  "hooks": {
-    "SessionStart": [
-      {
-        "matcher": "startup|resume|clear|compact",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hooks/roadmap-rule.sh\"",
-            "timeout": 5,
-            "statusMessage": "Checking for a roadmap..."
-          }
-        ]
-      }
-    ]
-  }
+  "modules": ["./register.ts"]
 }
