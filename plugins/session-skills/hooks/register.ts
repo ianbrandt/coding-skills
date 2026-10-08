@@ -253,6 +253,8 @@ async function pruneBranches($: any): Promise<string> {
   if (fetched.exitCode !== 0) lines.push(`warning: fetch failed, so no branch with a gone upstream was checked: ${firstLine(fetched.stderr)}`)
   const tree = fetched.exitCode === 0 ? await out(git($, main, 'rev-parse', '--verify', '-q', `${baseRef}^{tree}`)) : ''
   const empty = tree && (await out(git($, main, 'hash-object', '-t', 'tree', '/dev/null')))
+  if (fetched.exitCode === 0 && !tree) lines.push(`warning: no branch with a gone upstream was checked: the tree of ${base} could not be read`)
+  else if (fetched.exitCode === 0 && !empty) lines.push('warning: no branch with a gone upstream was checked: the empty tree could not be read')
   if (empty && (await localDrivers($, main))) lines.push('warning: a merge driver is set in .git/info/attributes, so no branch with a gone upstream was checked')
   else if (empty) {
     const refs = await must($, main, 'for-each-ref', '--format=%(refname:lstrip=2)%09%(upstream:track)', 'refs/heads')

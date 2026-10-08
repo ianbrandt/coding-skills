@@ -247,6 +247,15 @@ test('prune_branches keeps a branch whose merge commits cannot be listed, or tha
   expect(deleted(calls)).not.toContain('branch -D feat-x')
 })
 
+test('prune_branches reports that nothing was checked when the base tree or the empty tree cannot be read', async ($: any, on: any) => {
+  let failing = ''
+  world(on, line => (line === failing ? 128 : reap(line)))
+  failing = `rev-parse --verify -q ${BASE}^{tree}`
+  expect((await call($, 'prune_branches')).result).toContain('warning: no branch with a gone upstream was checked: the tree of origin/main could not be read')
+  failing = 'hash-object -t tree /dev/null'
+  expect((await call($, 'prune_branches')).result).toContain('warning: no branch with a gone upstream was checked: the empty tree could not be read')
+})
+
 test('prune_branches checks the gone upstreams where there is no local default branch', async ($: any, on: any) => {
   const calls = world(on, line => (line === 'rev-parse --verify -q refs/heads/main' || line.startsWith('for-each-ref --merged') ? 128 : reap(line)))
   expect((await call($, 'prune_branches')).isError).toBeFalsy()
