@@ -65,8 +65,9 @@ in the marketplace's README.
 
 ## How it is wired
 
-A `SessionStart` hook injects `hooks/rules.md` into every session, including after `/clear` and
-compaction. That file has three rules that cannot go in a skill. One is the session-title suggestion
+One hooks module, `hooks/register.ts`, which is a Claude Code mod and needs Claude Code 2.1.286 or
+later, the oldest version supported. No shell is involved. At session start `hooks/rules.md` is
+added to every session, including after `/clear` and compaction. That file has three rules that cannot go in a skill. One is the session-title suggestion
 made at the end of a session, in a format the user copies in one gesture. Another runs every turn:
 weigh continuing this session against handing off to a fresh one, silently, and speak only when a
 tell trips—the unit just landed, the session has been compacted, or the next thing is unrelated
