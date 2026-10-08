@@ -240,7 +240,7 @@ turns this off and leaves the four families.
 
 A command that only writes a local file is not blocked, just as a `Write` or `Edit` to a prose file
 is not (see "Prose files"). A session in a worktree edits a file that lives only in the primary
-checkout with a `python3` or `perl` script, because a worktree guard can refuse an `Edit` there. The
+checkout with the `edit_primary_file` tool of `session-skills`, because a worktree guard can refuse an `Edit` there. The
 review model answers `LOCAL` in place of `VIOLATION` when nothing in the command sends the text anywhere
 else, and doubt is `VIOLATION`. The findings then come back as `additionalContext`, and the session
 fixes the file after the command runs. A `LOCAL` answer still blocks the four families and an MCP
