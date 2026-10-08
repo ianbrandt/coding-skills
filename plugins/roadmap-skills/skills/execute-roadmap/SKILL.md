@@ -72,9 +72,11 @@ pin for a branch that `work-in-worktree` §4 reports as merged (or whose content
 The conductor calls back here from its §2a, §2b, or §2c once a unit is green. In roadmap form:
 
 The roadmap is forward-only either way: **delete the item once its work has merged**, never migrate
-it to a done-list, never annotate it "landed". An item that turned out parked or declined moves to
-the parked or declined file instead, created on first need. What varies is where the done-record
-goes, and that follows **the plan's location** (next-roadmap-item §1), plus the `pr` exception below:
+it to a done-list, never annotate it "landed". Delete it with next-roadmap-item §6's snippet, which
+stops at the next heading: other lanes add items while this one runs. An item that turned out
+parked or declined moves to the parked or declined file instead, created on first need. What varies
+is where the done-record goes, and that follows **the plan's location** (next-roadmap-item §1), plus
+the `pr` exception below:
 
 - **A tracked roadmap**: git history is the done-record—the deletion itself. This edit is the final
   fresh commit on the rebased tip, per `conduct-a-pipeline` §2a or §2b—minimal and localized, since

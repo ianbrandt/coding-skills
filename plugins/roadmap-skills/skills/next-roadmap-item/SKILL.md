@@ -223,6 +223,32 @@ at its end. Two things it defers back to this skill:
   smuggled into the one in hand. Raise it in the reply as well, since the user may want it
   discussed or deferred rather than queued.
 
+**Delete a landed item from its heading to the next heading of the same or a higher level, and
+nothing else.** Other sessions add items while this one builds, so the item below yours when you
+picked is not necessarily the one below it now, and an untracked roadmap has no history to restore
+from. Match headings at the start of a line only: an item's body can quote another heading. Read
+the file in the same command that writes it, and check the headings printed as removed:
+
+```bash
+python3 - "$MAIN/$ROADMAP" R12 <<'PYEOF'
+import re, sys
+path, rid = sys.argv[1:]
+s = open(path).read()
+heads = list(re.finditer(r'^(#+) .*$', s, re.M))
+hit = [i for i, h in enumerate(heads) if re.match(rf'#+ {re.escape(rid)}(?![\w.])', h.group())]
+assert len(hit) == 1, f'{rid}: {len(hit)} headings'
+i = hit[0]
+end = next((h.start() for h in heads[i + 1:] if len(h.group(1)) <= len(heads[i].group(1))), len(s))
+open(path, 'w').write(s[:heads[i].start()] + s[end:])
+print('removed:', *[h.group() for h in heads[i:] if h.start() < end], sep='\n  ')
+PYEOF
+```
+
+If that list has more than the item's own heading and its sub-items, the roadmap uses heading
+levels differently from this snippet; restore the printed items before doing anything else.
+A mention of the item elsewhere in the roadmap, such as a gate on another item, is edited
+separately.
+
 **The claim is released at session end even when the item isn't finished.** The unfinished item's
 resume record is its branch and worktree, plus its pin in `$ROADMAP`; leave all of it standing and
 state the branch in the wrap-up. The next session's entry point is `/next-roadmap-item <Rn>`, or
