@@ -64,6 +64,11 @@ brief, verbatim:
 - The **tools it holds** for the wall this particular task might hit. A delegate that does not know
   it can drive a browser reports a Cloudflare 403 as a dead end.
 
+**Give a mechanical delegate the shell access its task needs.** In one set of runs, a delegate that
+was denied a one-line `perl -pi` rewrite edited 14 files one at a time instead, at about 3.5 times
+the wall time and 5 times the output tokens. At Low effort it did not retry its denied test command
+in a simpler form, so the check never ran.
+
 Reading global conventions is not the same as applying them. The verbatim copy is the cheap half
 of this rule, and the check in section 6 catches what the copy misses.
 
