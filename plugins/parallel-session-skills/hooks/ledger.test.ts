@@ -47,7 +47,7 @@ test('an empty session id matches no claim', () => {
 function world(on: any, worktrees: Record<string, string>, files: Record<string, string>, session = 'MINE', other: Record<string, string> = {}) {
   const posix = (p: string) => p.replace(/^[A-Za-z]:/, '').replace(/\\/g, '/')
   const dir = '/repo/.claude/claims/'
-  const w = { files, worktrees, now: 1_000_000, root: '/repo' as string | null }
+  const w = { files, worktrees, now: 1_000_000, root: '/repo' as string | null, torn: null as { name: string; text: string } | null }
   on('session.repo', () => ({ value: w.root ? { root: w.root, remote: null, internal: false } : null }))
   on('session.id', () => ({ value: session }))
   on('clock.now', () => ({ value: w.now }))
@@ -55,7 +55,12 @@ function world(on: any, worktrees: Record<string, string>, files: Record<string,
     if (posix(e.path) + '/' !== dir || Object.keys(w.files).length === 0) throw new Error('ENOENT')
     return { value: Object.keys(w.files).map(name => ({ name, kind: 'file', size: 1, mtimeMs: 0, isLink: false })) }
   })
-  on('fs.read', (_$: any, e: any) => ({ value: w.files[posix(e.path).slice(dir.length)] }))
+  on('fs.read', (_$: any, e: any) => {
+    const name = posix(e.path).slice(dir.length)
+    // A claim being rewritten reads as torn text once.
+    if (w.torn?.name === name) { const { text } = w.torn; w.torn = null; return { value: text } }
+    return { value: w.files[name] }
+  })
   on('fs.exists', (_$: any, e: any) => ({ value: posix(e.path).slice(dir.length) in w.files }))
   on('fs.write', (_$: any, e: any) => { w.files[posix(e.path).slice(dir.length)] = e.text; return { value: undefined } })
   on('process.run', (_$: any, e: any) => {
@@ -88,6 +93,20 @@ test('read_ledger reaps no claim while a linked worktree is detached, such as in
   expect(Object.keys(w.files)).toEqual(['claude-gone.json'])
   w.worktrees = { '/wt/a': 'claude/a' }
   expect((await call($, 'read_ledger')).result).toContain('reaped dead claim: claude-gone.json')
+})
+
+test('a claim that was torn when first read, and whole when read again, is kept', async ($: any, on: any) => {
+  const w = world(on, { '/wt/a': 'claude/a' }, { 'claude-a.json': claim('claude/a') })
+  w.torn = { name: 'claude-a.json', text: '{ "item": "a", "bran' }
+  expect((await call($, 'read_ledger')).result).toBe(`ledger: /repo/.claude/claims\n${claim('claude/a').trim()}`)
+  expect(Object.keys(w.files)).toEqual(['claude-a.json'])
+})
+
+test('a claim that is whole but for a branch in no worktree is still reaped after the second read', async ($: any, on: any) => {
+  const w = world(on, { '/wt/a': 'claude/a' }, { 'claude-gone.json': claim('claude/gone') })
+  w.torn = { name: 'claude-gone.json', text: '{ "item": "a", "bran' }
+  expect((await call($, 'read_ledger')).result).toContain('reaped dead claim: claude-gone.json')
+  expect(w.files).toEqual({})
 })
 
 test('read_ledger reports an empty or absent ledger with its path', async ($: any, on: any) => {

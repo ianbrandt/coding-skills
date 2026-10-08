@@ -2,7 +2,7 @@
 // ledger, write its claim, and release it, and the release at session end for a
 // session that never wrapped.
 import type { Register } from 'claude-code'
-import { type Entry, dead, fileOf, ownedBy } from './ledger'
+import { type Entry, dead, fileOf, ownedBy, parse } from './ledger'
 
 const TOOLS = {
   read_ledger: {
@@ -97,7 +97,21 @@ async function readLedger($: any, main: string): Promise<string> {
   await git($, main, 'worktree', 'prune')
   const listed = await worktrees($, main)
   const detached = listed.slice(1).some(w => !w.branch)
-  const gone = dead(all, listed.flatMap(w => (w.branch ? [w.branch] : [])), await $.clock.now(), detached)
+  const branches = listed.flatMap(w => (w.branch ? [w.branch] : []))
+  const now = await $.clock.now()
+  const gone: Entry[] = []
+  for (const e of dead(all, branches, now, detached)) {
+    // A file that did not parse may have been read while another session wrote
+    // it. It is judged again as a claim if it parses now.
+    if (!parse(e.text)) {
+      const text = await $.fs.read(`${main}/${DIR}/${e.name}`).catch(() => '')
+      if (parse(text)) {
+        e.text = text
+        if (!dead([e], branches, now, detached).length) continue
+      }
+    }
+    gone.push(e)
+  }
   for (const e of gone) await remove($, main, e.name)
   const reaped = gone.map(e => `reaped dead claim: ${e.name}\n`).join('')
   const held = detached ? 'a worktree is detached, so no claim was reaped\n' : ''
