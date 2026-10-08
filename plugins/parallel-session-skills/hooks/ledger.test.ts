@@ -82,8 +82,9 @@ function world(on: any, worktrees: Record<string, string>, files: Record<string,
       return posix(cwd) in other ? out((posix(cwd).startsWith('/repo/') ? '/repo' : posix(cwd)) + '\n') : out('', 128)
     }
     if (argv.join(' ') === 'worktree prune') w.stale = {}
-    if (argv.join(' ') === 'worktree list --porcelain') {
-      return out(Object.entries({ ...all, ...w.stale }).map(([p, b]) => `worktree ${p}\nHEAD 0\n${b === 'HEAD' ? 'detached' : `branch refs/heads/${b}`}\n`).join('\n'))
+    // As git does with -z: every line ends in NUL, and so does each worktree's block.
+    if (argv.join(' ') === 'worktree list --porcelain -z') {
+      return out(Object.entries({ ...all, ...w.stale }).map(([p, b]) => `worktree ${p}\0HEAD 0\0${b === 'HEAD' ? 'detached' : `branch refs/heads/${b}`}\0\0`).join(''))
     }
     if (argv[0] === 'clean') delete w.files[argv[argv.length - 1].replace(':(literal).claude/claims/', '')]
     return out('')
@@ -150,7 +151,35 @@ test("write_claim files the claim under the worktree's branch with this session'
   expect(ran.result).toContain('"branch":"claude/a"')
 })
 
-test('the primary checkout, a detached HEAD, and a path that is no worktree are refused', async ($: any, on: any) => {
+// git prints a path as it is, so a newline in it is a newline in the list.
+test('write_claim and read_ledger take a worktree at a path with a newline in it', async ($: any, on: any) => {
+  const path = '/wt/a\nb'
+  const w = world(on, { [path]: 'claude/a' }, {})
+  expect((await call($, 'write_claim', { worktree: path, item: 'x', touches: [] })).isError).toBeUndefined()
+  expect(Object.keys(w.files)).toEqual(['claude-a.json'])
+  expect((await call($, 'read_ledger')).result).not.toContain('reaped')
+  expect(Object.keys(w.files)).toEqual(['claude-a.json'])
+})
+
+test('release_claim takes a worktree at a path with a newline in it', async ($: any, on: any) => {
+  const path = '/wt/a\nb'
+  const w = world(on, { [path]: 'claude/a' }, { 'claude-a.json': claim('claude/a', 'MINE') })
+  expect((await call($, 'release_claim', { worktree: path })).result).toContain('released: claude-a.json')
+  expect(w.files).toEqual({})
+})
+
+// git ends the path it prints with one newline, and the rest is the path.
+test('write_claim and release_claim take a worktree at a path that ends in a newline or a space', async ($: any, on: any) => {
+  const w = world(on, { '/wt/a\n': 'claude/a', '/wt/b ': 'claude/b' }, {})
+  for (const [path, name] of [['/wt/a\n', 'claude-a.json'], ['/wt/b ', 'claude-b.json']]) {
+    expect((await call($, 'write_claim', { worktree: path, item: 'x', touches: [] })).isError).toBeUndefined()
+    expect(Object.keys(w.files)).toEqual([name])
+    expect((await call($, 'release_claim', { worktree: path })).result).toContain(`released: ${name}`)
+    expect(w.files).toEqual({})
+  }
+})
+
+test('the primary checkout, a detached HEAD, and a path that is no worktree are refused',async ($: any, on: any) => {
   const w = world(on, { '/wt/d': 'HEAD' }, {})
   for (const [worktree, why] of [['/repo', 'is the primary checkout'], ['/wt/d', 'detached HEAD'], ['/nowhere', 'rev-parse']]) {
     // A path that does not exist is a worktree that was removed, and release_claim treats it as that.

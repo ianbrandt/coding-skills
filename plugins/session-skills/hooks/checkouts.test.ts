@@ -57,7 +57,9 @@ function world(on: any, git: (argv: string) => Said, other?: (argv: string) => s
   return calls
 }
 const call = ($: any, name: string, input: object = {}) => $.tool.call({ tool: `mcp__session-skills__${name}`, ...input })
-const LIST = 'worktree /repo\nHEAD 0\nbranch refs/heads/main\n\nworktree /repo/.claude/worktrees/r1-a\nHEAD 0\nbranch refs/heads/claude/r1-a\n'
+// As git prints it with -z: every line ends in NUL, and so does each worktree's block.
+const trees = (...branches: [string, string][]) => branches.map(([path, branch]) => `worktree ${path}\0HEAD 0\0branch refs/heads/${branch}\0\0`).join('')
+const LIST = trees(['/repo', 'main'], ['/repo/.claude/worktrees/r1-a', 'claude/r1-a'])
 const BASE = 'refs/remotes/origin/main'
 const FETCH = 'fetch -q origin'
 
@@ -66,10 +68,17 @@ const held = (line: string) => {
   if (line.startsWith('symbolic-ref')) return BASE
   if (line === `merge-base --is-ancestor refs/heads/main ${BASE}`) return 1
   if (line.startsWith('show-ref')) return 1
-  if (line === 'worktree list --porcelain') return LIST
+  if (line === 'worktree list --porcelain -z') return LIST
   if (line === 'rev-list --count refs/heads/main..refs/heads/claude/r1-a') return '3'
   if (line.startsWith('rev-list')) return '0'
 }
+
+// git prints a path as it is, so a newline in it is a newline in the list.
+test('find_checkouts reports a worktree at a path with a newline in it', async ($: any, on: any) => {
+  const list = trees(['/repo', 'main'], ['/repo/.claude/worktrees/r1\nx', 'claude/r1-x'])
+  world(on, line => (line === 'worktree list --porcelain -z' ? list : held(line)))
+  expect((await call($, 'find_checkouts')).result).toContain('  /repo  main\n  /repo/.claude/worktrees/r1\nx  claude/r1-x')
+})
 
 test('find_checkouts reports the base and each worktree, and a fetch that failed', async ($: any, on: any) => {
   world(on, line => (line === FETCH ? 1 : held(line)))
@@ -199,7 +208,7 @@ const reap = (line: string) => {
   if (line.startsWith('rev-list --no-merges --ancestry-path=FORK')) return COMMITS[line.split('..refs/heads/')[1]]
   if (line === whole('feat-declined') || line === since('feat-undone', 'u2')) return 'OTHER'
   if (line.includes('merge-tree')) return 'TREE'
-  if (line === 'worktree list --porcelain') return LIST
+  if (line === 'worktree list --porcelain -z') return LIST
 }
 const deleted = (calls: string[]) => calls.filter(c => c.startsWith('branch -'))
 
@@ -382,8 +391,8 @@ test('prune_branches checks no gone upstream where a merge driver is set in .git
 // refs/heads/Feat-Squash for the branch feat-squash, and git deletes that
 // branch from under the worktree.
 test('prune_branches leaves a branch that a worktree has checked out under another capitalization', async ($: any, on: any) => {
-  const list = ['Claude/Done', 'Feat-Squash', 'feat-upper'].map(b => `worktree /repo/${b}\nHEAD 0\nbranch refs/heads/${b}\n`).join('\n')
-  const git = (line: string) => (line === 'worktree list --porcelain' ? list : line.startsWith('for-each-ref --format') ? 'feat-squash\t[gone]\nFeat-Upper\t[gone]' : reap(line))
+  const list = trees(...['Claude/Done', 'Feat-Squash', 'feat-upper'].map((b): [string, string] => [`/repo/${b}`, b]))
+  const git = (line: string) => (line === 'worktree list --porcelain -z' ? list : line.startsWith('for-each-ref --format') ? 'feat-squash\t[gone]\nFeat-Upper\t[gone]' : reap(line))
   const calls = world(on, git)
   expect((await call($, 'prune_branches')).result).toBe('deleted: claude/r1-a (merged into main)\nmerged, still checked out: feat-squash\nmerged, still checked out: Feat-Upper')
   expect(deleted(calls)).toEqual(['branch -d claude/r1-a'])

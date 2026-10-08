@@ -76,8 +76,9 @@ export const register: Register = on => {
       if (!main) throw new Error('not inside a git repository')
       const path = String(e.path).replace(/\\/g, '/')
       // A tracked roadmap is edited in a lane's worktree, which can be anywhere.
-      const listed = await $.process.run(['git', '-C', main, 'worktree', 'list', '--porcelain'], { cwd: main }).catch(() => ({ stdout: '' }))
-      const roots = [main, ...[...String(listed.stdout).matchAll(/^worktree (.+)$/gm)].map(m => m[1])].map(r => r.replace(/\\/g, '/').replace(/\/$/, ''))
+      // With -z each line ends in NUL, so a newline in a path stays in it.
+      const listed = await $.process.run(['git', '-C', main, 'worktree', 'list', '--porcelain', '-z'], { cwd: main }).catch(() => ({ stdout: '' }))
+      const roots = [main, ...String(listed.stdout).split('\0').filter(l => l.startsWith('worktree ')).map(l => l.slice('worktree '.length))].map(r => r.replace(/\\/g, '/').replace(/\/$/, ''))
       if (!roots.some(r => path.startsWith(`${r}/`)) || path.split('/').includes('..')) throw new Error(`${e.path} is not inside the primary checkout ${main} or one of its worktrees`)
       const before = await $.fs.read(e.path)
       const { text, removed } = deleteItem(before, String(e.id))

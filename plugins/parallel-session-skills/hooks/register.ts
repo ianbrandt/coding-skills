@@ -65,13 +65,15 @@ async function remove($: any, main: string, name: string): Promise<void> {
 }
 
 // The worktrees git lists, the primary checkout's first, with the branch each
-// has checked out. A detached worktree has none.
+// has checked out. A detached worktree has none. With -z each line ends in NUL,
+// so a newline in a path stays in it.
 async function worktrees($: any, main: string): Promise<{ path: string; branch: string | null }[]> {
-  const listed = await git($, main, 'worktree', 'list', '--porcelain')
-  return listed.split(/\n\n+/).filter(b => b.trim()).map(block => ({
-    path: /^worktree (.+)$/m.exec(block)?.[1] ?? '',
-    branch: /^branch refs\/heads\/(.+)$/m.exec(block)?.[1] ?? null,
-  }))
+  const found: { path: string; branch: string | null }[] = []
+  for (const line of (await git($, main, 'worktree', 'list', '--porcelain', '-z')).split('\0')) {
+    if (line.startsWith('worktree ')) found.push({ path: line.slice('worktree '.length), branch: null })
+    else if (line.startsWith('branch refs/heads/') && found.length) found[found.length - 1].branch = line.slice('branch refs/heads/'.length)
+  }
+  return found
 }
 
 // The branch a lane's claim is filed under, found by the worktree's path in
@@ -79,7 +81,9 @@ async function worktrees($: any, main: string): Promise<{ path: string; branch: 
 // primary checkout is refused: a path re-derived from a session's own directory
 // is often that one, and a release keyed off it would delete nothing.
 async function lane($: any, main: string, worktree: string): Promise<string> {
-  const top = (await git($, worktree, 'rev-parse', '--show-toplevel')).trim()
+  // git ends the path it prints with one newline, and anything before that is
+  // part of the path.
+  const top = (await git($, worktree, 'rev-parse', '--show-toplevel')).replace(/\n$/, '')
   const all = await worktrees($, main)
   const at = all.findIndex(w => w.path === top)
   if (at < 0) throw new Error(`${worktree} is not a worktree of this repo`)

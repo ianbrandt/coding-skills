@@ -109,11 +109,14 @@ async function locate($: any) {
   return { main, def, base: picked.base, baseRef: picked.base === def ? local : origin, warnings }
 }
 
+// With -z each line ends in NUL, so a newline in a path stays in it.
 async function worktrees($: any, main: string): Promise<{ path: string; branch: string }[]> {
-  return (await must($, main, 'worktree', 'list', '--porcelain'))
-    .split(/\r?\n\r?\n/)
-    .map(block => ({ path: block.match(/^worktree (.+)$/m)?.[1] ?? '', branch: block.match(/^branch refs\/heads\/(.+)$/m)?.[1] ?? '(detached)' }))
-    .filter(w => w.path)
+  const found: { path: string; branch: string }[] = []
+  for (const line of (await must($, main, 'worktree', 'list', '--porcelain', '-z')).split('\0')) {
+    if (line.startsWith('worktree ')) found.push({ path: line.slice('worktree '.length), branch: '(detached)' })
+    else if (line.startsWith('branch refs/heads/') && found.length) found[found.length - 1].branch = line.slice('branch refs/heads/'.length)
+  }
+  return found
 }
 
 async function findCheckouts($: any): Promise<string> {
