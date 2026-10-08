@@ -53,6 +53,22 @@ test('a heading inside a fenced block does not end the item', () => {
   expect(deleteItem(s, 'R1')).toEqual({ text: '## R3: three\n', removed: ['## R1: one'] })
 })
 
+test('an indented code block, or a line of inline code that starts with backticks, opens no fence', () => {
+  const F = '```'
+  expect(deleteItem(`## R1: one\n\n    ${F}\n\n## R2: two\nkeep\n`, 'R1').text).toBe('## R2: two\nkeep\n')
+  expect(deleteItem(`## R1: one\n\n${F}git merge-tree${F} is used here\n\n## R2: two\nkeep\n`, 'R1').text).toBe('## R2: two\nkeep\n')
+})
+
+test('a fence still open at the end of the text is refused', () => {
+  expect(() => deleteItem('## R1: one\n\n```\n## R2: two\n', 'R1')).toThrow('not closed')
+})
+
+test('a line with an info string does not close a fence', () => {
+  const F = '```'
+  const s = `## R1: one\n\n${F}md\n${F}js\n## R2: quoted\n${F}\n\n## R3: three\n`
+  expect(deleteItem(s, 'R1').text).toBe('## R3: three\n')
+})
+
 const TOOL = 'mcp__roadmap-skills__delete_item'
 
 test('the tool rewrites the file and returns the headings removed', async ($: any, on: any) => {

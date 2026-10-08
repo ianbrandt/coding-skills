@@ -7,15 +7,20 @@ export function deleteItem(text: string, id: string): { text: string; removed: s
   let fence = ''
   let at = 0
   for (const line of text.split('\n')) {
-    const mark = /^\s*(`{3,}|~{3,})/.exec(line)?.[1]
-    if (mark && !fence) fence = mark
-    else if (mark && mark[0] === fence[0] && mark.length >= fence.length) fence = ''
-    else if (!fence) {
-      const level = /^(#+) /.exec(line)?.[1].length
-      if (level) heads.push({ at, level, line })
+    if (fence) {
+      const close = /^ {0,3}(`{3,}|~{3,}) *$/.exec(line)?.[1]
+      if (close && close[0] === fence[0] && close.length >= fence.length) fence = ''
+    } else {
+      const open = /^ {0,3}(?:(`{3,})[^`]*|(~{3,}.*))$/.exec(line)
+      if (open) fence = open[1] ?? open[2].match(/^~+/)![0]
+      else {
+        const level = /^(#+) /.exec(line)?.[1].length
+        if (level) heads.push({ at, level, line })
+      }
     }
     at += line.length + 1
   }
+  if (fence) throw new Error('a fenced block is not closed')
   const own = heads.filter(h => h.line.replace(/^#+ /, '').startsWith(id) && !/^[\w.]/.test(h.line.replace(/^#+ /, '').slice(id.length)))
   if (own.length !== 1) throw new Error(`${id}: ${own.length} headings`)
   const i = heads.indexOf(own[0])
