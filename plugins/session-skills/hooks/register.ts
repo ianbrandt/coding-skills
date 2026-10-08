@@ -46,7 +46,7 @@ async function run($: any, argv: string[], timeoutMs = 30_000): Promise<Ran> {
   }
 }
 const gitArgv = (cwd: string, argv: string[]) => ['git', '-C', cwd, ...argv]
-const gitTimeout = (argv: string[]) => (argv[0] === 'fetch' ? 120_000 : 30_000)
+const gitTimeout = (argv: string[]) => (argv.includes('fetch') ? 120_000 : 30_000)
 const git = ($: any, cwd: string, ...argv: string[]) => run($, gitArgv(cwd, argv), gitTimeout(argv))
 const ok = async (ran: Promise<Ran>) => (await ran).exitCode === 0
 const out = async (ran: Promise<Ran>) => {
@@ -65,21 +65,40 @@ async function primary($: any): Promise<string> {
   return main
 }
 
+// A ref is passed to git by its full name: `origin/main` is also the name of a
+// local branch or a tag someone made by accident, and git reads those first.
+const has = ($: any, main: string, ref: string) => ok(git($, main, 'rev-parse', '--verify', '-q', ref))
+const within = ($: any, main: string, a: string, b: string) => ok(git($, main, 'merge-base', '--is-ancestor', a, b))
+
+// origin is named, since a bare `git fetch` reads the remote of the current
+// branch's upstream: the parent repo on a fork, or this repo where the branch
+// tracks a local one. From git 2.48 the fetch also points origin/HEAD at the
+// remote's default branch, so one the host renamed is found. Before that, a
+// repo that was pushed rather than cloned has no origin/HEAD until one is set.
+// A repo with no origin has nothing to fetch.
+async function fetchOrigin($: any, main: string, prune = false): Promise<Ran> {
+  if (!(await ok(git($, main, 'remote', 'get-url', 'origin')))) return { exitCode: 0, stdout: '', stderr: '' }
+  const argv = ['-c', 'remote.origin.followRemoteHEAD=always', 'fetch', '-q', ...(prune ? ['--prune'] : []), 'origin']
+  const fetched = await run($, gitArgv(main, argv), gitTimeout(argv))
+  if (fetched.exitCode === 0 && !(await has($, main, 'refs/remotes/origin/HEAD'))) await git($, main, 'remote', 'set-head', 'origin', '--auto')
+  return fetched
+}
+
+// Read after the fetch, where there is one. `main` is a guess.
 const defaultBranch = async ($: any, main: string) =>
-  (await out(git($, main, 'symbolic-ref', '--short', 'refs/remotes/origin/HEAD'))).replace(/^origin\//, '') || 'main'
+  (await out(git($, main, 'symbolic-ref', '-q', 'refs/remotes/origin/HEAD'))).replace('refs/remotes/origin/', '') || 'main'
 
 async function locate($: any) {
   const main = await primary($)
-  const def = await defaultBranch($, main)
   const warnings: string[] = []
-  const fetched = await git($, main, 'fetch', '-q')
+  const fetched = await fetchOrigin($, main)
+  const def = await defaultBranch($, main)
   if (fetched.exitCode !== 0) warnings.push(`fetch failed, so origin/${def} may be behind: ${fetched.stderr.trim() || `exit ${fetched.exitCode}`}`)
-  const has = (ref: string) => ok(git($, main, 'rev-parse', '--verify', '-q', ref))
-  const within = (a: string, b: string) => ok(git($, main, 'merge-base', '--is-ancestor', a, b))
-  const origin = `origin/${def}`
-  const picked = pickBase(def, await has(origin), await has(`refs/heads/${def}`), await within(origin, def), await within(def, origin))
+  const local = `refs/heads/${def}`
+  const origin = `refs/remotes/origin/${def}`
+  const picked = pickBase(def, await has($, main, origin), await has($, main, local), await within($, main, origin, local), await within($, main, local, origin))
   if (picked.warning) warnings.push(picked.warning)
-  return { main, def, base: picked.base, warnings }
+  return { main, def, base: picked.base, baseRef: picked.base === def ? local : origin, warnings }
 }
 
 async function worktrees($: any, main: string): Promise<{ path: string; branch: string }[]> {
@@ -90,12 +109,12 @@ async function worktrees($: any, main: string): Promise<{ path: string; branch: 
 }
 
 async function findCheckouts($: any): Promise<string> {
-  const { main, def, base, warnings } = await locate($)
+  const { main, def, base, baseRef, warnings } = await locate($)
   const cwd = await $.session.cwd()
   const here = await out(git($, cwd, 'rev-parse', '--show-toplevel'))
   const rows = []
   for (const w of await worktrees($, main)) {
-    const ahead = w.branch === '(detached)' ? '' : await out(git($, main, 'rev-list', '--count', `${base}..${w.branch}`))
+    const ahead = w.branch === '(detached)' ? '' : await out(git($, main, 'rev-list', '--count', `${baseRef}..refs/heads/${w.branch}`))
     rows.push(`  ${w.path}  ${w.branch}${ahead && ahead !== '0' ? `  ${ahead} ${ahead === '1' ? 'commit' : 'commits'} not on ${base}` : ''}`)
   }
   return [
@@ -125,13 +144,13 @@ async function openWorktree($: any, e: any): Promise<string> {
   if (id && !/^[A-Za-z0-9.]+$/.test(id)) throw new Error(`id ${JSON.stringify(id)} is not a backlog ID such as R78`)
   const notes = String(e.notes ?? 'notes.local')
   if (!notes || /[\\/]|^\.\.?$/.test(notes)) throw new Error(`notes ${JSON.stringify(notes)} is not the name of a directory at the repo root`)
-  const { main, def, base, warnings } = await locate($)
+  const { main, def, base, baseRef, warnings } = await locate($)
   const root = `${main}/.claude/worktrees`
   const wanted = worktreeName(pair, id)
   let name = wanted
   for (let n = 2; (await $.fs.exists(`${root}/${name}`)) || (await ok(git($, main, 'show-ref', '--verify', '--quiet', `refs/heads/claude/${name}`))); n++) name = `${wanted}-${n}`
   const path = `${root}/${name}`
-  await must($, main, 'worktree', 'add', '--no-track', path, '-b', `claude/${name}`, base)
+  await must($, main, 'worktree', 'add', '--no-track', path, '-b', `claude/${name}`, baseRef)
   const lines = [`worktree: ${path}`, `branch: claude/${name}`, `opened from: ${base}`, `primary checkout: ${main}`, `default branch: ${def}`]
   if (await $.fs.exists(`${main}/${notes}`)) {
     const linked = await link($, `${main}/${notes}`, `${path}/${notes}`)
@@ -143,35 +162,84 @@ async function openWorktree($: any, e: any): Promise<string> {
 
 const firstLine = (text: string) => text.trim().split(/\r?\n/)[0] ?? ''
 
+// The tree left by merging `ref` into `base`, or nothing where the merge
+// conflicts or cannot run. No .gitattributes, no attributes file from the
+// user's config, and no merge.default is read: a driver such as `union`, or one
+// that keeps the base's side, settles a conflict without the branch's change,
+// and the result reads as merged.
+// ponytail: the system-wide attributes file is still read. GIT_ATTR_NOSYSTEM turns it off, and is an environment variable.
+async function mergedTree($: any, main: string, empty: string, base: string, ref: string, from = ''): Promise<string> {
+  const argv = ['-c', 'merge.default=text', '-c', 'core.attributesFile=/dev/null', `--attr-source=${empty}`, 'merge-tree', '--write-tree', ...(from ? [`--merge-base=${from}`] : []), base, ref]
+  return out(run($, gitArgv(main, argv)))
+}
+
+// git has no switch that turns off .git/info/attributes, so a merge driver set
+// there means no merge here can be trusted.
+async function localDrivers($: any, main: string): Promise<boolean> {
+  const dir = (await must($, main, 'rev-parse', '--path-format=absolute', '--git-common-dir')).trim()
+  const text: string = await $.fs.read(`${dir}/info/attributes`).catch(() => '')
+  return text.split(/\r?\n/).some(line => !line.trim().startsWith('#') && /\smerge=/.test(line))
+}
+
+// Whether the base has everything a branch has. Merging the branch into the
+// base now has to change nothing. So does the same merge taken from each of
+// the branch's commits since the two forked, which leaves only what the branch
+// changed after that commit: a commit made after the host's merge that undoes
+// part of it is found there, and not in the first merge. A check that fails
+// never reads as merged.
+// ponytail: one merge a commit, so a branch of thousands of commits is slow.
+async function onBase($: any, main: string, empty: string, tree: string, base: string, ref: string): Promise<boolean> {
+  if ((await mergedTree($, main, empty, base, ref)) !== tree) return false
+  const fork = await out(git($, main, 'merge-base', base, ref))
+  const commits = await git($, main, 'rev-list', '--no-merges', `--ancestry-path=${fork}`, `${base}..${ref}`)
+  if (!fork || commits.exitCode !== 0) return false
+  for (const c of commits.stdout.split(/\r?\n/).filter(Boolean)) {
+    if ((await mergedTree($, main, empty, base, ref, `${c}^`)) !== tree) return false
+  }
+  return true
+}
+
 async function pruneBranches($: any): Promise<string> {
   const main = await primary($)
-  const def = await defaultBranch($, main)
   const lines: string[] = []
   await must($, main, 'worktree', 'prune')
-  const merged = await must($, main, 'for-each-ref', '--merged', def, '--format=%(refname:short)', 'refs/heads/claude/*', 'refs/heads/worktree-*')
-  const checkedOut = (await worktrees($, main)).map(w => w.branch)
+  const fetched = await fetchOrigin($, main, true)
+  const def = await defaultBranch($, main)
+  // A branch name is read whole: the short form of a branch that has a tag's
+  // name is `heads/<name>`, and `git branch -D heads/<name>` deletes another
+  // branch, or none.
+  const merged = (await has($, main, `refs/heads/${def}`))
+    ? await must($, main, 'for-each-ref', '--merged', `refs/heads/${def}`, '--format=%(refname:lstrip=2)', 'refs/heads/claude/*', 'refs/heads/worktree-*')
+    : ''
+  // Compared without case: on a file system that ignores case, `git checkout
+  // Feat` leaves HEAD at refs/heads/Feat for the branch feat, and git then
+  // deletes that branch from under the worktree.
+  const worktreeBranches = (await worktrees($, main)).map(w => w.branch.toLowerCase())
+  const checkedOut = (b: string) => worktreeBranches.includes(b.toLowerCase())
   // A branch a session has just opened has the default branch's tip, and git
   // refuses to delete it while its worktree stands.
-  for (const b of merged.split(/\r?\n/).filter(b => b && !checkedOut.includes(b))) {
+  for (const b of merged.split(/\r?\n/).filter(b => b && !checkedOut(b))) {
     const gone = await git($, main, 'branch', '-d', b)
     lines.push(gone.exitCode === 0 ? `deleted: ${b} (merged into ${def})` : `left: ${b} (${firstLine(gone.stderr)})`)
   }
 
   // A branch a host squashed or rebased on merge is not `--merged`. Its
   // upstream is gone, which a declined pull request's is too, so it is deleted
-  // only when merging it into the base now would change nothing. A check that
-  // fails must never read as merged.
+  // only when the base has everything it has. Nothing is checked after a
+  // failed fetch, when the remote's default branch may have lost a commit that
+  // origin/<default> still has here.
   const base = `origin/${def}`
-  const fetched = await git($, main, 'fetch', '-q', '--prune')
-  if (fetched.exitCode !== 0) lines.push(`warning: fetch failed, so a branch merged on the host since the last fetch is not found: ${firstLine(fetched.stderr)}`)
-  const tree = await out(git($, main, 'rev-parse', '-q', '--verify', `${base}^{tree}`))
-  if (tree) {
-    const refs = await must($, main, 'for-each-ref', '--format=%(refname:short)%09%(upstream:track)', 'refs/heads')
+  const baseRef = `refs/remotes/${base}`
+  if (fetched.exitCode !== 0) lines.push(`warning: fetch failed, so no branch with a gone upstream was checked: ${firstLine(fetched.stderr)}`)
+  const tree = fetched.exitCode === 0 ? await out(git($, main, 'rev-parse', '--verify', '-q', `${baseRef}^{tree}`)) : ''
+  const empty = tree && (await out(git($, main, 'hash-object', '-t', 'tree', '/dev/null')))
+  if (empty && (await localDrivers($, main))) lines.push('warning: a merge driver is set in .git/info/attributes, so no branch with a gone upstream was checked')
+  else if (empty) {
+    const refs = await must($, main, 'for-each-ref', '--format=%(refname:lstrip=2)%09%(upstream:track)', 'refs/heads')
     for (const [b, track] of refs.split(/\r?\n/).map(l => l.split('\t'))) {
       if (track !== '[gone]') continue
-      const result = await out(git($, main, 'merge-tree', '--write-tree', base, b))
-      if (result !== tree) lines.push(`kept: ${b} (upstream gone, content not on ${base})`)
-      else if (checkedOut.includes(b)) lines.push(`merged, still checked out: ${b}`)
+      if (!(await onBase($, main, empty, tree, baseRef, `refs/heads/${b}`))) lines.push(`kept: ${b} (upstream gone, content not on ${base})`)
+      else if (checkedOut(b)) lines.push(`merged, still checked out: ${b}`)
       else {
         const gone = await git($, main, 'branch', '-D', b)
         lines.push(gone.exitCode === 0 ? `deleted: ${b} (upstream gone, content on ${base})` : `left: ${b} (${firstLine(gone.stderr)})`)

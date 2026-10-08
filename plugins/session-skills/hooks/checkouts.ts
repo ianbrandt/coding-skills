@@ -7,6 +7,7 @@
 // the held commits and could not fast-forward back.
 export function pickBase(def: string, hasOrigin: boolean, hasLocal: boolean, originInLocal: boolean, localInOrigin: boolean): { base: string; warning?: string } {
   const origin = `origin/${def}`
+  if (!hasOrigin && !hasLocal) return { base: def, warning: `neither ${origin} nor ${def} is a branch here, so the default branch was not found` }
   if (!hasOrigin) return { base: def }
   if (!hasLocal) return { base: origin }
   if (originInLocal) return { base: def }
