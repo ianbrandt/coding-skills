@@ -184,19 +184,36 @@ async function localDrivers($: any, main: string): Promise<boolean> {
   return text.split(/\r?\n/).some(line => !line.trim().startsWith('#') && /\smerge=/.test(line))
 }
 
+// Whether a merge commit has a change of its own: a tree other than the
+// automatic merge of its parents. A merge of more than two parents, and any
+// command that fails, count as having one.
+async function amended($: any, main: string, empty: string, m: string): Promise<boolean> {
+  const parents = await git($, main, 'rev-parse', `${m}^@`)
+  const own = await git($, main, 'rev-parse', `${m}^{tree}`)
+  const [one, two, ...more] = parents.stdout.split(/\r?\n/).filter(Boolean)
+  if (parents.exitCode !== 0 || own.exitCode !== 0 || !two || more.length) return true
+  return (await mergedTree($, main, empty, one, two)) !== own.stdout.trim()
+}
+
 // Whether the base has everything a branch has. Merging the branch into the
 // base now has to change nothing. So does the same merge taken from each of
 // the branch's commits since the two forked, which leaves only what the branch
 // changed after that commit: a commit made after the host's merge that undoes
-// part of it is found there, and not in the first merge. A check that fails
-// never reads as merged.
+// part of it is found there, and not in the first merge. A merge commit is
+// taken the same way when its tree differs from the automatic merge of its
+// parents, since a change made in the merge itself is in no other commit. A
+// check that fails never reads as merged.
 // ponytail: one merge a commit, so a branch of thousands of commits is slow.
 async function onBase($: any, main: string, empty: string, tree: string, base: string, ref: string): Promise<boolean> {
   if ((await mergedTree($, main, empty, base, ref)) !== tree) return false
   const fork = await out(git($, main, 'merge-base', base, ref))
   const commits = await git($, main, 'rev-list', '--no-merges', `--ancestry-path=${fork}`, `${base}..${ref}`)
-  if (!fork || commits.exitCode !== 0) return false
-  for (const c of commits.stdout.split(/\r?\n/).filter(Boolean)) {
+  const merges = await git($, main, 'rev-list', '--merges', `--ancestry-path=${fork}`, `${base}..${ref}`)
+  if (!fork || commits.exitCode !== 0 || merges.exitCode !== 0) return false
+  const all = [...commits.stdout.split(/\r?\n/), ...merges.stdout.split(/\r?\n/)].filter(Boolean)
+  const isMerge = new Set(merges.stdout.split(/\r?\n/))
+  for (const c of all) {
+    if (isMerge.has(c) && !(await amended($, main, empty, c))) continue
     if ((await mergedTree($, main, empty, base, ref, `${c}^`)) !== tree) return false
   }
   return true

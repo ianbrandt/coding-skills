@@ -208,6 +208,45 @@ test('prune_branches force-deletes nothing when a check or the fetch fails', asy
   expect(deleted(calls)).toEqual(Array(checks.length + 2).fill('branch -d claude/done'))
 })
 
+// feat-hand has a merge commit, M, with a tree that differs from the automatic
+// merge of its parents: it was amended to undo part of the merged work.
+// feat-clean has a merge commit, N, that is the automatic merge, as one made by
+// `git merge origin/main` is. The merge repeated from M finds what the base lacks.
+test('prune_branches checks a merge commit with a change of its own, and skips one with none', async ($: any, on: any) => {
+  const git = (line: string) => {
+    if (line.startsWith('for-each-ref --format')) return 'feat-hand\t[gone]\nfeat-clean\t[gone]'
+    if (line.startsWith('rev-list --no-merges --ancestry-path=FORK')) return 'c1'
+    if (line.startsWith('rev-list --merges --ancestry-path=FORK')) return line.endsWith('feat-hand') ? 'M' : 'N'
+    if (line === 'rev-parse M^@') return 'P1\nP2'
+    if (line === 'rev-parse N^@') return 'Q1\nQ2'
+    if (line === 'rev-parse M^{tree}') return 'HAND'
+    if (line === 'rev-parse N^{tree}') return 'AUTO'
+    if (line === `${MERGE} P1 P2` || line === `${MERGE} Q1 Q2`) return 'AUTO'
+    if (line === since('feat-hand', 'M')) return 'OTHER'
+    return reap(line)
+  }
+  const calls = world(on, git)
+  expect((await call($, 'prune_branches')).result).toContain('kept: feat-hand (upstream gone, content not on origin/main)')
+  expect(calls).toContain(since('feat-clean', 'c1'))
+  expect(calls).not.toContain(since('feat-clean', 'N'))
+  expect(deleted(calls)).toContain('branch -D feat-clean')
+  expect(deleted(calls)).not.toContain('branch -D feat-hand')
+})
+
+test('prune_branches keeps a branch whose merge commits cannot be listed, or that has a merge of three parents', async ($: any, on: any) => {
+  const over: Record<string, string | number> = {}
+  const calls = world(on, line => over[line] ?? (line.startsWith('for-each-ref --format') ? 'feat-x\t[gone]' : line.startsWith('rev-list --no-merges --ancestry-path=FORK') ? 'c1' : reap(line)))
+  const list = 'rev-list --merges --ancestry-path=FORK refs/remotes/origin/main..refs/heads/feat-x'
+  over[list] = 128
+  expect((await call($, 'prune_branches')).result).toContain('kept: feat-x')
+  over[list] = 'M'
+  over['rev-parse M^@'] = 'P1\nP2\nP3'
+  over[since('feat-x', 'M')] = 'OTHER'
+  expect((await call($, 'prune_branches')).result).toContain('kept: feat-x')
+  expect(calls).not.toContain(`${MERGE} P1 P2`)
+  expect(deleted(calls)).not.toContain('branch -D feat-x')
+})
+
 test('prune_branches checks the gone upstreams where there is no local default branch', async ($: any, on: any) => {
   const calls = world(on, line => (line === 'rev-parse --verify -q refs/heads/main' || line.startsWith('for-each-ref --merged') ? 128 : reap(line)))
   expect((await call($, 'prune_branches')).isError).toBeFalsy()
