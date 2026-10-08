@@ -195,6 +195,13 @@ test("a claim is released after the lane's worktree is removed, by the tool and 
   expect(w.files).toEqual({})
 })
 
+// A conductor has one claim a lane, all with its own session id.
+test("a removed worktree's release leaves this session's claim for a worktree that still stands", async ($: any, on: any) => {
+  const w = world(on, { '/wt/b': 'claude/b' }, { 'claude-a.json': claim('claude/a', 'MINE'), 'claude-b.json': claim('claude/b', 'MINE') })
+  expect((await call($, 'release_claim', { worktree: '/wt/a' })).result).toContain('released: claude-a.json (')
+  expect(Object.keys(w.files)).toEqual(['claude-b.json'])
+})
+
 test("a removed worktree's release leaves another session's claim, and with none of this session's it is an error", async ($: any, on: any) => {
   const w = world(on, {}, { 'claude-a.json': claim('claude/a', 'SIBLING'), 'claude-b.json': claim('claude/b', 'MINE') })
   expect((await call($, 'release_claim', { worktree: '/wt/gone' })).result).toContain('released: claude-b.json')
