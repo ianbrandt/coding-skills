@@ -22,7 +22,7 @@ const TOOLS = {
     },
   },
   release_claim: {
-    description: 'Delete the claim for the branch checked out in a worktree. Returns the claims that remain. Once the worktree is gone, releases the claims of this session that have no worktree instead. An error when there is no claim.',
+    description: 'Delete the claim for the branch checked out in a worktree. Returns the claims that remain. For a path that is no longer a worktree of the repo, releases the claims of this session that have no worktree instead. An error when there is no claim.',
     inputSchema: {
       type: 'object',
       properties: { worktree: { type: 'string', description: "Absolute path of the lane's worktree, never the primary checkout." } },
@@ -132,17 +132,25 @@ async function writeClaim($: any, main: string, e: any): Promise<string> {
 }
 
 async function releaseClaim($: any, main: string, e: any): Promise<string> {
-  // A worktree that is gone has no branch to look up. The claims this session
-  // can release are its own with no worktree left: a conductor has others, one
-  // a lane still in flight.
-  if (!(await $.fs.exists(String(e.worktree)))) {
-    const listed = await worktrees($, main)
-    if (listed.slice(1).some(w => !w.branch)) throw new Error(`${e.worktree} is gone and a worktree is detached, so the claim for it cannot be told from that worktree's. Release it once no worktree is detached.\n${render(main, await entries($, main))}`)
+  // A directory deleted without `git worktree remove` is listed until a prune,
+  // and its branch with it.
+  await git($, main, 'worktree', 'prune')
+  const listed = await worktrees($, main)
+  // A removed worktree is found by its path, since a build daemon can make the
+  // directory again, and git reads one under the primary checkout as the
+  // primary checkout. It has no branch to look up. The claims this session can
+  // release are its own with no worktree left: a conductor has others, one a
+  // lane still in flight.
+  const slash = (p: string) => p.replace(/\\/g, '/').replace(/\/$/, '')
+  const path = slash((await $.fs.stat(String(e.worktree), { resolve: true }).catch(() => undefined))?.realPath ?? String(e.worktree))
+  if (!listed.some((w, i) => path === slash(w.path) || (i > 0 && path.startsWith(`${slash(w.path)}/`)))) {
+    const gone = `${e.worktree} is not a worktree of this repo`
+    if (listed.slice(1).some(w => !w.branch)) throw new Error(`${gone} and a worktree is detached, so the claim for it cannot be told from that worktree's. Release it once no worktree is detached.\n${render(main, await entries($, main))}`)
     const standing = listed.map(w => w.branch)
     const mine = ownedBy(await entries($, main), await $.session.id()).filter(m => !standing.includes(parse(m.text)!.branch))
-    if (!mine.length) throw new Error(`no claim of this session, and ${e.worktree} is gone\n${render(main, await entries($, main))}`)
+    if (!mine.length) throw new Error(`no claim of this session, and ${gone}\n${render(main, await entries($, main))}`)
     for (const m of mine) await remove($, main, m.name)
-    return `released: ${mine.map(m => m.name).join(', ')} (${e.worktree} is gone, so the claims of this session with no worktree were released)\n${render(main, await entries($, main))}`
+    return `released: ${mine.map(m => m.name).join(', ')} (${gone}, so the claims of this session with no worktree were released)\n${render(main, await entries($, main))}`
   }
   const name = fileOf(await lane($, main, String(e.worktree)))
   if (!(await $.fs.exists(`${main}/${DIR}/${name}`))) throw new Error(`no claim ${name}\n${render(main, await entries($, main))}`)

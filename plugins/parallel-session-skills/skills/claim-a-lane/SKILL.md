@@ -121,9 +121,11 @@ session launched from the repo root. That path is refused, and a branch with no 
 so a release that removed nothing is never reported as done. The result lists the claims that
 remain.
 
-Release before removing the worktree. For a path that is already gone the tool has no branch to
-look up, so it releases the claims of this session that have no worktree, and refuses while any
-linked worktree is detached.
+Release before removing the worktree. A path that is no longer a worktree of the repo has no branch
+to look up, whether its directory was deleted or something made it again after the removal. For
+such a path the tool releases the claims of this session that have no worktree, and refuses while
+any linked worktree is detached. `git worktree prune` is run first, so a directory deleted without
+`git worktree remove` is no longer listed.
 
 At session end the hooks module also releases every claim stamped with this session's id, for a
 session that ends without wrapping. It is a safety net and no substitute for releasing at wrap,

@@ -43,11 +43,14 @@ test('an empty session id matches no claim', () => {
 // A primary checkout at /repo on main, worktrees by path and branch, and the
 // ledger's files. `git clean` deletes from `files`, as git does on disk. The
 // session's directory is a worktree that was removed, so git starts only when
-// it is run in /repo.
+// it is run in /repo. A worktree in `stale` had its directory deleted without
+// `git worktree remove`, so git lists it until a prune. A directory in `other`
+// is in no list: under /repo it is part of the primary checkout, and anywhere
+// else it is a repo of its own.
 function world(on: any, worktrees: Record<string, string>, files: Record<string, string>, session = 'MINE', other: Record<string, string> = {}) {
   const posix = (p: string) => p.replace(/^[A-Za-z]:/, '').replace(/\\/g, '/')
   const dir = '/repo/.claude/claims/'
-  const w = { files, worktrees, now: 1_000_000, root: '/repo' as string | null, torn: null as { name: string; text: string } | null, writing: null as string | null }
+  const w = { files, worktrees, now: 1_000_000, root: '/repo' as string | null, torn: null as { name: string; text: string } | null, writing: null as string | null, stale: {} as Record<string, string> }
   on('session.repo', () => ({ value: w.root ? { root: w.root, remote: null, internal: false } : null }))
   on('session.id', () => ({ value: session }))
   on('clock.now', () => ({ value: w.now }))
@@ -74,9 +77,13 @@ function world(on: any, worktrees: Record<string, string>, files: Record<string,
     const [, , cwd, ...argv] = e.argv as string[]
     const out = (stdout: string, exitCode = 0) => ({ value: { exitCode, stdout, stderr: exitCode ? 'fatal' : '' } })
     const all = { '/repo': 'main', ...w.worktrees }
-    if (argv[0] === 'rev-parse') return posix(cwd) in all || posix(cwd) in other ? out(posix(cwd) + '\n') : out('', 128)
+    if (argv[0] === 'rev-parse') {
+      if (posix(cwd) in all) return out(posix(cwd) + '\n')
+      return posix(cwd) in other ? out((posix(cwd).startsWith('/repo/') ? '/repo' : posix(cwd)) + '\n') : out('', 128)
+    }
+    if (argv.join(' ') === 'worktree prune') w.stale = {}
     if (argv.join(' ') === 'worktree list --porcelain') {
-      return out(Object.entries(all).map(([p, b]) => `worktree ${p}\nHEAD 0\n${b === 'HEAD' ? 'detached' : `branch refs/heads/${b}`}\n`).join('\n'))
+      return out(Object.entries({ ...all, ...w.stale }).map(([p, b]) => `worktree ${p}\nHEAD 0\n${b === 'HEAD' ? 'detached' : `branch refs/heads/${b}`}\n`).join('\n'))
     }
     if (argv[0] === 'clean') delete w.files[argv[argv.length - 1].replace(':(literal).claude/claims/', '')]
     return out('')
@@ -204,7 +211,7 @@ test("a claim is released after the lane's worktree is removed, by the tool and 
   const w = world(on, {}, { 'claude-a.json': claim('claude/a', 'MINE'), 'claude-b.json': claim('claude/b', 'MINE') })
   const ran = await call($, 'release_claim', { worktree: '/wt/a' })
   expect(ran.result).toContain('released: claude-a.json, claude-b.json')
-  expect(ran.result).toContain('/wt/a is gone')
+  expect(ran.result).toContain('/wt/a is not a worktree of this repo')
   expect(w.files).toEqual({})
   w.files['claude-c.json'] = claim('claude/c', 'MINE')
   await $.classic.SessionEnd({ reason: 'other', session_id: 'MINE' })
@@ -236,4 +243,25 @@ test("a removed worktree's release leaves another session's claim, and with none
   expect(again.isError).toBe(true)
   expect(again.text).toContain('no claim of this session')
   expect(Object.keys(w.files)).toEqual(['claude-a.json'])
+})
+
+// A build daemon can make a removed worktree's directory again, and under the
+// primary checkout git reads that directory as the primary checkout.
+test('a directory made again after its worktree was removed is released as a removed worktree', async ($: any, on: any) => {
+  const w = world(on, { '/wt/b': 'claude/b' }, { 'claude-a.json': claim('claude/a', 'MINE'), 'claude-b.json': claim('claude/b', 'MINE') }, 'MINE', { '/repo/.claude/worktrees/a': '' })
+  expect((await call($, 'release_claim', { worktree: '/repo/.claude/worktrees/a' })).result).toContain('released: claude-a.json (')
+  expect(Object.keys(w.files)).toEqual(['claude-b.json'])
+})
+
+test('a worktree deleted without `git worktree remove` is pruned before its claim is released', async ($: any, on: any) => {
+  const w = world(on, { '/wt/b': 'claude/b' }, { 'claude-a.json': claim('claude/a', 'MINE'), 'claude-b.json': claim('claude/b', 'MINE') })
+  w.stale = { '/wt/a': 'claude/a' }
+  expect((await call($, 'release_claim', { worktree: '/wt/a' })).result).toContain('released: claude-a.json (')
+  expect(Object.keys(w.files)).toEqual(['claude-b.json'])
+})
+
+test('a path that is missing under a worktree that still stands releases nothing', async ($: any, on: any) => {
+  const w = world(on, { '/wt/b': 'claude/b' }, { 'claude-a.json': claim('claude/a', 'MINE'), 'claude-b.json': claim('claude/b', 'MINE') })
+  expect((await call($, 'release_claim', { worktree: '/wt/b/build' })).isError).toBe(true)
+  expect(Object.keys(w.files)).toEqual(['claude-a.json', 'claude-b.json'])
 })
