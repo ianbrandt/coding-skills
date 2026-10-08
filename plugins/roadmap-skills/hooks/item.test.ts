@@ -70,22 +70,50 @@ test('a line with an info string does not close a fence', () => {
 })
 
 const TOOL = 'mcp__roadmap-skills__delete_item'
+const PATH = '/repo/ROADMAP.local.md'
+
+// The primary checkout is /repo, and the files are the ones in it.
+function world(on: any, files: Record<string, string>) {
+  const w = { files, reads: 0, wrote: false, read: (path: string): string => w.files[path] }
+  on('session.repo', () => ({ value: { root: '/repo', remote: null, internal: false } }))
+  on('fs.read', (_$: any, e: any) => { w.reads++; return { value: w.read(e.path) } })
+  on('fs.write', (_$: any, e: any) => { w.wrote = true; w.files[e.path] = e.text; return { value: undefined } })
+  return w
+}
 
 test('the tool rewrites the file and returns the headings removed', async ($: any, on: any) => {
-  const files: Record<string, string> = { '/repo/ROADMAP.local.md': ROADMAP }
-  on('fs.read', (_$: any, e: any) => ({ value: files[e.path] }))
-  on('fs.write', (_$: any, e: any) => { files[e.path] = e.text; return { value: undefined } })
-  const ran = await $.tool.call({ tool: TOOL, path: '/repo/ROADMAP.local.md', id: 'R102' })
+  const w = world(on, { [PATH]: ROADMAP })
+  const ran = await $.tool.call({ tool: TOOL, path: PATH, id: 'R102' })
   expect(ran.result).toBe('removed:\n## R102: landed\n### R102.1: sub')
-  expect(files['/repo/ROADMAP.local.md']).toBe(deleteItem(ROADMAP, 'R102').text)
+  expect(w.files[PATH]).toBe(deleteItem(ROADMAP, 'R102').text)
 })
 
 test('the tool writes nothing when the ID is refused', async ($: any, on: any) => {
-  let wrote = false
-  on('fs.read', () => ({ value: ROADMAP }))
-  on('fs.write', () => { wrote = true; return { value: undefined } })
-  const ran = await $.tool.call({ tool: TOOL, path: '/repo/ROADMAP.local.md', id: 'R999' })
+  const w = world(on, { [PATH]: ROADMAP })
+  const ran = await $.tool.call({ tool: TOOL, path: PATH, id: 'R999' })
   expect(ran.isError).toBe(true)
   expect(ran.text).toContain('R999: 0 headings')
-  expect(wrote).toBe(false)
+  expect(w.wrote).toBe(false)
+})
+
+test('an empty or blank ID is refused', async ($: any, on: any) => {
+  const w = world(on, { [PATH]: ROADMAP })
+  for (const id of ['', '  ']) {
+    const ran = await $.tool.call({ tool: TOOL, path: PATH, id })
+    expect(ran.isError).toBe(true)
+    expect(ran.text).toContain('empty')
+  }
+  expect(w.wrote).toBe(false)
+})
+
+test('a path outside the primary checkout, or with a .. segment, is refused', async ($: any, on: any) => {
+  const w = world(on, { '/other/ROADMAP.md': ROADMAP, '/repo/.claude/worktrees/x/ROADMAP.md': ROADMAP })
+  for (const path of ['/other/ROADMAP.md', '/repo/../other/ROADMAP.md', '/repo\\..\\x', '/repository/ROADMAP.md']) {
+    const ran = await $.tool.call({ tool: TOOL, path, id: 'R102' })
+    expect(ran.isError).toBe(true)
+    expect(ran.text).toContain('not inside the primary checkout')
+  }
+  expect(w.wrote).toBe(false)
+  const ok = await $.tool.call({ tool: TOOL, path: '/repo/.claude/worktrees/x/ROADMAP.md', id: 'R102' })
+  expect(ok.text).not.toContain('not inside')
 })

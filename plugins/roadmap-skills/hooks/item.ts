@@ -3,6 +3,7 @@
 // Other sessions add items while this one builds, so the end is found in the
 // text as it is now. A line inside a fenced block is not a heading.
 export function deleteItem(text: string, id: string): { text: string; removed: string[] } {
+  if (!id.trim()) throw new Error('the ID is empty')
   const heads: { at: number; level: number; line: string }[] = []
   let fence = ''
   let at = 0

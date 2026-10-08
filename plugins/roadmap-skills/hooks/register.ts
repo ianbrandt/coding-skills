@@ -72,7 +72,13 @@ export const register: Register = on => {
 
   on('tool.call', { tool: DELETE }, async ($, e: any) => {
     try {
-      const { text, removed } = deleteItem(await $.fs.read(e.path), String(e.id))
+      const main = (await $.session.repo())?.root
+      if (!main) throw new Error('not inside a git repository')
+      const path = String(e.path).replace(/\\/g, '/')
+      const root = main.replace(/\\/g, '/').replace(/\/$/, '')
+      if (!path.startsWith(`${root}/`) || path.split('/').includes('..')) throw new Error(`${e.path} is not inside the primary checkout ${main}`)
+      const before = await $.fs.read(e.path)
+      const { text, removed } = deleteItem(before, String(e.id))
       await $.fs.write(e.path, text)
       return { result: `removed:\n${removed.join('\n')}` }
     } catch (err) {
