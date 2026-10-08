@@ -1,7 +1,8 @@
 // The voice data, appended to the `ghostwrite` skill's text as the skill loads,
 // so the spec, the samples, and the always-on rules are in front of the model
 // whole. Left to the model, the reads were a locate snippet and three or more
-// file reads, any of which could be skipped or cut short.
+// file reads, any of which could be skipped or cut short. The voice directory
+// alone is appended to `share-ghostwriting-spec`, which reads the spec itself.
 import type { Register } from 'claude-code'
 
 // ponytail: every sample is appended up to this many characters of corpus, and
@@ -43,21 +44,34 @@ async function rules($: any, config: string): Promise<string> {
   return best
 }
 
+const home = async ($: any): Promise<string> => (await $.env.get('HOME')) || (await $.env.get('USERPROFILE')) || ''
+
+// The plugin's voice_dir option, then GHOSTWRITING_DIR, then the default.
+async function located($: any, configured: string | undefined): Promise<string> {
+  return configured || (await $.env.get('GHOSTWRITING_DIR')) || `${await home($)}/.claude/ghostwriting`
+}
+
+async function directory($: any, configured: string | undefined): Promise<string> {
+  const dir = await located($, configured)
+  const found = (await $.fs.exists(`${dir}/voice-spec.md`).catch(() => false)) ? `spec: ${dir}/voice-spec.md` : 'NO SPEC'
+  return `\n\n---\n\n## Voice directory, located by the plugin\n\nVOICE=${dir}\n${found}\n`
+}
+
 async function voice($: any, configured: string | undefined): Promise<string> {
-  const home = (await $.env.get('HOME')) || (await $.env.get('USERPROFILE')) || ''
-  const dir = configured || (await $.env.get('GHOSTWRITING_DIR')) || `${home}/.claude/ghostwriting`
+  const dir = await located($, configured)
   const head = '\n\n---\n\n## Voice data, loaded by the plugin\n\n'
   let spec: string
   try {
     spec = await $.fs.read(`${dir}/voice-spec.md`)
   } catch {
     // Only a spec that is not there is a bootstrap, which ends in writing a new
-    // one. After any other failure nothing is appended, and the snippet in the
-    // skill runs.
-    if (await $.fs.exists(`${dir}/voice-spec.md`).catch(() => true)) return ''
-    return `${head}MODE=bootstrap: there is no \`${dir}/voice-spec.md\`. Go to §5.\n`
+    // one. After any other failure the model is given the directory to read.
+    if (await $.fs.exists(`${dir}/voice-spec.md`).catch(() => true)) {
+      return `${head}VOICE=${dir}\n\nThe plugin could not read \`${dir}/voice-spec.md\`. Read it, the corpus, and the always-on rules file yourself, each whole.\n`
+    }
+    return `${head}VOICE=${dir}\n\nMODE=bootstrap: there is no \`${dir}/voice-spec.md\`. Go to §5.\n`
   }
-  let out = `${head}The plugin read these files whole as this skill loaded. They are §0's snippet and §1's reads, already done: do not run the snippet, and do not read these files again. If the request points at voice data somewhere else, read it there instead and ignore what follows.\n\nVOICE=${dir}\n\n${file(`${dir}/voice-spec.md`, spec)}`
+  let out = `${head}The plugin read these files whole as this skill loaded. They are §1's reads, already done: do not read these files again. If the request points at voice data somewhere else, read it there instead and ignore what follows.\n\nVOICE=${dir}\n\n${file(`${dir}/voice-spec.md`, spec)}`
   const entries = (await $.fs.list(`${dir}/corpus`).catch(() => []))
     .filter((e: any) => e.kind !== 'dir' && /\.(md|markdown|txt)$/i.test(e.name))
     .sort((a: any, b: any) => (a.name < b.name ? -1 : 1))
@@ -82,7 +96,7 @@ async function voice($: any, configured: string | undefined): Promise<string> {
     out += `\nThe corpus, ${unread.length === 0 ? 'every sample' : 'the samples the plugin could read'}:\n\n${samples.join('\n')}`
     if (unread.length > 0) out += `\nThe plugin could not read ${listed(unread)}. Read each of those yourself, whole, and say so in the hand-over if that fails too.\n`
   }
-  const path = await rules($, (await $.env.get('CLAUDE_CONFIG_DIR')) || `${home}/.claude`)
+  const path = await rules($, (await $.env.get('CLAUDE_CONFIG_DIR')) || `${await home($)}/.claude`)
   const found = path === '' ? undefined : await $.fs.read(path).catch(() => undefined)
   if (found !== undefined) out += `\nThe always-on rules file, re-read for §1:\n\n${file(path, found)}`
   else out += '\nThe plugin did not find the always-on rules file. Re-read the one from §0 yourself, for §1.\n'
@@ -92,9 +106,11 @@ async function voice($: any, configured: string | undefined): Promise<string> {
 export const register: Register = (on, options) => {
   on('skill.prompt', async ($, e, next) => {
     const prompt = await next(e)
-    if (e.skill !== 'ghostwrite' && !e.skill.endsWith(':ghostwrite')) return prompt
+    const skill = e.skill.split(':').pop()
+    if (skill !== 'ghostwrite' && skill !== 'share-ghostwriting-spec') return prompt
     try {
-      return { ...prompt, text: prompt.text + (await voice($, (options as any)?.voice_dir)) }
+      const configured = (options as any)?.voice_dir
+      return { ...prompt, text: prompt.text + (await (skill === 'ghostwrite' ? voice($, configured) : directory($, configured))) }
     } catch {
       return prompt
     }

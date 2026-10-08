@@ -15,9 +15,10 @@ directory can be a symlink into a private repo.
 [`hooks/voice.ts`](hooks/voice.ts) appends that data to the `ghostwrite` skill's text as the skill
 loads, through a `skill.prompt` hook: the spec, every corpus sample up to 64,000 characters in all,
 and the `writing-conventions` rules file when that plugin is installed. Past that size the samples
-are listed by name for the model to read by genre. A hooks module is a Claude Code mod, and this
-one was checked on Claude Code 2.1.286 through 2.1.291, where hooks modules are on by default. With
-no hooks module running, as on an older version, the model reads the files itself.
+are listed by name for the model to read by genre. For `share-ghostwriting-spec` only the directory
+is appended, with whether it has a spec. A hooks module is a Claude Code mod, and this one was
+checked on Claude Code 2.1.286 through 2.1.291. 2.1.286 is the oldest version supported, so neither
+skill has a shell snippet to locate the directory by hand.
 [`hooks/voice.test.ts`](hooks/voice.test.ts) runs under `claude plugin test`.
 
 ## Skills

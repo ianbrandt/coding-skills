@@ -64,14 +64,28 @@ test('without GHOSTWRITING_DIR the default directory is read', async ($: any, on
 
 test('the text of another skill is left unchanged', async ($: any, on: any) => {
   files(on, { [SPEC]: 'SPEC TEXT' })
-  const { text } = await $.skill.prompt({ skill: 'ghostwriting-skills:share-ghostwriting-spec', text: 'SKILL' })
+  const { text } = await $.skill.prompt({ skill: 'writing-conventions:write-for-the-reader', text: 'SKILL' })
   expect(text).toBe('SKILL')
+})
+
+test('the share skill gets the directory and whether it has a spec, and no file', async ($: any, on: any) => {
+  const reads = files(on, { [SPEC]: 'SPEC TEXT' })
+  const { text } = await $.skill.prompt({ skill: 'ghostwriting-skills:share-ghostwriting-spec', text: 'SKILL' })
+  expect(text).toBe('SKILL\n\n---\n\n## Voice directory, located by the plugin\n\nVOICE=/v\nspec: /v/voice-spec.md\n')
+  expect(reads).toEqual([])
+})
+
+test('the share skill is told when there is no spec', async ($: any, on: any) => {
+  files(on, {}, { GHOSTWRITING_DIR: '' })
+  const { text } = await $.skill.prompt({ skill: 'share-ghostwriting-spec', text: 'SKILL' })
+  expect(text).toContain('VOICE=/home/.claude/ghostwriting\nNO SPEC\n')
 })
 
 test('a spec that is there and cannot be read is not a bootstrap', async ($: any, on: any) => {
   files(on, { [SPEC]: 'SPEC TEXT' }, {}, [SPEC])
   const { text } = await $.skill.prompt({ skill: 'ghostwrite', text: 'SKILL' })
-  expect(text).toBe('SKILL')
+  expect(text).toContain('VOICE=/v\n\nThe plugin could not read `/v/voice-spec.md`.')
+  expect(text).not.toContain('MODE=bootstrap')
 })
 
 test('with no HOME the default directory is under USERPROFILE', async ($: any, on: any) => {

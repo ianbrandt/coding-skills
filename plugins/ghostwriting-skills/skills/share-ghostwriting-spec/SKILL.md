@@ -17,13 +17,10 @@ voice. The user reviews it before it leaves their machine: **you build the expor
 shares it.**
 
 ## 0. Locate the spec
-The plugin's `voice_dir` option is substituted into the first line below (empty when the user set
-none); then `$GHOSTWRITING_DIR`, then the default.
-```bash
-VOICE='${user_config.voice_dir}'
-VOICE=${VOICE:-${GHOSTWRITING_DIR:-$HOME/.claude/ghostwriting}}
-[ -f "$VOICE/voice-spec.md" ] && echo "spec: $VOICE/voice-spec.md" || echo "NO SPEC"
-```
+A `## Voice directory, located by the plugin` section follows this skill's text. `$VOICE` below is
+the directory on its `VOICE=` line: the plugin's `voice_dir` option, then `$GHOSTWRITING_DIR`, then
+`~/.claude/ghostwriting`. The next line is the spec's path, or `NO SPEC`.
+
 No spec ⇒ stop and say so; bootstrap first (ghostwrite §5).
 
 ## 1. Select what ships

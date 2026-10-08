@@ -17,20 +17,13 @@ Only the method is in this skill: the voice is read from the user's data (§0). 
 text, so the user reads it first: **you draft, and only the user posts.**
 
 ## 0. Locate the voice data—and detect the mode
-**If a `## Voice data, loaded by the plugin` section follows this skill's text, the plugin's hooks
-module already did this section's snippet and §1's reads**: the spec, the corpus, and the always-on
-rules file are in that section, each whole. Use them from there, skip the snippet, and read none of
-those files again. A file the plugin could not read or find is listed there instead, for you to read.
-Without that section, on a host that runs no hooks module, do it by hand:
+**A `## Voice data, loaded by the plugin` section follows this skill's text.** The plugin's hooks
+module located the voice directory as the skill loaded and did §1's reads: the spec, the corpus, and
+the always-on rules file are in that section, each whole. Use them from there and read none of those
+files again. A file the plugin could not read or find is listed there instead, for you to read.
+`$VOICE` below is the directory on that section's `VOICE=` line: the plugin's `voice_dir` option,
+then `$GHOSTWRITING_DIR`, then `~/.claude/ghostwriting`. `MODE=bootstrap` there means no spec.
 
-The plugin's `voice_dir` option is substituted into the first line below (empty when the user set
-none); then `$GHOSTWRITING_DIR`, then the default.
-```bash
-VOICE='${user_config.voice_dir}'
-VOICE=${VOICE:-${GHOSTWRITING_DIR:-$HOME/.claude/ghostwriting}}
-[ -f "$VOICE/voice-spec.md" ] && echo "spec: $VOICE/voice-spec.md" || echo "MODE=bootstrap"
-ls "$VOICE/corpus" 2>/dev/null || echo "no corpus"
-```
 - `$VOICE/voice-spec.md`—voice rules, per-genre form, delta log, procedure.
 - `$VOICE/corpus/`—hand-written samples, one file per piece or genre.
 
