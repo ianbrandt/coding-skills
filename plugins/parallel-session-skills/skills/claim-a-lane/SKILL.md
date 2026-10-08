@@ -45,8 +45,8 @@ git worktree list                            # who's around (worktrees ≈ sessi
 git log --oneline -15 "$DEFAULT"             # what just landed; $DEFAULT is work-in-worktree §1's
 ```
 
-Then call `read_ledger`. Its result starts with the ledger's resolved path, then one line per live
-claim, or `no claims`.
+Then call `read_ledger`. Its result has the ledger's resolved path, then one line per live claim, or
+`no claims`. Lines about claims it reaped, or did not, come before the path.
 
 The ledger is a **live lease board, not a log**: entries are
 `{"item","branch","started","session","touches"}`, deleted by their own session at *its* finish—which
@@ -63,7 +63,9 @@ session between tasks looks identical to an abandoned one, and removing its dire
 mid-flight. Leftovers are harmless clutter the next `prune` reaps; when in doubt, leave it.
 
 **Dead claims are reaped by `read_ledger` on every call**, and each one is listed in its result as
-`reaped dead claim: <file>`. A claim is dead when no worktree has its branch checked out, read from
+`reaped dead claim: <file>`. While a linked worktree is on a detached HEAD, as one stopped in a
+rebase is, its branch is in no worktree's entry, so no claim that parses is reaped and the result
+has the line `a worktree is detached, so no claim that parses was reaped`. A claim is dead when no worktree has its branch checked out, read from
 `git worktree list` after a `git worktree prune`. Merge state is not the test: the tip of a branch
 just claimed equals the default branch, so by merge state a lane just claimed would look dead.
 Neither is the `.claude/worktrees/` directory: a worktree made by hand can be anywhere. A claim file
@@ -118,6 +120,10 @@ literally**. Re-deriving it from the session's own directory returns the primary
 session launched from the repo root. That path is refused, and a branch with no claim is an error,
 so a release that removed nothing is never reported as done. The result lists the claims that
 remain.
+
+Release before removing the worktree. For a path that is already gone the tool has no branch to
+look up, so it releases the claims of this session that have no worktree, and refuses while any
+linked worktree is detached.
 
 At session end the hooks module also releases every claim stamped with this session's id, for a
 session that ends without wrapping. It is a safety net and no substitute for releasing at wrap,

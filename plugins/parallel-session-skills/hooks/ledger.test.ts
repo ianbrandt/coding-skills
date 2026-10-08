@@ -92,7 +92,7 @@ test('read_ledger deletes dead claims and returns the live ones', async ($: any,
 test('read_ledger reaps no claim while a linked worktree is detached, such as in a rebase', async ($: any, on: any) => {
   const w = world(on, { '/wt/a': 'HEAD' }, { 'claude-gone.json': claim('claude/gone') })
   const ran = await call($, 'read_ledger')
-  expect(ran.result).toBe(`a worktree is detached, so no claim was reaped\nledger: /repo/.claude/claims\n${claim('claude/gone').trim()}`)
+  expect(ran.result).toBe(`a worktree is detached, so no claim that parses was reaped\nledger: /repo/.claude/claims\n${claim('claude/gone').trim()}`)
   expect(Object.keys(w.files)).toEqual(['claude-gone.json'])
   w.worktrees = { '/wt/a': 'claude/a' }
   expect((await call($, 'read_ledger')).result).toContain('reaped dead claim: claude-gone.json')
@@ -200,6 +200,16 @@ test("a removed worktree's release leaves this session's claim for a worktree th
   const w = world(on, { '/wt/b': 'claude/b' }, { 'claude-a.json': claim('claude/a', 'MINE'), 'claude-b.json': claim('claude/b', 'MINE') })
   expect((await call($, 'release_claim', { worktree: '/wt/a' })).result).toContain('released: claude-a.json (')
   expect(Object.keys(w.files)).toEqual(['claude-b.json'])
+})
+
+// A lane stopped in a rebase is listed as detached, so its branch is in no
+// worktree's entry and its claim cannot be told from the removed lane's.
+test("a removed worktree's release deletes nothing while another worktree is detached", async ($: any, on: any) => {
+  const w = world(on, { '/wt/b': 'HEAD' }, { 'claude-a.json': claim('claude/a', 'MINE'), 'claude-b.json': claim('claude/b', 'MINE') })
+  const ran = await call($, 'release_claim', { worktree: '/wt/a' })
+  expect(ran.isError).toBe(true)
+  expect(ran.text).toContain('a worktree is detached')
+  expect(Object.keys(w.files)).toEqual(['claude-a.json', 'claude-b.json'])
 })
 
 test("a removed worktree's release leaves another session's claim, and with none of this session's it is an error", async ($: any, on: any) => {

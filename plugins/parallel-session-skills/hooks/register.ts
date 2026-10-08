@@ -114,7 +114,7 @@ async function readLedger($: any, main: string): Promise<string> {
   }
   for (const e of gone) await remove($, main, e.name)
   const reaped = gone.map(e => `reaped dead claim: ${e.name}\n`).join('')
-  const held = detached ? 'a worktree is detached, so no claim was reaped\n' : ''
+  const held = detached ? 'a worktree is detached, so no claim that parses was reaped\n' : ''
   return reaped + held + render(main, all.filter(e => !gone.includes(e)))
 }
 
@@ -136,7 +136,9 @@ async function releaseClaim($: any, main: string, e: any): Promise<string> {
   // can release are its own with no worktree left: a conductor has others, one
   // a lane still in flight.
   if (!(await $.fs.exists(String(e.worktree)))) {
-    const standing = (await worktrees($, main)).map(w => w.branch)
+    const listed = await worktrees($, main)
+    if (listed.slice(1).some(w => !w.branch)) throw new Error(`${e.worktree} is gone and a worktree is detached, so the claim for it cannot be told from that worktree's. Release it once no worktree is detached.\n${render(main, await entries($, main))}`)
+    const standing = listed.map(w => w.branch)
     const mine = ownedBy(await entries($, main), await $.session.id()).filter(m => !standing.includes(parse(m.text)!.branch))
     if (!mine.length) throw new Error(`no claim of this session, and ${e.worktree} is gone\n${render(main, await entries($, main))}`)
     for (const m of mine) await remove($, main, m.name)
