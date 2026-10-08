@@ -75,15 +75,19 @@ const within = ($: any, main: string, a: string, b: string) => ok(git($, main, '
 
 // origin is named, since a bare `git fetch` reads the remote of the current
 // branch's upstream: the parent repo on a fork, or this repo where the branch
-// tracks a local one. From git 2.48 the fetch also points origin/HEAD at the
-// remote's default branch, so one the host renamed is found. Before that, a
-// repo that was pushed rather than cloned has no origin/HEAD until one is set.
-// A repo with no origin has nothing to fetch.
+// tracks a local one. An origin/HEAD that names a branch origin has is left as
+// it is, since it may point at another branch on purpose. Any other is set from
+// the remote: a repo that was pushed rather than cloned has none, the prune of
+// a renamed default branch leaves one that points at nothing, and one written
+// by `git update-ref` is a commit, which names no branch. A repo with no origin
+// has nothing to fetch.
 async function fetchOrigin($: any, main: string, prune = false): Promise<Ran> {
   if (!(await ok(git($, main, 'remote', 'get-url', 'origin')))) return { exitCode: 0, stdout: '', stderr: '' }
-  const argv = ['-c', 'remote.origin.followRemoteHEAD=always', 'fetch', '-q', ...(prune ? ['--prune'] : []), 'origin']
+  const argv = ['fetch', '-q', ...(prune ? ['--prune'] : []), 'origin']
   const fetched = await run($, gitArgv(main, argv), gitTimeout(argv))
-  if (fetched.exitCode === 0 && !(await has($, main, 'refs/remotes/origin/HEAD'))) await git($, main, 'remote', 'set-head', 'origin', '--auto')
+  const head = 'refs/remotes/origin/HEAD'
+  const named = (await ok(git($, main, 'symbolic-ref', '-q', head))) && (await has($, main, head))
+  if (fetched.exitCode === 0 && !named) await git($, main, 'remote', 'set-head', 'origin', '--auto')
   return fetched
 }
 

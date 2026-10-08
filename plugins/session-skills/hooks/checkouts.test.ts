@@ -56,7 +56,7 @@ function world(on: any, git: (argv: string) => string | number | void, other?: (
 const call = ($: any, name: string, input: object = {}) => $.tool.call({ tool: `mcp__session-skills__${name}`, ...input })
 const LIST = 'worktree /repo\nHEAD 0\nbranch refs/heads/main\n\nworktree /repo/.claude/worktrees/r1-a\nHEAD 0\nbranch refs/heads/claude/r1-a\n'
 const BASE = 'refs/remotes/origin/main'
-const FETCH = '-c remote.origin.followRemoteHEAD=always fetch -q origin'
+const FETCH = 'fetch -q origin'
 
 // Local main is ahead of origin/main: a push is held.
 const held = (line: string) => {
@@ -108,6 +108,15 @@ test('find_checkouts reads the default branch after the fetch, and from the remo
   })
   expect((await call($, 'find_checkouts')).result).toContain('default branch: develop\n')
   expect(calls.indexOf(FETCH)).toBeLessThan(calls.findIndex(c => c.startsWith('symbolic-ref')))
+})
+
+// An origin/HEAD set on purpose to another branch is the user's.
+test('the tools leave alone an origin/HEAD that names a branch origin has', async ($: any, on: any) => {
+  const calls = world(on, held, line => (line.startsWith('ln -s') ? '' : undefined))
+  await call($, 'find_checkouts')
+  await call($, 'open_worktree', { name: 'a-b' })
+  await call($, 'prune_branches')
+  expect(calls.filter(c => c.includes('set-head') || c.includes('followRemoteHEAD'))).toEqual([])
 })
 
 test('open_worktree opens from a local default branch that is ahead, and links the notes directory', async ($: any, on: any) => {
@@ -222,6 +231,41 @@ test('prune_branches reads the default branch after the fetch', async ($: any, o
   })
   expect((await call($, 'prune_branches')).result).toBe('kept: hotfix (upstream gone, content not on origin/develop)')
   expect(deleted(calls)).toEqual([])
+})
+
+// `git update-ref` writes origin/HEAD as a commit, which resolves and names no
+// branch. Read as it is, the default branch would be the guess, main.
+test('prune_branches sets an origin/HEAD that is not a symbolic ref from the remote', async ($: any, on: any) => {
+  const develop = 'refs/remotes/origin/develop'
+  let set = false
+  const calls = world(on, line => {
+    if (line === 'remote set-head origin --auto') set = true
+    if (line === 'symbolic-ref -q refs/remotes/origin/HEAD') return set ? develop : 1
+    if (line === `rev-parse --verify -q ${develop}^{tree}`) return 'TREE'
+    if (line.startsWith('for-each-ref --merged')) return ''
+    if (line.startsWith('for-each-ref --format')) return 'hotfix\t[gone]'
+    if (line.includes('merge-tree')) return line.includes(develop) ? 'OTHER' : 'TREE'
+    return reap(line)
+  })
+  expect((await call($, 'prune_branches')).result).toBe('kept: hotfix (upstream gone, content not on origin/develop)')
+  expect(deleted(calls)).toEqual([])
+})
+
+// The host renamed master to main. The prune removes origin/master, and
+// origin/HEAD then points at nothing.
+test('prune_branches finds a default branch the host renamed once the fetch has pruned the old one', async ($: any, on: any) => {
+  let pruned = false
+  let set = false
+  const calls = world(on, line => {
+    if (line === 'fetch -q --prune origin') pruned = true
+    if (line === 'remote set-head origin --auto') set = true
+    if (line === 'symbolic-ref -q refs/remotes/origin/HEAD') return set ? BASE : 'refs/remotes/origin/master'
+    if (line === 'rev-parse --verify -q refs/remotes/origin/HEAD') return pruned && !set ? 1 : undefined
+    if (line.startsWith('for-each-ref --merged')) return ''
+    return line.startsWith('for-each-ref --format') ? 'feat-squash\t[gone]' : reap(line)
+  })
+  expect((await call($, 'prune_branches')).result).toBe('deleted: feat-squash (upstream gone, content on origin/main)')
+  expect(calls.filter(c => c.includes('set-head'))).toEqual(['remote set-head origin --auto'])
 })
 
 // One world a test, since no hook is added after the first call on `$`: the

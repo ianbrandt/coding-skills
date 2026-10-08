@@ -218,6 +218,12 @@ is set in `.git/info/attributes`, which git has no switch to turn off, or where 
 `origin/$DEFAULT` or the empty tree cannot be read: the result then has a `warning:` line to repeat
 in the reply.
 
+`$DEFAULT` is read from `origin/HEAD`. The tools set it from the remote only where it is not the
+name of a branch `origin` has, so one pointed at another branch on purpose is left alone. A default
+branch the host renamed is found once step 2 has pruned the old remote-tracking ref. Where the host
+made another branch the default and the old one is still there, `origin/HEAD` stays on the old one
+and step 4 checks against it, until `git remote set-head origin --auto` is run.
+
 The result has one line per branch: `deleted:`, `kept:`, `merged, still checked out:`, or `left:`
 with git's reason where a deletion was refused.
 
