@@ -33,9 +33,6 @@ over the repo's contributor docs, which apply to the code and not to where the c
 plugin (§0's lease seam) adds the shared lease that keeps two lanes off the same files. Nothing here
 needs it, and a session working alone skips it.
 
-**On PowerShell**, `powershell.md` in this skill's directory has every snippet below in
-PowerShell 7, matched by section number.
-
 ## 0. The two seams
 
 These skills don't decide *what* to work on. Where a repo keeps a backlog—a roadmap file, GitHub
@@ -61,29 +58,19 @@ these skills still work.
 
 ## 1. Locate the two checkouts
 
-A repo has one main (non-worktree) checkout; you **work in your own worktree**. Capture both paths
-up front.
+A repo has one main (non-worktree) checkout; you **work in your own worktree**. Call
+`mcp__session-skills__find_checkouts` up front. It fetches, then returns the values these skills
+refer to by name:
 
-```bash
-MAIN=$(git worktree list --porcelain | sed -n '1s/^worktree //p')   # keeps a path with spaces whole
-BRANCH=$(git rev-parse --abbrev-ref HEAD)
-DEFAULT=$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's@^origin/@@')
-DEFAULT=${DEFAULT:-main}                     # the repo's integration branch (main/master/…)
+- **the primary checkout**, `$MAIN`;
+- **the default branch**, `$DEFAULT`, the repo's integration branch (main/master/…);
+- **the base for a new branch**, `$BASE`: `origin/$DEFAULT`, or `$DEFAULT` by the rule below;
+- **the session's directory**, then every worktree with its branch and the number of commits it has
+  that `$BASE` lacks, the primary checkout first.
 
-BASE="origin/$DEFAULT"                       # branch from this, not from a local default branch that is behind it
-git fetch -q || echo "fetch failed: $BASE may be behind" >&2      # do not swallow this
-if ! git rev-parse --verify -q "$BASE" >/dev/null; then
-  BASE="$DEFAULT"                            # no remote: local is all there is
-elif git merge-base --is-ancestor "$BASE" "$DEFAULT"; then
-  BASE="$DEFAULT"                            # nothing missing locally, and any held commits come along
-elif ! git merge-base --is-ancestor "$DEFAULT" "$BASE"; then
-  echo "local $DEFAULT has diverged from $BASE: branching from $BASE, without the local commits" >&2
-fi
-
-WTROOT="$MAIN/.claude/worktrees"             # where Claude Code creates worktrees
-PFX="claude/"                                # and the branch prefix it uses
-NOTES="notes.local"                          # the repo's local-only notes directory, if it has one
-```
+`$WT` is your own worktree and `$BRANCH` its branch: one from that list (§2), or the one opened in
+§3. Shell state does not persist between calls, so write each of these out as a literal path or name
+in every later command.
 
 **There is no local way to tell whether the checkout is current**, a clean working tree least of
 all: another machine, or another session, may have pushed since anyone last fetched here. Branching
@@ -92,7 +79,7 @@ rejected non-fast-forward, or never surfaces and the work merges clean on top of
 written against.
 Fetching costs one round trip at the start of the session and removes both cases. A fetch that
 fails, offline or behind an expired credential, leaves `$BASE` as stale as before and looks
-identical to a clean one, so let the failure print rather than discarding it, and say so rather
+identical to a clean one. The tool returns it as a `warning:` line: repeat it in the reply rather
 than reporting the branch point as current.
 
 **Commits held on the local default branch are the one case for branching from it.** Where a push
@@ -100,9 +87,9 @@ is held for review (`land-and-wrap` §1's public hold), the local default branch
 `origin/$DEFAULT` until the user pushes. A branch opened from `origin/$DEFAULT` then lacks the held
 commits and cannot fast-forward back into the local default branch. So after the fetch, a local
 default branch that includes all of `origin/$DEFAULT` is the base. One that is only behind is the
-ordinary stale checkout, and `origin/$DEFAULT` stays the base. One that has diverged is reported and
-left for the user: the new branch starts from `origin/$DEFAULT` without the local commits, and say
-so in the reply. In `pr` mode or on a fork the local default branch should never be ahead, so say so
+ordinary stale checkout, and `origin/$DEFAULT` stays the base. One that has diverged is returned as a
+`warning:` line and left for the user: the new branch starts from `origin/$DEFAULT` without the
+local commits, and say so in the reply. In `pr` mode or on a fork the local default branch should never be ahead, so say so
 there too when it is, since those commits would be in the pull request.
 
 **A file written for another machine to read**—a handoff list, a shared to-do, a status note—is
@@ -117,7 +104,7 @@ of them means the work is already in flight, and its existing worktree is *your*
 
 1. **A pin in the backlog** (§0)—a note tying that unit of work to one branch or worktree is the
    durable in-flight record, and it outlives every session that touched it.
-2. **An existing worktree or branch named for it** (`git worktree list`), with commits the
+2. **An existing worktree or branch named for it** (§1's worktree list), with commits the
    default branch doesn't have. A worktree directory starting with the work's backlog ID and a
    hyphen counts (`r78-` for R78, §3), whatever its branch is named.
 3. **A live lease on it**, where the repo runs a concurrency plugin (§0's lease seam)—how to read
@@ -129,13 +116,9 @@ covers a session, not the work: the ordinary handoff—wrap up cleanly, resume n
 work in flight with no lease at all. Tell 1 or 2 is what fires then, and they are the only two tells
 a repo with no concurrency plugin has.
 
-```bash
-WT="$WTROOT/<the matching worktree dir>"   # resume: work here
-```
-
-Set `WT` to it and `BRANCH` to that worktree's checked-out branch, skip §3, and read the branch's
-state before writing anything: `git -C "$WT" log --oneline "$BASE..HEAD"` and `git -C "$WT"
-status` show what already landed and what is half-done. Build on those commits; don't redo them,
+`$WT` is then that worktree's path from §1's list and `$BRANCH` its checked-out branch. Skip §3, and
+read the branch's state before writing anything: `git -C "$WT" log --oneline "$BASE..HEAD"` and
+`git -C "$WT" status` show what already landed and what is half-done. Build on those commits; don't redo them,
 and don't reset or rewrite them without saying why.
 
 **Opening a fresh worktree instead strands that branch's commits and silently restarts the work**—
@@ -143,32 +126,19 @@ fatally so when the plan pins the work to one branch.
 
 ## 3. Open your own worktree—new lanes only
 
-```bash
-if [ "$BRANCH" = "$DEFAULT" ]; then
-  # Launched in the PRIMARY checkout—open your own worktree now; never edit under $MAIN.
-  NAME="<short-kebab-id>"                    # arbitrary pair (color-animal), NOT activity words like
-                                             # "roadmap-lap"—every session picks those, and siblings collide
-  ID="<backlog id, lowercased>"              # §0's backlog ID, or empty where the work has none
-  NAME="${ID:+$ID-}$NAME"                    # r78-sage-heron: the ID for §2's tell 2
-  while [ -d "$WTROOT/$NAME" ] \
-     || git show-ref --verify --quiet "refs/heads/$PFX$NAME"; do
-    NAME="$NAME-$RANDOM"                     # taken by a sibling—suffix and retry
-  done
-  git worktree add --no-track "$WTROOT/$NAME" -b "$PFX$NAME" "$BASE"   # §1: current; no upstream, see below
-  WT="$WTROOT/$NAME"
-  BRANCH="$PFX$NAME"                         # update—the capture above read the default branch
-else
-  WT=$(git rev-parse --show-toplevel)        # YOUR worktree—edit/build only under here
-fi
-# Durable notes belong in the primary checkout: a worktree's untracked files go with it on removal.
-[ "$WT" != "$MAIN" ] && [ -d "$MAIN/$NOTES" ] && [ ! -e "$WT/$NOTES" ] \
-  && ln -s "$MAIN/$NOTES" "$WT/$NOTES"
-echo "worktree: $WT   main checkout: $MAIN"
-```
+Where §1's session directory is already a worktree other than the primary checkout, the host opened
+it for this session: that directory is `$WT`, and nothing is opened. In the primary checkout, call
+`mcp__session-skills__open_worktree` now, and never edit under `$MAIN`:
 
-**On Windows Git Bash**, `ln -s` copies the directory rather than linking it, and
-`MSYS=winsymlinks:nativestrict` makes it fail without Developer Mode. Use `powershell.md` §3's
-junction instead, which needs no privilege.
+- `name`: an arbitrary pair (color-animal, `sage-heron`), NOT activity words like `roadmap-lap`.
+  Every session picks those, and siblings collide.
+- `id`: §0's backlog ID where the work has one (`R78`), for §2's tell 2. Omit it otherwise.
+- `notes`: the repo's local-only notes directory, where it is not named `notes.local`.
+
+The tool fetches, takes `$BASE` by §1's rule, and opens `$MAIN/.claude/worktrees/<id>-<name>` on a new
+branch `claude/<id>-<name>` with no upstream. Those are the directory and the branch prefix Claude
+Code uses. A name a sibling already took gets a numeric suffix. `$WT` and `$BRANCH` are the
+`worktree:` and `branch:` lines returned, which may differ from the name passed.
 
 **`--no-track` leaves the new branch with no upstream.** A branch tracking `origin/<default>` is
 checked against it by `git branch -d`, so while a public push is held, a branch already merged into
@@ -211,9 +181,11 @@ earlier: another session's edit made in between is lost.
 
 **Write durable notes to the primary checkout, never into the worktree.** `git worktree remove`
 deletes a worktree's untracked files without a warning, and the loss shows up only when a later
-session follows a reference to a note that is gone. The `ln -s` line in the block above links a
-local-only notes directory through, so existing write paths land in `$MAIN`. Set `NOTES` in §1 to
-the repo's notes directory; the `-d` test skips the link where that directory is absent. **An
+session follows a reference to a note that is gone. `open_worktree` links a local-only notes
+directory into the new worktree, as a junction on Windows and a symbolic link elsewhere, so existing
+write paths land in `$MAIN`. Nothing is linked where that directory is absent. A link that could not
+be made is returned as a `warning:` line, and a worktree the host opened has none: in both cases
+write notes to the directory in `$MAIN` by its absolute path. **An
 exclude pattern with a trailing slash does not match the link**: `/notes.local/` matches only
 a directory, so the link shows as untracked in every new worktree. Write the pattern as
 `/notes.local`.
@@ -224,50 +196,37 @@ Cheap, safe, and worth running whichever of §2 or §3 you came through. None of
 do with other sessions; a session working alone accumulates the same stale worktree registrations
 and merged branches.
 
-```bash
-git worktree prune                           # safe: only reaps worktrees whose dir is already gone
-git for-each-ref --merged "$DEFAULT" --format='%(refname:short)' \
-  'refs/heads/claude/*' 'refs/heads/worktree-*' | xargs -r git branch -d   # merged only; -d self-guards
-                                             # claude/: Claude Code's branch prefix, as PFX in §1
-```
+Call `mcp__session-skills__prune_branches`. It never removes a worktree. In order, it:
 
-`--merged` misses a PR branch the host squashed or rebased on merge, so those pile up. Once the host
-deletes the remote copy, the local branch's upstream is gone. That alone is no proof of a merge: a
-declined PR with its branch deleted looks the same. So delete only a branch that would change
-nothing if merged into `$BASE` now. The block derives `$BASE` itself and does nothing when it can't:
-with `$BASE` empty, every check fails, and a failed check must never read as merged.
+1. runs `git worktree prune`, which only drops worktrees with a directory that is already gone;
+2. deletes each `claude/` and `worktree-` branch merged into `$DEFAULT` with `git branch -d`, leaving
+   any that is checked out in a worktree;
+3. fetches with `--prune`, then checks each branch with an upstream that is gone.
 
-```bash
-git fetch -q --prune                         # drops remote-tracking refs the host deleted
-DEFAULT=$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's@^origin/@@')
-BASE="origin/${DEFAULT:-main}"
-T=$(git rev-parse -q --verify "$BASE^{tree}") &&
-git for-each-ref --format='%(refname:short) %(upstream:track)' refs/heads | awk '$2=="[gone]"{print $1}' |
-while read -r b; do
-  if [ "$(git merge-tree --write-tree "$BASE" "$b" 2>/dev/null)" != "$T" ]; then   # git 2.38+
-    echo "kept: $b (upstream gone, content not on $BASE)"
-  elif git worktree list --porcelain | grep -qx "branch refs/heads/$b"; then
-    echo "merged, still checked out: $b"
-  else
-    git branch -D "$b"
-  fi
-done
-```
+Step 3 is for a PR branch the host squashed or rebased on merge, which `--merged` misses, so those
+pile up. Once the host deletes the remote copy, the local branch's upstream is gone. That alone is no
+proof of a merge: a declined PR with its branch deleted looks the same. So a branch is deleted only
+when merging it into `origin/$DEFAULT` now would change nothing (`git merge-tree`, git 2.38+), and
+any check that fails leaves the branch in place.
+
+The result has one line per branch: `deleted:`, `kept:`, `merged, still checked out:`, or `left:`
+with git's reason where a deletion was refused.
 
 A merge commit, a rebase merge, and a squash merge all pass. A declined PR and a squash the reviewer
 edited print `kept`. List those in the wrap-up and leave them. A merged branch still checked out in
 a worktree prints `merged, still checked out`: remove that worktree if it is yours, by the rules
-below, then run the block again. List any other in the wrap-up.
+below, then call the tool again. List any other in the wrap-up.
 
 **Never `git worktree remove` a worktree you didn't create.** A live session between tasks looks
 identical to an abandoned one, and removing its directory kills it mid-flight. Leftovers are
 harmless clutter the next `prune` reaps; when in doubt, leave it.
 
 **Before removing your own worktree, list its untracked files** and move anything real to `$MAIN`
-first. Build output is filtered out:
+first. They are the `??` lines of this command; disregard build output such as `build/`, `.gradle/`,
+and `.kotlin/`:
 
 ```bash
-git -C "$WT" status --porcelain -uall | grep '^??' | grep -Ev '(^\?\? |/)(build|\.gradle|\.kotlin)/'
+git -C "$WT" status --porcelain -uall
 ```
 
 A concurrency plugin adds its own hygiene on top of this (§0's lease seam).

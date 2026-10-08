@@ -66,10 +66,23 @@ in the marketplace's README.
 ## How it is wired
 
 One hooks module, `hooks/register.ts`, which is a Claude Code mod and needs Claude Code 2.1.286 or
-later, the oldest version supported. It registers the tool `mcp__session-skills__edit_primary_file`,
-called from `work-in-worktree` §3 to edit a file that is only in the primary checkout, such as an
-untracked roadmap: one passage is replaced, or text is appended, and nothing is written when the
-passage has drifted. `hooks/register.test.ts` runs under `claude plugin test`.
+later, the oldest version supported. It registers five tools, named `mcp__session-skills__<tool>`,
+and the skills call them where they once had bash to adapt:
+
+- `find_checkouts` fetches, then returns the primary checkout, the default branch, the ref a new
+  branch should start from, and every worktree (`work-in-worktree` §1 and §2).
+- `open_worktree` opens a worktree and branch from that ref and links the repo's local notes
+  directory into it (§3).
+- `prune_branches` prunes stale worktree registrations and deletes merged branches, including one a
+  host squashed on merge, and never removes a worktree (§4).
+- `landing_facts` returns whether the repo is a fork, `origin`'s visibility, the landing mode, and
+  the holds the user lifted (`land-and-wrap` §1).
+- `edit_primary_file` edits a file that is only in the primary checkout, such as an untracked
+  roadmap: one passage is replaced, or text is appended, and nothing is written when the passage
+  has drifted.
+
+`hooks/checkouts.test.ts` and `hooks/register.test.ts` run under `claude plugin test`. The five
+tool definitions are in every session's context, at roughly 500 tokens by estimate.
 
 At session start the module adds `hooks/rules.md` to every session, including after `/clear` and
 compaction. That file has three rules that cannot go in a skill. One is the session-title suggestion
@@ -90,6 +103,7 @@ every commit waiting to be pushed. Without one, the session keeps serving the ol
 
 ## Platform
 
-The shell snippets in both skills are bash. PowerShell 7 versions are in
-`work-in-worktree/powershell.md` and `land-and-wrap/powershell.md`, matched by section number. The
-`SessionStart` hook is a plain `cat`, which runs unchanged under bash, Git Bash, and PowerShell.
+The tools run git by argument vector with no shell, so one implementation serves bash, Git Bash, and
+PowerShell sessions. The commands left in the skills are single `git`, `gh`, or `glab` calls that
+read the same in each. On Windows the notes directory is linked as a junction, which needs no
+privilege; that path has not been run on Windows.

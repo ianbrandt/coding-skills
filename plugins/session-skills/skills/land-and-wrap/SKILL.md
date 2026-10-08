@@ -22,23 +22,11 @@ Two separate jobs, and the second one runs even when the first doesn't: **landin
 work out of its worktree, and the **wrap-up** closes the session whether the work finished, stalled,
 or was abandoned.
 
-**On PowerShell**, `powershell.md` in this skill's directory has every snippet in §1 below, and the
-one in §2 `pr` step 6, in PowerShell 7, matched by subsection.
-
 ## 1. What decides how work lands
 
-Read it off the repo, or off the per-clone `git config` values the user set; never from a file in
-the tree.
-
-```bash
-git remote get-url upstream >/dev/null 2>&1 && echo "fork"        # someone else's project
-URL=$(git remote get-url origin)
-vis() { tr '[:upper:]' '[:lower:]' | grep -xE 'public|private|internal'; }   # drops CLI error text
-VIS=$(git config --get session-skills.originVisibility | vis)     # set once per clone
-[ -n "$VIS" ] || VIS=$(gh repo view "$URL" --json visibility -q .visibility 2>/dev/null | vis)
-[ -n "$VIS" ] || VIS=$(glab repo view "$URL" -F json --jq .visibility 2>/dev/null | vis)
-echo "origin: ${VIS:-unknown}"
-```
+Call `mcp__session-skills__landing_facts`. Each fact is read off the repo, or off a per-clone
+`git config` value the user set, and never from a file in the tree. Four lines come back: `fork`,
+`origin visibility`, `landing mode`, and `holds lifted`.
 
 - **A fork** (an `upstream` remote, ideally with `git remote set-url --push upstream no_push`) means
   the work is a contribution to a project you don't own. It **never merges and never pushes**, and
@@ -49,10 +37,10 @@ echo "origin: ${VIS:-unknown}"
   to a public one** for the user's explicit go, because a public push is published under their name
   and can't be taken back. The user can lift that hold per clone (below).
 
-The per-repo `git config` value comes first and works on any host. `gh` and `glab` are only
-shortcuts, for a GitHub and a GitLab `origin`, and each is skipped when it is not installed or not
-signed in to that host. A Bitbucket `origin` depends on the config value. With no value from any of
-the three, **ask the user once** and record the reply, so no later session asks again:
+For visibility, the per-clone `git config` value comes first and works on any host. `gh` and `glab`
+are only shortcuts, for a GitHub and a GitLab `origin`, and each is skipped when it is not installed
+or not signed in to that host. A Bitbucket `origin` depends on the config value. Where the line is
+`unknown`, **ask the user once** and record the reply, so no later session asks again:
 
 ```bash
 git config session-skills.originVisibility private                # or public
@@ -66,27 +54,14 @@ guess. Push only on `private`, and hold on `internal` and anything else.
 A per-clone value comes first, then `gh` as a shortcut for a GitHub `origin`, skipped when it is not
 installed or not signed in. A protected default branch means `pr`, and an unprotected one `merge`.
 GitHub returns `protected` from its plain branch endpoint to any reader, while its protection
-endpoint needs admin rights, so the check reads the first, plus the branch's rulesets:
-
-```bash
-URL=$(git remote get-url origin)
-DEFAULT=$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's@^origin/@@')
-DEFAULT=${DEFAULT:-main}
-MODE=$(git config --get session-skills.landing | grep -xE 'merge|pr')
-PROT=
-if [ -z "$MODE" ] && REPO=$(gh repo view "$URL" --json nameWithOwner -q .nameWithOwner 2>/dev/null); then
-  PROT=$(gh api "repos/$REPO/branches/$DEFAULT" --jq .protected 2>/dev/null)
-  gh api "repos/$REPO/rules/branches/$DEFAULT" --jq '.[].type' 2>/dev/null | grep -qx pull_request && PROT=true
-fi
-case "$PROT" in true) MODE=pr ;; false) MODE=merge ;; esac
-echo "landing: ${MODE:-unknown}"
-```
+endpoint needs admin rights, so the tool reads the first, plus the branch's rulesets: a ruleset that
+requires a pull request also means `pr`.
 
 GitLab has no shortcut: it protects the default branch of every new project, so protection there
 does not separate a team repo from a solo one. Where a Bitbucket MCP server is connected, a branch
 restriction on the default branch means `pr`. Reading restrictions can need admin rights, and with
 no answer the question below runs. A team that works through PRs on an unprotected branch sets the
-value. With no answer from any of these, **ask the user once** and record the reply:
+value. Where the line is `unknown`, **ask the user once** and record the reply:
 
 ```bash
 git config session-skills.landing pr                              # or merge
@@ -97,8 +72,8 @@ Until the mode is known, merge locally and hold the push. Both steps can be undo
 ### Holds, and lifting them
 
 The fork hold (§3), the public-push hold, and the wait for a PR's text (§2) are defaults. The user
-can lift each one per clone. Set these only when the user says to, never on your own judgment. Read
-one with `git config --get session-skills.holdFork`; only a literal `false` lifts it:
+can lift each one per clone. Set these only when the user says to, never on your own judgment. The
+`holds lifted` line lists the ones set to a literal `false`, which is the only value that lifts one:
 
 ```bash
 git config session-skills.holdPublicPush false    # a public origin pushes like a private one
@@ -158,13 +133,11 @@ runbook), otherwise land by the mode from §1.
    no host tool, as with a Bitbucket `origin` and plain git, write the title and body to a local
    file in the repo's notes directory, and give the user the create link from the `remote:` lines
    of the `git push` output. Where the repo has no notes directory, use `.claude/pr-drafts/` in
-   the primary checkout, excluded from git unless already ignored:
-
-   ```bash
-   F="$MAIN/.claude/pr-drafts/<id>-pr-draft.md"   # the work's backlog ID, or the branch name
-   mkdir -p "${F%/*}"
-   git -C "$MAIN" check-ignore -q "$F" || printf '\n/.claude/pr-drafts/\n' >> "$MAIN/.git/info/exclude"
-   ```
+   the primary checkout: `$MAIN/.claude/pr-drafts/<id>-pr-draft.md`, named for the work's backlog ID
+   or its branch. Write it with `mcp__session-skills__edit_primary_file` and an empty `old`, which
+   creates the file. Then run `git -C "$MAIN" check-ignore -q .claude/pr-drafts/x`. Where that
+   exits 1 the directory is not ignored yet, so append `/.claude/pr-drafts/` on a line of its own
+   to `$MAIN/.git/info/exclude` with the same tool.
 
 The branch and worktree stay until the PR merges, since review fixes go on the same branch. A
 backlog record kept in a tracked file rides in the PR and merges with it. One kept outside the tree
@@ -194,7 +167,7 @@ destination in `work-in-worktree` §3, before the first push. The steps below ar
 2. **Draft outreach as local files**—`NNN-issue-draft.md`, `NNN-pr-draft.md`,
    `NNN-comment-draft.md`, keyed by the upstream number once known and by the work's ID before
    then, in whatever local notes directory the repo keeps them in, or `.claude/pr-drafts/` where it
-   has none (snippet in §2 `pr` step 6). **Filing an issue, opening a PR, and posting a comment
+   has none (§2 `pr` step 6). **Filing an issue, opening a PR, and posting a comment
    are the user's actions, never yours.**
 3. **Record it done** through the backlog plugin, in a form that shows how far the work got: built
    locally, drafted, filed, or merged upstream are different states to the person who has to sync
