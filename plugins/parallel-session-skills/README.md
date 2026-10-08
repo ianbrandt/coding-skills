@@ -51,8 +51,9 @@ record of which paths a task edits.
 
 ## How it is wired
 
-No `SessionStart` hook, and so no always-on token cost: nothing here applies to a session that never
-opens a lane, and the skill descriptions are enough to trigger both skills.
+Nothing is added to a session's context at its start: nothing here applies to a session that never
+opens a lane, and the skill descriptions are enough to trigger both skills. The always-on cost is the
+three tool definitions below.
 
 One hooks module, `hooks/register.ts`, which is a Claude Code mod and needs Claude Code 2.1.286 or
 later, the oldest version supported. No shell or interpreter is involved, and git is run directly.
