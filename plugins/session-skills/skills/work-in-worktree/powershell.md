@@ -27,7 +27,7 @@ else {
   }
 }
 
-$WtRoot = "$Main/.claude/worktrees"                   # where this host's tooling creates worktrees
+$WtRoot = "$Main/.claude/worktrees"                   # where Claude Code creates worktrees
 $Pfx = 'claude/'                                      # and the branch prefix it uses
 $Notes = 'notes.local'                                # the repo's local-only notes directory, if any
 ```
@@ -62,10 +62,6 @@ if ($Branch -ceq $Default) {
   $Branch = "$Pfx$Name"                      # update, the capture above read the default branch
 } else {
   $Wt = git rev-parse --show-toplevel        # YOUR worktree, edit/build only under here
-  if ($Branch -ceq 'HEAD') {                 # detached, as a codex --worktree session starts
-    $Branch = "$Pfx<id>-<short-kebab-id>"    # named as above
-    git switch -c $Branch
-  }
 }
 # Durable notes belong in the primary checkout: a worktree's untracked files go with it on removal.
 if (($Wt -ne $Main) -and (Test-Path "$Main/$Notes") -and (-not (Test-Path "$Wt/$Notes"))) {
@@ -81,7 +77,7 @@ git worktree prune                            # safe: only reaps worktrees whose
 git for-each-ref --merged $Default --format='%(refname:short)' `
   'refs/heads/claude/*' 'refs/heads/worktree-*' |
   ForEach-Object { git branch -d $_ }         # merged only; -d self-guards
-                                               # claude/: the host's branch prefix, as $Pfx in §1
+                                               # claude/: Claude Code's branch prefix, as $Pfx in §1
 ```
 
 See `SKILL.md` §4 for what `--merged` misses and why this block only deletes a branch that would

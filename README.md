@@ -61,18 +61,6 @@ invoked.
 - [`gradle-skills`](plugins/gradle-skills) upgrades Gradle dependencies and the wrapper, one
   verified atomic commit at a time. Gradle builds only.
 
-### Codex
-
-The Codex CLI reads the same marketplace. `gradle-skills` and `session-skills` work there; the
-others are written for Claude Code. Codex runs a plugin's hooks only after you trust them, from the
-prompt at the next session start or from `/hooks`.
-
-```sh
-codex plugin marketplace add IanBrandt/coding-skills
-codex plugin add gradle-skills@ianbrandt
-codex plugin add session-skills@ianbrandt
-```
-
 ## License
 
 Licensed under MIT. See [LICENSE.md](LICENSE.md).

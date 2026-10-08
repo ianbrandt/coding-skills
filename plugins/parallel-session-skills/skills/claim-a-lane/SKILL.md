@@ -38,10 +38,6 @@ nothing, and falls through to the same "no claims" message that is printed for a
 session then reads a repo full of live siblings as idle and claims a colliding lane. `$WT` is set by
 `work-in-worktree`; unset, §3's first command fails loudly, which is the safe direction.
 
-**Platform names.** Worktrees under `$MAIN/.claude/worktrees/` and claims under
-`$MAIN/.claude/claims/` are what Claude Code's tooling produces; substitute whatever your tooling
-creates.
-
 ## 1. Orient against siblings
 
 ```bash
@@ -74,8 +70,7 @@ mid-flight. Leftovers are harmless clutter the next `prune` reaps; when in doubt
 Then reap **dead claims**: a claim is dead when no worktree has its branch checked out. Key off
 **`git worktree list`, not merge-state**: a just-claimed session's branch tip equals the default
 branch, which merge-state reads as dead. Not the `$MAIN/.claude/worktrees/` directory either: a
-session started with `codex --worktree` works in `$CODEX_HOME/worktrees/<n>/<repo>`, and
-checking the directory there reaps a live claim.
+worktree made by hand can be anywhere, and checking the directory reaps its live claim.
 
 ```bash
 git worktree prune                           # a deleted worktree directory otherwise stays listed
@@ -96,8 +91,8 @@ integration leaves a branch looking unmerged when its content is already on the 
 ## 3. Write the claim—before writing any code
 
 A claim written later does not prevent a collision. The filename is the **branch name with `/` as
-`-`**. Not the worktree directory name: every `codex --worktree` session of one repo works in a
-directory named after the repo, so a second one would overwrite the first's claim.
+`-`**. Not the worktree directory name: a branch is checked out in one worktree at most, and two
+worktrees in different parent directories can share a directory name.
 
 ```bash
 BRANCH=$(git -C "$WT" rev-parse --abbrev-ref HEAD)
