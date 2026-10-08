@@ -4,7 +4,7 @@ description: >-
   Keep two or three sessions working one repo at once off each other's files,
   when they coordinate only through git: orient against the sibling sessions,
   run the hygiene pass that reaps dead claims without killing a live sibling,
-  and write an atomic claim recording which paths this lane will touch. Two
+  and write a claim recording which paths this lane will touch. Two
   lanes collide when their declared paths overlap, which is the one fact no
   issue tracker can supply. Includes the tie-break for two sessions that claim
   the same thing, and the rule that a claim leases a session rather than the
@@ -31,27 +31,22 @@ opens a fresh one otherwise, and prunes stale worktrees and merged branches in i
 not among the available skills, stop and tell the user to install `session-skills`**—nothing here
 fails loudly without it, and no manifest enforces the dependency.
 
-**Re-derive `$MAIN` here rather than inheriting it.** Shell state doesn't persist between calls, and
-an unset `$MAIN` is the one failure that stays hidden here instead of being raised: `cat
-"$MAIN"/.claude/claims/*.json` on an empty variable globs against `/.claude/claims/`, matches
-nothing, and falls through to the same "no claims" message that is printed for an empty ledger. The
-session then reads a repo full of live siblings as idle and claims a colliding lane. `$WT` is set by
-`work-in-worktree`; unset, §3's first command fails loudly, which is the safe direction.
+**The ledger is read and written through three tools**, registered by this plugin's hooks module:
+`mcp__parallel-session-skills__read_ledger`, `write_claim`, and `release_claim`. Each one finds the
+primary checkout by itself, from any worktree, so no step here depends on a shell variable that may
+be unset. **If the tools are not listed, stop and tell the user**: hooks modules are off in this
+session (a Claude Code older than 2.1.286, a managed policy, or an untrusted workspace), and with
+them the release at session end. Do not write claim files by hand in their place.
 
 ## 1. Orient against siblings
 
 ```bash
-MAIN=$(git worktree list --porcelain | sed -n '1s/^worktree //p')   # re-derive—see above; never inherit
-DEFAULT=$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's@^origin/@@')
-DEFAULT=${DEFAULT:-main}
 git worktree list                            # who's around (worktrees ≈ sessions)
-git log --oneline -15 "$DEFAULT"             # what just landed
-echo "ledger: $MAIN/.claude/claims"          # print the resolved path—a wrong $MAIN reads as an empty ledger
-cat "$MAIN"/.claude/claims/*.json 2>/dev/null || echo "no claims"
+git log --oneline -15 "$DEFAULT"             # what just landed; $DEFAULT is work-in-worktree §1's
 ```
 
-**Read that path before reading the result.** If it came out as `/.claude/claims`, `$MAIN` didn't
-resolve and the "no claims" line means nothing.
+Then call `read_ledger`. Its result starts with the ledger's resolved path, then one line per live
+claim, or `no claims`.
 
 The ledger is a **live lease board, not a log**: entries are
 `{"item","branch","started","session","touches"}`, deleted by their own session at *its* finish—which
@@ -61,28 +56,19 @@ not mean the repo is idle**; the tells that do settle that are in `work-in-workt
 ## 2. Reap dead claims
 
 The worktree prune and the merged-branch reap are `work-in-worktree` §4's—they have nothing to do
-with siblings, and a session working alone needs them too. Run that first, then this.
+with siblings, and a session working alone needs them too.
 
 **Never `git worktree remove` a sibling's worktree**, not even a merged-and-clean one. A live
 session between tasks looks identical to an abandoned one, and removing its directory kills it
 mid-flight. Leftovers are harmless clutter the next `prune` reaps; when in doubt, leave it.
 
-Then reap **dead claims**: a claim is dead when no worktree has its branch checked out. Key off
-**`git worktree list`, not merge-state**: a just-claimed session's branch tip equals the default
-branch, which merge-state reads as dead. Not the `$MAIN/.claude/worktrees/` directory either: a
-worktree made by hand can be anywhere, and checking the directory reaps its live claim.
-
-```bash
-git worktree prune                           # a deleted worktree directory otherwise stays listed
-live=$(git worktree list --porcelain | sed -n 's@^branch refs/heads/@@p')
-for f in "$MAIN"/.claude/claims/*.json; do
-  [ -e "$f" ] || continue
-  b=$(sed -n 's/.*"branch"[^"]*"\([^"]*\)".*/\1/p' "$f")
-  if [ -z "$b" ] || ! printf '%s\n' "$live" | grep -qxF -- "$b"; then
-    echo "reaping dead claim: $f ($b)"; rm -f "$f"
-  fi
-done
-```
+**Dead claims are reaped by `read_ledger` on every call**, and each one is listed in its result as
+`reaped dead claim: <file>`. A claim is dead when no worktree has its branch checked out, read from
+`git worktree list` after a `git worktree prune`. Merge state is not the test: the tip of a branch
+just claimed equals the default branch, so by merge state a lane just claimed would look dead.
+Neither is the `.claude/worktrees/` directory: a worktree made by hand can be anywhere. A claim file
+that does not parse is left for a minute before it is reaped, since a sibling may be writing it.
+Never delete a claim file by hand.
 
 Also—**only when the ledger is empty**—reap leftover Workflow-agent worktrees (`agent-*` / `wf_*`
 directories), confirming an unmerged branch's content actually landed before removing it: diff-apply
@@ -90,29 +76,22 @@ integration leaves a branch looking unmerged when its content is already on the 
 
 ## 3. Write the claim—before writing any code
 
-A claim written later does not prevent a collision. The filename is the **branch name with `/` as
-`-`**. Not the worktree directory name: a branch is checked out in one worktree at most, and two
-worktrees in different parent directories can share a directory name.
+A claim written later does not prevent a collision. Call `write_claim` with:
 
-```bash
-BRANCH=$(git -C "$WT" rev-parse --abbrev-ref HEAD)
-NAME=$(printf %s "$BRANCH" | tr / -)
-ITEM="<what you claimed, short phrase, e.g. parser aggregation core>"  # no double quotes—they break the printf-built JSON
-TOUCHES='["src/parser/**", "docs/parsing.md"]'                        # paths this lane expects to edit
-SESSION="${CLAUDE_SESSION_ID:-${CLAUDE_CODE_SESSION_ID:-}}"           # stamped so this plugin's SessionEnd hook can release it
-mkdir -p "$MAIN/.claude/claims"
-printf '{ "item": "%s", "branch": "%s", "started": "%s", "session": "%s", "touches": %s }\n' \
-  "$ITEM" "$BRANCH" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$SESSION" "$TOUCHES" \
-  > "$MAIN/.claude/claims/$NAME.json.tmp" \
-  && mv "$MAIN/.claude/claims/$NAME.json.tmp" "$MAIN/.claude/claims/$NAME.json"   # atomic: a torn read looks dead to a sibling's reaper, which would rm a live claim
-cat "$MAIN"/.claude/claims/*.json            # re-read to confirm no clash
-```
+- `worktree`: the absolute path of `$WT`, the lane's own worktree. The claim is filed under the
+  branch checked out there, and the primary checkout is refused.
+- `item`: what you claimed, as a short phrase, such as `parser aggregation core`.
+- `touches`: the paths and globs this lane expects to edit, such as `["src/parser/**",
+  "docs/parsing.md"]`.
+
+The session's id is stamped on the claim, which is how it is released if the session ends without
+wrapping. The result is the whole ledger after the write: read it to confirm no clash.
 
 **`touches` is what makes disjointness checkable instead of guessed.** Two lanes collide when any
 path one expects to edit falls inside a glob the other declared—compare before claiming, and treat
 an overlap as a collision even when the two units of work are unrelated. It is a declared intent,
 not a measurement, so it will sometimes be wrong: **when the work spreads past what you declared,
-rewrite the claim** (same atomic write) before editing the new paths. A lane that can't
+rewrite the claim** with another `write_claim` before editing the new paths. A lane that can't
 predict its paths declares the broadest glob it might reach rather than a narrow lie.
 
 Two files are collision seams almost everywhere and are worth declaring even for a one-line edit: a
@@ -120,47 +99,28 @@ dependency manifest, and—where the backlog is a file in the repo—the backlog
 
 If another claim is for the **same work**, the **lexicographically smaller branch name keeps it**;
 the other backs off and picks something else. Write-then-check leaves you blind to a claim written
-after your check, so **re-read the ledger once more right before starting the work**; a clash found
+after your check, so **call `read_ledger` once more right before starting the work**; a clash found
 then resolves by the same rule. On a re-pick, prefer work no live claim sits near.
 
 **Resuming work already in flight: the lane already exists—only the lease may be missing.** The
 branch and worktree are already correct, so rename nothing. A claim for the work you are resuming
-is **yours**, and re-picking on it is the bug this path exists to prevent. If a
-live claim exists, confirm its `branch` matches `git -C "$WT" rev-parse --abbrev-ref HEAD` and you
-are done. If there is no claim (the ordinary case, since the prior session deleted its own at wrap),
-write one now for the **existing** branch, as above.
+is **yours**, and re-picking on it is the bug this path exists to prevent. Whether or not a claim
+for the branch is still in the ledger, call `write_claim` for the **existing** worktree: a claim
+left by an earlier session is replaced with one stamped with this session's id.
 
 ## Releasing it
 
 Your claim is released at **session** end, finished or not: a claim is a lease on the session, not
 on the work's progress. `land-and-wrap` §4 runs this step.
 
-```bash
-MAIN=$(git worktree list --porcelain | sed -n '1s/^worktree //p')   # re-derive—shell state doesn't persist
-rm -f "$MAIN/.claude/claims/$(git -C "$WT" rev-parse --abbrev-ref HEAD | tr / -).json"   # keyed off the branch, as in §3
-ls "$MAIN"/.claude/claims/                                      # confirm—rm -f on a wrong path succeeds silently
-```
+Call `release_claim` with `worktree` set to `$WT`, the path `work-in-worktree` set, **written out
+literally**. Re-deriving it from the session's own directory returns the primary checkout in a
+session launched from the repo root. That path is refused, and a branch with no claim is an error,
+so a release that removed nothing is never reported as done. The result lists the claims that
+remain.
 
-`$WT` is the path `work-in-worktree` set, **written out literally**. Re-deriving it with `git
-rev-parse --show-toplevel` returns `$MAIN` in a session launched from the repo root, whose branch is
-the default branch, so the `rm` removes a file that never existed and the real claim leaks.
-
-This plugin's `SessionEnd` hook releases any claim that includes this session's id when a session
-ends without wrapping. It is a safety net and no substitute for releasing at wrap, which hands the
-lane back immediately rather than whenever the session eventually exits.
-
-**Say out loud when the net isn't armed.** Restricted hooks make the release above the *only* path,
-and a session that doesn't know that is the one that leaks a lease nothing can expire:
-
-```bash
-python3 -c 'import json,os
-hits=[k for f in (os.path.expanduser("~/.claude/settings.json"),".claude/settings.json")
-      for k in ("disableAllHooks","allowManagedHooksOnly")
-      if os.path.exists(f) and json.load(open(f)).get(k)]
-print("hooks RESTRICTED:",hits,"— SessionEnd net will not fire") if hits else print("no local hook restriction")'
-```
-
-**A clean result is not proof.** The same message names two causes this check cannot see—a managed
-policy, and an untrusted workspace—and a malformed `hooks.json` loads a plugin with no hooks at all,
-silently. So treat the net as best-effort in every session: release at wrap regardless, and when the
-check does trip, report it in one line so nobody counts on a hook that is off.
+At session end the hooks module also releases every claim stamped with this session's id, for a
+session that ends without wrapping. It is a safety net and no substitute for releasing at wrap,
+which hands the lane back immediately rather than whenever the session eventually exits. A claim
+stamped by an earlier session, on a lane this session resumed without calling `write_claim`, is not
+covered by it.

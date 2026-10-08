@@ -96,7 +96,7 @@ paths can't be predicted well enough to declare declares the broadest glob it mi
 costs parallelism and never costs correctness.
 
 **Fill:** while in-flight < cap, claimed < max-items, and a candidate exists: open its worktree +
-branch per `work-in-worktree` §3 and write its claim per `claim-a-lane` §3, **atomically, with its
+branch per `work-in-worktree` §3 and write its claim per `claim-a-lane` §3, **with its
 `touches` globs**—the conductor is the one reader that depends on them being accurate, since it is
 holding several lanes open at once. Where the branch needs a name for its destination
 (`work-in-worktree` §3: `pr` mode or a fork), give it one then, since nobody is present at landing to
@@ -269,5 +269,5 @@ Re-emit the session-title line. No stop path skips the notification and wrap-up.
 
 The conductor is a peer, not an owner: honor foreign claims when picking (a human session may be
 working that unit right now), never `git worktree remove` a worktree it didn't create, and keep its
-own claims accurate—one per in-flight unit, written atomically, deleted at completion. Everything
+own claims accurate—one per in-flight unit, written with `write_claim`, deleted with `release_claim` at completion. Everything
 in `claim-a-lane` about the ledger binds here N-fold.
