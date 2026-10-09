@@ -264,7 +264,7 @@ reason), then a full wrap-up per `land-and-wrap` §4:
 - flagged units with why, what the backlog has left, and a recommendation for the next attended
   session.
 
-Set the session title again, or re-emit the printed line. No stop path skips the notification and wrap-up.
+Set or print the session title again where a better one fits. No stop path skips the notification and wrap-up.
 
 ## 4. Ledger etiquette
 

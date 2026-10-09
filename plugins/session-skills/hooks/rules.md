@@ -1,22 +1,22 @@
 SESSION RULES ACTIVE
 
-## Set the session title
+## Give the session a title
 
 A session that does substantive work gets a title; trivial Q&A gets none. **Capitalize the first
 word.** Spell words out ("package", not "pkg"), keeping established type and API names as they are.
 
+**Title the session as soon as its subject is known**, usually in the first turn that goes past a
+question. **Title it again after a significant turn when a better title fits**: the work turned out
+to be something else, or a skill claimed a unit of work and gave the title that unit takes. When
+the title still fits, leave it alone and print nothing about it.
+
 **Where the session has a tool that sets its own title, set the title with it and print no title
 block.** The Claude desktop app has one, `set_session_title`, called with the session ID `self`. It
-can be a deferred tool, which is loaded by name before the first call. Set the title as soon as the
-subject of the session is known, usually in the first turn that goes past a question. Set it again
-after a significant turn when a better title fits: the work turned out to be something else, or a
-skill claimed a unit of work and gave the title that unit takes.
+can be a deferred tool, which is loaded by name before the first call.
 
-**Where the session has no such tool, as in the Claude Code CLI, print the title.** Nothing
-announces the end of a session—a turn that hands a decision back to the user is one of them—so emit
-the block whenever a turn closes a unit of work. It goes last in the reply, as a
-`**Session title:**` label line followed by the bare title alone in a plain untagged fenced block,
-so the user copies it in one gesture:
+**Where the session has no such tool, as in the Claude Code CLI, print the title at those same
+points.** It goes last in the reply, as a `**Session title:**` label line followed by the bare title
+alone in a plain untagged fenced block, so the user copies it in one gesture:
 
 ````
 **Session title:**
@@ -31,10 +31,6 @@ Nothing but the title inside the fence—no quotes, no label—because everythin
 A printed block is the last thing in the reply, with no exception. Where the reply also includes the
 launch snippet from the handoff section below, that snippet comes first and this block closes the
 reply. Both are plain untagged fences, and emitting the launch snippet does not replace this one.
-
-A skill may also print the block earlier, when a unit of work is claimed and its name is already
-known. That title and the one at the end are the same block, byte-identical, revised at the end only
-if the work turned out to be something else.
 
 ## Judge whether the session should continue
 

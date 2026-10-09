@@ -183,9 +183,8 @@ the bare title alone in a plain untagged fenced block.
 
 The title is always the claimed item's `Rn` ID, a colon, then a short noun phrase for the
 deliverable, **spelled out with no abbreviations**—`R1: aggregation core`, never the phrase alone and
-never the ID alone. A sub-item keeps its own `Rn.m`. **At session end, set it again or re-emit the
-same block** only as those rules specify: a title that was set stays unless the work turned out to be
-something else, and a printed block is repeated in byte-identical format.
+never the ID alone. A sub-item keeps its own `Rn.m`. The title stays for the rest of the session
+unless the work turned out to be something else.
 
 ## 5. Emit the tier plan—never pause
 
