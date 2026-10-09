@@ -82,8 +82,13 @@ later, the oldest version supported. No shell or interpreter is involved, and gi
 At session start, in a repo that has a roadmap, the module adds a short rule: a task the user states directly ("upgrade X") gets a roadmap item, is entered
 through `next-roadmap-item`, and is landed through `land-and-wrap`. On a local-only roadmap the item is
 written first. On a tracked one the ID is taken first and the item is written in the lane's worktree
-once it is open, and the next free ID is one more than the highest among the roadmap files, the
-open worktree directory names, and the items in live claims. Without the rule such a session
+once it is open. A landed item is deleted from a tracked roadmap, so the highest ID ever used is
+kept as one line in the roadmap's header, `Highest ID used: R127`, and raised in the commit that
+writes a new item. The next free ID is one more than the highest among that line, the roadmap
+files, the open worktree directory names, and the items in live claims. Where a roadmap has no such
+line yet, the session also reads, that one time, the headings `git log -p` shows as deleted on the
+default branch. The line only goes up, and a merge conflict on it is settled by taking the higher
+number. Without the rule such a session
 never loads a skill from this plugin, and it writes no item, opens no worktree, and decides the
 landing from whatever standing instruction it finds. In a repo with no roadmap nothing is added.
 

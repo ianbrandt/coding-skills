@@ -13,7 +13,9 @@ export function planOf(found: { hasLocal: boolean; hasUpstream: boolean; tracked
 
 // A local-only roadmap is one file in the primary checkout, so a new item is
 // written there first. A tracked one is edited in the lane's worktree, so the
-// ID is taken first and the item is written once the worktree is open.
+// ID is taken first and the item is written once the worktree is open. A landed
+// item is deleted from a tracked roadmap, so the highest ID ever used is kept as
+// a line in its header. A local-only roadmap has a changelog with every ID in it.
 export function rule(plan: { kind: 'local-only' | 'tracked'; roadmap: string }, main: string): string {
   const { roadmap } = plan
   const run = `Run \`next-roadmap-item <Rn>\`. The worktree, the branch name, the claim, and the landing all
@@ -23,13 +25,19 @@ export function rule(plan: { kind: 'local-only' | 'tracked'; roadmap: string }, 
   const steps = plan.kind === 'tracked'
     ? `1. Find the task in \`${roadmap}\`. If it is not there, take the next free \`Rn\` ID for it and write
    nothing yet: a tracked roadmap is edited in the lane's worktree, which is not open before
-   step 2. The next free ID is one more than the highest among the roadmap, parked, and declined
-   files, the open worktree directory names (\`r78-...\`), and the items in live claims. An item
-   another lane wrote is committed only on that lane's branch, and an ID is never reused.
+   step 2. A landed item is deleted from the roadmap, so the highest ID ever used is kept as one
+   line in the roadmap's header, \`Highest ID used: R127\`. The next free ID is one more than the
+   highest among that line, the roadmap, parked, and declined files, the open worktree directory
+   names (\`r78-...\`), and the items in live claims. An item another lane wrote is committed only
+   on that lane's branch, and an ID is never reused. Where the roadmap has no such line, also
+   read, this one time, the headings of the items that were deleted:
+   \`git -C "${main}" log -p --format= <default branch> -- ${roadmap} | grep -E '^-#+ R[0-9]+'\`
 2. ${run}
 3. For a task that had no item, write the new item in the worktree's copy of \`${roadmap}\` once
    the worktree is open, at its priority position: the problem in a sentence or two, and the paths
-   it touches. Commit the edit there.
+   it touches. In the same edit, raise the \`Highest ID used\` line to the new ID, adding the line
+   to the header where there is none. The line only goes up, and a merge conflict on it is settled
+   by taking the higher number. Commit the edit there.
 4. `
     : `1. Find the task in \`${roadmap}\`. If it is not there, write it as a new item at its priority
    position: the problem in a sentence or two, and the paths it touches. A local-only roadmap is

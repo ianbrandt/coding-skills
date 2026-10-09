@@ -133,15 +133,35 @@ claim disappears, or a commit lands), then pick. A hint doesn't change this.
 **A task the user stated directly, with no item yet.** The item is new: the next free ID, at its
 priority position, with the problem and the paths it touches. On a local-only roadmap, write it
 before anything else. On a tracked roadmap, take the ID before §2 and write the item now, in the
-copy under `$WT`, and commit it there: the lane's worktree is where a tracked roadmap is edited,
-and it was not open before §2. Then it is a hinted pick like any other, and the gates above still
+copy under `$WT`, raise the `Highest ID used` line to the new ID in the same edit, and commit it
+there: the lane's worktree is where a tracked roadmap is edited, and it was not open before §2. Then it is a hinted pick like any other, and the gates above still
 apply to it. The same instruction is injected at session start by this plugin's hook, in every repo
 that has a roadmap, because a session handed "upgrade X" does not otherwise reach this skill.
 
-**The next free ID.** An ID is never reused, so check the parked, declined, and changelog files
-beside the roadmap. On a tracked roadmap an item written in another lane is committed only on that
-lane's branch, so the next free ID is one more than the highest among the roadmap, parked, and
-declined files, the open worktree directory names (`r78-...`), and the items in live claims.
+**The next free ID.** An ID is never reused. On a local-only roadmap, check the parked, declined,
+and changelog files beside the roadmap: the changelog has the ID of every landed item.
+
+A tracked roadmap has no changelog, and a landed item is deleted from it, so the highest ID ever
+used is kept as one line in the roadmap's header:
+
+```
+Highest ID used: R127
+```
+
+An item written in another lane is committed only on that lane's branch, so the next free ID is one
+more than the highest among that line, the roadmap, parked, and declined files, the open worktree
+directory names (`r78-...`), and the items in live claims.
+
+- **Raise the line in the commit that writes a new item**, to that item's ID. A sub-item does not
+  change it.
+- **The line only goes up.** A merge conflict on it is settled by taking the higher number.
+- **Where the roadmap has no such line**, also read, this one time, the headings of the items that
+  were deleted on the default branch, and add the line to the header in the commit that writes the
+  new item:
+
+  ```
+  git -C "$MAIN" log -p --format= <default branch> -- <the roadmap's path in the repo> | grep -E '^-#+ R[0-9]+'
+  ```
 
 **Resuming an item already in flight.** The pick is already made—skip these gates entirely. A claim
 on the item you are resuming is *yours*, not a collision, and re-picking on it is the bug
@@ -295,7 +315,8 @@ tracked family. Ambiguous, ask.
 
 1. **Stamp out root `ROADMAP.md`** with a short header: the `Rn` ID scheme (stable, never reused, an
    item keeps its ID for life; the claim unit is the item, sub-items `Rn.m`), §3's priority-order
-   rule, and a forward-only note—git history is the done-record, so landed items are deleted and
-   parked or declined items move to their own file.
+   rule, a forward-only note—git history is the done-record, so landed items are deleted and
+   parked or declined items move to their own file—and the `Highest ID used: R<n>` line of §3,
+   set to the highest ID among the seeded items once they are written.
 2. **Seed the items**: same as §7a step 5.
 3. **Commit the roadmap on the default branch.** It's tracked; that's what puts it in this family.

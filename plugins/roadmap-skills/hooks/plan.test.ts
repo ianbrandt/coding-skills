@@ -59,8 +59,23 @@ test('the item is written before next-roadmap-item on a local-only roadmap, and 
   const tracked = (await start($))[1].replace(/\s+/g, ' ')
   expect(tracked.indexOf('Run `next-roadmap-item <Rn>`')).toBeGreaterThan(0)
   expect(tracked.indexOf('Run `next-roadmap-item <Rn>`')).toBeLessThan(tracked.indexOf("write the new item in the worktree's copy of `ROADMAP.md`"))
-  expect(tracked).toContain('one more than the highest among the roadmap, parked, and declined files, the open worktree directory names (`r78-...`), and the items in live claims')
+  expect(tracked).toContain('one more than the highest among that line, the roadmap, parked, and declined files, the open worktree directory names (`r78-...`), and the items in live claims')
   expect(tracked).not.toContain('edited in the primary checkout')
+})
+
+// A landed item is deleted from a tracked roadmap, so its ID is in no file a
+// session reads. A local-only roadmap has a changelog with every ID in it.
+test('on a tracked roadmap the highest ID used is a line in the header, first set from the headings git shows as deleted', async ($: any, on: any) => {
+  const w = world(on, { root: '/repo', tracked: ['docs/roadmap.md'] })
+  const tracked = (await start($))[1].replace(/\s+/g, ' ')
+  expect(tracked).toContain('one line in the roadmap\'s header, `Highest ID used: R127`')
+  expect(tracked).toContain("Where the roadmap has no such line, also read, this one time, the headings of the items that were deleted: `git -C \"/repo\" log -p --format= <default branch> -- docs/roadmap.md | grep -E '^-#+ R[0-9]+'`")
+  const raise = tracked.indexOf('raise the `Highest ID used` line to the new ID, adding the line to the header where there is none')
+  expect(raise).toBeGreaterThan(tracked.indexOf("write the new item in the worktree's copy of `docs/roadmap.md`"))
+  expect(tracked.indexOf('Commit the edit there')).toBeGreaterThan(raise)
+  expect(tracked).toContain('The line only goes up, and a merge conflict on it is settled by taking the higher number')
+  w.now = { root: '/repo', files: ['/repo/ROADMAP.local.md'] }
+  expect((await start($))[1]).not.toContain('Highest ID used')
 })
 
 test('nothing is added with no roadmap, in a fork with only a tracked one, outside a repo, or to a fork of a session', async ($: any, on: any) => {
