@@ -76,6 +76,10 @@ async function worktrees($: any, main: string): Promise<{ path: string; branch: 
   return found
 }
 
+// A path with a drive letter is on Windows, where two paths that differ only in
+// letter case or in the separator are the same path.
+const fold = (p: string) => (/^[A-Za-z]:[\\/]/.test(p) ? p.replace(/\\/g, '/').toLowerCase() : p)
+
 // The branch a lane's claim is filed under, found by the worktree's path in
 // git's list: a branch name alone would match a clone of another repo. The
 // primary checkout is refused: a path re-derived from a session's own directory
@@ -85,7 +89,7 @@ async function lane($: any, main: string, worktree: string): Promise<string> {
   // part of the path.
   const top = (await git($, worktree, 'rev-parse', '--show-toplevel')).replace(/\n$/, '')
   const all = await worktrees($, main)
-  const at = all.findIndex(w => w.path === top)
+  const at = all.findIndex(w => fold(w.path) === fold(top))
   if (at < 0) throw new Error(`${worktree} is not a worktree of this repo`)
   const { branch } = all[at]
   if (at === 0) throw new Error(`${worktree} is the primary checkout${branch ? `, on ${branch}` : ''}: pass the lane's own worktree`)
@@ -147,7 +151,7 @@ async function releaseClaim($: any, main: string, e: any): Promise<string> {
   // primary checkout. It has no branch to look up. The claims this session can
   // release are its own with no worktree left: a conductor has others, one a
   // lane still in flight.
-  const slash = (p: string) => p.replace(/\\/g, '/').replace(/\/$/, '')
+  const slash = (p: string) => fold(p.replace(/\\/g, '/').replace(/\/$/, ''))
   const path = slash((await $.fs.stat(String(e.worktree), { resolve: true }).catch(() => undefined))?.realPath ?? String(e.worktree))
   if (!listed.some((w, i) => path === slash(w.path) || (i > 0 && path.startsWith(`${slash(w.path)}/`)))) {
     const gone = `${e.worktree} is not a worktree of this repo`

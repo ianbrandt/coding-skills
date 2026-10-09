@@ -78,6 +78,9 @@ function world(on: any, worktrees: Record<string, string>, files: Record<string,
     const out = (stdout: string, exitCode = 0) => ({ value: { exitCode, stdout, stderr: exitCode ? 'fatal' : '' } })
     const all = { '/repo': 'main', ...w.worktrees }
     if (argv[0] === 'rev-parse') {
+      // A path with a drive letter is found in any letter case, and printed in the case it was given.
+      const given = cwd.replace(/\\/g, '/')
+      if (/^[A-Za-z]:\//.test(given) && Object.keys(all).some(p => p.toLowerCase() === given.toLowerCase())) return out(given + '\n')
       if (posix(cwd) in all) return out(posix(cwd) + '\n')
       return posix(cwd) in other ? out((posix(cwd).startsWith('/repo/') ? '/repo' : posix(cwd)) + '\n') : out('', 128)
     }
@@ -184,6 +187,13 @@ test('write_claim and release_claim take a worktree at a path that ends in a new
     expect((await call($, 'release_claim', { worktree: path })).result).toContain(`released: ${name}`)
     expect(w.files).toEqual({})
   }
+})
+
+test('write_claim and release_claim take a Windows worktree path in another letter case', async ($: any, on: any) => {
+  const w = world(on, { 'C:/Wt/a': 'claude/a' }, { 'claude-a.json': claim('claude/a', 'MINE') })
+  expect((await call($, 'release_claim', { worktree: 'c:\\wt\\a' })).result).toBe('released: claude-a.json\nledger: /repo/.claude/claims\nno claims')
+  expect((await call($, 'write_claim', { worktree: 'c:\\wt\\a', item: 'x', touches: [] })).isError).toBeUndefined()
+  expect(Object.keys(w.files)).toEqual(['claude-a.json'])
 })
 
 test('the primary checkout, a detached HEAD, and a path that is no worktree are refused',async ($: any, on: any) => {
