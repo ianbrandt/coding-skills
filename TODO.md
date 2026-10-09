@@ -14,11 +14,15 @@ marketplace, with a current Git for Windows and Claude Code.
 Run on 2026-10-09 against a scratch repo at `C:\Dev\Repos\IanBrandt\coding-skills test\repo`
 (Windows 11 Enterprise, Git for Windows ucrt64, Claude Code with session-skills + writing-
 conventions installed; `parallel-session-skills` not installed in that harness). Current-shell
-coverage per check is noted inline. Still outstanding: a Windows PowerShell 5.1 pass for the
-checks where it is called out (4 and 10), a Git Bash pass of Check 7 (`edit_primary_file` from a
+coverage per check is noted inline. The 5.1-only parts of Checks 4 and 10 were cleared in a
+second pass on 2026-10-09, along with the shell-agnostic Checks 9, 11, 12, and 13; the 5.1
+side of Check 11 and Check 12 were run in the Windows PowerShell 5.1 shell (and PowerShell 7
+where the one-liner is shell-agnostic). Still outstanding: a Git Bash pass of Check 7 (`edit_primary_file` from a
 worktree session), the claim portion of Check 3 plus all of Check 8 once
-`parallel-session-skills` is installed, and Checks 9, 11, 12, 13 which have not run yet.
-Findings from the pass are in the Findings section at the bottom.
+`parallel-session-skills` is installed, a live Claude Code UI capture of the two Check-13
+toasts, and a Check-11 run with `GHOSTWRITING_DIR` and `voice_dir` unset so the junction
+fallback is actually exercised. Findings from the pass are in the Findings section at the
+bottom.
 
 Setup: a scratch repo at a path with a space in it, such as `C:\Users\<name>\win check\repo`, with
 one commit, a bare repo beside it as `origin`, a `notes.local` directory with a file `keep.txt` in
@@ -64,6 +68,18 @@ Check 1 comes first: it is the only one where a failure loses files.
    `land-and-wrap` and `work-in-worktree` is wrong and needs another one. Also run the removal while
    a second shell sits inside the worktree: it fails, and passes once that shell is closed.
    - SKIPPED: needs Windows PowerShell 5.1; this session is PowerShell 7.6.6 and Git Bash.
+   - PASS with finding (Windows PowerShell 5.1.22621): `&&` is a parse error in 5.1 (`The token
+     '&&' is not a valid statement separator in this version.`); the two-call form `Set-Location
+     <primary>; git worktree remove <wt>` runs cleanly, and the next 5.1 call runs in the primary.
+     Second-shell test: a PowerShell holder is NOT enough on Windows (`Set-Location` sets the
+     process CWD but does not take a Windows-level directory lock, so `git worktree remove`
+     succeeds anyway). A `cmd.exe /k cd /d <wt>` holder DOES lock, and the removal exits 255 with
+     `error: failed to delete ...: Permission denied`. On that failure git still unregisters the
+     worktree in `git worktree list`, so the retry after killing the holder reports `not a
+     working tree` (exit 128) and leaves the directory on disk; `cmd /c rmdir /S /Q <wt>` is
+     still needed.
+     Also: `taskkill`/`Stop-Process` for a stray `timeout.exe` child of the killed cmd were
+     blocked by the auto-mode classifier here, so the orphaned CWD-holder had to be waited out.
 5. The writing gate and a body passed by file, in Git Bash. With a rule violation in `body.md` (a
    spaced em dash will do), have the session run each of these. Pass for each: the commit is
    blocked, and the gate's note has no `was not read` line.
@@ -107,8 +123,8 @@ Check 1 comes first: it is the only one where a failure loses files.
      - `//server/share/body.md`: `the command names it more than once, so it may write the file
        before reading it` (the UNC path got doubled in the canonical form). Git itself refused the
        UNC path with `Function not implemented`, so no commit landed there.
-   Note: on 6a and 6b the commit still landed because git itself read the file; the gate's
-   `was not read` only means the gate's reviewer did not see the body, not that git did not.
+   Note: on 6a and 6b the commit still landed because git itself read the file; a `was not read`
+   line means only that the gate's reviewer did not see the body.
 7. `edit_primary_file`, from a session in a worktree. With the primary checkout's path typed in
    lower case and a one-line addition to a scratch file: `edited`. With `core.autocrlf=true` and a
    tracked file that has CRLF line ends, replace two lines with a passage written with LF, then
@@ -130,7 +146,9 @@ Check 1 comes first: it is the only one where a failure loses files.
      `write_claim`/`release_claim`/`read_ledger` tools are absent from the tool list.
 9. Stray processes. `Get-CimInstance Win32_Process | Where-Object CommandLine -like '*git*' |
    Select-Object ProcessId, CommandLine` lists a running git with its command line.
-   - NOT RUN YET.
+   - PASS (PowerShell 7.6.6): the one-liner printed several live `git.exe` processes with their
+     full command lines (e.g. `-C <repo> symbolic-ref ...`, `-C <repo> rev-list ...`). It also
+     caught the Git Bash statusline helpers, which was useful collateral information.
 10. Applying a subagent's diff, 5.1. In a worktree, change a line that has a non-ASCII character
     and a file with CRLF line ends. `git -C <worktree> diff --output=<absolute patch path>`, then
     `git apply <absolute patch path>` in the primary checkout. Pass: both exit 0, and `git diff`
@@ -139,19 +157,53 @@ Check 1 comes first: it is the only one where a failure loses files.
       `beta` → `beta-café` on a CRLF-ended `crlf.txt`. `git diff --output` exit 0, `git apply` in
       the primary exit 0. Primary's post-apply hex shows CRLF (`0D 0A`) and UTF-8 `é` (`C3 A9`).
       `git diff` in the primary equals the worktree's byte-for-byte.
+    - PASS (Windows PowerShell 5.1.22621): same test driven from 5.1. `git diff --output` exit 0,
+      `git apply` in the primary exit 0. Patch itself is LF-only (`0A` headers), worktree and
+      primary files keep CRLF (`0D 0A`) with UTF-8 `é` (`C3 A9`) on the changed line, and `git
+      diff` in the primary equals the worktree's.
 11. Home directory. In each shell, `node -e "console.log(process.env.HOME,
     process.env.USERPROFILE)"`. Pass: `HOME` is empty or is `USERPROFILE` in Windows form, not
     `/c/Users/<name>`. For `ghostwriting-skills`, `cmd /c mklink /J
     %USERPROFILE%\.claude\ghostwriting <directory>` from a shell that is not elevated, then load the
     `ghostwrite` skill. Pass: the voice spec is found.
-    - NOT RUN YET.
+    - PASS, with a caveat (Windows PowerShell 5.1, PowerShell 7.6.6, Git Bash):
+      - Node from 5.1: `undefined C:\Users\brandti`. Node from pwsh 7: same. Node from Git Bash
+        (invoked by full path) gets Windows paths in both values, because MSYS2 converts the
+        POSIX `HOME` to Windows form when it starts a native .exe. No shell reported
+        `/c/Users/<name>` to node.
+      - `cmd /c mklink /J %USERPROFILE%\.claude\ghostwriting <dir>` worked from a non-elevated
+        shell (`IsAdmin=False`) and the voice-spec target file was readable through the junction
+        at the filesystem level.
+      - Caveat: on this host `$env:GHOSTWRITING_DIR` is set to `C:/Dev/.claude/ghostwriting`, so
+        the ghostwrite skill picked that higher-priority path, and the junction at
+        `~/.claude/ghostwriting` was not consulted in-process. The spec is found; the fallback
+        path through a junction is just not what the plugin used on this machine. To exercise
+        the junction fallback fully, use a session with `GHOSTWRITING_DIR` and `voice_dir`
+        unset.
 12. Long paths. In the deepest repo in real use, `git config --show-origin core.longpaths`, then
     open a worktree and run `git status` and a build in it. Pass: no `Filename too long`.
-    - NOT RUN YET.
+    - PASS (PowerShell 7.6.6, repo `C:\Dev\Repos\IanBrandt\coding-skills`):
+      `git config --show-origin core.longpaths` -> `file:C:/Users/brandti/.gitconfig    true`.
+      A detached worktree was added at `.claude/worktrees/win-longpath-check`; `git status`
+      exit 0, longest resulting path 169 chars. `node --test graders.test.mjs` from the
+      worktree root: 51 passed, 0 failed, node exit 0. No `Filename too long` anywhere.
 13. The two `writing-conventions` "gate off" toasts: unset a required env var, or let a model call
     fail, and confirm each fits in four lines in the Claude Code UI. Toast 1 is 95 chars; toast 2
     is 149 chars.
-    - NOT RUN YET.
+    - PASS, static measurement (strings read from
+      `plugins/writing-conventions/hooks/gate.ts`):
+      - Toast 1 (CLI-too-old, line 40): `writing-conventions: the gate and the reply lint are
+        off. They need Claude Code 2.1.286 or later.` That is 97 chars (the TODO's "95" is now
+        97 because `CHECKED` includes the three-digit `286`). Wraps to 2 lines at 60/72/80 cols,
+        1 line at 100+ cols. Fits in four lines everywhere.
+      - Toast 2 (model-call-failed, line 82): `writing-conventions: model review is off, because
+        a check failed. Commit, PR, MCP, file, and draft text is not being read; the reply lint
+        still runs.` That is 149 chars, which matches the TODO. Wraps to 3 lines at 60/72, 2
+        lines at 80+. Fits in four lines everywhere.
+      - A live Claude Code UI capture of either toast was NOT run this pass: Toast 1 appears
+        only with a CLI older than 2.1.286, and Toast 2 needs a forced model-call failure (e.g.
+        `WRITING_CONVENTIONS_GATE_MODEL=not-a-model`) set in the parent Claude Code process's
+        environment, which this session can't change from inside a PowerShell tool call.
 
 ## Findings from the Windows pass
 
@@ -166,3 +218,13 @@ Check 1 comes first: it is the only one where a failure loses files.
 - In PowerShell 7 a quoted absolute path with spaces reaches the gate intact, so it is not
   listed as `not a literal path`. The expectation in Check 5 of that listing "in both shells"
   does not hold on PowerShell 7.
+- `git worktree remove` under a `cmd.exe` CWD-holder on Windows is a partial failure: git
+  unregisters the worktree from `git worktree list` even though it fails to delete the files
+  (exit 255, `Permission denied`). A retry after killing the holder then reports `not a working
+  tree` (exit 128) because the registration is already gone, and leaves the directory on disk.
+  A `cmd /c rmdir /S /Q <wt>` is still needed. A PowerShell holder does NOT take a Windows-level
+  directory lock, so a PowerShell session sitting in a worktree does not block `git worktree
+  remove` at all.
+- The scratch setup's `GHOSTWRITING_DIR` env var points at `C:/Dev/.claude/ghostwriting` and
+  takes priority over the `~/.claude/ghostwriting` fallback, so the Check 11 junction route is
+  not exercised in-process until that env var and `voice_dir` are both unset.
