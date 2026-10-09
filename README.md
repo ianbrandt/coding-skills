@@ -61,6 +61,24 @@ invoked.
 - [`gradle-skills`](plugins/gradle-skills) upgrades Gradle dependencies and the wrapper, one
   verified atomic commit at a time. Gradle builds only.
 
+## Checks
+
+`test.sh` runs every check that needs no model call, in about seven seconds. It needs `claude` and
+`node` on the `PATH`.
+
+```bash
+./test.sh
+```
+
+- `claude plugin test` in each plugin that has a hooks module.
+- [`graders.test.mjs`](graders.test.mjs): each regex grader in an eval suite, against one text it
+  has to match and one it must not. A regex grader with no texts fails.
+- For each plugin changed since `origin/main`, a `version` in `.claude-plugin/marketplace.json` that
+  differs from the one on `origin/main`. A change to only evals or tests needs no new version.
+
+The eval suites call a model and cost money. Each is run from its plugin's directory, with the
+command in that plugin's README.
+
 ## License
 
 Licensed under MIT. See [LICENSE.md](LICENSE.md).
