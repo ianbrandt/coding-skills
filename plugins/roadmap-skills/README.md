@@ -77,6 +77,7 @@ against the claim ledger.
 
 One hooks module, `hooks/register.ts`, which is a Claude Code mod and needs Claude Code 2.1.286 or
 later, the oldest version supported. No shell or interpreter is involved, and git is run directly.
+`delete_item` needs git 2.36 or later, since the worktree list is read with `-z`.
 
 At session start, in a repo that has a roadmap, the module adds a short rule: a task the user states directly ("upgrade X") gets a roadmap item, is entered
 through `next-roadmap-item`, and is landed through `land-and-wrap`. On a local-only roadmap the item is

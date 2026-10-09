@@ -104,6 +104,8 @@ every commit waiting to be pushed. Without one, the session keeps serving the ol
 ## Platform
 
 The tools run git by argument vector with no shell, so one implementation serves bash, Git Bash, and
-PowerShell sessions. The commands left in the skills are single `git`, `gh`, or `glab` calls that
-read the same in each. On Windows the notes directory is linked as a junction, which needs no
-privilege; that path has not been run on Windows.
+PowerShell sessions. `find_checkouts` and `prune_branches` need git 2.36 or later, since the worktree
+list is read with `-z`, and the merge check in `prune_branches` needs 2.43 or later. The commands
+left in the skills are single `git`, `gh`, or `glab` calls that read the same in each. On Windows
+the notes directory is linked as a junction, which needs no privilege; that path has not been run on
+Windows.

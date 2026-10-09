@@ -57,6 +57,7 @@ three tool definitions below.
 
 One hooks module, `hooks/register.ts`, which is a Claude Code mod and needs Claude Code 2.1.286 or
 later, the oldest version supported. No shell or interpreter is involved, and git is run directly.
+All three tools need git 2.36 or later, since the worktree list is read with `-z`.
 
 Three tools are registered, and in `claim-a-lane` the ledger is read and written only through them.
 With `mcp__parallel-session-skills__read_ledger`, dead claims are deleted and the live ones
