@@ -149,6 +149,7 @@ test('a path in a worktree whose path has a newline in it is taken', async ($: a
 // no output.
 for (const [what, failed, message] of [
   ['rejects -z', { exitCode: 129, stderr: "error: unknown switch `z'\nusage: git worktree add [<options>] <path> [<commit-ish>]\n   or: git worktree list [<options>]\n" }, "error: unknown switch `z'"],
+  ['rejects -z, with CRLF line ends', { exitCode: 129, stderr: "error: unknown switch `z'\r\nusage: git worktree add [<options>] <path> [<commit-ish>]\r\n" }, "error: unknown switch `z'"],
   ['crashes', { exitCode: 1, stderr: '' }, 'exit 1'],
 ] as const) {
   test(`the tool reports a worktree list that failed when git ${what}, and writes nothing`, async ($: any, on: any) => {

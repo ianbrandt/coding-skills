@@ -91,7 +91,7 @@ export const register: Register = on => {
       // A tracked roadmap is edited in a lane's worktree, which can be anywhere.
       // With -z each line ends in NUL, so a newline in a path stays in it.
       const listed = await $.process.run(['git', '-C', main, 'worktree', 'list', '--porcelain', '-z'], { cwd: main })
-      if (listed.exitCode !== 0) throw new Error(`git worktree list in ${main}: ${String(listed.stderr).trim().split('\n')[0] || `exit ${listed.exitCode}`}`)
+      if (listed.exitCode !== 0) throw new Error(`git worktree list in ${main}: ${why(listed)}`)
       const roots = [main, ...String(listed.stdout).split('\0').filter(l => l.startsWith('worktree ')).map(l => l.slice('worktree '.length))].map(r => r.replace(/\\/g, '/').replace(/\/$/, ''))
       if (!roots.some(r => path.startsWith(`${r}/`)) || path.split('/').includes('..')) throw new Error(`${e.path} is not inside the primary checkout ${main} or one of its worktrees`)
       const before = await $.fs.read(e.path)
