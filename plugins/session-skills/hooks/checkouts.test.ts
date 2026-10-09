@@ -80,6 +80,14 @@ test('find_checkouts reports a worktree at a path with a newline in it', async (
   expect((await call($, 'find_checkouts')).result).toContain('  /repo  main\n  /repo/.claude/worktrees/r1\nx  claude/r1-x')
 })
 
+// git ends the path it prints with one newline, and anything before that is part of the path.
+for (const [what, dir] of [['newline', '/repo/.claude/worktrees/r1\n'], ['space', '/repo/.claude/worktrees/r1 ']]) {
+  test(`find_checkouts shows a session directory with a ${what} at its end whole`, async ($: any, on: any) => {
+    world(on, line => (line === 'rev-parse --show-toplevel' ? dir : held(line)))
+    expect((await call($, 'find_checkouts')).result).toContain(`session directory: ${dir}\nworktrees, the primary`)
+  })
+}
+
 test('find_checkouts reports the base and each worktree, and a fetch that failed', async ($: any, on: any) => {
   world(on, line => (line === FETCH ? 1 : held(line)))
   const text = (await call($, 'find_checkouts')).result

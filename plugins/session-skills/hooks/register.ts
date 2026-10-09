@@ -122,7 +122,10 @@ async function worktrees($: any, main: string): Promise<{ path: string; branch: 
 async function findCheckouts($: any): Promise<string> {
   const { main, def, base, baseRef, warnings } = await locate($)
   const cwd = await $.session.cwd()
-  const here = await out(git($, cwd, 'rev-parse', '--show-toplevel'))
+  // git ends the path it prints with one newline, and anything before that is
+  // part of the path.
+  const top = await git($, cwd, 'rev-parse', '--show-toplevel')
+  const here = top.exitCode === 0 ? top.stdout.replace(/\n$/, '') : ''
   const rows = []
   for (const w of await worktrees($, main)) {
     const ahead = w.branch === '(detached)' ? '' : await out(git($, main, 'rev-list', '--count', `${baseRef}..refs/heads/${w.branch}`))
