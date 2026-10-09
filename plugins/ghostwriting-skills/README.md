@@ -57,7 +57,7 @@ your caps as a starting point and derives the voice rules from the recipient's s
 
 ## Measuring it
 
-[`evals/`](evals/) is a `claude plugin eval` suite of two PR-body drafting tasks, one issue-body
+[`evals/`](evals/) is a `claude plugin eval` suite of one PR-body drafting task, one issue-body
 task, and one README-section task. In each case `ghostwrite` is run against a fixture voice spec for
 an invented maintainer, copied into the workspace by a scaffold script, and the reply is graded for
 spaced dashes, banned words, and personified subjects. Two judge-model checks follow: the body kept
@@ -126,6 +126,11 @@ On 2026-10-08, with four runs per case, the plugin scored 1.00 on average and no
 +0.05. Most of it was the README-section case (+0.18, five failed checks without the plugin). The PR
 body with a report constraint was +0.04. The issue body and `pr-body-in-voice` had no gap, and
 `pr-body-in-voice` had none on 2026-10-05 either.
+
+Later on 2026-10-08 the facts in `pr-body-in-voice`, the pruner PR, were rewritten with a spaced
+dash, a "whose" after a file, and two personified subjects. With four runs, every body passed every
+check with and without the plugin: the prohibitions in the fixture spec are read in both runs, and
+they were enough to keep the tells out. The case was removed, which leaves three.
 
 The suite ran in 272 seconds with `-j 4` and 1,047 seconds without it, for the same 32 runs, and the
 scores differed by 0.01.
