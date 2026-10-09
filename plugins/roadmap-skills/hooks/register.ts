@@ -25,7 +25,9 @@ async function find($: any): Promise<{ main: string; plan: Plan } | null> {
   const upstream = await git('remote', 'get-url', 'upstream')
   if (upstream.exitCode !== 0 && upstream.exitCode !== 2) throw new Error(`git remote get-url upstream in ${main}: ${why(upstream)}`)
   const hasUpstream = upstream.exitCode === 0
-  const tracked = (await git('ls-files', 'ROADMAP.md', 'docs/roadmap.md')).stdout.split('\n').filter(Boolean)
+  const listed = await git('ls-files', 'ROADMAP.md', 'docs/roadmap.md')
+  if (listed.exitCode !== 0) throw new Error(`git ls-files in ${main}: ${why(listed)}`)
+  const tracked = String(listed.stdout).split(/\r?\n/).filter(Boolean)
   return { main, plan: planOf({ hasLocal, hasUpstream, tracked }) }
 }
 
@@ -54,13 +56,16 @@ export const register: Register = on => {
   })
 
   // In a repo with no roadmap of its own nothing is added. A fork starts with
-  // its parent's context, where the rule already is.
+  // its parent's context, where the rule already is. A lookup that failed is
+  // one line of context, since the repo may have a roadmap.
   on('classic.SessionStart', async ($, e: any, next: any) => {
     const ran = await next(e)
     if (e.source === 'fork') return ran
-    const found = await find($).catch(() => null)
-    if (!found || !('roadmap' in found.plan)) return ran
-    return { ...ran, additionalContext: [...(ran.additionalContext ?? []), rule(found.plan, found.main)] }
+    const added = await find($).then(
+      found => (found && 'roadmap' in found.plan ? rule(found.plan, found.main) : ''),
+      err => `The roadmap lookup failed, so it is not known whether this repo has a roadmap: ${(err as Error).message}`,
+    )
+    return added ? { ...ran, additionalContext: [...(ran.additionalContext ?? []), added] } : ran
   })
 
   on('tool.call', { tool: FIND }, async $ => {

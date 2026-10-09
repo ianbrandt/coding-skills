@@ -101,4 +101,6 @@ checked by `claude plugin test` with `hooks/item.test.ts`.
 The rule and `find_roadmap` share one lookup, in `hooks/plan.ts` with `hooks/plan.test.ts`: a
 `ROADMAP.local.md` in the primary checkout, else a tracked `ROADMAP.md` or `docs/roadmap.md` in a
 repo with no `upstream` remote. A fork's tracked `ROADMAP.md` is the upstream project's, so no rule
-is added there.
+is added there. A remote is absent only where `git remote get-url` exits 2. Any other failure of
+that command, or of `git ls-files`, is returned by `find_roadmap` as an error and added at session
+start as one line in place of the rule, since the repo may have a roadmap.

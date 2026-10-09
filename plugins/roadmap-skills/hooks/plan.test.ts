@@ -124,3 +124,16 @@ test('the tool reports a lookup of the upstream remote that failed, and not a re
   w.now = { root: '/repo', tracked: ['ROADMAP.md'], remote: { exitCode: 1, stderr: '' } }
   expect((await $.tool.call({ tool: FIND })).text).toBe('find_roadmap: git remote get-url upstream in /repo: exit 1')
 })
+
+// A list that failed is not an empty one, and the session still starts.
+test('a list of the tracked paths that failed is reported by the tool, and in one line at session start', async ($: any, on: any) => {
+  const w = world(on, { root: '/repo', listed: { exitCode: 128, stderr: 'fatal: index file corrupt\r\nmore\r\n' } })
+  const ran = await $.tool.call({ tool: FIND })
+  expect(ran.isError).toBe(true)
+  expect(ran.text).toBe('find_roadmap: git ls-files in /repo: fatal: index file corrupt')
+  const lookup = 'The roadmap lookup failed, so it is not known whether this repo has a roadmap: '
+  expect(await start($)).toEqual(['from a settings hook', `${lookup}git ls-files in /repo: fatal: index file corrupt`])
+  w.now = { root: '/repo', remote: { exitCode: 1, stderr: '' } }
+  expect(await start($)).toEqual(['from a settings hook', `${lookup}git remote get-url upstream in /repo: exit 1`])
+  expect(await start($, 'fork')).toEqual(['from a settings hook'])
+})
