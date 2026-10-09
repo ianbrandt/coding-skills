@@ -249,6 +249,13 @@ and `.kotlin/`:
 git -C "$WT" status --porcelain -uall
 ```
 
+Then remove it with the shell changed into the primary checkout in the same command, since the next
+Bash call fails where the shell is still in a directory that is gone:
+
+```bash
+cd "$MAIN" && git worktree remove "$WT"
+```
+
 A concurrency plugin adds its own hygiene on top of this (§0's lease seam).
 
 ## Then what
