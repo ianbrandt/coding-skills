@@ -61,6 +61,25 @@ version-keyed cache, so the plugin's `version` in `.claude-plugin/marketplace.js
 the same commit, unless it is already ahead of the version on `origin/main`. One bump is enough for
 every commit waiting to be pushed. Without one, the session keeps serving the old copy.
 
+## Evals
+
+[`evals/`](evals/) is a `claude plugin eval` suite of five chat cases: a model stated for each
+agent launched, a parallel-worktree brief that forbids commit and push, a file format other teams
+will read put to the user as options, a routine local commit made without a question, and a stage
+that ended on a holding message. Run it from the plugin directory:
+
+```bash
+claude plugin eval . --runs 4 --judge-model sonnet --no-publish -j 4
+```
+
+On 2026-10-08, with four runs per case, the plugin scored 0.95 and no plugin 0.40, a gap of +0.55.
+Two cases scored 0.00 without the plugin and 1.00 with it: the model per agent and the brief. The
+file-format case scored 0.00 without the plugin and 0.75 with it. In the one failing run a single
+format was proposed and the others were listed as rejected alternatives. The other two cases scored
+1.00 in both arms: the routine commit, which guards against the plugin asking where it should act,
+and the holding message, which measures nothing about the plugin's gain. The run cost $4.46 and
+took 221 seconds.
+
 ## The incident numbers
 
 The anecdotes in these skills are from real runs, with the project names removed. The numbers are
