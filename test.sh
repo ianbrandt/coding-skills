@@ -30,13 +30,14 @@ versions() {
   node -e 'for (const p of JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).plugins) console.log(p.name, p.version)' "$1"
 }
 stale=0
-# Each list is read from a file: on Windows the one piped from git came out empty.
+# Git Bash rewrites an argument with a colon in it as a list of Windows paths, and
+# origin/main:<path> reached git as origin\main;<path>. MSYS_NO_PATHCONV turns that off.
 old=$(mktemp)
-if ! why=$(git show origin/main:.claude-plugin/marketplace.json 2>&1 > "$old"); then
+if ! why=$(MSYS_NO_PATHCONV=1 git show origin/main:.claude-plugin/marketplace.json 2>&1 > "$old"); then
   echo "skip  versions: $why"
 elif base=$(versions "$old"); then
   while read -r name version; do
-    git diff --quiet origin/main -- "plugins/$name" ":(exclude)plugins/$name/evals" ":(exclude)plugins/$name/hooks/*.test.ts" && continue
+    MSYS_NO_PATHCONV=1 git diff --quiet origin/main -- "plugins/$name" ":(exclude)plugins/$name/evals" ":(exclude)plugins/$name/hooks/*.test.ts" && continue
     if printf '%s\n' "$base" | grep -qxF "$name $version"; then
       echo "FAIL  plugins/$name differs from origin/main and its version is still $version"
       stale=1
