@@ -151,6 +151,13 @@ test("write_claim files the claim under the worktree's branch with this session'
   expect(ran.result).toContain('"branch":"claude/a"')
 })
 
+// A claim written by a sibling after this result is in no list the session has read.
+test('write_claim ends its result with the instruction to read the ledger again before the first edit', async ($: any, on: any) => {
+  world(on, { '/wt/a': 'claude/a' }, {})
+  const lines = (await call($, 'write_claim', { worktree: '/wt/a', item: 'x', touches: [] })).result.split('\n')
+  expect(lines[lines.length - 1]).toBe('call read_ledger once more before the first edit: a claim written after this one is not listed here')
+})
+
 // git prints a path as it is, so a newline in it is a newline in the list.
 test('write_claim and read_ledger take a worktree at a path with a newline in it', async ($: any, on: any) => {
   const path = '/wt/a\nb'

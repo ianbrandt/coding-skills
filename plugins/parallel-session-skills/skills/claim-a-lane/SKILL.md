@@ -87,7 +87,8 @@ A claim written later does not prevent a collision. Call `write_claim` with:
   "docs/parsing.md"]`.
 
 The session's id is stamped on the claim, which is how it is released if the session ends without
-wrapping. The result is the whole ledger after the write: read it to confirm no clash.
+wrapping. The result is the whole ledger after the write: read it to confirm no clash. Its last
+line is the instruction to call `read_ledger` once more before the first edit, explained below.
 
 **`touches` is what makes disjointness checkable instead of guessed.** Two lanes collide when any
 path one expects to edit falls inside a glob the other declared—compare before claiming, and treat

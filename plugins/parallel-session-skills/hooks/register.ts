@@ -10,7 +10,7 @@ const TOOLS = {
     inputSchema: { type: 'object', properties: {} },
   },
   write_claim: {
-    description: "Write this session's claim for the branch checked out in a worktree, replacing any claim for that branch. Returns the whole ledger as it is after the write, to compare touches against.",
+    description: "Write this session's claim for the branch checked out in a worktree, replacing any claim for that branch. Returns the whole ledger as it is after the write, to compare touches against, then the instruction to call read_ledger once more before the first edit.",
     inputSchema: {
       type: 'object',
       properties: {
@@ -132,7 +132,9 @@ async function writeClaim($: any, main: string, e: any): Promise<string> {
     touches: [...e.touches].map(String),
   }
   await $.fs.write(`${main}/${DIR}/${fileOf(branch)}`, JSON.stringify(claim) + '\n')
-  return render(main, await entries($, main))
+  // The last line is the one a session reads next. With the instruction only
+  // in a skill, the second read was skipped in half the sessions measured.
+  return `${render(main, await entries($, main))}\ncall read_ledger once more before the first edit: a claim written after this one is not listed here`
 }
 
 async function releaseClaim($: any, main: string, e: any): Promise<string> {
