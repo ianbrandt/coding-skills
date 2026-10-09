@@ -213,11 +213,13 @@ that commit is on `origin/$DEFAULT` too: a commit made after the host's merge th
 part of it leaves the first merge with nothing to change. A merge commit whose tree differs from
 the automatic merge of its parents is checked from that commit too, since a change made in the
 merge itself is in no other commit. The repo's merge drivers are not run. Any check that fails
-leaves the branch in place, and where the merge cannot run (git before 2.43) the line reads
-`kept: <branch> (upstream gone, check failed: <git's message>)`. Step 4 checks nothing after a
-fetch that failed, where a merge driver is set in `.git/info/attributes`, which git has no switch
-to turn off, or where the tree of `origin/$DEFAULT` or the empty tree cannot be read: the result
-then has a `warning:` line to repeat in the reply.
+leaves the branch in place, and the line reads
+`kept: <branch> (upstream gone, check failed: <git's message>)`, with `exit <code>` for the message
+where git printed none, as when it crashed. A git before 2.41 fails that way on the `--attr-source`
+option the merge is run with, and 2.41 and 2.42 have a crash on that option, fixed in 2.43. Step 4
+checks nothing after a fetch that failed, where a merge driver is set in `.git/info/attributes`,
+which git has no switch to turn off, or where the tree of `origin/$DEFAULT` or the empty tree cannot
+be read: the result then has a `warning:` line to repeat in the reply.
 
 `$DEFAULT` is read from `origin/HEAD`. The tools set it from the remote only where it is not the
 name of a branch `origin` has, so one pointed at another branch on purpose is left alone. A default
