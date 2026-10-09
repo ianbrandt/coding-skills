@@ -298,8 +298,10 @@ test('prune_branches force-deletes nothing when a check or the fetch fails', asy
   expect(deleted(calls)).toEqual(Array(checks.length + 2).fill('branch -d claude/done'))
 })
 
-// A conflict is a merge that has changes the base lacks. A merge that cannot
-// run, as with a git before 2.43, is neither merged nor unmerged.
+// A conflict is a merge that has changes the base lacks: exit 1, with the tree
+// it left. A merge that cannot run, as with a git before 2.41, is neither merged
+// nor unmerged. Nor is a git that crashed, which Claude Code reports as exit 1
+// with no output.
 test('prune_branches keeps a branch with git\'s message where the merge cannot run, and with the base\'s content note where it conflicts', async ($: any, on: any) => {
   const one = (line: string) => (line.startsWith('for-each-ref --format') ? 'feat-squash\t[gone]' : reap(line))
   let now = one
@@ -313,8 +315,28 @@ test('prune_branches keeps a branch with git\'s message where the merge cannot r
   expect((await call($, 'prune_branches')).result).toBe("deleted: claude/done (merged into main)\nkept: feat-squash (upstream gone, check failed: error: unknown option `write-tree')")
   now = line => (line === whole('feat-squash') ? { exitCode: 2, stdout: '', stderr: '' } : one(line))
   expect((await call($, 'prune_branches')).result).toContain('kept: feat-squash (upstream gone, check failed: exit 2)')
-  now = line => (line === whole('feat-squash') ? 1 : one(line))
+  now = line => (line === whole('feat-squash') ? { exitCode: 1, stdout: '', stderr: '' } : one(line))
+  expect((await call($, 'prune_branches')).result).toContain('kept: feat-squash (upstream gone, check failed: exit 1)')
+  now = line => (line === whole('feat-squash') ? { exitCode: 1, stdout: 'OTHER\n\nCONFLICT (content): Merge conflict in s\n', stderr: '' } : one(line))
   expect((await call($, 'prune_branches')).result).toContain('kept: feat-squash (upstream gone, content not on origin/main)')
+  expect(deleted(calls)).toEqual(Array(6).fill('branch -d claude/done'))
+})
+
+test('prune_branches keeps a branch with git\'s message where merge-base or rev-list fails', async ($: any, on: any) => {
+  const one = (line: string) => (line.startsWith('for-each-ref --format') ? 'feat-squash\t[gone]' : reap(line))
+  let now = one
+  const calls = world(on, line => now(line))
+  const list = `rev-list --no-merges --ancestry-path=FORK ${BASE}..refs/heads/feat-squash`
+  const merges = `rev-list --merges --ancestry-path=FORK ${BASE}..refs/heads/feat-squash`
+  for (const failing of [`merge-base ${BASE} refs/heads/feat-squash`, list, merges]) {
+    now = line => (line === failing ? 128 : one(line))
+    expect((await call($, 'prune_branches')).result).toContain('kept: feat-squash (upstream gone, check failed: fatal: no)')
+  }
+  now = line => (line === list ? { exitCode: 129, stdout: '', stderr: '' } : one(line))
+  expect((await call($, 'prune_branches')).result).toContain('kept: feat-squash (upstream gone, check failed: exit 129)')
+  // The merge has run by then, so the two have a commit in common, and exit 1 is not git's answer.
+  now = line => (line === `merge-base ${BASE} refs/heads/feat-squash` ? { exitCode: 1, stdout: '', stderr: '' } : one(line))
+  expect((await call($, 'prune_branches')).result).toContain('kept: feat-squash (upstream gone, check failed: exit 1)')
   expect(deleted(calls)).toEqual(Array(5).fill('branch -d claude/done'))
 })
 

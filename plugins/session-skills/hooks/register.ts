@@ -177,18 +177,28 @@ async function openWorktree($: any, e: any): Promise<string> {
   return [...lines, ...warnings.map(w => `warning: ${w}`)].join('\n')
 }
 
+// A command of the merge check that did not run to an answer. Claude Code
+// reports a git that crashed as exit 1 with no output.
+const failed = (r: Ran): never => {
+  throw new Error(`check failed: ${firstLine(r.stderr) || `exit ${r.exitCode}`}`)
+}
+
 // The tree left by merging `ref` into `base`, or nothing where the merge
-// conflicts (exit 1). Any other failure, as on a git before 2.43, throws with
-// git's message. No .gitattributes, no attributes file from the user's config,
-// and no merge.default is read: a driver such as `union`, or one that keeps the
-// base's side, settles a conflict without the branch's change, and the result
-// reads as merged.
+// conflicts: exit 1, with the tree the conflict left. Any other failure throws
+// with git's message. A git before 2.41 rejects --attr-source. 2.41.0 and
+// 2.42.0 crash on it in merge-tree unless GIT_NO_REPLACE_OBJECTS is set, as it
+// was by Claude Code when this was run, and 2.43 has the fix. No
+// .gitattributes, no attributes file from the user's config, and no
+// merge.default is read: a driver such as `union`, or one that keeps the base's
+// side, settles a conflict without the branch's change, and the result reads as
+// merged.
 // ponytail: the system-wide attributes file is still read. GIT_ATTR_NOSYSTEM turns it off, and is an environment variable.
 async function mergedTree($: any, main: string, empty: string, base: string, ref: string, from = ''): Promise<string> {
   const argv = ['-c', 'merge.default=text', '-c', 'core.attributesFile=/dev/null', `--attr-source=${empty}`, 'merge-tree', '--write-tree', ...(from ? [`--merge-base=${from}`] : []), base, ref]
   const r = await run($, gitArgv(main, argv))
-  if (r.exitCode > 1) throw new Error(`check failed: ${firstLine(r.stderr) || `exit ${r.exitCode}`}`)
-  return r.exitCode === 0 ? r.stdout.trim() : ''
+  if (r.exitCode === 0) return r.stdout.trim()
+  if (r.exitCode !== 1 || !r.stdout.trim()) failed(r)
+  return ''
 }
 
 // git has no switch that turns off .git/info/attributes, so a merge driver set
@@ -217,14 +227,19 @@ async function amended($: any, main: string, empty: string, m: string): Promise<
 // part of it is found there, and not in the first merge. A merge commit is
 // taken the same way when its tree differs from the automatic merge of its
 // parents, since a change made in the merge itself is in no other commit. A
-// check that fails never reads as merged, and a merge that cannot run throws.
+// check that fails never reads as merged, and a command that fails throws: the
+// first merge has run before `merge-base` does, so the two have a commit in
+// common, and exit 1 there is no answer either.
 // ponytail: one merge a commit, so a branch of thousands of commits is slow.
 async function onBase($: any, main: string, empty: string, tree: string, base: string, ref: string): Promise<boolean> {
   if ((await mergedTree($, main, empty, base, ref)) !== tree) return false
-  const fork = await out(git($, main, 'merge-base', base, ref))
+  const found = await git($, main, 'merge-base', base, ref)
+  if (found.exitCode !== 0) failed(found)
+  const fork = found.stdout.trim()
   const commits = await git($, main, 'rev-list', '--no-merges', `--ancestry-path=${fork}`, `${base}..${ref}`)
   const merges = await git($, main, 'rev-list', '--merges', `--ancestry-path=${fork}`, `${base}..${ref}`)
-  if (!fork || commits.exitCode !== 0 || merges.exitCode !== 0) return false
+  if (commits.exitCode !== 0) failed(commits)
+  if (merges.exitCode !== 0) failed(merges)
   const all = [...commits.stdout.split(/\r?\n/), ...merges.stdout.split(/\r?\n/)].filter(Boolean)
   const isMerge = new Set(merges.stdout.split(/\r?\n/))
   for (const c of all) {
