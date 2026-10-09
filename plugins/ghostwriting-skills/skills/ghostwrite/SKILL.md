@@ -27,7 +27,9 @@ then `$GHOSTWRITING_DIR`, then `~/.claude/ghostwriting`. `MODE=bootstrap` there 
 - `$VOICE/voice-spec.md`—voice rules, per-genre form, delta log, procedure.
 - `$VOICE/corpus/`—hand-written samples, one file per piece or genre.
 
-Either path may be a symlink into a private repo. The voice data never lives in this skill, in a
+Either path may be a symlink into a private repo. On Windows `~` is the user profile directory, and
+a linked voice directory is a junction (`mklink /J`), or is set with `voice_dir` or
+`GHOSTWRITING_DIR` instead. The voice data never lives in this skill, in a
 project repo, or in memory. No spec ⇒ **bootstrap** (§5).
 
 **Always-on rules live elsewhere, split by when they load.** Prohibitions that must hold in chat

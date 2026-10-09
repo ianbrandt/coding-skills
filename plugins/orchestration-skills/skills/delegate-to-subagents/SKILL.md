@@ -166,7 +166,10 @@ never told about.
 
 ## 9. Integrating parallel worktrees
 
-- Pull each worktree's work in with `git -C <worktree> diff | git apply`.
+- Pull each worktree's work in through a patch file: `git -C <worktree> diff --output=<patch file>`,
+  then `git apply <patch file>`. Give the patch file as an absolute path outside both checkouts,
+  since `-C` puts a relative one in the worktree. A pipe between the two is not safe in every
+  shell, since Windows PowerShell 5.1 re-encodes the text that goes through one.
 - **Strip agent artifacts before committing**: think-aloud comments, progress banners, test names
   that do not match what the test does.
 - Reconcile shared docs once, yourself, since no delegate was allowed to touch them.

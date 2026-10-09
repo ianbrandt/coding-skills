@@ -114,7 +114,8 @@ runbook), otherwise land by the mode from §1.
 5. **After §4's release, remove your own worktree** by the rules in `work-in-worktree` §4, with
    the shell changed into the primary checkout in the same command—`cd "$MAIN" && git worktree
    remove "$WT"`—then call `mcp__session-skills__prune_branches`, which deletes the merged branch.
-   Do not run `git branch -d` in its place. A session started inside the worktree removes it the
+   Do not run `git branch -d` in its place. In Windows PowerShell 5.1, which rejects `&&`, run the
+   two commands as two calls, `cd` first. A session started inside the worktree removes it the
    same way: after a removal with the shell still in the worktree, the next Bash call fails and
    the shell restarts in the home directory.
 
@@ -125,9 +126,10 @@ runbook), otherwise land by the mode from §1.
    has a generated name, ask the user for one, rename it, and update the lease and any backlog pin
    that records the old name.
 2. **Rebase onto the remote default branch**—`git -C "$WT" fetch -q && git -C "$WT" rebase
-   "origin/$DEFAULT"`. The PR is reviewed against the remote, and the local default branch can lag
-   it. For a branch already pushed, first bring in anything a reviewer pushed to it, such as an
-   applied suggestion: `git -C "$WT" pull --rebase origin "$BRANCH"`.
+   "origin/$DEFAULT"`, as two calls in Windows PowerShell 5.1, which rejects `&&`. The PR is
+   reviewed against the remote, and the local default branch can lag it. For a branch already
+   pushed, first bring in anything a reviewer pushed to it, such as an applied suggestion:
+   `git -C "$WT" pull --rebase origin "$BRANCH"`.
 3. **Build**, by the same rule as `merge` step 2.
 4. **Push the branch**, under the visibility rule—`git -C "$WT" push -u origin "$BRANCH"`. Once a
    rebase has rewritten a pushed branch, add `--force-with-lease --force-if-includes`: the fetch in
@@ -211,7 +213,9 @@ The rest, in order:
 - **Stop stray background tasks.** A superseded search, an abandoned build or server: stop each
   one, with the host's tool for background tasks where it has one (`TaskStop` in Claude Code), or
   by pid. Do not deliver a wrap-up while a stray task is still running. A todo list is not a
-  process list—check real processes (`pgrep -fl`) before claiming a session is clear.
+  process list—check real processes before claiming a session is clear: `pgrep -fl`, or on
+  Windows `Get-Process` in PowerShell, and `Get-CimInstance Win32_Process` where the command line
+  is needed.
 - **Capture what belongs outside this session.** Durable conventions go to the repo's versioned
   docs; machine-local facts go to memory. Nothing that the repo already records.
 - **Say what's left**, plainly, and where to do it: this session (it holds the context) or a fresh

@@ -260,6 +260,9 @@ Bash call fails where the shell is still in a directory that is gone:
 cd "$MAIN" && git worktree remove "$WT"
 ```
 
+Windows PowerShell 5.1 rejects `&&`. There, run the two commands as two calls, `cd` first, and do
+the same for any other `&&` line in these skills.
+
 A concurrency plugin adds its own hygiene on top of this (§0's lease seam).
 
 ## Then what
