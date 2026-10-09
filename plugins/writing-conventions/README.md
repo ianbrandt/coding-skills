@@ -408,7 +408,7 @@ runs both with and without the plugin loaded, and only one of the 11 flagged dra
 violation. Run the suite from the plugin directory:
 
 ```bash
-claude plugin eval . --runs 2 --judge-model sonnet --no-publish
+claude plugin eval . --runs 2 --judge-model sonnet --no-publish -j 4
 ```
 
 The default two-arm run scores the same prompts with and without the plugin loaded and reports
@@ -432,6 +432,12 @@ gain of 0.04. Plugin-loaded drafts failed no regex grader, the personification j
 and `write-for-the-reader` were reworded, scored 0.95 and 0.86, a gain of 0.09, with the same
 failures in the plugin-loaded drafts. The score without the plugin moved by 0.05 between two runs of
 the same prompts, so the gain from a single run is known only to within about that much.
+
+On 2026-10-08, with two runs per case, the plugin scored 0.95 and no plugin 0.90, a gain of 0.05. The
+gap by case ran from -0.10 to +0.30. Five cases had no gap in this run and none on 2026-10-05:
+`code-comment-guard`, `issue-body-platform-constraint`, `readme-precedence-paragraph`,
+`spec-method-names`, and, with the plugin scoring lower in both runs, `github-comment-heads-up`.
+Those cases score the same without the plugin, so they measure the default register, not the plugin.
 
 ## Skills
 

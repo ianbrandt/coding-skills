@@ -110,6 +110,23 @@ version-keyed cache, so the plugin's `version` in `.claude-plugin/marketplace.js
 the same commit, unless it is already ahead of the version on `origin/main`. One bump is enough for
 every commit waiting to be pushed. Without one, the session keeps serving the old copy.
 
+## Measuring it
+
+[`evals/`](evals/) is a `claude plugin eval` suite of seven chat cases: how work lands in a fork, a
+public repo, a pull-request repo, and a repo of unknown visibility, a handoff after a landed unit, no
+handoff mid-unit, and the session title block. Run it from the plugin directory:
+
+```bash
+claude plugin eval . --runs 4 --judge-model sonnet --no-publish -j 4
+```
+
+On 2026-10-08, with four runs per case, the plugin scored 1.00 and no plugin 0.43, a gap of +0.57.
+Four cases scored 0.00 without the plugin and 1.00 with it: the handoff after a landed unit, the
+public-repo and pull-request landing cases, and the session title. The other three scored 1.00 in
+both arms: the fork and unknown-visibility landing cases, and no handoff mid-unit. Those three guard
+against the plugin making an agent act where it should hold, and they measure nothing about the
+plugin's gain. The run cost $5.70 and took 209 seconds.
+
 ## Platform
 
 The tools run git by argument vector with no shell, so one implementation serves bash, Git Bash, and

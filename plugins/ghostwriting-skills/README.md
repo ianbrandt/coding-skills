@@ -67,7 +67,7 @@ prompt for both runs, and the fixture spec has no Procedure section, so the two 
 the plugin's drafting procedure. Run it from the plugin directory:
 
 ```bash
-claude plugin eval . --scaffold --runs 4 --judge-model sonnet --no-publish
+claude plugin eval . --scaffold --runs 4 --judge-model sonnet --no-publish -j 4
 ```
 
 No shell is granted in the cases and `writing-conventions` is not loaded, so the lint step in
@@ -121,6 +121,14 @@ and no plugin 0.82. A subagent rewrote the draft in all 4 runs with the plugin a
 which is one check of seven, and one body without the plugin failed the facts judge. With the
 Procedure section still in the spec, a subagent rewrote the draft in every run of that case, with
 and without the plugin.
+
+On 2026-10-08, with four runs per case, the plugin scored 1.00 on average and no plugin 0.95, a gap of
++0.05. Most of it was the README-section case (+0.18, five failed checks without the plugin). The PR
+body with a report constraint was +0.04. The issue body and `pr-body-in-voice` had no gap, and
+`pr-body-in-voice` had none on 2026-10-05 either.
+
+The suite ran in 272 seconds with `-j 4` and 1,047 seconds without it, for the same 32 runs, and the
+scores differed by 0.01.
 
 ## Works with `writing-conventions`
 

@@ -21,7 +21,7 @@
     {
       "name": "session-skills",
       "source": "./plugins/session-skills",
-      "version": "0.20.0",
+      "version": "0.20.1",
       "description": "Puts a session in its own git worktree and gets it back out again: adopt the worktree work is already in flight on or open a fresh one, and land the work by what the repo is rather than by a declared mode.",
       "keywords": ["worktree", "session", "landing", "wrap-up", "resume"]
     },
@@ -35,14 +35,14 @@
     {
       "name": "writing-conventions",
       "source": "./plugins/writing-conventions",
-      "version": "0.45.4",
+      "version": "0.45.5",
       "description": "Always-on rules for plain prose without AI tells—in chat, in repo docs, and in anything published under your name—with a lint that reports each miss in the next turn.",
       "keywords": ["register", "summary", "prose", "style", "lint"]
     },
     {
       "name": "ghostwriting-skills",
       "source": "./plugins/ghostwriting-skills",
-      "version": "0.9.0",
+      "version": "0.9.1",
       "description": "Drafts text that ships under your name—issues, PRs, comments, commit messages, docs—in your voice, from a spec derived from your writing, and keeps that spec current from your edits.",
       "keywords": ["ghostwriting", "voice", "writing", "style", "pull-request"]
     },
