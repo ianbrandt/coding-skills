@@ -17,12 +17,13 @@ conventions installed; `parallel-session-skills` not installed in that harness).
 coverage per check is noted inline. The 5.1-only parts of Checks 4 and 10 were cleared in a
 second pass on 2026-10-09, along with the shell-agnostic Checks 9, 11, 12, and 13; the 5.1
 side of Check 11 and Check 12 were run in the Windows PowerShell 5.1 shell (and PowerShell 7
-where the one-liner is shell-agnostic). Still outstanding: a Git Bash pass of Check 7 (`edit_primary_file` from a
-worktree session), the claim portion of Check 3 plus all of Check 8 once
-`parallel-session-skills` is installed, a live Claude Code UI capture of the two Check-13
-toasts, and a Check-11 run with `GHOSTWRITING_DIR` and `voice_dir` unset so the junction
-fallback is actually exercised. Findings from the pass are in the Findings section at the
-bottom.
+where the one-liner is shell-agnostic). In a third pass on 2026-10-09, the Git Bash
+side of Check 7, the claim portion of Check 3, and all of Check 8 (four path variants plus the
+two-session race) were run with `parallel-session-skills` installed. The Check 11 full
+junction fallback and the Check 13 Toast 2 live capture are only possible when the parent
+Claude Code process is launched with specific env settings, so neither can be driven from
+inside a tool call; each is flagged inline as `needs env prep` with the specific var. Findings
+from the pass are in the Findings section at the bottom.
 
 Setup: a scratch repo at a path with a space in it, such as `C:\Users\<name>\win check\repo`, with
 one commit, a bare repo beside it as `origin`, a `notes.local` directory with a file `keep.txt` in
@@ -62,6 +63,12 @@ Check 1 comes first: it is the only one where a failure loses files.
      `find_checkouts` output, `primary checkout` uses backslashes (`C:\Dev\...\repo`) and
      `session directory` uses forward slashes (`C:/Dev/.../repo`); drive letter is uppercase in
      both.
+   - PASS of the claim portion (Git Bash, `parallel-session-skills` installed): inside a lane
+     opened via `open_worktree`, `write_claim` returned the fresh claim JSON, `read_ledger`
+     listed it as the only entry, the lane commit went in and fast-forwarded into `main` with
+     the push held, `release_claim` returned `released: claude-check3-claim.json` followed by
+     `no claims`, `git worktree remove` plus `cmd /c rmdir /S /Q` cleaned the directory, and
+     `prune_branches` deleted `claude/check3-claim`. The claims directory is empty afterward.
 4. Removing a worktree, 5.1. `cd <primary>; git worktree remove <worktree>` has to be two calls
    there, since `&&` is a parse error. Pass: the worktree is gone and the next call runs in the
    primary checkout. If a `cd` in one call does not hold in the next, the two-call form in
@@ -96,7 +103,7 @@ Check 1 comes first: it is the only one where a failure loses files.
      local path (`..\origin.git`), so the model's classifier marked the commit as `LOCAL` and
      `gate.ts` returned soft `context` instead of `block` (line 260). Body-read coverage:
      - Git Bash, `-F body.md`: body read, no `was not read` line. Soft context. Commit went through.
-     - Git Bash, Windows-form quoted path with spaces: hook note says
+     - Git Bash, Windows-form quoted path with spaces: the gate prints this note:
        `The body in "" was not read: it is not a literal path.` The quoted backslashes collapsed
        in `bash` before the gate saw them (expected per the TODO). Commit went through.
      - Git Bash, msys path (`/c/.../repo/body.md`) with spaces: body read, no `was not read` line.
@@ -138,12 +145,37 @@ Check 1 comes first: it is the only one where a failure loses files.
        appended line, no `^M` markers, no whole-file change.
      - `<primary>-other\body.md`: refused with
        `edit_primary_file: ... is not inside the primary checkout ...`.
+   - PASS (Git Bash, session cwd inside worktree `check7-bash`):
+     - Lower-case path (`c:\dev\repos\ianbrandt\coding-skills test\repo\scratch.txt`): returned
+       `edited`, the appended line landed in the primary.
+     - `core.autocrlf=true` on `crlf.txt`: two-line replace plus a one-line append both returned
+       `edited`; `od -c` of the file shows `\r\n` on every line (including the appended one),
+       and `git diff` shows only the two replaced lines plus the appended line, with no `^M`
+       markers and no whole-file change.
+     - `<primary>-other\body.md`: refused with
+       `edit_primary_file: C:\Dev\Repos\IanBrandt\coding-skills test\repo-other\body.md is
+       not inside the primary checkout C:\Dev\Repos\IanBrandt\coding-skills test\repo`.
 8. Claims. Call `write_claim` and `release_claim` with the worktree path in lower case, then with
    backslashes only. Pass: all four succeed. Then, with two sessions in the repo, have one call
    `read_ledger` twenty times while the other writes and releases a claim twenty times. Pass: no
    `was not deleted` line, and no claim reported as unreadable.
-   - SKIPPED: `parallel-session-skills` is not installed in this harness, so
-     `write_claim`/`release_claim`/`read_ledger` tools are absent from the tool list.
+   - SKIPPED in the first two passes: `parallel-session-skills` is not installed in that
+     harness, so `write_claim`/`release_claim`/`read_ledger` tools are absent from the tool list.
+   - PASS (Git Bash, `parallel-session-skills` installed, 2026-10-09 third pass):
+     - Lower-case path variant: `write_claim` and `release_claim` on
+       `c:\dev\repos\ianbrandt\coding-skills test\repo\.claude\worktrees\check7-bash` both
+       succeeded; the claim file was written and the release returned
+       `released: claude-check7-bash.json` followed by `no claims`.
+     - Backslashes-only path variant: same two calls with
+       `C:\Dev\Repos\IanBrandt\coding-skills test\repo\.claude\worktrees\check7-bash` both
+       succeeded. All four operations across the two variants succeeded with no error.
+     - Two-session race: a non-isolated subagent cwd-ed in the scratch repo ran twenty
+       `write_claim`/`release_claim` cycles on `claude/check8-race` (a fresh worktree opened
+       for the race), while this session ran twenty `read_ledger` calls in two parallel
+       batches of ten. The subagent reported 20 of 20 cycles with no error, no `was not
+       deleted` text, and no unreadable claim; this session's twenty reads returned either
+       `no claims` or a single live claim JSON for `claude/check8-race` on each call, with no
+       `was not deleted` line and no unreadable claim.
 9. Stray processes. `Get-CimInstance Win32_Process | Where-Object CommandLine -like '*git*' |
    Select-Object ProcessId, CommandLine` lists a running git with its command line.
    - PASS (PowerShell 7.6.6): the one-liner printed several live `git.exe` processes with their
@@ -180,6 +212,13 @@ Check 1 comes first: it is the only one where a failure loses files.
         path through a junction is just not what the plugin used on this machine. To exercise
         the junction fallback fully, use a session with `GHOSTWRITING_DIR` and `voice_dir`
         unset.
+    - FULL FALLBACK: needs env prep (attempted 2026-10-09 third pass). The ghostwrite skill
+      runs inside the Claude Code process and reads `GHOSTWRITING_DIR` from that process's
+      environment, which a child PowerShell or Bash tool call cannot change. To exercise the
+      junction fallback, launch Claude Code with `GHOSTWRITING_DIR` unset in its environment
+      (no `voice_dir` setting is present in `C:/Dev/.claude/settings.json` on this host, so
+      only the one env var needs clearing). In this session `GHOSTWRITING_DIR` reads
+      `C:/Dev/.claude/ghostwriting` and would still override the junction.
 12. Long paths. In the deepest repo in real use, `git config --show-origin core.longpaths`, then
     open a worktree and run `git status` and a build in it. Pass: no `Filename too long`.
     - PASS (PowerShell 7.6.6, repo `C:\Dev\Repos\IanBrandt\coding-skills`):
@@ -188,14 +227,14 @@ Check 1 comes first: it is the only one where a failure loses files.
       exit 0, longest resulting path 169 chars. `node --test graders.test.mjs` from the
       worktree root: 51 passed, 0 failed, node exit 0. No `Filename too long` anywhere.
 13. The two `writing-conventions` "gate off" toasts: unset a required env var, or let a model call
-    fail, and confirm each fits in four lines in the Claude Code UI. Toast 1 is 95 chars; toast 2
+    fail, and confirm each fits in four lines in the Claude Code UI. Toast 1 is 97 chars; toast 2
     is 149 chars.
     - PASS, static measurement (strings read from
       `plugins/writing-conventions/hooks/gate.ts`):
       - Toast 1 (CLI-too-old, line 40): `writing-conventions: the gate and the reply lint are
-        off. They need Claude Code 2.1.286 or later.` That is 97 chars (the TODO's "95" is now
-        97 because `CHECKED` includes the three-digit `286`). Wraps to 2 lines at 60/72/80 cols,
-        1 line at 100+ cols. Fits in four lines everywhere.
+        off. They need Claude Code 2.1.286 or later.` That is 97 chars (two more than the
+        earlier 95 figure, now that `CHECKED` has grown to the three-digit `286`). Wraps to 2
+        lines at 60/72/80 cols, 1 line at 100+ cols. Fits in four lines everywhere.
       - Toast 2 (model-call-failed, line 82): `writing-conventions: model review is off, because
         a check failed. Commit, PR, MCP, file, and draft text is not being read; the reply lint
         still runs.` That is 149 chars, which matches the TODO. Wraps to 3 lines at 60/72, 2
@@ -204,6 +243,13 @@ Check 1 comes first: it is the only one where a failure loses files.
         only with a CLI older than 2.1.286, and Toast 2 needs a forced model-call failure (e.g.
         `WRITING_CONVENTIONS_GATE_MODEL=not-a-model`) set in the parent Claude Code process's
         environment, which this session can't change from inside a PowerShell tool call.
+      - TOAST 2 LIVE CAPTURE: needs env prep (attempted 2026-10-09 third pass). The gate hook
+        runs inside the Claude Code process and reads `WRITING_CONVENTIONS_GATE_MODEL` via
+        `$.env.get` at `gate.ts:66`, which pulls from that process's environment. A child
+        shell cannot propagate an env override back to the parent, so the live toast must be
+        captured in a Claude Code launched with `WRITING_CONVENTIONS_GATE_MODEL=not-a-model`
+        set in its environment. Toast 1 still needs a CLI older than 2.1.286; the static
+        measurement stands.
 
 ## Findings from the Windows pass
 
