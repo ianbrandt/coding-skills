@@ -80,10 +80,11 @@ const PATH = '/repo/ROADMAP.local.md'
 
 // The primary checkout is /repo, and the files are the ones in it.
 // `worktrees` are the linked ones git lists, which can be anywhere.
-function world(on: any, files: Record<string, string>, worktrees: string[] = []) {
+// `failed` is a list git did not print: its exit code and what it wrote to stderr.
+function world(on: any, files: Record<string, string>, worktrees: string[] = [], failed?: { exitCode: number; stderr: string }) {
   const w = { files, reads: 0, wrote: false, read: (path: string): string => w.files[path] }
   // As git prints it with -z: every line ends in NUL, and so does each worktree's block.
-  on('process.run', () => ({ value: { exitCode: 0, stdout: ['/repo', ...worktrees].map(p => `worktree ${p}\0HEAD 0\0\0`).join(''), stderr: '' } }))
+  on('process.run', () => ({ value: failed ? { ...failed, stdout: '' } : { exitCode: 0, stdout: ['/repo', ...worktrees].map(p => `worktree ${p}\0HEAD 0\0\0`).join(''), stderr: '' } }))
   on('session.repo', () => ({ value: { root: '/repo', remote: null, internal: false } }))
   on('fs.read', (_$: any, e: any) => { w.reads++; return { value: w.read(e.path) } })
   on('fs.write', (_$: any, e: any) => { w.wrote = true; w.files[e.path] = e.text; return { value: undefined } })
@@ -142,6 +143,24 @@ test('a path in a worktree whose path has a newline in it is taken', async ($: a
   expect((await $.tool.call({ tool: TOOL, path: '/work/wt/r5\nx/ROADMAP.md', id: 'R102' })).result).toContain('removed:')
   expect(w.files['/work/wt/r5\nx/ROADMAP.md']).toBe(deleteItem(ROADMAP, 'R102').text)
 })
+
+// A failed list is not an empty one. git before 2.36 rejects -z with exit 129
+// and its usage text, and Claude Code reports a git that crashed as exit 1 with
+// no output.
+for (const [what, failed, message] of [
+  ['rejects -z', { exitCode: 129, stderr: "error: unknown switch `z'\nusage: git worktree add [<options>] <path> [<commit-ish>]\n   or: git worktree list [<options>]\n" }, "error: unknown switch `z'"],
+  ['crashes', { exitCode: 1, stderr: '' }, 'exit 1'],
+] as const) {
+  test(`the tool reports a worktree list that failed when git ${what}, and writes nothing`, async ($: any, on: any) => {
+    const w = world(on, { '/work/wt/r5/ROADMAP.md': ROADMAP, [PATH]: ROADMAP }, ['/work/wt/r5'], failed)
+    for (const path of ['/work/wt/r5/ROADMAP.md', PATH]) {
+      const ran = await $.tool.call({ tool: TOOL, path, id: 'R102' })
+      expect(ran.isError).toBe(true)
+      expect(ran.text).toBe(`delete_item: git worktree list in /repo: ${message}`)
+    }
+    expect(w.wrote).toBe(false)
+  })
+}
 
 test('the tool writes nothing when the file changed after it was first read', async ($: any, on: any) => {
   const w = world(on, { [PATH]: ROADMAP })
