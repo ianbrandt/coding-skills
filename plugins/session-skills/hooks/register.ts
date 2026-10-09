@@ -426,7 +426,9 @@ export const register: Register = on => {
       if (!main) throw new Error('not inside a git repository')
       const path = String(e.path).replace(/\\/g, '/')
       const root = main.replace(/\\/g, '/').replace(/\/$/, '')
-      if (!path.startsWith(`${root}/`) || path.split('/').includes('..')) throw new Error(`${e.path} is not inside the primary checkout ${main}`)
+      // A path with a drive letter is on Windows, where two paths that differ only in letter case are the same path.
+      const fold = (p: string) => (/^[A-Za-z]:\//.test(p) ? p.toLowerCase() : p)
+      if (!fold(path).startsWith(`${fold(root)}/`) || path.split('/').includes('..')) throw new Error(`${e.path} is not inside the primary checkout ${main}`)
       const read = async (): Promise<string> => ((await $.fs.exists(e.path)) ? $.fs.read(e.path) : '')
       const text = await read()
       const next = splice(text, String(e.old), String(e.new))

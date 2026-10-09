@@ -27,11 +27,31 @@ test('a passage is replaced where it occurs once, and a replacement with $& in i
   expect(() => splice('a\na\n', 'a', 'y')).toThrow('occurs 2 times')
 })
 
+test('in a file with CRLF line ends, a passage with LF line ends is matched and written with CRLF', () => {
+  expect(splice('a\r\nb\r\nc\r\n', 'a\nb\n', 'x\ny\n')).toBe('x\r\ny\r\nc\r\n')
+  expect(splice('a\r\nb\r\n', 'b', 'x\ny')).toBe('a\r\nx\r\ny\r\n')
+  expect(splice('a\r\n', '', 'b\nc\r\n')).toBe('a\r\nb\r\nc\r\n')
+  // A passage that is in the file as written is matched as written.
+  expect(splice('a\nb\nc\r\n', 'a\nb\n', 'x\r\n')).toBe('x\r\nc\r\n')
+  expect(splice('a\r\nb\r\n', 'a\r\n', 'x\n')).toBe('x\nb\r\n')
+  expect(() => splice('a\r\nb\r\n', 'a\nz\n', 'y')).toThrow('occurs 0 times')
+  expect(splice('a\r\nb\r\n', 'a\nb\n', '$&\n')).toBe('$&\r\n')
+})
+
+test('in a file with both line ends, the replacement is written as given unless the passage is matched with CRLF', () => {
+  expect(splice('a\nb\r\nc\n', 'a', 'x\ny')).toBe('x\ny\nb\r\nc\n')
+  expect(splice('a\nb\r\n', '', 'c\n')).toBe('a\nb\r\nc\n')
+  expect(splice('a\nb\nc\r\na\r\nb\r\n', 'a\nb\n', 'x\ny\n')).toBe('x\ny\nc\r\na\r\nb\r\n')
+  expect(splice('a\nb\r\nc\r\n', 'b\nc\n', 'x\ny\n')).toBe('a\nx\r\ny\r\n')
+})
+
 const EDIT = 'mcp__session-skills__edit_primary_file'
-function repo(on: any, files: Record<string, string>, afterRead: (n: number) => void = () => {}) {
+function repo(on: any, files: Record<string, string>, afterRead: (n: number) => void = () => {}, root = '/repo') {
   let reads = 0
-  const posix = (p: string) => p.replace(/^[A-Za-z]:/, '').replace(/\\/g, '/')
-  on('session.repo', () => ({ value: { root: '/repo', remote: null, internal: false } }))
+  // On macOS a path with a drive letter is not absolute, so the engine puts the
+  // session's directory in front of it, and that prefix is dropped too.
+  const posix = (p: string) => p.replace(/\\/g, '/').replace(/^(.*\/)?[A-Za-z]:(?=\/)/, '')
+  on('session.repo', () => ({ value: { root, remote: null, internal: false } }))
   on('fs.exists', (_$: any, e: any) => ({ value: posix(e.path) in files }))
   on('fs.read', (_$: any, e: any) => {
     const value = files[posix(e.path)]
@@ -57,6 +77,22 @@ test('the tool writes nothing for a drifted passage or a path outside the primar
     expect(ran.text).toContain(why)
   }
   expect(files).toEqual({ '/repo/a.md': 'a\n', '/elsewhere/a.md': 'a\n' })
+})
+
+test('on Windows a path that differs from the primary checkout only in letter case is edited', async ($: any, on: any) => {
+  const files = repo(on, { '/repo/a.md': 'a\n', '/repo-other/a.md': 'a\n' }, undefined, 'C:\\Repo')
+  expect((await $.tool.call({ tool: EDIT, path: 'c:\\repo\\a.md', old: 'a\n', new: 'b\n' })).isError).toBeUndefined()
+  expect(files['/repo/a.md']).toBe('b\n')
+  for (const path of ['c:\\repo\\..\\a.md', 'c:\\repo-other\\a.md', 'C:/Repo/../repo-other/a.md', 'D:\\Repo\\a.md', '/repo/a.md']) {
+    expect((await $.tool.call({ tool: EDIT, path, old: '', new: 'b\n' })).isError).toBe(true)
+  }
+  expect(files).toEqual({ '/repo/a.md': 'b\n', '/repo-other/a.md': 'a\n' })
+})
+
+test('without a drive letter, a path in another letter case is outside the primary checkout', async ($: any, on: any) => {
+  const files = repo(on, { '/Repo/a.md': 'a\n' })
+  expect((await $.tool.call({ tool: EDIT, path: '/Repo/a.md', old: 'a\n', new: 'b\n' })).text).toContain('not inside the primary checkout')
+  expect(files).toEqual({ '/Repo/a.md': 'a\n' })
 })
 
 test('the tool writes nothing when the file changed after it was first read', async ($: any, on: any) => {
