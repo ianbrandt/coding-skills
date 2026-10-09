@@ -21,10 +21,15 @@ references are exempt. How to read the five:
 
 1. Inanimate agency also covers a commit or a test as the subject, and tell, claim, judge, and name
    as the verb. A program doing its runtime job is not this: a function returns, a task writes a
-   file, a build fails, "a build that applies the plugin fails". A build, a project, or a script
-   that gets, keeps, or refers to something is this, since a person made that choice in its
-   configuration: flag "the build refers to the type" and "a build that applies the plugin in its
-   root build script still gets two copies".
+   file, a build fails, "a build that applies the plugin fails". Everything else
+   with a build, a run, a project, a script, a class, a setting, an option, a commit, or a file as
+   the subject is this, when the verb is an act that a person performs or chose while writing the
+   code or the configuration, or an effect that a person would report in the passive: gets, keeps,
+   refers to, creates, declares, takes, needs, adds, restores, enables, lets, ends with. Flag "the
+   build refers to the type", "a build that applies the plugin in its root build script still gets
+   two copies", "a build creates the reporter with", "a run that reports a problem ends with one
+   more line", "`format = plain` restores the earlier behavior", and "the last commit adds the
+   default". "This PR adds" is allowed.
    In the rewrite after `->`, make the person who acts the subject or rebuild the sentence around
    what happens, and add no new inanimate agency. Use a passive only where a person would say it
    that way on one read, never stacked on a long noun phrase. Good rewrites:

@@ -186,6 +186,21 @@ only one that quoted a build as the subject was "a build that relies on that fal
 report as before", in both runs. Five read-only commands were still answered with `SKIP`, on 4 of 4
 runs each.
 
+A second PR body draft was replayed on 2026-10-09, on the `sonnet` alias. Its sentences "A build
+creates the new reporter with", "a run that reports a problem ends with one more line", and "The
+last commit adds" were allowed on 10 of 10 runs, and the three commit messages behind it on 15 of
+15, because "gets", "keeps", and "refers to" were the only verbs listed in item 1 to flag after a
+build. That list is now a test: the subject is a build, a run, a project, a script, a
+class, a setting, an option, a commit, or a file, and the verb is an act that a person performs or
+chose in the code or the configuration. With it the draft was denied on 10 of 10 runs, and the text
+that was posted in its place was allowed on 10 of 10. Those sentences are quoted in the prompt, so
+ten more with verbs that are in neither prompt were checked three times each: 25 of 30 were denied,
+against 15 of 30 before, and ten sentences about a program at run time ("the task writes the
+report", "the build fails with") were allowed on 30 of 30 under both. "The second commit moves the
+helper into its own file" was allowed on all 3 runs. The cost is more findings on text an earlier
+review found clean: one was kept on 52 of 120 checks of the 60 posted texts, against 33 on the same
+day with the earlier wording.
+
 On Sonnet 5.5 the median call took 1.6 seconds on a planted commit message, 3.6 seconds on a clean
 one, and 5.9 seconds on the text of a PR, an issue, or a comment, and the longest of 317 calls took
 16 seconds. A call is given at most 60 seconds. No effort is set on it. At `low` the last two
