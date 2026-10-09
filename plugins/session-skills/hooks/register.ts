@@ -86,6 +86,15 @@ async function readRef($: any, main: string, ref: string) {
 }
 const has = async ($: any, main: string, ref: string) => (await readRef($, main, ref)) !== null
 const HEAD = 'refs/remotes/origin/HEAD'
+
+// A remote's URL, or nothing for a remote git does not have, which is exit 2.
+// Any other failure throws: the remote is not known to be absent.
+async function remoteUrl($: any, main: string, name: string): Promise<string | null> {
+  const r = await git($, main, 'remote', 'get-url', name)
+  if (r.exitCode === 0) return r.stdout.trim()
+  if (r.exitCode !== 2) failed(r)
+  return null
+}
 const within = ($: any, main: string, a: string, b: string) => ok(git($, main, 'merge-base', '--is-ancestor', a, b))
 
 // origin is named, since a bare `git fetch` reads the remote of the current
@@ -96,12 +105,12 @@ const within = ($: any, main: string, a: string, b: string) => ok(git($, main, '
 // a renamed default branch leaves one that points at nothing, and one written
 // by `git update-ref` is a commit, not the name of a branch. A repo with no
 // origin has nothing to fetch.
-async function fetchOrigin($: any, main: string, prune = false): Promise<Ran> {
-  if (!(await ok(git($, main, 'remote', 'get-url', 'origin')))) return { exitCode: 0, stdout: '', stderr: '' }
+async function fetchOrigin($: any, main: string, prune = false): Promise<Ran & { origin: boolean }> {
+  if ((await remoteUrl($, main, 'origin')) === null) return { exitCode: 0, stdout: '', stderr: '', origin: false }
   const argv = ['fetch', '-q', ...(prune ? ['--prune'] : []), 'origin']
   const fetched = await run($, gitArgv(main, argv), gitTimeout(argv))
   if (fetched.exitCode === 0 && !(await readRef($, main, HEAD))?.symref) await git($, main, 'remote', 'set-head', 'origin', '--auto')
-  return fetched
+  return { ...fetched, origin: true }
 }
 
 // Read after the fetch, where there is one. `main` is a guess, made only where
@@ -305,7 +314,7 @@ async function pruneBranches($: any): Promise<string> {
   const tree = fetched.exitCode === 0 ? await out(git($, main, 'rev-parse', '--verify', '-q', `${baseRef}^{tree}`)) : ''
   const empty = tree && (await out(git($, main, 'hash-object', '-t', 'tree', '/dev/null')))
   // A repo with no origin has no branch with a gone upstream.
-  if (fetched.exitCode === 0 && !tree && (await ok(git($, main, 'remote', 'get-url', 'origin')))) lines.push(`warning: no branch with a gone upstream was checked: the tree of ${base} could not be read`)
+  if (fetched.exitCode === 0 && !tree && fetched.origin) lines.push(`warning: no branch with a gone upstream was checked: the tree of ${base} could not be read`)
   else if (tree && !empty) lines.push('warning: no branch with a gone upstream was checked: the empty tree could not be read')
   if (empty && (await localDrivers($, main))) lines.push('warning: a merge driver is set in .git/info/attributes, so no branch with a gone upstream was checked')
   else if (empty) {
@@ -332,8 +341,8 @@ async function pruneBranches($: any): Promise<string> {
 async function landingFacts($: any): Promise<string> {
   const main = await primary($)
   const config = (key: string) => out(git($, main, 'config', '--get', `session-skills.${key}`))
-  const fork = await ok(git($, main, 'remote', 'get-url', 'upstream'))
-  const url = await out(git($, main, 'remote', 'get-url', 'origin'))
+  const fork = (await remoteUrl($, main, 'upstream')) !== null
+  const url = (await remoteUrl($, main, 'origin')) ?? ''
 
   let vis = visibility(await config('originVisibility'))
   let visFrom = 'git config'

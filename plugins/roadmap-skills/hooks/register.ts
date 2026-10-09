@@ -7,16 +7,24 @@ import { type Plan, planOf, rule } from './plan'
 const DELETE = 'mcp__roadmap-skills__delete_item'
 const FIND = 'mcp__roadmap-skills__find_roadmap'
 
+// The first line git wrote for a command that failed, or its exit code: Claude
+// Code reports a git that crashed as exit 1 with no output.
+const why = (r: { exitCode: number; stderr: string }) => String(r.stderr).trim().split(/\r?\n/)[0] || `exit ${r.exitCode}`
+
 // The primary checkout and its plan. Outside a git repository there is neither.
 // git is run in the primary checkout: the session's directory is the default,
 // and nothing starts there once a session has removed the worktree it had
-// changed into.
+// changed into. git exits 2 for a remote it does not have, and any other
+// failure throws: a repo not known to be a fork is not known to have a roadmap
+// of its own.
 async function find($: any): Promise<{ main: string; plan: Plan } | null> {
   const main = (await $.session.repo())?.root
   if (!main) return null
   const git = (...argv: string[]) => $.process.run(['git', '-C', main, ...argv], { cwd: main })
   const hasLocal = await $.fs.exists(`${main}/ROADMAP.local.md`)
-  const hasUpstream = (await git('remote', 'get-url', 'upstream')).exitCode === 0
+  const upstream = await git('remote', 'get-url', 'upstream')
+  if (upstream.exitCode !== 0 && upstream.exitCode !== 2) throw new Error(`git remote get-url upstream in ${main}: ${why(upstream)}`)
+  const hasUpstream = upstream.exitCode === 0
   const tracked = (await git('ls-files', 'ROADMAP.md', 'docs/roadmap.md')).stdout.split('\n').filter(Boolean)
   return { main, plan: planOf({ hasLocal, hasUpstream, tracked }) }
 }

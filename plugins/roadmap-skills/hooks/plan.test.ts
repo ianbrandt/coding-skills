@@ -18,7 +18,10 @@ test('a local-only roadmap comes first, then the fork check, then a tracked one'
 // A repo as the module reads it: the primary checkout, the files in it, whether
 // it has an upstream remote, and the roadmap paths git reports as tracked. Hooks
 // are registered once per test, so a test changes the repo through `now`.
-type Repo = { root?: string; files?: string[]; hasUpstream?: boolean; tracked?: string[] }
+// `remote` and `listed` are a lookup of the upstream remote, and a list of the
+// tracked paths, that failed: git's exit code and what it wrote to stderr.
+type Failed = { exitCode: number; stderr: string }
+type Repo = { root?: string; files?: string[]; hasUpstream?: boolean; tracked?: string[]; remote?: Failed; listed?: Failed }
 function world(on: any, first: Repo) {
   const w = { now: first, argvs: [] as string[][], cwds: [] as unknown[] }
   on('session.repo', () => ({ value: w.now.root ? { root: w.now.root, remote: null, internal: false } : null }))
@@ -27,6 +30,8 @@ function world(on: any, first: Repo) {
     w.argvs.push(e.argv)
     w.cwds.push(e.init?.cwd)
     const out = (exitCode: number, stdout = '') => ({ value: { exitCode, stdout, stderr: '' } })
+    const failed = e.argv.includes('remote') ? w.now.remote : w.now.listed
+    if (failed) return { value: { stdout: '', ...failed } }
     return e.argv.includes('remote') ? out(w.now.hasUpstream ? 0 : 2) : out(0, (w.now.tracked ?? []).map(p => p + '\n').join(''))
   })
   on('classic.SessionStart', () => ({ additionalContext: ['from a settings hook'] }))
@@ -107,4 +112,15 @@ test('git is run in the primary checkout, whatever the session\'s directory is',
   const w = world(on, { root: '/repo', files: ['/repo/ROADMAP.local.md'] })
   await found($)
   expect(w.cwds).toEqual(['/repo', '/repo'])
+})
+
+// git exits 2 for a remote it does not have. Any other failure is no answer,
+// and Claude Code reports a git that crashed as exit 1 with no output.
+test('the tool reports a lookup of the upstream remote that failed, and not a repo that is no fork', async ($: any, on: any) => {
+  const w = world(on, { root: '/repo', tracked: ['ROADMAP.md'], remote: { exitCode: 128, stderr: 'fatal: bad config line 1 in file .git/config\n' } })
+  const ran = await $.tool.call({ tool: FIND })
+  expect(ran.isError).toBe(true)
+  expect(ran.text).toBe('find_roadmap: git remote get-url upstream in /repo: fatal: bad config line 1 in file .git/config')
+  w.now = { root: '/repo', tracked: ['ROADMAP.md'], remote: { exitCode: 1, stderr: '' } }
+  expect((await $.tool.call({ tool: FIND })).text).toBe('find_roadmap: git remote get-url upstream in /repo: exit 1')
 })

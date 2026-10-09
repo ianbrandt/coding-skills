@@ -126,12 +126,27 @@ test('the tools answer after the session\'s directory is removed', async ($: any
 // on a fork is the parent repo.
 test('find_checkouts fetches origin by name, and fetches nothing where there is no origin', async ($: any, on: any) => {
   let origin = true
-  const calls = world(on, line => (line === 'remote get-url origin' && !origin ? 1 : held(line)))
+  const calls = world(on, line => (line === 'remote get-url origin' && !origin ? 2 : held(line)))
   await call($, 'find_checkouts')
   expect(calls.filter(c => c.includes('fetch'))).toEqual([FETCH])
   origin = false
   expect((await call($, 'find_checkouts')).result).not.toContain('warning')
   expect(calls.filter(c => c.includes('fetch'))).toEqual([FETCH])
+})
+
+// git exits 2 for a remote it does not have. Any other failure is no answer,
+// and Claude Code reports a git that crashed as exit 1 with no output.
+test('the tools report a lookup of origin that failed, and fetch, open, and prune nothing', async ($: any, on: any) => {
+  let said: Said = { exitCode: 128, stdout: '', stderr: 'fatal: bad config line 1 in file .git/config\n' }
+  const calls = world(on, line => (line === 'remote get-url origin' ? said : reap(line)), l => (l.startsWith('ln -s') ? '' : undefined))
+  for (const [name, input] of [['find_checkouts', {}], ['open_worktree', { name: 'a-b' }], ['prune_branches', {}], ['landing_facts', {}]] as const) {
+    const ran = await call($, name, input)
+    expect(ran.isError).toBe(true)
+    expect(ran.text).toBe(`${name}: check failed: fatal: bad config line 1 in file .git/config`)
+  }
+  said = { exitCode: 1, stdout: '', stderr: '' }
+  expect((await call($, 'prune_branches')).text).toBe('prune_branches: check failed: exit 1')
+  expect(calls.filter(c => c.includes('fetch') || c.startsWith('worktree') || c.startsWith('branch -') || c.includes('set-head'))).toEqual([])
 })
 
 // A repo that was pushed rather than cloned has no origin/HEAD until a fetch
@@ -474,7 +489,7 @@ test('prune_branches reports that nothing was checked when the base tree or the 
 })
 
 test('prune_branches has no warning in a repo with no origin', async ($: any, on: any) => {
-  world(on, line => (line === 'remote get-url origin' || line === `rev-parse --verify -q ${BASE}^{tree}` ? 128 : reap(line)))
+  world(on, line => (line === 'remote get-url origin' ? 2 : line === `rev-parse --verify -q ${BASE}^{tree}` ? 128 : reap(line)))
   expect((await call($, 'prune_branches')).result).toBe('deleted: claude/done (merged into main)')
 })
 
@@ -509,7 +524,7 @@ test('landing_facts reads git config first, and is unknown where no host tool is
   const config: Record<string, string> = { originVisibility: 'Private', landing: 'pr', holdFork: 'false', holdPrText: 'true' }
   const git = (line: string) => {
     if (line === 'remote get-url origin') return 'https://example.com/a/b.git'
-    if (line === 'remote get-url upstream') return 1
+    if (line === 'remote get-url upstream') return 2
     if (line.startsWith('config --get')) return config[line.split('.')[1]] ?? 1
     if (line.startsWith(READ)) return shown(line)
   }
@@ -518,6 +533,13 @@ test('landing_facts reads git config first, and is unknown where no host tool is
   expect(calls.filter(c => c.startsWith('gh') || c.startsWith('glab'))).toEqual([])
   for (const key of Object.keys(config)) delete config[key]
   expect((await call($, 'landing_facts')).result).toBe('fork: no\norigin visibility: unknown\nlanding mode: unknown\nholds lifted: none')
+})
+
+test('landing_facts reports a lookup of upstream that failed, and not that the repo is no fork', async ($: any, on: any) => {
+  world(on, line => (line === 'remote get-url upstream' ? { exitCode: 1, stdout: '', stderr: '' } : line === 'remote get-url origin' ? 'https://example.com/a/b.git' : 1))
+  const ran = await call($, 'landing_facts')
+  expect(ran.isError).toBe(true)
+  expect(ran.text).toBe('landing_facts: check failed: exit 1')
 })
 
 test('landing_facts reads a protected default branch, or a pull-request ruleset, as pr mode', async ($: any, on: any) => {
