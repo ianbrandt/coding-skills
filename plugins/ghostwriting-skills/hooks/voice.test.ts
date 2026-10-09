@@ -9,19 +9,23 @@ const CACHE = '/home/.claude/plugins/cache'
 // read. The paths read are returned.
 function files(on: any, texts: Record<string, string>, env: Record<string, string> = {}, locked: string[] = []) {
   const reads: string[] = []
+  // On Windows the engine gives a handler the path with a drive letter and backslashes.
+  const posix = (p: string) => p.replace(/^[A-Za-z]:/, '').replace(/\\/g, '/')
   on('env.get', (_$: any, e: any) => ({ value: { HOME: '/home', GHOSTWRITING_DIR: '/v', ...env }[e.name as string] }))
   on('fs.read', (_$: any, e: any) => {
-    reads.push(e.path)
-    return e.path in texts && !locked.includes(e.path) ? { value: texts[e.path] } : { deny: 'no such file' }
+    const at = posix(e.path)
+    reads.push(at)
+    return at in texts && !locked.includes(at) ? { value: texts[at] } : { deny: 'no such file' }
   })
-  on('fs.exists', (_$: any, e: any) => ({ value: e.path in texts }))
+  on('fs.exists', (_$: any, e: any) => ({ value: posix(e.path) in texts }))
   on('fs.list', (_$: any, e: any) => {
+    const dir = posix(e.path)
     const names = new Set<string>()
     for (const path of Object.keys(texts)) {
-      if (path.startsWith(e.path + '/')) names.add(path.slice(e.path.length + 1).split('/')[0])
+      if (path.startsWith(dir + '/')) names.add(path.slice(dir.length + 1).split('/')[0])
     }
     if (names.size === 0) return { deny: 'no such directory' }
-    return { value: [...names].map(name => ({ name, kind: Object.keys(texts).includes(`${e.path}/${name}`) ? 'file' : 'dir', size: (texts[`${e.path}/${name}`] ?? '').length, mtimeMs: 0, isLink: false })) }
+    return { value: [...names].map(name => ({ name, kind: Object.keys(texts).includes(`${dir}/${name}`) ? 'file' : 'dir', size: (texts[`${dir}/${name}`] ?? '').length, mtimeMs: 0, isLink: false })) }
   })
   on('skill.prompt', (_$: any, e: any) => ({ text: e.text }))
   return reads

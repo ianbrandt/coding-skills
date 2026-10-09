@@ -86,8 +86,10 @@ function world(on: any, files: Record<string, string>, worktrees: string[] = [],
   // As git prints it with -z: every line ends in NUL, and so does each worktree's block.
   on('process.run', () => ({ value: failed ? { ...failed, stdout: '' } : { exitCode: 0, stdout: ['/repo', ...worktrees].map(p => `worktree ${p}\0HEAD 0\0\0`).join(''), stderr: '' } }))
   on('session.repo', () => ({ value: { root: '/repo', remote: null, internal: false } }))
-  on('fs.read', (_$: any, e: any) => { w.reads++; return { value: w.read(e.path) } })
-  on('fs.write', (_$: any, e: any) => { w.wrote = true; w.files[e.path] = e.text; return { value: undefined } })
+  // On Windows the engine gives a handler the path with a drive letter and backslashes.
+  const posix = (p: string) => p.replace(/^[A-Za-z]:/, '').replace(/\\/g, '/')
+  on('fs.read', (_$: any, e: any) => { w.reads++; return { value: w.read(posix(e.path)) } })
+  on('fs.write', (_$: any, e: any) => { w.wrote = true; w.files[posix(e.path)] = e.text; return { value: undefined } })
   return w
 }
 

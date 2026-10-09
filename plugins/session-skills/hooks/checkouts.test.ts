@@ -52,8 +52,11 @@ function world(on: any, git: (argv: string) => Said, other?: (argv: string) => s
   on('session.repo', () => ({ value: { root, remote: null, internal: false } }))
   on('session.cwd', () => ({ value: '/repo/.claude/worktrees/removed' }))
   // A drive-letter path is resolved against the test's directory on a POSIX host.
-  on('fs.exists', (_$: any, e: any) => ({ value: paths.includes(String(e.path).replace(/^.*\/(?=[A-Za-z]:\/)/, '')) }))
-  on('fs.read', (_$: any, e: any) => ({ value: files[e.path] ?? '' }))
+  // On Windows the engine gives a handler backslashes, and a drive letter on a path that had none.
+  const given = (p: string) => p.replace(/\\/g, '/').replace(/^.*\/(?=[A-Za-z]:\/)/, '')
+  const posix = (p: string) => (root.startsWith('/') ? given(p).replace(/^[A-Za-z]:/, '') : given(p))
+  on('fs.exists', (_$: any, e: any) => ({ value: paths.includes(posix(e.path)) }))
+  on('fs.read', (_$: any, e: any) => ({ value: files[posix(e.path)] ?? '' }))
   on('process.run', (_$: any, e: any) => {
     const argv = e.argv as string[]
     if (e.init?.cwd !== root) throw new Error(`ENOENT: no such file or directory, posix_spawn '${argv[0]}'`)
