@@ -3,16 +3,36 @@
 import { expect, test } from 'claude-code/testing'
 import { splice } from './splice'
 
-function world(on: any) {
-  on('fs.read', (_$: any, e: any) => ({ value: `<${String(e.path).split(/[\\/]/).pop()}>` }))
+function world(on: any, entry?: string) {
+  on('fs.read', (_$: any, e: any) => {
+    const name = String(e.path).split(/[\\/]/).pop()
+    return { value: name === 'rules.md' ? 'before\n{{title}}\nafter\n' : `<${name}>\n` }
+  })
+  on('env.get', () => ({ value: entry }))
   on('classic.SessionStart', () => ({ additionalContext: ['from a settings hook'] }))
 }
+const rules = (title: string) => ['from a settings hook', `before\n<${title}>\nafter\n`]
 
 test('a session starts with rules.md, after the context of a settings hook', async ($: any, on: any) => {
   world(on)
   for (const source of ['startup', 'resume', 'clear', 'compact']) {
-    expect((await $.classic.SessionStart({ source })).additionalContext).toEqual(['from a settings hook', '<rules.md>'])
+    expect((await $.classic.SessionStart({ source })).additionalContext).toEqual(rules('title-print.md'))
   }
+})
+
+test('the desktop app gets the title instruction for its tool', async ($: any, on: any) => {
+  world(on, 'claude-desktop')
+  expect((await $.classic.SessionStart({ source: 'startup' })).additionalContext).toEqual(rules('title-desktop.md'))
+})
+
+test('a terminal session gets the title instruction for the tool registered there', async ($: any, on: any) => {
+  world(on, 'cli')
+  expect((await $.classic.SessionStart({ source: 'startup' })).additionalContext).toEqual(rules('title-cli.md'))
+})
+
+test('any other entry point gets the printed title block', async ($: any, on: any) => {
+  world(on, 'sdk-cli')
+  expect((await $.classic.SessionStart({ source: 'startup' })).additionalContext).toEqual(rules('title-print.md'))
 })
 
 test('a fork gets nothing added', async ($: any, on: any) => {

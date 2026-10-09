@@ -12,32 +12,7 @@ still fits, leave it alone and print nothing about it.
 **Capitalize the first word.** Spell words out ("package", not "pkg"), keeping established type and
 API names as they are.
 
-**Where the session has a tool that sets its own title, set the title with it and print no title
-block.** The Claude desktop app has one, `set_session_title`, called with the session ID `self`. It
-can be a deferred tool, which is loaded by name before the first call. In the Claude Code CLI this
-plugin registers `mcp__session-skills__set_session_title`, called with the title alone. A title set
-with it appears when the user sends the next prompt.
-
-**Where no tool in the session sets its title, as in a session run with `claude -p`, print the
-title at those same points.** A tool is in the session only if it is listed, deferred or not; do not skip the
-block on the chance that one exists. It goes last in the reply, as a `**Session title:**` label line
-followed by the CLI's `/rename` command with the title, alone in a plain untagged fenced block, so
-the user renames the session with one paste:
-
-````
-**Session title:**
-
-```
-/rename Parser aggregation core
-```
-````
-
-Nothing but the command and the title inside the fence—no quotes, no label—because everything in it
-gets pasted.
-
-A printed block is the last thing in the reply, with no exception. Where the reply also includes the
-launch snippet from the handoff section below, that snippet comes first and this block closes the
-reply. Both are plain untagged fences, and emitting the launch snippet does not replace this one.
+{{title}}
 
 ## Judge whether the session should continue
 

@@ -93,9 +93,12 @@ tool definitions are in every session's context, at roughly 500 tokens by estima
 
 At session start the module adds `hooks/rules.md` to every session, including after `/clear` and
 compaction. That file has three rules that cannot go in a skill. One is the session title, given
-once the subject of the session is known and again when a better one fits: set with a tool
-where the session has one, the host's or this plugin's, and otherwise printed as a `/rename` command
-the user pastes. Another runs every turn:
+once the subject of the session is known and again when a better one fits. How the title is set
+differs by surface, so `{{title}}` in `rules.md` is replaced with one of three files, chosen by
+`CLAUDE_CODE_ENTRYPOINT`: `title-desktop.md` for the desktop app's tool, `title-cli.md` for this
+plugin's, and `title-print.md` anywhere else, for a `/rename` command the user pastes. A session
+given all three instructions at once called the terminal's tool in the desktop app and printed the
+title when the call failed. Another runs every turn:
 weigh continuing this session against handing off to a fresh one, silently, and speak only when a
 tell trips—the unit just landed, the session has been compacted, or the next thing is unrelated
 work. The third applies whenever something out of scope turns up: raise it in the reply, write it

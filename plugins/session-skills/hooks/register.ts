@@ -387,6 +387,8 @@ async function answer(name: string, run: () => Promise<string>) {
   }
 }
 
+const TITLE_RULES: Record<string, string> = { 'claude-desktop': 'desktop', cli: 'cli' }
+
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     await $.tool.register({
@@ -445,7 +447,12 @@ export const register: Register = on => {
   on('classic.SessionStart', async ($, e: any, next: any) => {
     const ran = await next(e)
     if (e.source === 'fork') return ran
-    const rules = await $.fs.read(`${$.plugin.root}/hooks/rules.md`).catch(() => '')
+    const read = (name: string) => $.fs.read(`${$.plugin.root}/hooks/${name}.md`).catch(() => '')
+    // One title instruction per surface: a session given all three called the
+    // terminal's tool in the desktop app and printed the title when that failed.
+    const entry = await $.env.get('CLAUDE_CODE_ENTRYPOINT').catch(() => '')
+    const title = (await read(`title-${TITLE_RULES[entry as string] ?? 'print'}`)).trimEnd()
+    const rules = (await read('rules')).replace('{{title}}', () => title)
     return rules ? { ...ran, additionalContext: [...(ran.additionalContext ?? []), rules] } : ran
   })
 
