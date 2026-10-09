@@ -170,15 +170,21 @@ async function bodies($: any, cmd: string, mode: 'bash' | 'pwsh', base: string, 
   const out: Bodies = { read: [], unread: [] }
   // A Windows path uses "\" as the separator; the checks below all read "/", so
   // every path is normalized in pwsh mode, and the realPath returned by stat is
-  // normalized too. In bash mode "\" is left alone, since it may be a character
-  // in a POSIX filename.
-  const toSlash = (p: string) => (mode === 'pwsh' ? p.replace(/\\/g, '/') : p)
+  // normalized too. In bash mode they are normalized only where the session's
+  // directory starts with a drive letter, which is Git Bash on Windows: anywhere
+  // else "\" may be a character in a POSIX filename.
+  const win = mode === 'bash' && /^[A-Za-z]:[\\/]/.test(base)
+  const toSlash = (p: string) => (mode === 'pwsh' || win ? p.replace(/\\/g, '/') : p)
   const real = async (p: string | undefined) => {
     if (!p) return undefined
     const rp = (await $.fs.stat(p, { resolve: true }).catch(() => undefined))?.realPath
     return rp ? toSlash(rp) : undefined
   }
   const baseN = toSlash(base)
+  // Git Bash on Windows reads "/tmp/x" as a file in the temporary directory and
+  // "/c/x" as "C:/x", and the engine opens neither as written.
+  const tmpN = toSlash(await tmp($))
+  const mapped = (p: string) => (!win ? p : p.startsWith('/tmp/') ? `${tmpN}/${p.slice(5)}` : p.replace(/^\/([A-Za-z])\//, '$1:/'))
   let total = 0
   for (const line of bodyFiles(cmd, mode)) {
     const tab = line.indexOf('\t')
@@ -187,9 +193,10 @@ async function bodies($: any, cmd: string, mode: 'bash' | 'pwsh', base: string, 
     const opN = toSlash(op)
     let why = ''
     let text = ''
-    const path = /^(\/|[A-Za-z]:\/)/.test(opN) ? opN : `${baseN}/${opN}`
+    const absolute = /^(\/|[A-Za-z]:\/)/.test(opN)
+    const path = absolute ? mapped(opN) : `${baseN}/${opN}`
     if (opN === '' || /[^A-Za-z0-9._/+@,:=-]/.test(opN)) why = 'it is not a literal path'
-    else if (path !== opN && moved) why = 'the command may change directory first'
+    else if (!absolute && moved) why = 'the command may change directory first'
     else if (cmd.split(opN.slice(opN.lastIndexOf('/') + 1)).length > 2) why = 'the command names it more than once, so it may write the file before reading it'
     else {
       const stat = await $.fs.stat(path, { resolve: true }).catch(() => undefined)

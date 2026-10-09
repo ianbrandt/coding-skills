@@ -18,6 +18,9 @@ type World = {
   env?: Record<string, string>
   files?: Record<string, string>
   links?: string[]
+  // The session is on Windows: its directory is C:\proj, and stat returns a real
+  // path with a drive letter and backslashes.
+  win?: boolean
 }
 
 // world(on, w): answers every call the gate makes to the engine, and records the
@@ -37,8 +40,8 @@ function world(on: any, w: World = {}) {
   mock.env(on, { CLAUDE_CONFIG_DIR: '/cfg', TMPDIR: '/tmp', ...w.env })
   on('session.version', () => ({ value: { version: base, base, builtAt: '' } }))
   on('session.id', () => { if (w.noSession) throw new Error('no session'); return { value: 's1' } })
-  on('session.cwd', () => ({ value: '/proj' }))
-  on('session.root', () => ({ value: '/proj' }))
+  on('session.cwd', () => ({ value: w.win ? 'C:\\proj' : '/proj' }))
+  on('session.root', () => ({ value: w.win ? 'C:\\proj' : '/proj' }))
   on('ui.toast', (_$: any, e: any) => { seen.toasts.push(JSON.stringify(e)); return { value: undefined } })
   on('fs.read', (_$: any, e: any) => {
     const p = posix(e.path)
@@ -50,9 +53,9 @@ function world(on: any, w: World = {}) {
   on('fs.write', (_$: any, e: any) => { files[posix(e.path)] = e.text; return { value: undefined } })
   on('fs.stat', (_$: any, e: any) => {
     const p = posix(e.path)
-    if (!(p in files) && !['/proj', '/tmp', '/elsewhere'].includes(p)) throw new Error('ENOENT')
+    if (!(p in files) && !['/proj', '/tmp', '/elsewhere', '/Users/x/Temp'].includes(p)) throw new Error('ENOENT')
     const isFile = p in files
-    return { value: { kind: isFile ? 'file' : 'dir', size: isFile ? files[p].length : 0, mtimeMs: 0, isLink: !!w.links?.includes(p), realPath: p } }
+    return { value: { kind: isFile ? 'file' : 'dir', size: isFile ? files[p].length : 0, mtimeMs: 0, isLink: !!w.links?.includes(p), realPath: w.win ? `C:${p.replace(/\//g, '\\')}` : p } }
   })
   on('model.complete', (_$: any, e: any) => {
     seen.system = e.system
@@ -208,6 +211,28 @@ test('a body passed through PowerShell by a Windows path is read', async ($: any
   expect(relative.deny).toBeDefined()
 })
 
+test('a body passed through Git Bash on Windows is read', async ($: any, on: any) => {
+  const seen = world(on, { verdict: FINDING, win: true, files: { '/proj/body.md': 'The report says so.\n', '/proj-other/body.md': 'The report says so.\n' } })
+  const ran = await bash($, 'gh pr create --title x --body-file body.md')
+  expect(seen.reader[0]).toContain('\n\nFile: body.md\n\nThe report says so.\n')
+  expect(ran.deny).toBeDefined()
+  expect((await bash($, 'git commit -F C:/proj/body.md')).deny).toBeDefined()
+  expect((await bash($, "git commit -F 'C:\\proj\\body.md'")).deny).toBeDefined()
+  for (const outside of ['/elsewhere/body.md', 'C:/proj-other/body.md', '/c/proj-other/body.md', '//server/proj/body.md']) {
+    expect((await bash($, `git commit -F ${outside}`)).context.join()).toContain('was not read')
+    expect(seen.reader.pop()).not.toContain('File:')
+  }
+})
+
+test('a Git Bash path to the temporary directory or a drive is read on Windows', async ($: any, on: any) => {
+  const files = { '/Users/x/Temp/b.md': 'The report says so.\n', '/proj/body.md': 'The report says so.\n' }
+  const seen = world(on, { verdict: FINDING, win: true, env: { TMPDIR: 'C:\\Users\\x\\Temp' }, files })
+  expect((await bash($, 'gh pr create -F /tmp/b.md')).deny).toBeDefined()
+  expect(seen.reader[0]).toContain('\n\nFile: /tmp/b.md\n\nThe report says so.\n')
+  expect((await bash($, 'cd sub && git commit -F /c/proj/body.md')).deny).toBeDefined()
+  expect(seen.reader[1]).toContain('\n\nFile: /c/proj/body.md\n')
+})
+
 test('a body file that is not read is listed with the reason', async ($: any, on: any) => {
   const files = { '/proj/body.md': 'Plain.', '/proj/link.md': 'Plain.', '/elsewhere/body.md': 'Plain.', '/proj/big.md': 'x'.repeat(1048577), '/proj/bin.md': 'a\0b' }
   const seen = world(on, { verdict: 'PASS', files, links: ['/proj/link.md'] })
@@ -215,6 +240,8 @@ test('a body file that is not read is listed with the reason', async ($: any, on
     ['echo text > body.md && gh pr create -F body.md', 'the command names it more than once'],
     ['cd sub && gh pr create -F body.md', 'the command may change directory first'],
     ['gh pr create -F "$BODY"', 'it is not a literal path'],
+    // Outside Windows this is a file in the session's directory with "\" in its name.
+    ["gh pr create -F 'C:\\proj\\body.md'", 'it is not a literal path'],
     ['gh pr create -F missing.md', 'it is not a regular file'],
     ['gh pr create -F link.md', 'it is not a regular file'],
     ['gh pr create -F /elsewhere/body.md', 'it is outside the project and the temporary directory'],
