@@ -63,7 +63,7 @@ is empty, stop. Run the hygiene pass once—`work-in-worktree` §4's prune, then
   completion/failure window. **Rewrite it on every state change; re-read it at the top of every
   wake**—context can be summarized mid-run, and IDs, counters, and flags held only in context don't
   survive that. It doubles as the morning-after record.
-- Emit the session title, spelled out.
+- Set the session title with the host's tool, or print it where the session has none, spelled out.
 
 No pause follows—this skill runs unattended.
 
@@ -264,7 +264,7 @@ reason), then a full wrap-up per `land-and-wrap` §4:
 - flagged units with why, what the backlog has left, and a recommendation for the next attended
   session.
 
-Re-emit the session-title line. No stop path skips the notification and wrap-up.
+Set the session title again, or re-emit the printed line. No stop path skips the notification and wrap-up.
 
 ## 4. Ledger etiquette
 

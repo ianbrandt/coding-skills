@@ -174,17 +174,18 @@ on the item you are resuming is *yours*, not a collision, and re-picking on it i
 
 Then write the claim, per `claim-a-lane` §3—where the repo has a ledger at all.
 
-## 4. Suggest a descriptive session title
+## 4. Give the session a descriptive title
 
-As soon as the claim lands and any tiebreaker re-pick settles, **emit a session-title suggestion as
-the last thing in the reply**, in the format `session-skills`' session rules specify—a
-`**Session title:**` label line, then the bare title alone in a plain untagged fenced block, e.g.
-`R1: aggregation core`.
+As soon as the claim lands and any tiebreaker re-pick settles, **title the session the way
+`session-skills`' session rules specify**: set the title with the host's tool where the session has
+one, and otherwise print it as the last thing in the reply—a `**Session title:**` label line, then
+the bare title alone in a plain untagged fenced block.
 
 The title is always the claimed item's `Rn` ID, a colon, then a short noun phrase for the
 deliverable, **spelled out with no abbreviations**—`R1: aggregation core`, never the phrase alone and
-never the ID alone. A sub-item keeps its own `Rn.m`. **Re-emit the same block at session end**,
-revised only if the work turned out to be something else. Byte-identical format at both points.
+never the ID alone. A sub-item keeps its own `Rn.m`. **At session end, set it again or re-emit the
+same block** only as those rules specify: a title that was set stays unless the work turned out to be
+something else, and a printed block is repeated in byte-identical format.
 
 ## 5. Emit the tier plan—never pause
 
@@ -192,7 +193,7 @@ Model and effort are the **user's controls**: **start building immediately, no p
 end-of-turn checkpoint.** Sessions launch at the everyday baseline and the main loop stays there;
 escalate by **delegation, not the session pickers**.
 
-Immediately after the title line, emit a one-line **tier plan** stating the stages **this item
+Immediately after the title, emit a one-line **tier plan** stating the stages **this item
 has**, then execute it. Two decisions go into it, and they are independent:
 
 - **How much verification the item needs.** The question: **would this repo's test suite catch this

@@ -49,7 +49,7 @@ invoked.
   that plugin's always-on file.
 - [`session-skills`](plugins/session-skills) puts a unit of work in its own git worktree and gets it
   back out again, landing it by what the repo is rather than by a mode you declare. It also has two
-  small session-start rules: the session-title format a session ends with, and a per-turn judgment
+  small session-start rules: how a session gets its title, and a per-turn judgment
   of whether the work is better served by continuing here or handing off to a fresh session.
 - [`parallel-session-skills`](plugins/parallel-session-skills) keeps two or three sessions off each
   other's files, through a claim ledger of the paths each lane will touch. It also has the
