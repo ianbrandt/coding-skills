@@ -98,8 +98,9 @@ long as it exists. On a local-only roadmap, append the changelog entry now under
 The pin is `work-in-worktree` §2's tell 1, so no later run re-picks the item, and the same merged-pin
 rule as §2 above clears it once the branch merges.
 
-In the conductor's per-completion log line and its wrap-up, items are identified by `Rn.m` and by
-their heading text in the roadmap.
+In every reply, the per-completion log line and the wrap-up included, an item is its ID with a few
+words of its heading—"R12, the parser cache"—and never a bare ID. The user is not reading the
+roadmap beside the conversation.
 
 ## 4. Suggest a session title
 

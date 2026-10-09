@@ -57,5 +57,8 @@ ${steps}Land through \`land-and-wrap\` only. When a standing instruction authori
    whether its work lands as a pull request.
 
 Size is no exemption: a one-line change that will be committed gets an item. A question answered
-by reading gets none, and neither does an edit to the roadmap files themselves.`
+by reading gets none, and neither does an edit to the roadmap files themselves.
+
+In a reply, write an item as its ID with a few words of its heading, "R12, the parser cache", and
+never as a bare ID. The user is not reading the roadmap beside the conversation.`
 }

@@ -50,6 +50,13 @@ test('the rule is added in a repo with a roadmap, read from the primary checkout
   expect(w.argvs.every(a => a[0] === 'git' && a[1] === '-C' && a[2] === '/repo')).toBe(true)
 })
 
+test('the rule has an item written as its ID with a few words of its heading', async ($: any, on: any) => {
+  const w = world(on, { root: '/repo', files: ['/repo/ROADMAP.local.md'] })
+  expect((await start($)).join('\n')).toContain('never as a bare ID')
+  w.now = { root: '/repo', tracked: ['ROADMAP.md'] }
+  expect((await start($)).join('\n')).toContain('never as a bare ID')
+})
+
 // A local-only roadmap is one file in the primary checkout, so an item written
 // there is visible to every session at once. A tracked one is edited in a
 // lane's worktree, which is not open until next-roadmap-item has run.

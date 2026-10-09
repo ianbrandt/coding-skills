@@ -22,6 +22,11 @@ description: >-
 Pick one item off this repo's roadmap and build it, without colliding with the other sessions
 working the same repo right now.
 
+**In a reply, an item is its ID with a few words of its heading**—"R12, the parser cache"—and never
+a bare ID. The user is not reading the roadmap beside the conversation, so they learn nothing from
+`R12` alone. This holds for every item mentioned, including one filed in passing and one left open
+in the wrap-up.
+
 This skill is a **backlog plugin**: it fills the backlog seam `work-in-worktree` §0 defines,
 using a markdown roadmap in place of an issue tracker. What is workable (§3), where an item is
 already in flight (§2), and how a landed item is recorded (§6). Everything else about the session
