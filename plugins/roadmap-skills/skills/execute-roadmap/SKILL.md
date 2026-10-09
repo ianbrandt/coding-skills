@@ -107,7 +107,8 @@ roadmap beside the conversation.
 An unattended run covers several items, so the per-item title of `next-roadmap-item` §4 doesn't
 apply—**give the session one title at the end of the run**, the way `session-skills`' session rules
 specify: set it with the host's tool where the session has one, and otherwise print a
-`**Session title:**` label line, then the bare title alone in a plain untagged fenced block.
+`**Session title:**` label line, then `/rename` and the title alone in a plain untagged fenced
+block.
 
 The title is always the literal prefix `Execute Roadmap: `, then a short phrase summarizing the items
 that landed, **spelled out with no abbreviations**—`Execute Roadmap: claim ledger and

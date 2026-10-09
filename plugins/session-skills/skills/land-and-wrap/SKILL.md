@@ -225,9 +225,9 @@ The rest, in order:
   the repo has a backlog plugin (`work-in-worktree` §0's backlog seam), its invocation is the
   snippet's entry point: it finds the in-flight work itself, so state the unfinished **branch**
   alongside it and leave the recap out.
-- **Give the session a better title if one fits now**, set or printed per this plugin's
-  `hooks/rules.md`—it loads at every session start, so the rule is already in context. A title
-  that still fits is left alone and not printed again.
+- **Title the session if it has no title yet, or a better one fits now**, set or printed per this
+  plugin's `hooks/rules.md`—it loads at every session start, so the rule is already in context.
+  Only a title given earlier in this session that still fits is left alone and not printed again.
 
 How the wrap-up reads is covered in `write-for-the-reader`, where it is installed: what to include,
 what the reader can already see, and why open items go as instructions rather than prose.

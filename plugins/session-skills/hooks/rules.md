@@ -2,31 +2,36 @@ SESSION RULES ACTIVE
 
 ## Give the session a title
 
-A session that does substantive work gets a title; trivial Q&A gets none. **Capitalize the first
-word.** Spell words out ("package", not "pkg"), keeping established type and API names as they are.
+**A reply that does substantive work in a session with no title yet gives it one.** That is usually
+the first reply past a question, when the subject of the session is known, and it includes a
+close-out or a wrap-up of work done elsewhere. Trivial Q&A gets no title. **Title the session again
+after a significant turn when a better title fits**: the work turned out to be something else, or
+the session claimed a unit of work with a title format of its own. When the title given earlier
+still fits, leave it alone and print nothing about it.
 
-**Title the session as soon as its subject is known**, usually in the first turn that goes past a
-question. **Title it again after a significant turn when a better title fits**: the work turned out
-to be something else, or a skill claimed a unit of work and gave the title that unit takes. When
-the title still fits, leave it alone and print nothing about it.
+**Capitalize the first word.** Spell words out ("package", not "pkg"), keeping established type and
+API names as they are.
 
 **Where the session has a tool that sets its own title, set the title with it and print no title
 block.** The Claude desktop app has one, `set_session_title`, called with the session ID `self`. It
 can be a deferred tool, which is loaded by name before the first call.
 
-**Where the session has no such tool, as in the Claude Code CLI, print the title at those same
-points.** It goes last in the reply, as a `**Session title:**` label line followed by the bare title
-alone in a plain untagged fenced block, so the user copies it in one gesture:
+**Where no tool in the session sets its title, as in the Claude Code CLI, print the title at those
+same points.** A tool is in the session only if it is listed, deferred or not; do not skip the
+block on the chance that one exists. It goes last in the reply, as a `**Session title:**` label line
+followed by the CLI's `/rename` command with the title, alone in a plain untagged fenced block, so
+the user renames the session with one paste:
 
 ````
 **Session title:**
 
 ```
-Parser aggregation core
+/rename Parser aggregation core
 ```
 ````
 
-Nothing but the title inside the fence—no quotes, no label—because everything in it gets copied.
+Nothing but the command and the title inside the fence—no quotes, no label—because everything in it
+gets pasted.
 
 A printed block is the last thing in the reply, with no exception. Where the reply also includes the
 launch snippet from the handoff section below, that snippet comes first and this block closes the

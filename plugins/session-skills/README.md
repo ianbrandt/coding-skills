@@ -87,7 +87,7 @@ tool definitions are in every session's context, at roughly 500 tokens by estima
 At session start the module adds `hooks/rules.md` to every session, including after `/clear` and
 compaction. That file has three rules that cannot go in a skill. One is the session title, given
 once the subject of the session is known and again when a better one fits: set with the host's tool
-where the session has one, and otherwise printed in a format the user copies in one gesture. Another runs every turn:
+where the session has one, and otherwise printed as a `/rename` command the user pastes. Another runs every turn:
 weigh continuing this session against handing off to a fresh one, silently, and speak only when a
 tell trips—the unit just landed, the session has been compacted, or the next thing is unrelated
 work. The third applies whenever something out of scope turns up: raise it in the reply, write it

@@ -179,7 +179,7 @@ Then write the claim, per `claim-a-lane` §3—where the repo has a ledger at al
 As soon as the claim lands and any tiebreaker re-pick settles, **title the session the way
 `session-skills`' session rules specify**: set the title with the host's tool where the session has
 one, and otherwise print it as the last thing in the reply—a `**Session title:**` label line, then
-the bare title alone in a plain untagged fenced block.
+`/rename` and the title alone in a plain untagged fenced block.
 
 The title is always the claimed item's `Rn` ID, a colon, then a short noun phrase for the
 deliverable, **spelled out with no abbreviations**—`R1: aggregation core`, never the phrase alone and
