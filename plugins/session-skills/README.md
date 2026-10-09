@@ -81,13 +81,21 @@ and the skills call them where they once had bash to adapt:
   roadmap: one passage is replaced, or text is appended, and nothing is written when the passage
   has drifted.
 
-`hooks/checkouts.test.ts` and `hooks/register.test.ts` run under `claude plugin test`. The five
-tool definitions are in every session's context, at roughly 500 tokens by estimate.
+In a terminal session a sixth tool, `set_session_title`, is registered, since the CLI has no tool
+that sets the session title. No call in the mod API sets one either, so the title is kept until the
+user's next prompt and returned there as the `sessionTitle` of a `UserPromptSubmit` hook, which
+renames the session as `/rename` does. A title is dropped when the user renamed the session in
+between. The tool is registered only where `CLAUDE_CODE_ENTRYPOINT` is `cli`: the desktop app has a
+title tool, and a `claude -p` session has no next prompt.
+
+`hooks/checkouts.test.ts` and `hooks/register.test.ts` run under `claude plugin test`. The
+tool definitions are in every session's context, at roughly 500 tokens by estimate for the five.
 
 At session start the module adds `hooks/rules.md` to every session, including after `/clear` and
 compaction. That file has three rules that cannot go in a skill. One is the session title, given
-once the subject of the session is known and again when a better one fits: set with the host's tool
-where the session has one, and otherwise printed as a `/rename` command the user pastes. Another runs every turn:
+once the subject of the session is known and again when a better one fits: set with a tool
+where the session has one, the host's or this plugin's, and otherwise printed as a `/rename` command
+the user pastes. Another runs every turn:
 weigh continuing this session against handing off to a fresh one, silently, and speak only when a
 tell trips—the unit just landed, the session has been compacted, or the next thing is unrelated
 work. The third applies whenever something out of scope turns up: raise it in the reply, write it

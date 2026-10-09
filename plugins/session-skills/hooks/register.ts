@@ -404,7 +404,41 @@ export const register: Register = on => {
       isDeferred: false,
     })
     for (const [name, tool] of Object.entries(TOOLS)) await $.tool.register({ name, ...tool, isDeferred: false })
+    // The desktop app has a title tool of its own, and a session run with -p
+    // has no next prompt.
+    if ((await $.env.get('CLAUDE_CODE_ENTRYPOINT').catch(() => '')) === 'cli') {
+      await $.tool.register({
+        name: 'set_session_title',
+        description: "Set this session's title, as /rename does. The title is applied when the user sends the next prompt, so call it before the reply ends.",
+        inputSchema: { type: 'object', properties: { title: { type: 'string', description: 'The title, with its first word capitalized.' } }, required: ['title'] },
+        isDeferred: false,
+      })
+    }
     return next(e)
+  })
+
+  // No call sets a title from a tool. A prompt-submit hook can return one, so
+  // the title waits here for the next prompt.
+  // ponytail: held in memory, so a title set in the last turn before the process exits is lost.
+  const titles = new Map<string, { pending?: string; seen?: string }>()
+  on('tool.call', { tool: 'mcp__session-skills__set_session_title' }, async ($, e: any) =>
+    answer('set_session_title', async () => {
+      const title = String(e.title ?? '').trim()
+      if (!title) throw new Error('the title is empty')
+      const id = await $.session.id()
+      titles.set(id, { ...titles.get(id), pending: title })
+      return `The title is set to ${JSON.stringify(title)} when the user sends the next prompt.`
+    }),
+  )
+  // A title that differs from the one at the last prompt is one the user typed
+  // since, with /rename, and it is kept.
+  on('classic.UserPromptSubmit', async ($, e: any, next: any) => {
+    const ran = await next(e)
+    const held = titles.get(e.session_id)
+    const renamed = held !== undefined && 'seen' in held && held.seen !== e.session_title
+    const title = renamed ? undefined : held?.pending
+    titles.set(e.session_id, { seen: title ?? e.session_title })
+    return title ? { ...ran, sessionTitle: title } : ran
   })
 
   // A fork starts with its parent's context, where the rules already are.

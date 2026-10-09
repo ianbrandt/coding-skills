@@ -14,10 +14,12 @@ API names as they are.
 
 **Where the session has a tool that sets its own title, set the title with it and print no title
 block.** The Claude desktop app has one, `set_session_title`, called with the session ID `self`. It
-can be a deferred tool, which is loaded by name before the first call.
+can be a deferred tool, which is loaded by name before the first call. In the Claude Code CLI this
+plugin registers `mcp__session-skills__set_session_title`, called with the title alone. A title set
+with it appears when the user sends the next prompt.
 
-**Where no tool in the session sets its title, as in the Claude Code CLI, print the title at those
-same points.** A tool is in the session only if it is listed, deferred or not; do not skip the
+**Where no tool in the session sets its title, as in a session run with `claude -p`, print the
+title at those same points.** A tool is in the session only if it is listed, deferred or not; do not skip the
 block on the chance that one exists. It goes last in the reply, as a `**Session title:**` label line
 followed by the CLI's `/rename` command with the title, alone in a plain untagged fenced block, so
 the user renames the session with one paste:
