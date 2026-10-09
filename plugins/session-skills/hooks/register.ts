@@ -2,7 +2,7 @@
 // run the git work of both skills, and the tool a worktree session calls to edit
 // a file that is only in the primary checkout.
 import type { Register } from 'claude-code'
-import { pickBase, visibility, worktreeName } from './checkouts'
+import { pickBase, refLine, visibility, worktreeName } from './checkouts'
 import { splice } from './splice'
 
 const NONE = { type: 'object', properties: {} } as const
@@ -69,9 +69,23 @@ async function primary($: any): Promise<string> {
   return main
 }
 
-// A ref is passed to git by its full name: `origin/main` is also the name of a
-// local branch or a tag someone made by accident, and git reads those first.
-const has = ($: any, main: string, ref: string) => ok(git($, main, 'rev-parse', '--verify', '-q', ref))
+// A command that did not run to an answer. Claude Code reports a git that
+// crashed as exit 1 with no output.
+const failed = (r: Ran): never => {
+  throw new Error(`check failed: ${firstLine(r.stderr) || `exit ${r.exitCode}`}`)
+}
+
+// Every ref is read this one way, by its full name: `origin/main` is also the
+// name of a local branch or a tag someone made by accident, and git reads those
+// first. A read that fails throws, since the ref is then neither known to be
+// there nor known to be absent.
+async function readRef($: any, main: string, ref: string) {
+  const r = await git($, main, 'for-each-ref', '--format=%(refname) %(symref)', ref)
+  if (r.exitCode !== 0) failed(r)
+  return refLine(r.stdout, ref)
+}
+const has = async ($: any, main: string, ref: string) => (await readRef($, main, ref)) !== null
+const HEAD = 'refs/remotes/origin/HEAD'
 const within = ($: any, main: string, a: string, b: string) => ok(git($, main, 'merge-base', '--is-ancestor', a, b))
 
 // origin is named, since a bare `git fetch` reads the remote of the current
@@ -80,21 +94,28 @@ const within = ($: any, main: string, a: string, b: string) => ok(git($, main, '
 // it is, since it may point at another branch on purpose. Any other is set from
 // the remote: a repo that was pushed rather than cloned has none, the prune of
 // a renamed default branch leaves one that points at nothing, and one written
-// by `git update-ref` is a commit, which names no branch. A repo with no origin
-// has nothing to fetch.
+// by `git update-ref` is a commit, not the name of a branch. A repo with no
+// origin has nothing to fetch.
 async function fetchOrigin($: any, main: string, prune = false): Promise<Ran> {
   if (!(await ok(git($, main, 'remote', 'get-url', 'origin')))) return { exitCode: 0, stdout: '', stderr: '' }
   const argv = ['fetch', '-q', ...(prune ? ['--prune'] : []), 'origin']
   const fetched = await run($, gitArgv(main, argv), gitTimeout(argv))
-  const head = 'refs/remotes/origin/HEAD'
-  const named = (await ok(git($, main, 'symbolic-ref', '-q', head))) && (await has($, main, head))
-  if (fetched.exitCode === 0 && !named) await git($, main, 'remote', 'set-head', 'origin', '--auto')
+  if (fetched.exitCode === 0 && !(await readRef($, main, HEAD))?.symref) await git($, main, 'remote', 'set-head', 'origin', '--auto')
   return fetched
 }
 
-// Read after the fetch, where there is one. `main` is a guess.
-const defaultBranch = async ($: any, main: string) =>
-  (await out(git($, main, 'symbolic-ref', '-q', 'refs/remotes/origin/HEAD'))).replace('refs/remotes/origin/', '') || 'main'
+// Read after the fetch, where there is one. `main` is a guess, made only where
+// there is no origin/HEAD. One that is still a commit is neither: the fetch
+// failed, or `git remote set-head` did. One that still points at a branch a
+// prune removed is not printed by `git for-each-ref`, and `git symbolic-ref`
+// prints its target, or exits 1 where there is no symbolic ref.
+async function defaultBranch($: any, main: string): Promise<string> {
+  const head = await readRef($, main, HEAD)
+  if (head && !head.symref) throw new Error(`${HEAD} is not a symbolic ref, so the default branch is not known. Set it with \`git remote set-head origin <branch>\`.`)
+  const dangling = head ? null : await git($, main, 'symbolic-ref', '-q', HEAD)
+  if (dangling && dangling.exitCode !== 0 && dangling.exitCode !== 1) failed(dangling)
+  return (head?.symref ?? dangling?.stdout.trim() ?? '').replace('refs/remotes/origin/', '') || 'main'
+}
 
 async function locate($: any) {
   const main = await primary($)
@@ -180,12 +201,6 @@ async function openWorktree($: any, e: any): Promise<string> {
   return [...lines, ...warnings.map(w => `warning: ${w}`)].join('\n')
 }
 
-// A command of the merge check that did not run to an answer. Claude Code
-// reports a git that crashed as exit 1 with no output.
-const failed = (r: Ran): never => {
-  throw new Error(`check failed: ${firstLine(r.stderr) || `exit ${r.exitCode}`}`)
-}
-
 // The tree left by merging `ref` into `base`, or nothing where the merge
 // conflicts: exit 1, with the tree the conflict left. Any other failure throws
 // with git's message. A git before 2.41 rejects --attr-source. 2.41.0 and
@@ -255,13 +270,16 @@ async function onBase($: any, main: string, empty: string, tree: string, base: s
 async function pruneBranches($: any): Promise<string> {
   const main = await primary($)
   const lines: string[] = []
-  await must($, main, 'worktree', 'prune')
+  // Every ref is read before anything is pruned, so a read that fails ends the
+  // call with nothing deleted.
   const fetched = await fetchOrigin($, main, true)
   const def = await defaultBranch($, main)
+  const hasLocal = await has($, main, `refs/heads/${def}`)
+  await must($, main, 'worktree', 'prune')
   // A branch name is read whole: the short form of a branch that has a tag's
   // name is `heads/<name>`, and `git branch -D heads/<name>` deletes another
   // branch, or none.
-  const merged = (await has($, main, `refs/heads/${def}`))
+  const merged = hasLocal
     ? await must($, main, 'for-each-ref', '--merged', `refs/heads/${def}`, '--format=%(refname:lstrip=2)', 'refs/heads/claude/*', 'refs/heads/worktree-*')
     : ''
   // Compared without case: on a file system that ignores case, `git checkout

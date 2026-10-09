@@ -2,7 +2,7 @@
 // faked git. The costly errors are a branch opened without commits held on the
 // local default branch, and an unmerged branch deleted by the prune.
 import { expect, test } from 'claude-code/testing'
-import { pickBase, visibility, worktreeName } from './checkouts'
+import { pickBase, refLine, visibility, worktreeName } from './checkouts'
 
 test('a new branch starts from origin, except where the local default branch has everything origin has', () => {
   expect(pickBase('main', false, true, false, false)).toEqual({ base: 'main' })
@@ -22,6 +22,17 @@ test('a visibility is one of three words, and anything else is dropped', () => {
   expect(visibility('internal')).toBe('internal')
   expect(visibility('HTTP 404: Not Found')).toBe('')
   expect(visibility('')).toBe('')
+})
+
+// Each line is what git 2.56.0 printed for that ref in a scratch repo.
+test('a ref is read from the line with its name, and no such line is a ref that is absent', () => {
+  const head = 'refs/remotes/origin/HEAD'
+  expect(refLine('', head)).toBeNull()
+  expect(refLine('refs/heads/main \n', 'refs/heads/main')).toEqual({ symref: '' })
+  expect(refLine(`${head} refs/remotes/origin/main\n`, head)).toEqual({ symref: 'refs/remotes/origin/main' })
+  expect(refLine(`${head} \r\n`, head)).toEqual({ symref: '' })
+  expect(refLine('refs/heads/main/topic \n', 'refs/heads/main')).toBeNull()
+  expect(refLine('refs/heads/main \nrefs/heads/main/topic \n', 'refs/heads/main')).toEqual({ symref: '' })
 })
 
 test('a worktree is named for its backlog ID, lowercased, then its pair', () => {
@@ -62,10 +73,16 @@ const trees = (...branches: [string, string][]) => branches.map(([path, branch])
 const LIST = trees(['/repo', 'main'], ['/repo/.claude/worktrees/r1-a', 'claude/r1-a'])
 const BASE = 'refs/remotes/origin/main'
 const FETCH = 'fetch -q origin'
+// The one way a ref is read. `shown` is git's line for a ref that is there: its
+// name, then its target where the ref is symbolic, as origin/HEAD is.
+const READ = 'for-each-ref --format=%(refname) %(symref) '
+const HEAD = 'refs/remotes/origin/HEAD'
+const shown = (line: string, head = BASE) => `${line.slice(READ.length)} ${line.endsWith(HEAD) ? head : ''}`
+const GONE = 'for-each-ref --format=%(refname:lstrip=2)%09'
 
 // Local main is ahead of origin/main: a push is held.
 const held = (line: string) => {
-  if (line.startsWith('symbolic-ref')) return BASE
+  if (line.startsWith(READ)) return shown(line)
   if (line === `merge-base --is-ancestor refs/heads/main ${BASE}`) return 1
   if (line.startsWith('show-ref')) return 1
   if (line === 'worktree list --porcelain -z') return LIST
@@ -123,11 +140,11 @@ test('find_checkouts reads the default branch after the fetch, and from the remo
   let set = false
   const calls = world(on, line => {
     if (line === 'remote set-head origin --auto') set = true
-    if (line.endsWith('refs/remotes/origin/HEAD')) return !set ? 1 : line.startsWith('symbolic-ref') ? 'refs/remotes/origin/develop' : undefined
+    if (line === READ + HEAD) return set ? shown(line, 'refs/remotes/origin/develop') : ''
     return held(line)
   })
   expect((await call($, 'find_checkouts')).result).toContain('default branch: develop\n')
-  expect(calls.indexOf(FETCH)).toBeLessThan(calls.findIndex(c => c.startsWith('symbolic-ref')))
+  expect(calls.indexOf(FETCH)).toBeLessThan(calls.indexOf(READ + HEAD))
 })
 
 // An origin/HEAD set on purpose to another branch is the user's.
@@ -137,6 +154,67 @@ test('the tools leave alone an origin/HEAD that names a branch origin has', asyn
   await call($, 'open_worktree', { name: 'a-b' })
   await call($, 'prune_branches')
   expect(calls.filter(c => c.includes('set-head') || c.includes('followRemoteHEAD'))).toEqual([])
+})
+
+// `git for-each-ref refs/heads/main` also prints refs/heads/main/topic, and
+// prints nothing for an origin/HEAD that is not there.
+test('a branch with only branches under its name is not there, and main is the guess where origin/HEAD is absent', async ($: any, on: any) => {
+  const calls = world(on, line => (line === 'remote get-url origin' ? 2 : line === READ + HEAD ? '' : line.startsWith(READ) ? `${line.slice(READ.length)}/topic ` : held(line)))
+  const text = (await call($, 'find_checkouts')).result
+  expect(text).toContain('default branch: main\n')
+  expect(text).toContain('warning: neither origin/main nor main is a branch here')
+  await call($, 'prune_branches')
+  expect(calls.filter(c => c.startsWith('for-each-ref --merged'))).toEqual([])
+})
+
+// A read that fails is neither a ref that is there nor one that is absent.
+// Claude Code reports a git that crashed as exit 1 with no output.
+const changes = (calls: string[]) => calls.filter(c => c.startsWith('worktree add') || c.startsWith('worktree prune') || c.startsWith('branch -') || c.includes('set-head'))
+for (const [what, failing] of [['origin/HEAD', READ + HEAD], ['the local default branch', `${READ}refs/heads/main`]]) {
+  test(`the tools report a read of ${what} that failed, and open, set, and prune nothing`, async ($: any, on: any) => {
+    let said: Said = { exitCode: 128, stdout: '', stderr: 'fatal: unexpected line in .git/packed-refs: garbage\nmore\n' }
+    const calls = world(on, line => (line === failing ? said : reap(line)), l => (l.startsWith('ln -s') ? '' : undefined))
+    for (const [name, input] of [['find_checkouts', {}], ['open_worktree', { name: 'a-b' }], ['prune_branches', {}]] as const) {
+      const ran = await call($, name, input)
+      expect(ran.isError).toBe(true)
+      expect(ran.text).toBe(`${name}: check failed: fatal: unexpected line in .git/packed-refs: garbage`)
+    }
+    said = { exitCode: 1, stdout: '', stderr: '' }
+    expect((await call($, 'prune_branches')).text).toBe('prune_branches: check failed: exit 1')
+    expect(changes(calls)).toEqual([])
+  })
+}
+
+// The fetch failed, so `git remote set-head` was not run, and origin/HEAD is
+// still the commit that `git update-ref` wrote.
+test('the tools report an origin/HEAD that is still not a symbolic ref, and open and prune nothing on a guess', async ($: any, on: any) => {
+  const calls = world(on, line => (line.includes('fetch') ? 1 : line === READ + HEAD ? shown(line, '') : reap(line)))
+  for (const [name, input] of [['find_checkouts', {}], ['open_worktree', { name: 'a-b' }], ['prune_branches', {}]] as const) {
+    const ran = await call($, name, input)
+    expect(ran.isError).toBe(true)
+    expect(ran.text).toContain(`${name}: refs/remotes/origin/HEAD is not a symbolic ref, so the default branch is not known`)
+  }
+  expect(changes(calls)).toEqual([])
+})
+
+// A fetch with --prune by hand removed origin/dev, which origin/HEAD was set to
+// on purpose. `git for-each-ref` prints nothing for that origin/HEAD, and `git
+// symbolic-ref` still prints its target. The fetch here failed, so it was not
+// set from the remote.
+test('the default branch is the one a dangling origin/HEAD points at, and nothing is pruned against main on a guess', async ($: any, on: any) => {
+  let said: Said = 'refs/remotes/origin/dev'
+  const calls = world(on, line => {
+    if (line.includes('fetch')) return 1
+    if (line === `symbolic-ref -q ${HEAD}`) return said
+    if (line.startsWith(READ) && !line.endsWith('/main')) return ''
+    return reap(line)
+  })
+  expect((await call($, 'find_checkouts')).result).toContain('default branch: dev\n')
+  expect((await call($, 'prune_branches')).result).toContain('warning: fetch failed')
+  expect(calls.filter(c => c.startsWith('for-each-ref --merged'))).toEqual([])
+  said = { exitCode: 128, stdout: '', stderr: 'fatal: bad config line 1 in file .git/config\n' }
+  expect((await call($, 'prune_branches')).text).toBe('prune_branches: check failed: fatal: bad config line 1 in file .git/config')
+  expect(calls.filter(c => c.startsWith('branch -') || c.includes('set-head'))).toEqual([])
 })
 
 test('open_worktree opens from a local default branch that is ahead, and links the notes directory', async ($: any, on: any) => {
@@ -206,12 +284,12 @@ const whole = (b: string) => `${MERGE} ${BASE} refs/heads/${b}`
 const since = (b: string, c: string) => `${MERGE} --merge-base=${c}^ ${BASE} refs/heads/${b}`
 const COMMITS: Record<string, string> = { 'feat-squash': 'c2\nc1', 'feat-undone': 'u3\nu2\nu1', 'claude/r1-a': 'r1' }
 const reap = (line: string) => {
-  if (line.startsWith('symbolic-ref')) return BASE
+  if (line.startsWith(READ)) return shown(line)
   if (line.startsWith('for-each-ref --merged refs/heads/main')) return 'claude/done\nclaude/r1-a'
   if (line === `rev-parse --verify -q ${BASE}^{tree}`) return 'TREE'
   if (line === 'hash-object -t tree /dev/null') return 'EMPTY'
   if (line.endsWith('--git-common-dir')) return '/repo/.git'
-  if (line.startsWith('for-each-ref --format=%(refname:lstrip=2)')) return 'feat-squash\t[gone]\nfeat-declined\t[gone]\nfeat-undone\t[gone]\nfeat-merged\t[gone]\nclaude/r1-a\t[gone]\nfeat-live\t[ahead 1]\nmain\t'
+  if (line.startsWith(GONE)) return 'feat-squash\t[gone]\nfeat-declined\t[gone]\nfeat-undone\t[gone]\nfeat-merged\t[gone]\nclaude/r1-a\t[gone]\nfeat-live\t[ahead 1]\nmain\t'
   if (line.startsWith(`merge-base ${BASE} `)) return 'FORK'
   if (line.startsWith('rev-list --no-merges --ancestry-path=FORK')) return COMMITS[line.split('..refs/heads/')[1]]
   if (line === whole('feat-declined') || line === since('feat-undone', 'u2')) return 'OTHER'
@@ -242,10 +320,10 @@ test('prune_branches reads the default branch after the fetch', async ($: any, o
   let fetched = false
   const calls = world(on, line => {
     if (line.includes('fetch')) fetched = true
-    if (line.endsWith('refs/remotes/origin/HEAD')) return !fetched ? 1 : line.startsWith('symbolic-ref') ? develop : undefined
+    if (line === READ + HEAD) return fetched ? shown(line, develop) : ''
     if (line === `rev-parse --verify -q ${develop}^{tree}`) return 'TREE'
     if (line.startsWith('for-each-ref --merged')) return ''
-    if (line.startsWith('for-each-ref --format')) return 'hotfix\t[gone]'
+    if (line.startsWith(GONE)) return 'hotfix\t[gone]'
     if (line.includes('merge-tree')) return line.includes(develop) ? 'OTHER' : 'TREE'
     return reap(line)
   })
@@ -260,10 +338,10 @@ test('prune_branches sets an origin/HEAD that is not a symbolic ref from the rem
   let set = false
   const calls = world(on, line => {
     if (line === 'remote set-head origin --auto') set = true
-    if (line === 'symbolic-ref -q refs/remotes/origin/HEAD') return set ? develop : 1
+    if (line === READ + HEAD) return shown(line, set ? develop : '')
     if (line === `rev-parse --verify -q ${develop}^{tree}`) return 'TREE'
     if (line.startsWith('for-each-ref --merged')) return ''
-    if (line.startsWith('for-each-ref --format')) return 'hotfix\t[gone]'
+    if (line.startsWith(GONE)) return 'hotfix\t[gone]'
     if (line.includes('merge-tree')) return line.includes(develop) ? 'OTHER' : 'TREE'
     return reap(line)
   })
@@ -272,17 +350,16 @@ test('prune_branches sets an origin/HEAD that is not a symbolic ref from the rem
 })
 
 // The host renamed master to main. The prune removes origin/master, and
-// origin/HEAD then points at nothing.
+// origin/HEAD then points at nothing, which git does not print.
 test('prune_branches finds a default branch the host renamed once the fetch has pruned the old one', async ($: any, on: any) => {
   let pruned = false
   let set = false
   const calls = world(on, line => {
     if (line === 'fetch -q --prune origin') pruned = true
     if (line === 'remote set-head origin --auto') set = true
-    if (line === 'symbolic-ref -q refs/remotes/origin/HEAD') return set ? BASE : 'refs/remotes/origin/master'
-    if (line === 'rev-parse --verify -q refs/remotes/origin/HEAD') return pruned && !set ? 1 : undefined
+    if (line === READ + HEAD) return set ? shown(line) : pruned ? '' : shown(line, 'refs/remotes/origin/master')
     if (line.startsWith('for-each-ref --merged')) return ''
-    return line.startsWith('for-each-ref --format') ? 'feat-squash\t[gone]' : reap(line)
+    return line.startsWith(GONE) ? 'feat-squash\t[gone]' : reap(line)
   })
   expect((await call($, 'prune_branches')).result).toBe('deleted: feat-squash (upstream gone, content on origin/main)')
   expect(calls.filter(c => c.includes('set-head'))).toEqual(['remote set-head origin --auto'])
@@ -291,7 +368,7 @@ test('prune_branches finds a default branch the host renamed once the fetch has 
 // One world a test, since no hook is added after the first call on `$`: the
 // faked git reads `now`, which the test changes between calls.
 test('prune_branches force-deletes nothing when a check or the fetch fails', async ($: any, on: any) => {
-  const one = (line: string) => (line.startsWith('for-each-ref --format') ? 'feat-squash\t[gone]' : reap(line))
+  const one = (line: string) => (line.startsWith(GONE) ? 'feat-squash\t[gone]' : reap(line))
   let now = one
   const calls = world(on, line => now(line))
   const checks = [`rev-parse --verify -q ${BASE}^{tree}`, 'hash-object -t tree /dev/null', whole('feat-squash'), `merge-base ${BASE} refs/heads/feat-squash`, `rev-list --no-merges --ancestry-path=FORK ${BASE}..refs/heads/feat-squash`, since('feat-squash', 'c1')]
@@ -311,7 +388,7 @@ test('prune_branches force-deletes nothing when a check or the fetch fails', asy
 // nor unmerged. Nor is a git that crashed, which Claude Code reports as exit 1
 // with no output.
 test('prune_branches keeps a branch with git\'s message where the merge cannot run, and with the base\'s content note where it conflicts', async ($: any, on: any) => {
-  const one = (line: string) => (line.startsWith('for-each-ref --format') ? 'feat-squash\t[gone]' : reap(line))
+  const one = (line: string) => (line.startsWith(GONE) ? 'feat-squash\t[gone]' : reap(line))
   let now = one
   const calls = world(on, line => now(line))
   now = line => (line === whole('feat-squash') ? 128 : one(line))
@@ -331,7 +408,7 @@ test('prune_branches keeps a branch with git\'s message where the merge cannot r
 })
 
 test('prune_branches keeps a branch with git\'s message where merge-base or rev-list fails', async ($: any, on: any) => {
-  const one = (line: string) => (line.startsWith('for-each-ref --format') ? 'feat-squash\t[gone]' : reap(line))
+  const one = (line: string) => (line.startsWith(GONE) ? 'feat-squash\t[gone]' : reap(line))
   let now = one
   const calls = world(on, line => now(line))
   const list = `rev-list --no-merges --ancestry-path=FORK ${BASE}..refs/heads/feat-squash`
@@ -354,7 +431,7 @@ test('prune_branches keeps a branch with git\'s message where merge-base or rev-
 // `git merge origin/main` is. The merge repeated from M finds what the base lacks.
 test('prune_branches checks a merge commit with a change of its own, and skips one with none', async ($: any, on: any) => {
   const git = (line: string) => {
-    if (line.startsWith('for-each-ref --format')) return 'feat-hand\t[gone]\nfeat-clean\t[gone]'
+    if (line.startsWith(GONE)) return 'feat-hand\t[gone]\nfeat-clean\t[gone]'
     if (line.startsWith('rev-list --no-merges --ancestry-path=FORK')) return 'c1'
     if (line.startsWith('rev-list --merges --ancestry-path=FORK')) return line.endsWith('feat-hand') ? 'M' : 'N'
     if (line === 'rev-parse M^@') return 'P1\nP2'
@@ -375,7 +452,7 @@ test('prune_branches checks a merge commit with a change of its own, and skips o
 
 test('prune_branches keeps a branch whose merge commits cannot be listed, or that has a merge of three parents', async ($: any, on: any) => {
   const over: Record<string, string | number> = {}
-  const calls = world(on, line => over[line] ?? (line.startsWith('for-each-ref --format') ? 'feat-x\t[gone]' : line.startsWith('rev-list --no-merges --ancestry-path=FORK') ? 'c1' : reap(line)))
+  const calls = world(on, line => over[line] ?? (line.startsWith(GONE) ? 'feat-x\t[gone]' : line.startsWith('rev-list --no-merges --ancestry-path=FORK') ? 'c1' : reap(line)))
   const list = 'rev-list --merges --ancestry-path=FORK refs/remotes/origin/main..refs/heads/feat-x'
   over[list] = 128
   expect((await call($, 'prune_branches')).result).toContain('kept: feat-x')
@@ -402,7 +479,7 @@ test('prune_branches has no warning in a repo with no origin', async ($: any, on
 })
 
 test('prune_branches checks the gone upstreams where there is no local default branch', async ($: any, on: any) => {
-  const calls = world(on, line => (line === 'rev-parse --verify -q refs/heads/main' || line.startsWith('for-each-ref --merged') ? 128 : reap(line)))
+  const calls = world(on, line => (line === `${READ}refs/heads/main` ? '' : line.startsWith('for-each-ref --merged') ? 128 : reap(line)))
   expect((await call($, 'prune_branches')).isError).toBeFalsy()
   expect(deleted(calls)).toEqual(['branch -D feat-squash', 'branch -D feat-merged'])
 })
@@ -422,7 +499,7 @@ test('prune_branches checks no gone upstream where a merge driver is set in .git
 // branch from under the worktree.
 test('prune_branches leaves a branch that a worktree has checked out under another capitalization', async ($: any, on: any) => {
   const list = trees(...['Claude/Done', 'Feat-Squash', 'feat-upper'].map((b): [string, string] => [`/repo/${b}`, b]))
-  const git = (line: string) => (line === 'worktree list --porcelain -z' ? list : line.startsWith('for-each-ref --format') ? 'feat-squash\t[gone]\nFeat-Upper\t[gone]' : reap(line))
+  const git = (line: string) => (line === 'worktree list --porcelain -z' ? list : line.startsWith(GONE) ? 'feat-squash\t[gone]\nFeat-Upper\t[gone]' : reap(line))
   const calls = world(on, git)
   expect((await call($, 'prune_branches')).result).toBe('deleted: claude/r1-a (merged into main)\nmerged, still checked out: feat-squash\nmerged, still checked out: Feat-Upper')
   expect(deleted(calls)).toEqual(['branch -d claude/r1-a'])
@@ -434,7 +511,7 @@ test('landing_facts reads git config first, and is unknown where no host tool is
     if (line === 'remote get-url origin') return 'https://example.com/a/b.git'
     if (line === 'remote get-url upstream') return 1
     if (line.startsWith('config --get')) return config[line.split('.')[1]] ?? 1
-    if (line.startsWith('symbolic-ref')) return BASE
+    if (line.startsWith(READ)) return shown(line)
   }
   const calls = world(on, git)
   expect((await call($, 'landing_facts')).result).toBe('fork: no\norigin visibility: private (git config)\nlanding mode: pr (git config)\nholds lifted: holdFork')
@@ -444,7 +521,7 @@ test('landing_facts reads git config first, and is unknown where no host tool is
 })
 
 test('landing_facts reads a protected default branch, or a pull-request ruleset, as pr mode', async ($: any, on: any) => {
-  const git = (line: string) => (line === 'remote get-url origin' ? 'https://github.com/a/b.git' : line.startsWith('symbolic-ref') ? BASE : line === 'remote get-url upstream' ? undefined : 1)
+  const git = (line: string) => (line === 'remote get-url origin' ? 'https://github.com/a/b.git' : line.startsWith(READ) ? shown(line) : line === 'remote get-url upstream' ? undefined : 1)
   const gh = (isProtected: string, rules: string) => (line: string) =>
     line.includes('visibility') ? 'PUBLIC' : line.includes('nameWithOwner') ? 'a/b' : line.includes('/rules/') ? rules : line.startsWith('gh api') ? isProtected : undefined
   let now = gh('', '')

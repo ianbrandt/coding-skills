@@ -15,6 +15,16 @@ export function pickBase(def: string, hasOrigin: boolean, hasLocal: boolean, ori
   return { base: origin, warning: `local ${def} has diverged from ${origin}: a new branch starts from ${origin}, without the local commits` }
 }
 
+// One ref, from what `git for-each-ref --format='%(refname) %(symref)' <ref>`
+// printed: its target where it is a symbolic ref, or nothing where it is
+// absent. The argument is a pattern, and `refs/heads/main` also matches
+// `refs/heads/main/topic`, so only the line with the ref's own name is read. A
+// symbolic ref that points at nothing is not printed, and reads as absent.
+export function refLine(stdout: string, ref: string): { symref: string } | null {
+  const line = stdout.split(/\r?\n/).find(l => l.split(' ')[0] === ref)
+  return line === undefined ? null : { symref: line.slice(ref.length + 1) }
+}
+
 // The one word a visibility lookup may return. A CLI's error text is dropped.
 export function visibility(text: string): string {
   const v = text.trim().toLowerCase()
