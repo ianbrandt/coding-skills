@@ -198,8 +198,8 @@ and merged branches.
 
 Call `mcp__session-skills__prune_branches`. It never removes a worktree. In order, it:
 
-1. runs `git worktree prune`, which only drops worktrees with a directory that is already gone;
-2. fetches `origin` with `--prune`;
+1. fetches `origin` with `--prune`, and reads the refs it will compare against;
+2. runs `git worktree prune`, which only drops worktrees with a directory that is already gone;
 3. deletes each `claude/` and `worktree-` branch merged into `$DEFAULT` with `git branch -d`, leaving
    any that is checked out in a worktree;
 4. checks each branch with an upstream that is gone.
@@ -223,9 +223,13 @@ be read: the result then has a `warning:` line to repeat in the reply.
 
 `$DEFAULT` is read from `origin/HEAD`. The tools set it from the remote only where it is not the
 name of a branch `origin` has, so one pointed at another branch on purpose is left alone. A default
-branch the host renamed is found once step 2 has pruned the old remote-tracking ref. Where the host
+branch the host renamed is found once step 1 has pruned the old remote-tracking ref. Where the host
 made another branch the default and the old one is still there, `origin/HEAD` stays on the old one
-and step 4 checks against it, until `git remote set-head origin --auto` is run.
+and step 4 checks against it, until `git remote set-head origin --auto` is run. `main` is the guess
+only where there is no `origin/HEAD`. Where a ref or the `origin` remote cannot be read, the tool
+returns `check failed: <git's message>` and nothing is pruned, and an `origin/HEAD` that is a commit
+and could not be set from the remote is an error with the command to set it: repeat either in the
+reply and stop there.
 
 The result has one line per branch: `deleted:`, `kept:`, `merged, still checked out:`, or `left:`
 with git's reason where a deletion was refused.

@@ -26,7 +26,8 @@ or was abandoned.
 
 Call `mcp__session-skills__landing_facts`. Each fact is read off the repo, or off a per-clone
 `git config` value the user set, and never from a file in the tree. Four lines come back: `fork`,
-`origin visibility`, `landing mode`, and `holds lifted`.
+`origin visibility`, `landing mode`, and `holds lifted`. Where a remote cannot be read, the result is
+`check failed: <git's message>` with no fact lines: land nothing on it, and repeat it in the reply.
 
 - **A fork** (an `upstream` remote, ideally with `git remote set-url --push upstream no_push`) means
   the work is a contribution to a project you don't own. It **never merges and never pushes**, and
