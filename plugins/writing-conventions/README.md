@@ -392,7 +392,8 @@ covers every commit waiting to be pushed. Without one, the session keeps serving
 corrections that motivated this plugin: commit messages, PR bodies, an issue body, a maintainer
 comment, a README paragraph, KDoc, a changelog entry, Spock method names, a code comment, and a
 status reply. In each prompt the facts are stated the way a user would state them, without the rules.
-In five of them (two PR bodies, a commit message, the issue body, and the status reply) the facts are
+In nine of them (two PR bodies, a commit message, the issue body, the status reply, the maintainer
+comment, the README paragraph, the Spock method names, and the code comment) the facts are
 written with tells a session is likely to copy into a draft: a personified report or build, a spaced em
 dash, a banned word, or a "whose" after a file. A session often paraphrases source text, and with
 clean facts the scores with and without the plugin differed little. Each case has three free regex
@@ -401,7 +402,8 @@ pattern over present-tense verbs and a fixed noun list), a judge-model grader fo
 and where the genre calls for it, a judge grader for form. The second PR body case has a fourth
 regex grader, for a build, a project, or a script that gets, keeps, or refers to something. The form
 graders check only this plugin's rules: lead with the outcome, and no narration of how the change
-came about. Sentence counts and heading limits are left to `ghostwrite`, since a limit stated in the
+came about. The form judge for the maintainer comment fails a draft only for a sentence it can
+quote, like the personification judge. Sentence counts and heading limits are left to `ghostwrite`, since a limit stated in the
 prompt measures whether the model follows the prompt. The personification judge fails a draft only
 for a sentence it can quote. With the looser wording and the default Haiku judge, it failed 11 of 24
 runs both with and without the plugin loaded, and only one of the 11 flagged drafts had a real
@@ -438,6 +440,18 @@ gap by case ran from -0.10 to +0.30. Five cases had no gap in this run and none 
 `code-comment-guard`, `issue-body-platform-constraint`, `readme-precedence-paragraph`,
 `spec-method-names`, and, with the plugin scoring lower in both runs, `github-comment-heads-up`.
 Those cases score the same without the plugin, so they measure the default register, not the plugin.
+
+Later on 2026-10-08 the facts in those five prompts were rewritten with tells, and in the issue
+body, which had two already, with more. Run one case at a time with two runs each, the plugin
+scored 1.00 on four of them and 0.90 on the maintainer comment, and no plugin scored 0.70 to 0.88.
+A run of the whole suite followed: the plugin scored 0.94 and no plugin 0.83, a gain of 0.11. The
+gap was +0.50 on the issue body, +0.20 on the README paragraph, +0.12 on the Spock method names,
+and 0.00 on the code comment, where one draft without the plugin failed in four across the two
+runs. On the maintainer comment the plugin was still lower, 0.80 against 1.00, on the form judge
+alone. That judge passed and failed drafts with near-identical openings, with and without the
+plugin. After it was changed to fail only for a quoted sentence, two more runs of that case scored
+1.00 with the plugin, and 0.90 and 0.60 without. The KDoc and one PR body, which have no tells in their
+facts, also had no gap in the whole-suite run.
 
 ## Skills
 

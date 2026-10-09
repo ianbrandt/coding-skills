@@ -10,4 +10,4 @@ Write a one- or two-line code comment to go above this guard. Reply with the com
 if (declared.strictVersion.isNotEmpty() && candidate !in declared.strictRange) continue
 ```
 
-Why the guard exists: a candidate outside the strictly range declared in the build can never be selected by Gradle's resolution, so reporting it as an available update would suggest an upgrade the build cannot take. The range check is the same one Gradle applies during resolution.
+Why the guard exists: the build declares a strictly range, and a candidate outside it can never be selected — Gradle's resolution refuses it — so a report that offers it as an available update is telling the user about an upgrade the build cannot take. The range check is the same one Gradle applies during resolution.
