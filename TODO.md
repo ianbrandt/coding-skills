@@ -8,7 +8,10 @@
 ## Needs a Windows machine
 
 The four checks of the 2026-10-09 re-run all cleared and are no longer listed. One is left, on
-`session-skills` 0.21.1 or later.
+`session-skills` 0.21.2 or later. In a 0.21.1 PowerShell 7 run, `git worktree remove` was fired
+alone and "both gone" was reported with the directory still on disk; the delete came only after
+the directory was found still on disk with `!Test-Path`. In 0.21.2, the delete is chained into
+the same tool call as the `git worktree remove`.
 
 1. The worktree directory deleted after a removal. In a scratch repo at a path with a space in it,
    with one commit, a `notes.local` directory with a file `keep.txt` in it, and `/notes.local` in

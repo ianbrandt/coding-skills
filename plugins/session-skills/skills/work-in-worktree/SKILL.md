@@ -253,23 +253,30 @@ and `.kotlin/`:
 git -C "$WT" status --porcelain -uall
 ```
 
-Then remove it with the shell changed into the primary checkout in the same command, since the next
-Bash call fails where the shell is still in a directory that is gone:
+Then remove it in one tool call: change the shell into the primary checkout first (the next Bash
+call fails where the shell is still in a directory that is gone), run `git worktree remove`, and
+chain the directory delete after it. On Windows, `git worktree remove` exits 0 and unregisters the
+worktree, but its directory stays on disk with the notes junction inside; `git worktree remove`
+alone is not "removed" there, so say "removed" only after the delete. The delete is a no-op on
+Linux and macOS, where the directory is already gone. In Git Bash, including on Windows:
 
 ```bash
-cd "$MAIN" && git worktree remove "$WT"
+cd "$MAIN" && git worktree remove "$WT" && rm -rf "$WT"
 ```
 
-Windows PowerShell 5.1 rejects `&&`. There, run the two commands as two calls, `cd` first, and do
-the same for any other `&&` line in these skills.
+In PowerShell, including Windows PowerShell 5.1 which rejects `&&`, run the three as separate
+calls, `cd` first:
 
-**On Windows, check that the directory is gone.** `git worktree remove` exits 0 there and
-unregisters the worktree, but leaves its directory on disk with the notes junction inside. Where
-`$WT` still exists after the removal, delete it: `rm -rf "$WT"` in Git Bash, `Remove-Item -Recurse
--Force $WT` in PowerShell. Neither follows the junction, so the notes in `$MAIN` are untouched.
-Where the removal exits 255 with `Permission denied`, a process is still sitting in the directory
-and the worktree is unregistered anyway: a retry exits 128 with `not a working tree`, which means
-removed, not failed. Close that process, then delete the directory the same way.
+```powershell
+Set-Location $MAIN
+git worktree remove $WT
+if (Test-Path $WT) { Remove-Item -Recurse -Force $WT }
+```
+
+Neither delete follows the junction, so the notes in `$MAIN` are untouched. Where `git worktree
+remove` exits 255 with `Permission denied`, a process is still sitting in the directory and the
+worktree is unregistered anyway: a retry exits 128 with `not a working tree`, which means removed,
+not failed. Close that process, then delete the directory the same way.
 
 A concurrency plugin adds its own hygiene on top of this (§0's lease seam).
 
