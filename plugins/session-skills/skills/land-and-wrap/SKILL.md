@@ -111,14 +111,12 @@ runbook), otherwise land by the mode from §1.
 4. **Push if private**, or with the public-push hold lifted (§1). Otherwise, on a public repo,
    present the unpushed range (`origin/main..main`) and stop there; the user reads it before it
    is published.
-5. **After §4's release, remove your own worktree** by the rules in `work-in-worktree` §4, with
-   the shell changed into the primary checkout and the directory delete chained in the same
-   command—`cd "$MAIN" && git worktree remove "$WT" && rm -rf "$WT"`—then call
-   `mcp__session-skills__prune_branches`, which deletes the merged branch. Do not run `git branch
-   -d` in its place. In PowerShell, which rejects `&&`, run the three as separate calls, `cd`
-   first, with the delete guarded by `Test-Path`; the full form is in `work-in-worktree` §4. A
-   session started inside the worktree removes it the same way: after a removal with the shell
-   still in the worktree, the next Bash call fails and the shell restarts in the home directory.
+5. **After §4's release, remove your own worktree** with `mcp__session-skills__remove_worktree`,
+   passing `$WT` as `path`, then call `mcp__session-skills__prune_branches`, which deletes the
+   merged branch. Do not run `git branch -d` in its place. A session started inside the worktree
+   removes it the same way: the tool runs `git worktree remove` from the primary checkout, so the
+   session's shell is unaffected, but a shell left sitting in a removed directory fails on its
+   next call and restarts in the home directory.
 
 ### `pr`
 

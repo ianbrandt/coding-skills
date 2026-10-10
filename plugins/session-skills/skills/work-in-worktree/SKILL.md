@@ -253,30 +253,12 @@ and `.kotlin/`:
 git -C "$WT" status --porcelain -uall
 ```
 
-Then remove it in one tool call: change the shell into the primary checkout first (the next Bash
-call fails where the shell is still in a directory that is gone), run `git worktree remove`, and
-chain the directory delete after it. On Windows, `git worktree remove` exits 0 and unregisters the
-worktree, but its directory stays on disk with the notes junction inside; `git worktree remove`
-alone is not "removed" there, so say "removed" only after the delete. The delete is a no-op on
-Linux and macOS, where the directory is already gone. In Git Bash, including on Windows:
-
-```bash
-cd "$MAIN" && git worktree remove "$WT" && rm -rf "$WT"
-```
-
-In PowerShell, including Windows PowerShell 5.1 which rejects `&&`, run the three as separate
-calls, `cd` first:
-
-```powershell
-Set-Location $MAIN
-git worktree remove $WT
-if (Test-Path $WT) { Remove-Item -Recurse -Force $WT }
-```
-
-Neither delete follows the junction, so the notes in `$MAIN` are untouched. Where `git worktree
-remove` exits 255 with `Permission denied`, a process is still sitting in the directory and the
-worktree is unregistered anyway: a retry exits 128 with `not a working tree`, which means removed,
-not failed. Close that process, then delete the directory the same way.
+Then remove it with `mcp__session-skills__remove_worktree`, passing `$WT` as `path`. The tool runs
+`git worktree remove` from the primary checkout and, on Windows where the directory is left on
+disk with the notes junction inside, deletes the directory. The delete does not follow the
+junction, so the notes in `$MAIN` are untouched. A retry on a path already unregistered is a
+no-op. Where `git worktree remove` exits 255 with `Permission denied`, a process is still sitting
+in the directory; close that process and call the tool again.
 
 A concurrency plugin adds its own hygiene on top of this (§0's lease seam).
 

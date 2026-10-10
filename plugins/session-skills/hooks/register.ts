@@ -27,6 +27,16 @@ const TOOLS = {
     description: "Prune stale worktree registrations, delete claude/ and worktree- branches merged into the default branch, and delete any branch with a deleted upstream and content already on the remote default branch. Never removes a worktree. Returns one line per branch deleted, kept, or still checked out.",
     inputSchema: NONE,
   },
+  remove_worktree: {
+    description: "Remove a worktree opened by `open_worktree`: run `git worktree remove` from the primary checkout, then delete the worktree directory where it is still on disk, as it is on Windows. Idempotent: a retry on a path already unregistered is a no-op. The notes junction inside the worktree is a link, so the notes in the primary checkout are untouched. Returns one line per step.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        path: { type: 'string', description: "Absolute path of the worktree to remove. Must be inside the primary checkout's `.claude/worktrees`." },
+      },
+      required: ['path'],
+    },
+  },
   landing_facts: {
     description: "Report the facts used to choose how work leaves its branch in this repo: whether it is a fork, origin's visibility, the landing mode (merge or pr), and which holds the user lifted. Read from per-clone git config first, then gh or glab where installed. Read-only.",
     inputSchema: NONE,
@@ -276,6 +286,42 @@ async function onBase($: any, main: string, empty: string, tree: string, base: s
   return true
 }
 
+// `git worktree remove` on Windows exits 0 and unregisters the worktree, but
+// leaves its directory on disk with the notes junction inside. The directory
+// is deleted here after a 0 or a 128-with-"not a working tree" exit; both
+// `rd /s /q` on Windows and `rm -rf` elsewhere were measured not to follow the
+// junction. A cmd operator in the path is rejected, matching `link`.
+async function removeWorktree($: any, e: any): Promise<string> {
+  const raw = String(e.path ?? '').trim()
+  if (!raw) throw new Error('path is empty')
+  const main = await primary($)
+  const posixMain = main.replace(/\\/g, '/').replace(/\/$/, '')
+  const path = raw.replace(/\\/g, '/').replace(/\/$/, '')
+  const win = /^[A-Za-z]:[\\/]/.test(main)
+  const fold = (p: string) => (win ? p.toLowerCase() : p)
+  const root = `${fold(posixMain)}/.claude/worktrees/`
+  if (!fold(path).startsWith(root) || path.split('/').includes('..')) {
+    throw new Error(`${raw} is not inside ${posixMain}/.claude/worktrees`)
+  }
+  const lines: string[] = []
+  const removed = await git($, main, 'worktree', 'remove', path)
+  if (removed.exitCode === 0) lines.push(`unregistered: ${path}`)
+  else if (removed.exitCode === 128 && /not a working tree/i.test(removed.stderr)) lines.push(`already unregistered: ${path}`)
+  else throw new Error(`git worktree remove: ${firstLine(removed.stderr) || `exit ${removed.exitCode}`}`)
+  if (await $.fs.exists(path)) {
+    if (win && /[&|<>^%()"]/.test(path)) throw new Error(`cannot delete ${path}: a character in the path is an operator in cmd`)
+    const argv = win ? ['cmd', '/c', 'rd', '/s', '/q', path.replace(/\//g, '\\')] : ['rm', '-rf', path]
+    const del = await run($, argv)
+    if (del.exitCode !== 0 && (await $.fs.exists(path))) {
+      throw new Error(`deleting ${path}: ${firstLine(del.stderr) || `exit ${del.exitCode}`}`)
+    }
+    lines.push(`deleted: ${path}`)
+  } else {
+    lines.push(`directory already gone: ${path}`)
+  }
+  return lines.join('\n')
+}
+
 async function pruneBranches($: any): Promise<string> {
   const main = await primary($)
   const lines: string[] = []
@@ -459,6 +505,7 @@ export const register: Register = on => {
   on('tool.call', { tool: 'mcp__session-skills__find_checkouts' }, async $ => answer('find_checkouts', () => findCheckouts($)))
   on('tool.call', { tool: 'mcp__session-skills__open_worktree' }, async ($, e: any) => answer('open_worktree', () => openWorktree($, e)))
   on('tool.call', { tool: 'mcp__session-skills__prune_branches' }, async $ => answer('prune_branches', () => pruneBranches($)))
+  on('tool.call', { tool: 'mcp__session-skills__remove_worktree' }, async ($, e: any) => answer('remove_worktree', () => removeWorktree($, e)))
   on('tool.call', { tool: 'mcp__session-skills__landing_facts' }, async $ => answer('landing_facts', () => landingFacts($)))
 
   on('tool.call', { tool: 'mcp__session-skills__edit_primary_file' }, async ($, e: any) => {

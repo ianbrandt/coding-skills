@@ -140,4 +140,4 @@ each. A few lines join two commands with `&&`, which Windows PowerShell 5.1 reje
 two are run as two calls. The check for stray processes is `pgrep` on macOS and Linux and
 PowerShell's `Get-Process` on Windows. On Windows the notes directory is linked as a junction, which
 needs no privilege. After a removal there, git leaves the worktree's directory on disk with the
-junction inside, and the session deletes it in the same tool call as the `git worktree remove`.
+junction inside, and `remove_worktree` deletes the directory in the same tool call.
