@@ -263,6 +263,14 @@ cd "$MAIN" && git worktree remove "$WT"
 Windows PowerShell 5.1 rejects `&&`. There, run the two commands as two calls, `cd` first, and do
 the same for any other `&&` line in these skills.
 
+**On Windows, check that the directory is gone.** `git worktree remove` exits 0 there and
+unregisters the worktree, but leaves its directory on disk with the notes junction inside. Where
+`$WT` still exists after the removal, delete it: `rm -rf "$WT"` in Git Bash, `Remove-Item -Recurse
+-Force $WT` in PowerShell. Neither follows the junction, so the notes in `$MAIN` are untouched.
+Where the removal exits 255 with `Permission denied`, a process is still sitting in the directory
+and the worktree is unregistered anyway: a retry exits 128 with `not a working tree`, which means
+removed, not failed. Close that process, then delete the directory the same way.
+
 A concurrency plugin adds its own hygiene on top of this (§0's lease seam).
 
 ## Then what

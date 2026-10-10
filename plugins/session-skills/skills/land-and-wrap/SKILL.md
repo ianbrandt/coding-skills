@@ -115,7 +115,8 @@ runbook), otherwise land by the mode from §1.
    the shell changed into the primary checkout in the same command—`cd "$MAIN" && git worktree
    remove "$WT"`—then call `mcp__session-skills__prune_branches`, which deletes the merged branch.
    Do not run `git branch -d` in its place. In Windows PowerShell 5.1, which rejects `&&`, run the
-   two commands as two calls, `cd` first. A session started inside the worktree removes it the
+   two commands as two calls, `cd` first. On Windows the directory is left on disk after the
+   removal; delete it by the rules in `work-in-worktree` §4. A session started inside the worktree removes it the
    same way: after a removal with the shell still in the worktree, the next Bash call fails and
    the shell restarts in the home directory.
 
