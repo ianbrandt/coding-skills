@@ -139,4 +139,5 @@ of the commands left in the skills are single `git`, `gh`, or `glab` calls that 
 each. A few lines join two commands with `&&`, which Windows PowerShell 5.1 rejects, so there the
 two are run as two calls. The check for stray processes is `pgrep` on macOS and Linux and
 PowerShell's `Get-Process` on Windows. On Windows the notes directory is linked as a junction, which
-needs no privilege; that path has not been run on Windows.
+needs no privilege. After a removal there, git leaves the worktree's directory on disk with the
+junction inside, and the session deletes it.
