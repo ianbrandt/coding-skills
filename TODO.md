@@ -5,14 +5,14 @@
   context still lands the edit in the worktree, and a stale local default branch still branches
   from `origin/<default>`.
 
-## Needs a Windows machine
+## Windows pass follow-up
 
-Checks 1, 2, 3, and 4 of the first Windows pass were re-run on 2026-10-09. Checks 1, 2, and 4 are
-cleared and no longer listed; Check 3 is left. Setup for each: a scratch repo at a path with a
-space in it, with one commit, a bare repo beside it as `origin`, a `notes.local` directory with
-a file `keep.txt` in it, and `/notes.local` in `.git/info/exclude`.
+Checks 1, 2, 3, and 4 of the first Windows pass were re-run on 2026-10-09 and all four cleared.
+Setup for each: a scratch repo at a path with a space in it, with one commit, a bare repo beside
+it as `origin`, a `notes.local` directory with a file `keep.txt` in it, and `/notes.local` in
+`.git/info/exclude`.
 
-Re-run notes for the three cleared checks:
+Re-run notes:
 
 - Check 1 (what `git worktree remove` leaves): PS 7 and Git Bash behaved the same. Exit 0 in
   both, registration dropped from `git worktree list`, worktree directory left on disk with only
@@ -21,19 +21,15 @@ Re-run notes for the three cleared checks:
 - Check 2 (recursive delete through a junction): Git Bash `rm -rf`, PS 7 and Windows PowerShell
   5.1 `Remove-Item -Recurse -Force` all deleted `left` and left `target\keep.txt` intact. No
   shell traversed the junction.
+- Check 3 (writing gate blocking a commit): first probed from a session loaded before the plugin
+  update to 0.45.6 that day, where `git commit --allow-empty -F body.md` with the dashed body
+  landed silently and was recorded as a gate miss. Re-probed from a fresh session on 0.45.6 with
+  a one-line log on the review model's reply dropped into `read()`: the first attempt blocked
+  with `"A quick change — one line, nothing more." -> A quick change, one line only.`, the
+  session rewrote `body.md` to the suggested text, the second attempt returned `PASS`, and the
+  rewritten body committed. The gate behaves as intended on 0.45.6; the earlier miss is an
+  in-memory stale-plugin artifact of a long-running session.
 - Check 4 (voice directory through a junction): with `GHOSTWRITING_DIR` cleared in the launching
   shell and a junction at `%USERPROFILE%\.claude\ghostwriting` pointing at the real voice
   directory, `/ghostwriting-skills:ghostwrite` loaded clean and prompted for a draft, which is
   what loading does when the voice spec resolves.
-
-Left:
-
-3. The writing gate blocking a commit. With a spaced em dash in `body.md`, have the session run
-   `git commit --allow-empty -F body.md` as the whole command, with no `cd`, no `git -c`, and no
-   wrapper, in Git Bash and in PowerShell 7. Pass: the commit is blocked. Re-run on 2026-10-09:
-   the gate did not block in either shell. The command was literally
-   `git commit --allow-empty -F body.md`, run from the primary checkout with `body.md` holding
-   `A quick change — one line, nothing more.`; both commits landed silently with no gate note
-   and no toast. The gate hook does hook both tools (`Bash` and `PowerShell`), FAMILIES matches
-   `git commit`, and the body file meets every read precondition, so the review model is
-   being called and returning no finding.
