@@ -46,7 +46,8 @@ None of these facts depends on the backlog, so a repo you own with an untracked,
 needs no special case.
 
 Then the wrap-up actions every session runs whether or not the work finished: stop stray background
-tasks, release any lease, and leave the branch and worktree standing as the resume record.
+tasks, release any lease, and leave the branch and worktree of unfinished work standing as the
+resume record. The worktree of landed work is removed, and its merged branch is deleted.
 
 ## What it pairs with
 
@@ -66,7 +67,7 @@ in the marketplace's README.
 ## How it is wired
 
 One hooks module, `hooks/register.ts`, which is a Claude Code mod and needs Claude Code 2.1.286 or
-later, the oldest version supported. It registers five tools, named `mcp__session-skills__<tool>`,
+later, the oldest version supported. It registers six tools, named `mcp__session-skills__<tool>`,
 and the skills call them where they once had bash to adapt:
 
 - `find_checkouts` fetches, then returns the primary checkout, the default branch, the ref a new
@@ -75,13 +76,17 @@ and the skills call them where they once had bash to adapt:
   directory into it (§3).
 - `prune_branches` prunes stale worktree registrations and deletes merged branches, including one a
   host squashed on merge, and never removes a worktree (§4).
+- `remove_worktree` runs `git worktree remove` from the primary checkout, then deletes the
+  worktree's directory where it is still on disk, as it is on Windows. A path outside
+  `.claude/worktrees` is refused, and a path already unregistered is a no-op (§4, and
+  `land-and-wrap` §2).
 - `landing_facts` returns whether the repo is a fork, `origin`'s visibility, the landing mode, and
   the holds the user lifted (`land-and-wrap` §1).
 - `edit_primary_file` edits a file that is only in the primary checkout, such as an untracked
   roadmap: one passage is replaced, or text is appended, and nothing is written when the passage
   has drifted.
 
-In a terminal session a sixth tool, `set_session_title`, is registered, since the CLI has no tool
+In a terminal session a seventh tool, `set_session_title`, is registered, since the CLI has no tool
 that sets the session title. No call in the mod API sets one either, so the title is kept until the
 user's next prompt and returned there as the `sessionTitle` of a `UserPromptSubmit` hook, which
 renames the session as `/rename` does. A title is dropped when the user renamed the session in
@@ -89,7 +94,7 @@ between. The tool is registered only where `CLAUDE_CODE_ENTRYPOINT` is `cli`: th
 title tool, and a `claude -p` session has no next prompt.
 
 `hooks/checkouts.test.ts` and `hooks/register.test.ts` run under `claude plugin test`. The
-tool definitions are in every session's context, at roughly 500 tokens by estimate for the five.
+tool definitions are in every session's context, at roughly 600 tokens by estimate for the six.
 
 At session start the module adds `hooks/rules.md` to every session, including after `/clear` and
 compaction. That file has three rules that cannot go in a skill. One is the session title, given
@@ -107,11 +112,6 @@ suggested-task feature on its own. All three apply to every session that did rea
 the ones that never open a worktree and so never load `land-and-wrap`. That is why they are injected
 by a hook, and why they ship with the plugin instead of sitting in a personal global `CLAUDE.md`.
 There is no `SubagentStart` hook, because a subagent doesn't end a session.
-
-Editing any skill or the rules file here is a plugin release: an installed session reads a
-version-keyed cache, so the plugin's `version` in `.claude-plugin/marketplace.json` has to go up in
-the same commit, unless it is already ahead of the version on `origin/main`. One bump is enough for
-every commit waiting to be pushed. Without one, the session keeps serving the old copy.
 
 ## Measuring it
 

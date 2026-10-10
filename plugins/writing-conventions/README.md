@@ -25,7 +25,7 @@ read nothing since their last message, saying a fact once, evidence, and erring 
 standing rules follow: a rule broken in a draft is swept across the branch, the user's private
 circumstances stay out of public artifacts, and a draft for publication goes in a fenced block with
 the info string `draft`, which is what the `Stop` check below looks for. The file is about 1,350
-words, so it costs roughly 1,800 tokens per session and per subagent, against about 1,600 words for
+words, so it costs roughly 1,800 tokens per session and per subagent, against about 1,900 words for
 the long form; the reasoning behind each rule, and its edge cases, sit in `write-for-the-reader` §8
 and load only when that skill does.
 
@@ -314,8 +314,7 @@ tools), all 20 publishing tools came back `CAN_PUBLISH` and all 10 others `NEVER
 
 The answer is appended as one line, `<tool name> <answer>`, to
 `${CLAUDE_CONFIG_DIR:-~/.claude}/writing-conventions/mcp-tools-<hash>.txt`, where the hash is of the
-classifier prompt, so a changed prompt starts a new file. A file written by a version before 0.44.0
-is not read, since the hash changed. The file is yours to read and edit: for one tool a `CAN_PUBLISH` line wins
+classifier prompt, so a changed prompt starts a new file. The file is yours to read and edit: for one tool a `CAN_PUBLISH` line wins
 over a `NEVER` line, and a malformed line is ignored. A `NEVER` tool costs no model call after the
 first. A wrong `NEVER` is a lasting gap on that machine until the line is edited.
 
@@ -396,10 +395,8 @@ still dropped, which is why a draft that includes one goes in a longer fence.
 
 A `git push` is not read, because a branch name is chosen long before it.
 
-Adding a word to the banned list is a plugin release rather than a local edit: an installed session
-reads a version-keyed cache, so the plugin's `version` in `.claude-plugin/marketplace.json` has to
-go up in the same commit, unless it is already ahead of the version on `origin/main`. One bump
-covers every commit waiting to be pushed. Without one, the session keeps serving the old list.
+Adding a word to the banned list is a plugin release rather than a local edit, so the plugin's
+`version` in `.claude-plugin/marketplace.json` goes up with it ([Checks](../../README.md#checks)).
 
 ## Measuring it
 

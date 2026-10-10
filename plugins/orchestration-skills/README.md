@@ -56,11 +56,6 @@ one rule only, the escalation paragraph addressed to a subagent: a hard-to-rever
 instead of being settled silently. The rest of the file applies to the agent doing the delegating,
 so it is not injected into subagents.
 
-Editing `hooks/rules.md` or any skill is a plugin release: an installed session reads a
-version-keyed cache, so the plugin's `version` in `.claude-plugin/marketplace.json` has to go up in
-the same commit, unless it is already ahead of the version on `origin/main`. One bump is enough for
-every commit waiting to be pushed. Without one, the session keeps serving the old copy.
-
 ## Evals
 
 [`evals/`](evals/) is a `claude plugin eval` suite of five chat cases: a model stated for each

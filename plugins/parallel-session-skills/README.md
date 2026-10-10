@@ -75,8 +75,3 @@ either, and in `claim-a-lane` the session is told to stop and report it.
 
 The ledger's rules are pure functions in `hooks/ledger.ts`. They are checked, with the tools and the
 session-end release, by `claude plugin test` with `hooks/ledger.test.ts`.
-
-Editing any skill here is a plugin release: an installed session reads a version-keyed cache, so the
-plugin's `version` in `.claude-plugin/marketplace.json` has to go up in the same commit, unless it
-is already ahead of the version on `origin/main`. One bump is enough for every commit waiting to be
-pushed. Without one, the session keeps serving the old copy.

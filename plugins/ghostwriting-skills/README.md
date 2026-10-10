@@ -78,37 +78,14 @@ a single turn, and on those the default register is already clean: every arm, in
 passes personification on nearly every run. Results are written under `evals/results/`, which is
 ignored.
 
-On 2026-09-13, with three runs per case, the plugin scored lower than no plugin, by 0.28 on
-average. The drafted bodies met the spec's limits about as often in both runs. The gap came from
-the reply around the body: every plugin-loaded reply added process notes that were not asked for in
-the prompt, such as the lint not running or a delta-log entry, and 7 of 9 of those notes had a
-spaced em dash, which fails the regex grader for the whole reply.
-
-Later on 2026-09-13, `ghostwrite` was changed to hand over the body and at most one line after it.
-The form and facts judges were also told that notes around the body are not part of it, and the facts
-judge now fails a run only when it can state a missing fact or quote an added claim. With three runs
-per case, the plugin and no plugin both scored 0.91, a gap of 0.00. No plugin-loaded reply had a
-spaced dash, rewrite notes, or a delta-log entry. Each one ended with a one-line note that the lint
-did not run, which is expected, since no shell is granted in the cases. Both arms scored 1.00 on the
-pruner PR. On the report PR the plugin scored 0.11 higher: all three bodies without the plugin
-failed the facts judge, and two of them were missing the fact that `showOutsideRange` is on by
-default. On the issue the plugin scored 0.11 lower: all three plugin-loaded bodies failed form, and
-two of them had a sentence of prose after the fenced exhibits, which is not allowed under the spec's
-issue limit.
-
-Later on 2026-09-13, `ghostwrite` was changed to check the end of a body against the genre's form,
-so a fact left after the exhibits goes in a one-fact bullet. With three runs per case, the plugin
-scored 0.94 on average and no plugin scored 0.87, a gap of +0.07. On the pruner PR the plugin scored
-1.00 and no plugin 0.78, with two replies without the plugin failing on a spaced dash in a closing
-note. On the report PR the plugin scored 0.94 and no plugin 0.89. On the issue the plugin scored
-0.89 and no plugin 0.94. In two plugin-loaded bodies the version was moved into a bullet, and both
-still failed form with three FAIL votes each. Given the same body and criteria by hand, the same
-judge model passed both, so the remaining issue gap is most likely judge variance rather than a
-closing sentence of prose. In the third plugin-loaded body "Seen on tally 0.9.0." was still on its
-own line after the bullets, and that body passed form.
+On 2026-09-13, with three runs per case, the plugin first scored 0.28 lower than no plugin on
+average. Every plugin-loaded reply added process notes around the body, and most of those had a
+spaced em dash, which fails the regex grader for the whole reply. `ghostwrite` was changed that day
+to hand over the body and at most one line after it, and to check the end of a body against the
+genre's form. After both changes the plugin scored 0.94 and no plugin 0.87, a gap of +0.07.
 
 With `--judge-model sonnet` the judge is Sonnet 5.5 from Claude Code 2.1.289 on, so the scores above
-are not comparable with a later run. On 2026-10-05, with four runs per case, the plugin scored 0.97
+are not comparable with the ones below. On 2026-10-05, with four runs per case, the plugin scored 0.97
 on average and no plugin 0.92, a gap of +0.06. Every plugin-loaded body passed form, but two on the
 report PR failed the facts judge. One run without the plugin ended on an API error and is in its
 average. A second run that day, after the skills were reworded, scored 0.99 with the plugin and 1.00
@@ -127,12 +104,12 @@ On 2026-10-08, with four runs per case, the plugin scored 1.00 on average and no
 body with a report constraint was +0.04. The issue body and `pr-body-in-voice` had no gap, and
 `pr-body-in-voice` had none on 2026-10-05 either.
 
-Later on 2026-10-08 the facts in `pr-body-in-voice`, the pruner PR, were rewritten with a spaced
-dash, a "whose" after a file, and two personified subjects. With four runs, every body passed every
-check with and without the plugin: the prohibitions in the fixture spec are read in both runs, and
-they were enough to keep the tells out. The case was removed, which leaves three.
+`pr-body-in-voice` was removed later that day, which leaves three cases. With a spaced dash, a
+"whose" after a file, and two personified subjects written into its facts, every body still passed
+every check with and without the plugin: the prohibitions in the fixture spec are read in both
+runs.
 
-The suite ran in 272 seconds with `-j 4` and 1,047 seconds without it, for the same 32 runs, and the
+With four cases, the suite ran in 272 seconds with `-j 4` and 1,047 seconds without it, and the
 scores differed by 0.01.
 
 ## Works with `writing-conventions`

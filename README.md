@@ -74,7 +74,9 @@ invoked.
 - [`graders.test.mjs`](graders.test.mjs): each regex grader in an eval suite, against one text it
   has to match and one it must not. A regex grader with no texts fails.
 - For each plugin changed since `origin/main`, a `version` in `.claude-plugin/marketplace.json` that
-  differs from the one on `origin/main`. A change to only evals or tests needs no new version.
+  differs from the one on `origin/main`. An installed session reads a cache keyed by version, so
+  it keeps the old copy of a plugin until the version changes. One new version is enough for every
+  commit waiting to be pushed, and no new version is needed for a change to only evals or tests.
 
 The same script runs in GitHub Actions on Linux and Windows for each push and pull request
 ([`test.yml`](.github/workflows/test.yml)). A pass on Windows does not replace a live run there: the
