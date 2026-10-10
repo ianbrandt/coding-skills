@@ -77,8 +77,9 @@ invoked.
   differs from the one on `origin/main`. A change to only evals or tests needs no new version.
 
 The same script runs in GitHub Actions on Linux and Windows for each push and pull request
-([`test.yml`](.github/workflows/test.yml)). A pass on Windows does not replace the checks in
-[`TODO.md`](TODO.md): the unit tests run against mocked file and git calls.
+([`test.yml`](.github/workflows/test.yml)). A pass on Windows does not replace a live run there: the
+unit tests run against mocked file and git calls. Checks that need another machine are listed in
+[`TODO.md`](TODO.md).
 
 The eval suites call a model and cost money. Each is run from its plugin's directory, with the
 command in that plugin's README.
