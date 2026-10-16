@@ -71,46 +71,19 @@ claude plugin eval . --scaffold --runs 4 --judge-model sonnet --no-publish -j 4
 ```
 
 No shell is granted in the cases and `writing-conventions` is not loaded, so the lint step in
-`ghostwrite` does not run. The rewrite is skipped for the short PR and issue bodies, where a
-subagent ran in 1 of 24 plugin-loaded runs on 2026-10-05. Only the README section is longer than
-five sentences, and a run of that case with no subagent call fails a scored check. Every prompt is
-a single turn, and on those the default register is already clean: every arm, including no plugin,
-passes personification on nearly every run. Results are written under `evals/results/`, which is
-ignored.
+`ghostwrite` does not run. Only the README section is longer than five sentences, so the subagent
+rewrite runs only in that case, and a run of it with no subagent call fails a scored check. On a
+single-turn prompt the default register is already clean, so every arm, including no plugin, passes
+personification on nearly every run. Results are written under `evals/results/`, which is ignored.
 
-On 2026-09-13, with three runs per case, the plugin first scored 0.28 lower than no plugin on
-average. Every plugin-loaded reply added process notes around the body, and most of those had a
-spaced em dash, which fails the regex grader for the whole reply. `ghostwrite` was changed that day
-to hand over the body and at most one line after it, and to check the end of a body against the
-genre's form. After both changes the plugin scored 0.94 and no plugin 0.87, a gap of +0.07.
+`ghostwrite` hands over the body and at most one line after it. When process notes were added around
+each body, most with a spaced em dash, the plugin scored 0.28 below no plugin.
 
-With `--judge-model sonnet` the judge is Sonnet 5.5 from Claude Code 2.1.289 on, so the scores above
-are not comparable with the ones below. On 2026-10-05, with four runs per case, the plugin scored 0.97
-on average and no plugin 0.92, a gap of +0.06. Every plugin-loaded body passed form, but two on the
-report PR failed the facts judge. One run without the plugin ended on an API error and is in its
-average. A second run that day, after the skills were reworded, scored 0.99 with the plugin and 1.00
-without, a gap of -0.01, so no difference between the two was measured.
-
-On 2026-10-07 the README-section case was added, with a limit and a sample for docs in the fixture
-spec, and the Procedure section was removed from that spec. With four runs per case, the plugin
-scored 0.99 on average and no plugin 0.93, a gap of +0.06. On the new case the plugin scored 1.00
-and no plugin 0.82. A subagent rewrote the draft in all 4 runs with the plugin and in none without,
-which is one check of seven, and one body without the plugin failed the facts judge. With the
-Procedure section still in the spec, a subagent rewrote the draft in every run of that case, with
-and without the plugin.
-
-On 2026-10-08, with four runs per case, the plugin scored 1.00 on average and no plugin 0.95, a gap of
-+0.05. Most of it was the README-section case (+0.18, five failed checks without the plugin). The PR
-body with a report constraint was +0.04. The issue body and `pr-body-in-voice` had no gap, and
-`pr-body-in-voice` had none on 2026-10-05 either.
-
-`pr-body-in-voice` was removed later that day, which leaves three cases. With a spaced dash, a
-"whose" after a file, and two personified subjects written into its facts, every body still passed
-every check with and without the plugin: the prohibitions in the fixture spec are read in both
-runs.
-
-With four cases, the suite ran in 272 seconds with `-j 4` and 1,047 seconds without it, and the
-scores differed by 0.01.
+In the latest run, on 2026-10-08 with four runs per case, the plugin scored 1.00 and no plugin 0.95.
+Most of the gap was on the README-section case (+0.18), the PR body with a report constraint was
++0.04, and the issue body had no gap. A PR body case with spaced dashes and personified subjects in
+its facts was removed that day, since every body passed every check with and without the plugin: the prohibitions in the
+fixture spec are read in both runs.
 
 ## Works with `writing-conventions`
 
