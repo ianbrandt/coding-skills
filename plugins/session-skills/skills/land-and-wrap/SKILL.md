@@ -12,8 +12,8 @@ description: >-
   release any lease, stop stray background tasks, leave a resume record. Trigger
   when work is committed and ready to leave its branch, and at the end of any
   session that opened a worktree. NOT for how a wrap-up should read (that's
-  write-for-the-reader), and NOT for getting into the worktree in the first
-  place (that's work-in-worktree).
+  the writing-conventions rules), and NOT for getting into the worktree in the
+  first place (that's work-in-worktree).
 ---
 
 # Land and wrap
@@ -245,5 +245,8 @@ The rest, in order:
   specify—they load at every session start, so the rule is already in context. Only a title given
   earlier in this session that still fits is left alone.
 
-How the wrap-up reads is covered in `write-for-the-reader`, where it is installed: what to include,
-what the reader can already see, and why open items go as instructions rather than prose.
+How the wrap-up reads is covered by the always-on rules of `writing-conventions`, where it is
+installed. Open items and next steps go as a bulleted list of instructions, each with the action,
+where it happens, and what it waits on, and decisions for the user are kept apart from the steps
+that follow. Where one command does the work, give that command in a fenced block rather than the
+mechanics behind it.
