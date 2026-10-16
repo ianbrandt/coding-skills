@@ -243,6 +243,13 @@ test('open_worktree opens from a local default branch that is ahead, and links t
   expect(text).toContain('worktree: /repo/.claude/worktrees/r78-parser-cache\nbranch: claude/r78-parser-cache\nopened from: main\n')
 })
 
+test('open_worktree takes a Jira-style ID with a hyphen', async ($: any, on: any) => {
+  const calls = world(on, held, undefined, [])
+  expect((await call($, 'open_worktree', { name: 'parser-cache', id: 'ABC-123' })).result).toContain('branch: claude/abc-123-parser-cache\n')
+  expect(calls).toContain('worktree add --no-track /repo/.claude/worktrees/abc-123-parser-cache -b claude/abc-123-parser-cache refs/heads/main')
+  for (const id of ['-ABC', 'ABC-', 'ABC--1', '..']) expect((await call($, 'open_worktree', { name: 'a-b', id })).isError).toBe(true)
+})
+
 test('open_worktree suffixes a name that a directory or a branch already has', async ($: any, on: any) => {
   const calls = world(on, line => (line === 'show-ref --verify --quiet refs/heads/claude/a-b-2' ? undefined : held(line)), undefined, ['/repo/.claude/worktrees/a-b'])
   expect((await call($, 'open_worktree', { name: 'a-b' })).result).toContain('branch: claude/a-b-3\n')

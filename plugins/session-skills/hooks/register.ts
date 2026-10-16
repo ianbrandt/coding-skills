@@ -17,7 +17,7 @@ const TOOLS = {
       type: 'object',
       properties: {
         name: { type: 'string', description: 'A short descriptive slug for the work, lowercase words joined by hyphens, such as parser-cache. Never a generic activity word such as roadmap-lap.' },
-        id: { type: 'string', description: "The work's backlog ID, such as R78, prefixed to the name. Omit where the work has none." },
+        id: { type: 'string', description: "The work's backlog ID, such as R78 or ABC-123, prefixed to the name. Omit where the work has none." },
         notes: { type: 'string', description: "The repo's local-only notes directory at its root. Defaults to notes.local." },
       },
       required: ['name'],
@@ -198,7 +198,7 @@ async function openWorktree($: any, e: any): Promise<string> {
   const slug = String(e.name ?? '')
   const id = String(e.id ?? '')
   if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(slug)) throw new Error(`name ${JSON.stringify(slug)} is not lowercase words joined by hyphens`)
-  if (id && !/^[A-Za-z0-9.]+$/.test(id)) throw new Error(`id ${JSON.stringify(id)} is not a backlog ID such as R78`)
+  if (id && !/^[A-Za-z0-9]+([.-][A-Za-z0-9]+)*$/.test(id)) throw new Error(`id ${JSON.stringify(id)} is not a backlog ID such as R78 or ABC-123`)
   const notes = String(e.notes ?? 'notes.local')
   if (!/^[A-Za-z0-9._-]+$/.test(notes) || /^\.\.?$/.test(notes)) throw new Error(`notes ${JSON.stringify(notes)} is not the name of a directory at the repo root`)
   const { main, def, base, baseRef, warnings } = await locate($)

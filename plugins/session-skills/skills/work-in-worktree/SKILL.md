@@ -106,7 +106,7 @@ of them means the work is already in flight, and its existing worktree is *your*
    durable in-flight record, and it outlives every session that touched it.
 2. **An existing worktree or branch named for it** (§1's worktree list), with commits the
    default branch doesn't have. A worktree directory starting with the work's backlog ID and a
-   hyphen counts (`r78-` for R78, §3), whatever its branch is named.
+   hyphen counts (`r78-` for R78, `abc-123-` for ABC-123, §3), whatever its branch is named.
 3. **A live lease on it**, where the repo runs a concurrency plugin (§0's lease seam)—how to read
    the ledger is in that plugin; consult it now, before deciding. A lease with a worktree that still
    exists catches only a session that died mid-flight.
@@ -133,7 +133,8 @@ it for this session: that directory is `$WT`, and nothing is opened. In the prim
 - `name`: a short descriptive slug for this work, two to four lowercase words (`parser-cache`,
   `retitle-trigger`). NOT a generic activity word like `roadmap-lap`, which every session picks, so
   siblings collide and the user learns nothing from the name.
-- `id`: §0's backlog ID where the work has one (`R78`), for §2's tell 2. Omit it otherwise.
+- `id`: §0's backlog ID where the work has one (`R78`, or a Jira key such as `ABC-123`), for §2's
+  tell 2. Omit it otherwise.
 - `notes`: the repo's local-only notes directory, where it is not named `notes.local`.
 
 The tool fetches, takes `$BASE` by §1's rule, and opens `$MAIN/.claude/worktrees/<id>-<name>` on a new
