@@ -35,9 +35,9 @@ test('a ref is read from the line with its name, and no such line is a ref that 
   expect(refLine('refs/heads/main \nrefs/heads/main/topic \n', 'refs/heads/main')).toEqual({ symref: '' })
 })
 
-test('a worktree is named for its backlog ID, lowercased, then its pair', () => {
-  expect(worktreeName('sage-heron', 'R78')).toBe('r78-sage-heron')
-  expect(worktreeName('sage-heron')).toBe('sage-heron')
+test('a worktree is named for its backlog ID, lowercased, then its slug', () => {
+  expect(worktreeName('parser-cache', 'R78')).toBe('r78-parser-cache')
+  expect(worktreeName('parser-cache')).toBe('parser-cache')
 })
 
 // A primary checkout at /repo. `git` answers a command, given without its
@@ -237,10 +237,10 @@ test('the default branch is the one a dangling origin/HEAD points at, and nothin
 
 test('open_worktree opens from a local default branch that is ahead, and links the notes directory', async ($: any, on: any) => {
   const calls = world(on, held, line => (line.startsWith('ln -s') ? '' : undefined), ['/repo/notes.local'])
-  const text = (await call($, 'open_worktree', { name: 'sage-heron', id: 'R78' })).result
-  expect(calls.indexOf(FETCH)).toBeLessThan(calls.indexOf('worktree add --no-track /repo/.claude/worktrees/r78-sage-heron -b claude/r78-sage-heron refs/heads/main'))
-  expect(calls).toContain('ln -s /repo/notes.local /repo/.claude/worktrees/r78-sage-heron/notes.local')
-  expect(text).toContain('worktree: /repo/.claude/worktrees/r78-sage-heron\nbranch: claude/r78-sage-heron\nopened from: main\n')
+  const text = (await call($, 'open_worktree', { name: 'parser-cache', id: 'R78' })).result
+  expect(calls.indexOf(FETCH)).toBeLessThan(calls.indexOf('worktree add --no-track /repo/.claude/worktrees/r78-parser-cache -b claude/r78-parser-cache refs/heads/main'))
+  expect(calls).toContain('ln -s /repo/notes.local /repo/.claude/worktrees/r78-parser-cache/notes.local')
+  expect(text).toContain('worktree: /repo/.claude/worktrees/r78-parser-cache\nbranch: claude/r78-parser-cache\nopened from: main\n')
 })
 
 test('open_worktree suffixes a name that a directory or a branch already has', async ($: any, on: any) => {
@@ -249,7 +249,7 @@ test('open_worktree suffixes a name that a directory or a branch already has', a
   expect(calls).toContain('worktree add --no-track /repo/.claude/worktrees/a-b-3 -b claude/a-b-3 refs/heads/main')
 })
 
-test('open_worktree refuses a name that is not a hyphenated pair, and reports a notes directory it could not link', async ($: any, on: any) => {
+test('open_worktree refuses a name that is not lowercase words joined by hyphens, and reports a notes directory it could not link', async ($: any, on: any) => {
   const calls = world(on, held, undefined, ['/repo/notes.local'])
   for (const input of [{ name: 'Roadmap Lap' }, { name: '../x' }, { name: 'a-b', id: 'R1/..' }, { name: 'a-b', notes: '../etc' }]) {
     expect((await call($, 'open_worktree', input)).isError).toBe(true)

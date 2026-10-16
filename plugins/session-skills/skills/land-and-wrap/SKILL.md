@@ -122,7 +122,7 @@ runbook), otherwise land by the mode from §1.
 
 1. **Check the branch name.** It becomes the PR head and stays on the host, so it should have
    been named for its destination when the worktree opened (`work-in-worktree` §3). If it still
-   has a generated name, ask the user for one, rename it, and update the lease and any backlog pin
+   has its `claude/` name, ask the user for one, rename it, and update the lease and any backlog pin
    that records the old name.
 2. **Rebase onto the remote default branch**—`git -C "$WT" fetch -q && git -C "$WT" rebase
    "origin/$DEFAULT"`, as two calls in Windows PowerShell 5.1, which rejects `&&`. The PR is

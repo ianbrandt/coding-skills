@@ -130,8 +130,9 @@ Where §1's session directory is already a worktree other than the primary check
 it for this session: that directory is `$WT`, and nothing is opened. In the primary checkout, call
 `mcp__session-skills__open_worktree` now, and never edit under `$MAIN`:
 
-- `name`: an arbitrary pair (color-animal, `sage-heron`), NOT activity words like `roadmap-lap`.
-  Every session picks those, and siblings collide.
+- `name`: a short descriptive slug for this work, two to four lowercase words (`parser-cache`,
+  `retitle-trigger`). NOT a generic activity word like `roadmap-lap`, which every session picks, so
+  siblings collide and the user learns nothing from the name.
 - `id`: §0's backlog ID where the work has one (`R78`), for §2's tell 2. Omit it otherwise.
 - `notes`: the repo's local-only notes directory, where it is not named `notes.local`.
 
@@ -145,21 +146,20 @@ checked against it by `git branch -d`, so while a public push is held, a branch 
 the local default branch is refused and §4's reap leaves it behind. `git push -u` sets an upstream
 once the branch is pushed, and §4's gone-upstream check covers it from then on.
 
-**Prefix the name with the work's backlog ID** where it has one, keeping the generated pair as the
-suffix. In `pr` mode the branch is renamed, and where the backlog record is a tracked file the work
+**Prefix the name with the work's backlog ID** where it has one, keeping the slug as the suffix. In `pr` mode the branch is renamed, and where the backlog record is a tracked file the work
 stays open with no pin until its PR merges, so while the PR is open the ID appears only in the
 worktree directory, for §2's tell 2.
 
 **Name the branch for its destination when the work lands as a pull request**: on a fork, or in a
 repo whose landing mode is `pr` (`land-and-wrap` §1). A pushed branch becomes a pull request's head,
-and a PR head name is permanent and visible to everyone who reviews it. Rename the generated name
+and a PR head name is permanent and visible to everyone who reviews it. Rename the `claude/` branch
 to the target project's convention now, before anything records it—`git -C "$WT" branch -m
 add-jvm-target-flag`. Absent a stated convention, a short descriptive slug. **The name
 chosen then is final**: filing an issue afterwards is not a reason to renumber it to
 `fix-issue-<N>`, which desyncs the branch from its worktree directory and from anything else that
 recorded the name.
-In `merge` mode the generated name is fine, since the name never leaves this machine. A
-renamed branch escapes §4's merged-branch reap. Once pushed, it is deleted by §4's gone-upstream
+In `merge` mode the `claude/` branch name is fine, since the name never leaves this machine. A
+renamed branch is not removed by §4's merged-branch reap. Once pushed, it is deleted by §4's gone-upstream
 check after its PR merges. A held fork branch is never pushed, so it stays until the user removes it.
 
 **Translate every context-supplied `<repo-root>/…` path to `$WT/…`** before any file read or edit.

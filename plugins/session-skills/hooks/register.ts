@@ -16,7 +16,7 @@ const TOOLS = {
     inputSchema: {
       type: 'object',
       properties: {
-        name: { type: 'string', description: 'An arbitrary lowercase pair such as sage-heron, never activity words.' },
+        name: { type: 'string', description: 'A short descriptive slug for the work, lowercase words joined by hyphens, such as parser-cache. Never a generic activity word such as roadmap-lap.' },
         id: { type: 'string', description: "The work's backlog ID, such as R78, prefixed to the name. Omit where the work has none." },
         notes: { type: 'string', description: "The repo's local-only notes directory at its root. Defaults to notes.local." },
       },
@@ -195,15 +195,15 @@ async function link($: any, target: string, at: string): Promise<Ran> {
 }
 
 async function openWorktree($: any, e: any): Promise<string> {
-  const pair = String(e.name ?? '')
+  const slug = String(e.name ?? '')
   const id = String(e.id ?? '')
-  if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(pair)) throw new Error(`name ${JSON.stringify(pair)} is not lowercase words joined by hyphens`)
+  if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(slug)) throw new Error(`name ${JSON.stringify(slug)} is not lowercase words joined by hyphens`)
   if (id && !/^[A-Za-z0-9.]+$/.test(id)) throw new Error(`id ${JSON.stringify(id)} is not a backlog ID such as R78`)
   const notes = String(e.notes ?? 'notes.local')
   if (!/^[A-Za-z0-9._-]+$/.test(notes) || /^\.\.?$/.test(notes)) throw new Error(`notes ${JSON.stringify(notes)} is not the name of a directory at the repo root`)
   const { main, def, base, baseRef, warnings } = await locate($)
   const root = `${main}/.claude/worktrees`
-  const wanted = worktreeName(pair, id)
+  const wanted = worktreeName(slug, id)
   let name = wanted
   for (let n = 2; (await $.fs.exists(`${root}/${name}`)) || (await ok(git($, main, 'show-ref', '--verify', '--quiet', `refs/heads/claude/${name}`))); n++) name = `${wanted}-${n}`
   const path = `${root}/${name}`
