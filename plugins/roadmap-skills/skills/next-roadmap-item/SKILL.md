@@ -181,10 +181,9 @@ As soon as the claim lands and any tiebreaker re-pick settles, **title the sessi
 this session sets its title.
 
 The title is always the claimed item's `Rn` ID, a colon, then a short noun phrase for the
-deliverable, **spelled out with no abbreviations**—`R1: aggregation core`, never the phrase alone and
-never the ID alone. A sub-item keeps its own `Rn.m`. The title stays for the rest of the session
-unless the work turned out to be something else.
-
+deliverable, starting with a capital letter and **spelled out with no abbreviations**—`R1: Aggregation
+core`, never the phrase alone and never the ID alone. A sub-item keeps its own `Rn.m`. The title
+stays for the rest of the session unless the work turned out to be something else.
 ## 5. Emit the tier plan—never pause
 
 Model and effort are the **user's controls**: **start building immediately, no pause, no

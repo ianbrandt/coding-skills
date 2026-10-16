@@ -109,7 +109,7 @@ apply—**give the session one title at the end of the run**, the way `session-s
 specify. Those rules load at session start and state the one way this session sets its title.
 
 The title is always the literal prefix `Execute Roadmap: `, then a short phrase summarizing the items
-that landed, **spelled out with no abbreviations**—`Execute Roadmap: claim ledger and
+that landed, **spelled out with no abbreviations**—`Execute Roadmap: Claim ledger and
 worktree prune`. Summarize what the run did, not how many items it took: state the two or three that
 account for most of the run, and where the items share a theme, state the theme instead. Items
 flagged or retried without landing don't enter the title.
