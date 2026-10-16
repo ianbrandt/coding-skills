@@ -25,6 +25,11 @@ the same names with a `.local.md` suffix, which is both the never-commit signal
 and what keeps a shadow roadmap from colliding with an upstream project's real
 `ROADMAP.md`. (`docs/roadmap.md` is honored as a legacy location.)
 
+An item's probe scripts and run output go in a directory named for its ID, such
+as `notes.local/R12/`. When the item lands, its findings are moved into the
+design doc or the done-record and the directory is deleted, so only notes for
+work still open or parked are left.
+
 Where the plan lives is a separate question from how finished work lands. To
 land it, `land-and-wrap` checks whether the repo is a fork, whether its default
 branch is protected, whether its origin is public, and any `git config` override

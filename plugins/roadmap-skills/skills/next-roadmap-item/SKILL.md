@@ -245,6 +245,13 @@ at its end. Two things it defers back to this skill:
 
 - **Bring the docs.** Finishing an item includes every piece of documentation it touches—the
   subsystem's design doc plus any user-facing surface.
+- **Keep an item's notes in one directory, and clear it out when the item lands.** Probe scripts,
+  run output, plan revisions, and review rounds for an item go in a directory named for its ID in
+  the repo's local-only notes directory, such as `notes.local/R12/`, written in the primary
+  checkout as described in `work-in-worktree` §3. When the item lands, move each finding a later
+  session needs into the design doc or the done-record, move a harness a later item will run again
+  into the repo beside what it checks, and delete the directory. Keep the notes of a parked item,
+  and any directory named in the text of an open or parked item.
 - **Record the item done, forward-only.** On a tracked roadmap, **delete** the landed item in its
   own final commit; never migrate it to a done-list, never annotate it "landed". On a local-only
   roadmap, delete it too and **append a done-record to `$HISTORY`**, which is a *reasoning
