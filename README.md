@@ -76,7 +76,8 @@ invoked.
 - For each plugin changed since `origin/main`, a `version` in `.claude-plugin/marketplace.json` that
   differs from the one on `origin/main`. An installed session reads a cache keyed by version, so
   it keeps the old copy of a plugin until the version changes. One new version is enough for every
-  commit waiting to be pushed, and no new version is needed for a change to only evals or tests.
+  commit waiting to be pushed, and no new version is needed for a change to only evals, tests, or
+  a plugin's `README.md` or `DESIGN.md`.
 
 The same script runs in GitHub Actions on Linux and Windows for each push and pull request
 ([`test.yml`](.github/workflows/test.yml)). A pass on Windows does not replace a live run there: the

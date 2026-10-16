@@ -25,7 +25,8 @@ else
   failed=1
 fi
 
-# Evals and tests are not loaded in a session that installs the plugin, so they need no new version.
+# Evals, tests, README.md, and DESIGN.md are not loaded in a session that installs the plugin, so
+# they need no new version.
 versions() {
   node -e 'for (const p of JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).plugins) console.log(p.name, p.version)' "$1"
 }
@@ -37,7 +38,8 @@ if ! why=$(MSYS_NO_PATHCONV=1 git show origin/main:.claude-plugin/marketplace.js
   echo "skip  versions: $why"
 elif base=$(versions "$old"); then
   while read -r name version; do
-    MSYS_NO_PATHCONV=1 git diff --quiet origin/main -- "plugins/$name" ":(exclude)plugins/$name/evals" ":(exclude)plugins/$name/hooks/*.test.ts" && continue
+    MSYS_NO_PATHCONV=1 git diff --quiet origin/main -- "plugins/$name" ":(exclude)plugins/$name/evals" ":(exclude)plugins/$name/hooks/*.test.ts" \
+      ":(exclude)plugins/$name/README.md" ":(exclude)plugins/$name/DESIGN.md" && continue
     if printf '%s\n' "$base" | grep -qxF "$name $version"; then
       echo "FAIL  plugins/$name differs from origin/main and its version is still $version"
       stale=1
