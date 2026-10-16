@@ -9,17 +9,11 @@ correction became a rule.
 ## What loads every session
 
 The hooks module adds [`hooks/rules.md`](hooks/rules.md) to every session at its start, including
-after `/clear`, compaction, and a fork, and to every subagent as it starts, since a subagent's report is what a later summary is built from. The file is eleven named
-anti-patterns, several with drafted-to-accepted pairs: inanimate agency, mechanics (spaced
-em dashes, the Oxford comma, and consistent units), a banned-vocabulary list, epigrams, paired
-contrasts, and matched clauses, narration, sentence order, coinages, writing for a reader who has
-read nothing since their last message, saying a fact once, evidence, and erring short. Three
-standing rules follow: a rule broken in a draft is swept across the branch, the user's private
-circumstances stay out of public artifacts, and a draft for publication goes in a fenced block with
-the info string `draft`, which is what the `Stop` check below looks for. The file is about 1,350
-words, so it costs roughly 1,800 tokens per session and per subagent, against about 1,900 words for
-the long form; the reasoning behind each rule, and its edge cases, sit in `write-for-the-reader` §8
-and load only when that skill does.
+after `/clear`, compaction, and a fork, and to every subagent as it starts, since a subagent's
+report is what a later summary is built from. The reasoning behind each rule, and its edge cases,
+are in `write-for-the-reader` §8, which is loaded only with that skill. A draft for publication goes in
+a fence tagged `draft` under the last rule in `rules.md`, and the `Stop` check below looks for that
+tag.
 
 Prohibitions apply everywhere, `SKILL.md` files included, because they are about precision rather
 than register. Form rules—bold, redundancy, length, and the reader-facing voice—do not apply to
@@ -31,7 +25,7 @@ On `UserPromptSubmit` the next turn opens with those hits and a one-line reminde
 note is cleared. After a `Write` or an `Edit`, the session is asked to re-read the file just written
 when it is prose, or is a source file with comments and test names in it (`.md`, `.markdown`,
 `.txt`, `.kt`, `.kts`, `.java`, `.groovy`, in any letter case). The lint itself is `lint()` in
-[`hooks/lint.ts`](hooks/lint.ts), a pure function over text, checked on 102 cases in
+[`hooks/lint.ts`](hooks/lint.ts), a pure function over text, tested in
 [`hooks/lint.test.ts`](hooks/lint.test.ts). The module also registers it as a tool,
 `mcp__writing-conventions__lint`, which the `ghostwrite` skill calls on a draft.
 
@@ -96,16 +90,10 @@ because `hooks.json` may list only one module.
 Everything runs in the plugin's hooks module, [`hooks/register.ts`](hooks/register.ts), so a
 Windows session runs the same code as any other and no shell is involved.
 
-2.1.286 is the first CLI where hooks modules are on by default. They are listed in the Claude Code
-changelog as Mods from 2.1.287. The gate, the lint tool, the re-read request after a written file,
-the rules for subagents, the dash rewrite, and the lint note on the next turn were each checked in a
-live session on 2.1.286 through 2.1.291. Hooks modules are in 2.1.285 and older as well, but they
-are off there unless `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1` is set, and the module was not checked on
-those versions. On an older CLI with that variable set, the rules still load at session start, but
-the lint, the dash rewrite, the gate, and the rules for subagents are off, and the user is told once
-in a toast. Where function hooks are switched off nothing in this plugin runs, the session-start
-rules included, and there is no toast: `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1` in the environment
-turns them on, and `claude --debug` logs a module that did not load.
+Hooks modules are on by default from CLI 2.1.286 (listed as Mods in the Claude Code changelog from
+2.1.287). On an older CLI with `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1` set, only the session-start
+rules load, and the user is told once in a toast that the rest is off. Without that variable nothing
+loads and there is no toast. `claude --debug` logs a module that did not load.
 
 ## The gate at publication
 
@@ -146,52 +134,21 @@ there is sent to the API verbatim, a proxy answers HTTP 400
 `query_source: hook_prompt`. Since that field is a free-form string checked at call time rather than
 at load time, the only symptom was a hook error on every commit, and the check never ran.
 
-Sonnet is the default because Claude Code's default for a check like this is Haiku, which denied 10
-of 24 checks on a dozen clean commit messages and then rejected the rewrites it had suggested, so a
-session could not commit at all. Sonnet 5 allowed 23 of those 24, and both models denied all 16
-checks on planted violations. Sonnet 5.5, which the alias resolves to on CLI 2.1.289, had the same
-two counts on 2026-10-05, and over five runs it allowed 57 of 60 and denied 40 of 40.
+Sonnet is the default because Haiku, Claude Code's default for a check like this, denied 10 of 24
+checks on a dozen clean commit messages and then rejected its own suggested rewrites, so a session
+could not commit at all. Haiku 5.5 later matched Sonnet 5.5 on that set, but on a larger one of 35
+texts with an inanimate-agency violation it denied 58 of 70 checks where Sonnet 5.5 denied 66, it
+was no faster, and 9 of its 190 calls ended with no reply. On Sonnet 5.5, five runs on the original
+set allowed 57 of 60 clean checks and denied 40 of 40 planted ones.
 
-Haiku 5.5 had the same two counts as Sonnet 5.5 on 2026-10-07, but Sonnet is still the default. On
-a larger set of 35 texts with an inanimate-agency violation and 60 clean ones, each checked twice,
-Haiku 5.5 denied 58 of the 70 where Sonnet 5.5 denied 66, and it was no faster. At its default
-effort, 9 of its 190 calls ended with no reply, and a check with no reply is skipped.
-
-Matched clauses were checked on 2026-10-06, on the `sonnet` alias with CLI 2.1.291. Four planted
-commit messages, each with two unrelated facts in matched clauses, were denied on 17 of 18 runs, and
-on none of 4 runs before the rule was added. On sixteen commit messages from this repo's history,
-each with a sentence of two similar-length clauses joined by "and", a matched-clause finding was
-returned on 1 of 40 runs.
-
-A 265-character comment draft that was corrected after the gate had read it was replayed on
-2026-10-06, on the `sonnet` alias with CLI 2.1.292. It was answered with `SKIP` on 9 of 10 runs, and
-again on 9 of 10 with a "The README says" sentence added to it. With the `SKIP` paragraph of the
-prompt reworded, the draft was read on 10 of 10 runs, and with the added sentence it was denied on
-10 of 10.
-
-A PR body draft was replayed the same way. Its sentence "A build that applies
-`io.github.ben-manes.versions` in its root build script still gets two copies of the plugin" was
-allowed on 8 of 10 runs, with "the build gets two copies" already quoted in item 1 of the prompt.
-With item 1 reworded, the draft was denied on 10 of 10 runs. On 60 posted texts that an earlier
-review found clean, a finding was kept on 34 of 120 checks, against 31 before the rewording. The
-only one that quoted a build as the subject was "a build that relies on that fallback gets the same
-report as before", in both runs. Five read-only commands were still answered with `SKIP`, on 4 of 4
-runs each.
-
-A second PR body draft was replayed on 2026-10-09, on the `sonnet` alias. Its sentences "A build
-creates the new reporter with", "a run that reports a problem ends with one more line", and "The
-last commit adds" were allowed on 10 of 10 runs, and the three commit messages behind it on 15 of
-15, because "gets", "keeps", and "refers to" were the only verbs listed in item 1 to flag after a
-build. That list is now a test: the subject is a build, a run, a project, a script, a
-class, a setting, an option, a commit, or a file, and the verb is an act that a person performs or
-chose in the code or the configuration. With it the draft was denied on 10 of 10 runs, and the text
-that was posted in its place was allowed on 10 of 10. Those sentences are quoted in the prompt, so
-ten more with verbs that are in neither prompt were checked three times each: 25 of 30 were denied,
-against 15 of 30 before, and ten sentences about a program at run time ("the task writes the
-report", "the build fails with") were allowed on 30 of 30 under both. "The second commit moves the
-helper into its own file" was allowed on all 3 runs. The cost is more findings on text an earlier
-review found clean: one was kept on 52 of 120 checks of the 60 posted texts, against 33 on the same
-day with the earlier wording.
+In item 1 of the gate prompt, agency is judged by a test rather than a verb list: the subject is a
+build, a run, a project, a script, a class, a setting, an option, a commit, or a file, and the verb
+is an act that a person performs or chose in the code or the configuration. With a verb list, a
+sentence got through whenever its verb was not on the list. With the test, 25 of 30 checks on sentences with unlisted verbs were
+denied, and sentences about a program at run time ("the task writes the report", "the build fails
+with") were allowed on 30 of 30. The cost is more findings on text an earlier review found clean: a
+finding was kept on 52 of 120 checks of 60 posted texts. Matched clauses are caught on 17 of 18
+planted commit messages and flagged on 1 of 40 checks of ordinary compound sentences.
 
 On Sonnet 5.5 the median call took 1.6 seconds on a planted commit message, 3.6 seconds on a clean
 one, and 5.9 seconds on the text of a PR, an issue, or a comment, and the longest of 317 calls took
@@ -220,8 +177,8 @@ are read like `git commit`, with no command name written in the plugin.
 `keys()` in [`hooks/keys.ts`](hooks/keys.ts) splits the command into
 keys: each simple command's first word, up to two subcommand candidates after it, and the words after
 each key in case it is a task runner. A substitution inside double quotes counts as a command, but
-single-quoted text and heredoc bodies do not. [`hooks/keys.test.ts`](hooks/keys.test.ts) checks it
-on 147 commands.
+single-quoted text and heredoc bodies do not. It is tested in
+[`hooks/keys.test.ts`](hooks/keys.test.ts).
 
 Each key has one of five classes: `NEVER`, `CAN_PUBLISH`, `DESCEND` when the answer depends on the
 subcommand (`git`, `hg`), `PROJECT` when the words after it are the project's task names (`make`,
@@ -364,19 +321,12 @@ blocked reply is re-emitted whole. The blocking is counted per turn, by the turn
 it stops after two; the third time, the user is told that review is unresolved, and the reply
 stands. `WRITING_CONVENTIONS_STOP_READER=0` turns this check off.
 
-Tagging keeps this check cheap. The tagging rate was measured before the check was built and again
-with the rule text that ships, at n = 12 per arm with `claude -p --model sonnet` and the draft
-mentioned only as a by-product of a coding task. With no rule, a drafting skill fired on 3 of 12
-runs, and of the 9 replies that included a draft, 6 were in a plain fence, 2 in a blockquote, and 1
-between `---` rules; a plain fence of 8 words or more also trips on 4 of 12 ordinary replies. With
-the rule text that ships, 8 of the 9 replies that included a draft tagged it, and 0 of 12 ordinary
-replies used the tag while 11 of them had some other fence. The miss gave review feedback as the
-body of the reply rather than as a block. On Sonnet 5.5, with the prompts of that second run on
-2026-10-05, a drafting skill fired on 2 of 12 runs with no rule, and of the 9 drafts 3 were in a
-plain fence and 6 in a blockquote. With the rule, 9 of the 10 replies that included a draft tagged
-it, with the same miss, and 0 of 12 ordinary replies used the tag while all 12 had another fence. A
-draft the session does not tag is not read by the model at all, and is checked by the reply lint
-alone.
+Tagging keeps this check cheap, since an untagged draft has no reliable form: without the rule,
+drafts came back in plain fences, blockquotes, and between `---` rules, and a plain fence of 8 words
+or more also showed up in 4 of 12 ordinary replies. On Sonnet 5.5, with the draft mentioned only as
+a by-product of a coding task, 9 of 10 replies that included a draft tagged it, and none of 12
+ordinary replies used the tag. The miss gave review feedback as the body of the reply rather than as
+a block. A draft the session does not tag is checked by the reply lint alone.
 
 The lint drops every closed fenced block before matching, so the `draft` fences are unwrapped
 first (`drafts()` in [`hooks/text.ts`](hooks/text.ts), the same scanner the `Stop` check uses), and
@@ -392,67 +342,36 @@ Adding a word to the banned list is a plugin release rather than a local edit, s
 
 ## Measuring it
 
-[`evals/`](evals/) is a `claude plugin eval` suite of thirteen drafting tasks built from the
-corrections that motivated this plugin: commit messages, PR bodies, an issue body, a maintainer
-comment, a README paragraph, KDoc, a changelog entry, Spock method names, a code comment, and a
-status reply. In each prompt the facts are stated the way a user would state them, without the rules.
-In nine of them (two PR bodies, a commit message, the issue body, the status reply, the maintainer
-comment, the README paragraph, the Spock method names, and the code comment) the facts are
-written with tells a session is likely to copy into a draft: a personified report or build, a spaced em
-dash, a banned word, or a "whose" after a file. A session often paraphrases source text, and with
-clean facts the scores with and without the plugin differed little. Each case has three free regex
-graders (spaced dashes, the banned words that have no literal sense, and a narrow personification
-pattern over present-tense verbs and a fixed noun list), a judge-model grader for personification,
-and where the genre calls for it, a judge grader for form. The second PR body case has a fourth
-regex grader, for a build, a project, or a script that gets, keeps, or refers to something. The form
-graders check only this plugin's rules: lead with the outcome, and no narration of how the change
-came about. The form judge for the maintainer comment fails a draft only for a sentence it can
-quote, like the personification judge. Sentence counts and heading limits are left to `ghostwrite`, since a limit stated in the
-prompt measures whether the model follows the prompt. The personification judge fails a draft only
-for a sentence it can quote. With the looser wording and the default Haiku judge, it failed 11 of 24
-runs both with and without the plugin loaded, and only one of the 11 flagged drafts had a real
-violation. Run the suite from the plugin directory:
+[`evals/`](evals/) is a `claude plugin eval` suite of drafting tasks built from the corrections that
+motivated this plugin: commit messages, PR bodies, an issue body, a maintainer comment, a README
+paragraph, KDoc, a changelog entry, Spock method names, a code comment, and a status reply. The facts
+in each prompt are stated the way a user would state them, without the rules, and most include tells
+a session is likely to copy into a draft: a personified report or build, a spaced em dash, a banned
+word, or a "whose" after a file. With clean facts, the scores with and without the plugin differed
+little, because the model's default register already passes.
+
+Each case has regex graders for spaced dashes, banned words, and a narrow personification pattern,
+plus a judge-model grader for personification and, where the genre calls for it, one for form. The
+form graders check only this plugin's rules: lead with the outcome, and no narration of how the
+change came about. Sentence counts and heading limits are left to `ghostwrite`. Both judges fail a
+draft only for a sentence they can quote: with looser wording, the personification judge failed 11
+of 24 runs with and without the plugin, and only one of the 11 drafts had a real violation.
+
+Run the suite from the plugin directory:
 
 ```bash
 claude plugin eval . --runs 2 --judge-model sonnet --no-publish -j 4
 ```
 
-The default two-arm run scores the same prompts with and without the plugin loaded and reports
-the difference. Every run costs a fraction of a dollar in judge and agent calls, so the suite is
-for a change to the rules file or the hooks, not for every commit. Results land under
-`evals/results/`, which is ignored.
+Each run scores the same prompts with and without the plugin loaded and reports the difference. A
+run costs a fraction of a dollar, so the suite is for a change to the rules file or the hooks, not
+for every commit. Results go under `evals/results/`, which is ignored. The `Stop` check is on during
+a run, so a plugin-loaded draft is scored after any rewrite, which is why `max_turns` is 8 in every
+case.
 
-The `Stop` check is on during a run, so a plugin-loaded draft is scored after any rewrite. Each
-rewrite takes a turn, which is why `max_turns` is 8 in every case.
-
-Before the prompts were seeded and the judge changed, the plugin raised the mean case score by
-0.06. After both changes, the gain was about 0.20, measured on 2026-09-13. Plugin-loaded drafts
-failed a regex grader on one run of 24 and the personification judge on 3. Tells copied from the
-facts still get through: in the PR body case, "the README told users" appeared in one of two
-plugin-loaded drafts, in each of two separate runs.
-
-With `--judge-model sonnet` the judge is Sonnet 5.5 from CLI 2.1.289 on, so a score from before
-that is not comparable with a later one. On 2026-10-05 the plugin scored 0.95 and no plugin 0.91, a
-gain of 0.04. Plugin-loaded drafts failed no regex grader, the personification judge on 2 runs of
-24, both in the same PR body case, and the form judge on 4. A second run that day, after `rules.md`
-and `write-for-the-reader` were reworded, scored 0.95 and 0.86, a gain of 0.09, with the same
-failures in the plugin-loaded drafts. The score without the plugin moved by 0.05 between two runs of
-the same prompts, so the gain from a single run is known only to within about that much.
-
-On 2026-10-08, with two runs per case, the plugin scored 0.95 and no plugin 0.90, a gain of 0.05. The
-gap by case ran from -0.10 to +0.30. Five cases had no gap in this run and none on 2026-10-05:
-`code-comment-guard`, `issue-body-platform-constraint`, `readme-precedence-paragraph`,
-`spec-method-names`, and, with the plugin scoring lower in both runs, `github-comment-heads-up`.
-Those cases score the same without the plugin, so they measure the default register, not the plugin.
-
-Later on 2026-10-08 the facts in those five prompts were rewritten with tells, and in the issue
-body, which had two already, with more. Run one case at a time with two runs each, the plugin
-scored 1.00 on four of them and 0.90 on the maintainer comment, and no plugin scored 0.70 to 0.88.
-A run of the whole suite followed: the plugin scored 0.94 and no plugin 0.83, a gain of 0.11. The
-gap was +0.50 on the issue body, +0.20 on the README paragraph, +0.12 on the Spock method names,
-and 0.00 on the code comment, where one draft without the plugin failed in four across the two
-runs. On the maintainer comment the plugin was still lower, 0.80 against 1.00, on the form judge
-alone. That judge passed and failed drafts with near-identical openings, with and without the
-plugin. After it was changed to fail only for a quoted sentence, two more runs of that case scored
-1.00 with the plugin, and 0.90 and 0.60 without. The KDoc and one PR body, which have no tells in their
-facts, also had no gap in the whole-suite run.
+The latest whole-suite run, on 2026-10-08, scored 0.94 with the plugin and 0.83 without. The score
+without the plugin moved by 0.05 between two runs of the same prompts, so a gain from a single run is
+known only to within about that much. Tells copied from the facts still get through: "the README told
+users" has appeared in plugin-loaded PR body drafts. A score from before CLI 2.1.289 is not
+comparable with a later one, because the judge for `--judge-model sonnet` changed to Sonnet 5.5
+there.
