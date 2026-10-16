@@ -85,7 +85,7 @@ unit tests run against mocked file and git calls. Checks that need another machi
 [`TODO.md`](TODO.md).
 
 The eval suites call a model and cost money. Each is run from its plugin's directory, with the
-command in that plugin's README.
+command in that plugin's README, or in `DESIGN.md` for `writing-conventions`.
 
 ## License
 
