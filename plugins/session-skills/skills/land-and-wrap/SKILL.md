@@ -147,6 +147,18 @@ runbook), otherwise land by the mode from §1.
    exits 1 the directory is not ignored yet, so append `/.claude/pr-drafts/` on a line of its own
    to `$MAIN/.git/info/exclude` with the same tool.
 
+**Post a body from a file, and diff it on the way out and on the way back.** Take the body out of a
+draft by its heading, never by a line range: `sed -n '/^## Body$/,$p' draft.md | tail -n +2`. An
+off-by-one range truncates the body silently, and `gh` prints a URL either way. Strip the final
+newline before posting (`printf '%s' "$(cat body.md)" > post.md`), since `--jq .body` appends one
+on the read-back and a body posted with its newline never diffs clean. Diff the file against the
+draft before posting, and the read-back against the file after.
+
+**Edit a body already on the host against its live text.** The user may have edited it there, so
+a local draft can be stale. Before `gh pr edit` or `gh issue edit`, fetch the current body with
+`gh pr view --json body --jq .body`, apply the change to that, and diff to confirm that only the
+intended part changed.
+
 The branch and worktree stay until the PR merges, since review fixes go on the same branch. A
 backlog record kept in a tracked file rides in the PR and merges with it. One kept outside the tree
 records the item as in review until the PR merges, so a declined PR leaves it open. Once the PR has
@@ -176,7 +188,12 @@ destination in `work-in-worktree` §3, before the first push. The steps below ar
    `NNN-comment-draft.md`, keyed by the upstream number once known and by the work's ID before
    then, in whatever local notes directory the repo keeps them in, or `.claude/pr-drafts/` where it
    has none (§2 `pr` step 6). **Filing an issue, opening a PR, and posting a comment
-   are the user's actions, never yours.**
+   are the user's actions, never yours.** For a bug fix, draft the issue first and the PR
+   with `Fixes #N` against it, so the problem is written up on its own and triaged before any
+   code review. Whether an issue is warranted at all is part of the user's review, since a
+   separate issue may be noise where the maintainer already knows the problem and the PR is itself
+   the proposal. Each fact goes in one place, so open questions are written in the PR and not
+   repeated in the issue.
 3. **Record it done** through the backlog plugin, in a form that shows how far the work got: built
    locally, drafted, filed, or merged upstream are different states to the person who has to sync
    it.
