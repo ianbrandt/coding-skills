@@ -3,8 +3,8 @@
 # Builds <dir>/repo, a scratch repo with a bare <dir>/origin.git and a two-item local-only roadmap.
 # With `resume`, also adds a worktree for R2 with half of the item committed.
 set -euo pipefail
-D=$1
-rm -rf "$D"; mkdir -p "$D/repo" "$D/voice"
+rm -rf "$1"; mkdir -p "$1/repo" "$1/voice"
+D=$(cd "$1" && pwd)
 cd "$D/repo"
 git init -q -b main
 git config user.name "Lap Tester"; git config user.email lap@example.invalid

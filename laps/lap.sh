@@ -6,7 +6,7 @@
 set -uo pipefail
 S=$(cd "$(dirname "$0")" && pwd)
 P=${LAP_PLUGINS:-$(cd "$S/../plugins" && pwd)}
-D=$2
+mkdir -p "$2"; D=$(cd "$2" && pwd)
 case $1 in
   first) "$S/setup.sh" "$D" > /dev/null; cwd=$D/repo; prompt='/roadmap-skills:next-roadmap-item R1' ;;
   resume) "$S/setup.sh" "$D" resume > /dev/null; cwd=$D/repo/.claude/worktrees/r2-plum-wren
