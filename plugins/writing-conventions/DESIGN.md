@@ -11,7 +11,7 @@ correction became a rule.
 The hooks module adds [`hooks/rules.md`](hooks/rules.md) to every session at its start, including
 after `/clear`, compaction, and a fork, and to every subagent as it starts, since a subagent's
 report is what a later summary is built from. The reasoning behind each rule, and its edge cases,
-are in `write-for-the-reader` §8, which is loaded only with that skill. A draft for publication goes in
+are in [`STYLE-GUIDE.md`](STYLE-GUIDE.md), which nothing loads. A draft for publication goes in
 a fence tagged `draft` under the last rule in `rules.md`, and the `Stop` check below looks for that
 tag.
 

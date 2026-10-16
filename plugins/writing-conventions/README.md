@@ -53,15 +53,14 @@ line per command or tool. You can edit those files. Where a command or tool has 
   and an object that "says" or "wants" something. The rest depends on the session following the
   rules and on the model review.
 
-## The `write-for-the-reader` skill
+## Flagging a word
 
-Covers what the agent writes to you: chat replies, summaries, and wrap-ups. The agent assumes you
-have read nothing since your last message, so a file, decision, or outcome is written out rather
-than referred back to. The detail follows what you will do next rather than how much work happened.
-When you flag a word as jargon, it is logged into `hooks/rules.md`. With `ghostwriting-skills`
-installed, general rules from your edits to its drafts are added to the same file.
+When you flag a word as jargon or as AI writing, the session adds it to `hooks/rules.md` with its
+plain replacement. With `ghostwriting-skills` installed, general rules from your edits to its drafts
+are added to the same file.
 
 ## More
 
 [DESIGN.md](DESIGN.md) covers how each check works and the measurements behind the defaults,
-including how to run the [evals](evals/).
+including how to run the [evals](evals/). The reasoning and edge cases behind each rule are in
+[STYLE-GUIDE.md](STYLE-GUIDE.md).
