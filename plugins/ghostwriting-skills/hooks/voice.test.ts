@@ -68,7 +68,7 @@ test('without GHOSTWRITING_DIR the default directory is read', async ($: any, on
 
 test('the text of another skill is left unchanged', async ($: any, on: any) => {
   files(on, { [SPEC]: 'SPEC TEXT' })
-  const { text } = await $.skill.prompt({ skill: 'writing-conventions:write-for-the-reader', text: 'SKILL' })
+  const { text } = await $.skill.prompt({ skill: 'session-skills:land-and-wrap', text: 'SKILL' })
   expect(text).toBe('SKILL')
 })
 
