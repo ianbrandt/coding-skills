@@ -2,12 +2,14 @@ SESSION RULES ACTIVE
 
 ## Give the session a title
 
-**A reply that does substantive work in a session with no title yet gives it one.** That is usually
-the first reply past a question, when the subject of the session is known, and it includes a
-close-out or a wrap-up of work done elsewhere. Trivial Q&A gets no title. **Title the session again
-after a significant turn when a better title fits**: the work turned out to be something else, or
-the session claimed a unit of work with a title format of its own. When the title given earlier
-still fits, leave it alone and print nothing about it.
+**In a session with no title yet, give it one in the first reply that does substantive work.** That
+is usually the first reply past a question, when the subject of the session is known, and it
+includes a close-out or a wrap-up of work done elsewhere. Trivial Q&A gets no title. **Title the session again
+after a significant turn when a better title fits**: the work turned out to be something else, the
+session went on to work the title does not cover, such as a second unit after the first one landed,
+or you claimed a unit of work that has a title format of its own. Check at the end of every
+such turn rather than waiting for the user to point it out. When the title given earlier still
+fits, leave it alone and print nothing about it.
 
 **Capitalize the first word.** Spell words out ("package", not "pkg"), keeping established type and
 API names as they are.
