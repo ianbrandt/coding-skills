@@ -375,3 +375,24 @@ known only to within about that much. Tells copied from the facts still get thro
 users" has appeared in plugin-loaded PR body drafts. A score from before CLI 2.1.289 is not
 comparable with a later one, because the judge for `--judge-model sonnet` changed to Sonnet 5.5
 there.
+
+## Prior art
+
+Surveyed on 2026-09-11. Most published fixes for AI-sounding prose are a rules file or a rewrite
+pass run on request: [humanizer](https://github.com/blader/humanizer),
+[stop-slop](https://github.com/hardikpandya/stop-slop), and
+[agent-style](https://github.com/yzhao062/agent-style). Only stop-slop has a rule against inanimate
+agency, and agent-style is the only one with a measurement: a 10-task bench where sentence length,
+dashes, and jargon accounted for nearly all of the change.
+[vale-ai-tells](https://github.com/tbhb/vale-ai-tells) is a Vale package with regexes for
+personification, paired contrasts, and one-line closers, with false positives counted against the
+Go and Python standard library docs. Its patterns are broader than the agency set in `lint.ts`.
+
+Users in Claude Code issues report that style instructions drift after a few turns and return in
+the next session (anthropics/claude-code#77136 and #57952), and the only fixes reported to hold were
+a hook or a CI grep. Per Claude Code's docs, `CLAUDE.md` is advisory and hooks are deterministic,
+so text that ships is checked at the gate here rather than left to the rules alone. The short
+`rules.md` and the reminder at the next prompt are based on two results: instruction following
+falls as the count of instructions grows ([IFScale](https://arxiv.org/abs/2507.11538)), and a
+reminder at the end of the prompt restored most lost compliance
+([arXiv 2603.23530](https://arxiv.org/abs/2603.23530)).
