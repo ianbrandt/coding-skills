@@ -86,7 +86,7 @@ unit tests run against mocked file and git calls. Checks that need another machi
 
 The eval suites call a model and cost money. Each is run from its plugin's directory, with the
 command in that plugin's README, or in `DESIGN.md` for `writing-conventions`. So do the
-[roadmap laps](laps/README.md), which run `next-roadmap-item` end to end in a scratch repo.
+[end-to-end tests](e2e/README.md), which run `next-roadmap-item` end to end in a scratch repo.
 
 ## License
 

@@ -7,11 +7,11 @@ rm -rf "$1"; mkdir -p "$1/repo" "$1/voice"
 D=$(cd "$1" && pwd)
 cd "$D/repo"
 git init -q -b main
-git config user.name "Lap Tester"; git config user.email lap@example.invalid
+git config user.name "E2E Tester"; git config user.email e2e@example.invalid
 cat > README.md <<'R'
 # scratch
 
-A scratch project for a roadmap lap. Run `sh check.sh` to check it.
+A scratch project for an end-to-end test. Run `sh check.sh` to check it.
 R
 cat > check.sh <<'R'
 #!/bin/sh
