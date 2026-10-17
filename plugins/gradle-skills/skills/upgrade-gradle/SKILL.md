@@ -88,13 +88,18 @@ type to `bin` and keeps the old checksum, so the next build fails verification.
 ### 4. Validation
 
 ```
-./gradlew build [:<name>:build ...] [<repo tasks>] > <log> 2>&1
+./gradlew build [:<name>:build ...] [<repo tasks>] [--warning-mode=summary] > <log> 2>&1
 ```
 
 Add the `:<name>:build` tasks from step 2, and any verification tasks documented in the repo, as in
 its `CLAUDE.md` or `CONTRIBUTING`. A root `build` does not fan out across included builds. If it does
 not transitively cover an upgraded wrapper's build, also run that build's `./gradlew build` or the
 aggregator task reaching it; when the task set is not obvious, confirm it with the maintainer.
+
+Gradle prints the deprecation summary line only in `summary` and `fail` modes. Pass
+`--warning-mode=summary` unless `org.gradle.warning.mode=fail` is set in the build's or
+`~/.gradle/gradle.properties`. Passing it would override that setting, so deprecations would no
+longer fail the build.
 
 Wait for the command's exit notification: exit code 0 is a pass. On a pass, read only one line:
 `grep -a "Deprecated Gradle features were used in this build" <log>`. Report a hit, with a
