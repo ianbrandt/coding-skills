@@ -69,6 +69,12 @@ was denied a one-line `perl -pi` rewrite edited 14 files one at a time instead, 
 the wall time and 5 times the output tokens. At Low effort it did not retry its denied test command
 in a simpler form, so the check never ran.
 
+**End a search or mechanical brief with this sentence**, from Anthropic's Claude Code team: "Time
+matters here: do not spend time that can be avoided, and the earlier a correct result is obtained,
+the better." In three runs per arm, a search subagent finished in a median 10s instead of 17s and
+with the same answer. Leave it out of an adversarial verify brief: the verifier was 10% faster but
+missed a number-literal defect in 2 runs of 3, against 1 of 3 without it.
+
 Reading global conventions is not the same as applying them. The verbatim copy is the cheap half
 of this rule, and the check in section 6 catches what the copy misses.
 
