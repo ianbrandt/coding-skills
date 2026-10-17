@@ -41,8 +41,9 @@ all.
 
 ### 1. Set the run options
 
-1. **Verification tasks**—run after each change (step 5) and once at the end (step 6). Where the
-   repo documents its validation commands, as in its `CLAUDE.md`, use those over the defaults here.
+1. **Verification tasks**—run after each change (step 5) and once at the end (step 6). Where
+   validation commands are documented in the repo, as in its `CLAUDE.md`, or a verification routine
+   for this project is in the user's memory, use those over the defaults here.
    Single-build default: `build buildHealth` (drop `buildHealth` if that plugin is absent).
    Lifecycle tasks do not fan out across included builds: address an included build's task by full
    path (`:included:task`), and include any aggregator task reaching builds the root lifecycle does
@@ -51,7 +52,9 @@ all.
    (`clean build buildHealth`).
 
 2. **Push**—the only opt-in, default off. Push only after every round and the final verification pass,
-   and only if the maintainer opted in.
+   and only if the maintainer opted in. Check `origin`'s visibility with
+   `gh repo view --json visibility`: on a public repo, hold the push for the maintainer's review even
+   when they opted in.
 
 **Commits are automatic.** Iterate through every update without stopping for approval, committing each
 verified round as its own atomic commit (step 4) in the repo's commit-message convention (derive it
@@ -65,8 +68,7 @@ One dependency update plus its verification is one **round**.
 Run `dependencyUpdates` once per build, from that build's directory. A build listed in a
 `dependencyUpdatesAggregation` entry is the exception: with Versions Plugin 0.66.0 or later, every
 project of that build is merged into the aggregating build's report. Run `dependencyUpdates` once
-from the aggregating build, and run it separately only in the builds no entry covers. The projects
-an entry came from are listed in its `projects` field.
+from the aggregating build, and run it separately only in the builds not listed in any entry.
 
 ```
 ./gradlew dependencyUpdates --output-formatter=json -q -p <build-dir>      # plugin already applied
@@ -123,10 +125,13 @@ already left out of the report. Where the plugin is already applied, the rules t
 the task apply too.
 
 Find where each entry is declared: a `libs.versions.toml` alias or `[versions]` entry, a
-settings `plugins { }` block, or a build script. An entry declared nowhere in the build, such as the
-Kotlin compiler classpath filled by `kotlin-dsl`, is not an upgrade: list it in step 7 and move on.
-The same coordinate and version declared in one shared catalog, or repeated across settings files, is
-**one** update.
+settings `plugins { }` block, or a build script. In a Versions Plugin 0.66.0+ report of more than
+one project, the projects where an entry is declared are listed in its `declaringProjects` field;
+`projects` is present only where versions differ between projects. An entry declared nowhere in the
+build, such as the Kotlin compiler classpath filled by `kotlin-dsl`, is not an upgrade: list it in
+step 7 and move on. The same coordinate and version declared in one shared catalog, or repeated
+across settings files, is **one** update, and so are entries for different coordinates that share
+one `[versions]` reference.
 
 ### 3. Self-update the Gradle Versions Plugin first
 
@@ -135,6 +140,11 @@ If the plugin is applied in a build and has an update
 `com.github.ben-manes.versions`), upgrade only that plugin before anything else: run it as a normal
 round (step 4), then re-run step 2 and continue from the refreshed report. Keep the plugin ID
 already in use unless asked.
+
+In that round, read the "Migrating from prior versions" section of the plugin's
+[README](https://github.com/ben-manes/gradle-versions-plugin#migrating-from-prior-versions), from the
+subsection for the current version up through every version skipped over. Apply each *Important*
+item in the same round, and raise each *Tip* with the maintainer.
 
 ### 4. Update one dependency at a time
 
@@ -152,18 +162,19 @@ A settings plugin that affects the toolchain, such as a toolchain resolver, goes
 updates.
 
 **Each round:**
-1. Update only its version, to the newest release from step 2, where it is **declared**: the
-   `libs.versions.toml` declaring it (never another build's catalog), the `settings.gradle(.kts)`
-   `plugins { }` block for an inline-versioned settings plugin, or the build script. When the same
-   settings-plugin id+version repeats across files, update **all** of them in this one round.
+1. Update only its version, to the newest release from step 2, where it is **declared**: in that
+   build's `libs.versions.toml` (never another build's catalog), in the `settings.gradle(.kts)`
+   `plugins { }` block for an inline-versioned settings plugin, or in the build script. When the
+   same settings-plugin id+version repeats across files, update **all** of them in this one round,
+   and likewise every entry that shares a `[versions]` reference.
 2. Identify affected modules: for catalog entries, search for usages of the alias; for a settings
    plugin, note the declaring file(s)
 3. Run verification (step 5)
 4. If it passed, commit this single dependency and continue straight to the next round without
-   pausing. If it failed on a major-version bump and the entry lists an `available.minor` newer than
-   the current version, revert and retry once at that minor; if that passes, commit it, record the
-   major as blocked, and continue. Any other failure: **stop and report; do not commit, do not push,
-   do not touch another dependency.**
+   pausing. If it failed on a major-version bump and an `available.minor` newer than the current
+   version is listed for the entry, revert and retry once at that minor; if that passes, commit it,
+   record the major as blocked, and continue. Any other failure: **stop and report; do not commit,
+   do not push, do not touch another dependency.**
 
 **Watch for:** compiler/toolchain API changes; breaking changes in build plugins or test frameworks;
 behavioral changes affecting existing code; new deprecations or required source changes;
@@ -211,8 +222,8 @@ Then re-run `dependencyUpdates` as in step 2 and confirm the report shows 0 outd
 entries listed in step 7 as held back or not upgraded.
 
 - If either check fails, **stop and report; do not push.**
-- If both pass and push was enabled in step 1, `git push`. If push is off, the run ends here with
-  every verified upgrade committed for the maintainer.
+- If both pass, push was enabled in step 1, and `origin` is not public, `git push`. Otherwise stop
+  here, with every verified upgrade committed for the maintainer.
 
 ### 7. Reporting
 
@@ -220,8 +231,9 @@ entries listed in step 7 as held back or not upgraded.
 - Verification results, per-round and final
 - Majors held back at their latest minor, with the failure that blocked each
 - Entries not upgraded: unresolved, skipped, and those declared nowhere in the build
-- What was committed and whether the branch was pushed; if push was off, note the commits are left
-  for the maintainer
+- What was committed and whether the branch was pushed; if push was off or held for a public repo,
+  note the commits are left for the maintainer
+- *Tip*s from the Versions Plugin's migration notes (step 3)
 - If a round or the final verification failed, exactly where the run stopped and what was and was not
   committed or pushed
 - Follow-up ideas kept separate from completed work
