@@ -29,8 +29,10 @@ self-contained units—never a one-liner. Keep emergent or fuzzy work in the mai
 - **State each stage's tier in the message that launches it.** An up-front plan is a forecast and
   nothing later checks it. One session announced `Workflow—design@high, implement@medium, docs@low,
   adversarial-verify@high` and then ran no Workflow, built the item inline, and set no model on
-  either agent it launched. Note also that `Agent` has no effort parameter—only a Workflow sets
-  both knobs—so never announce an effort you cannot apply.
+  either agent it launched. Pass the stage's level as `effort` on `Agent` (Claude Code 2.1.292
+  and later, any subagent but a fork) or on a Workflow `agent()`: `low` for a mechanical stage,
+  `medium` or `high` for implementation and review, `xhigh` for design and adversarial verify.
+  Never announce an effort you cannot apply.
 
 ## Isolation
 

@@ -100,17 +100,20 @@ effort is never surfaced, and the environment block's model name can lag a mid-s
 So do not stop and ask the user to change a picker. Launch at the everyday baseline, keep the main
 loop there, and set the tier explicitly on the stages that need something else.
 
-**The two knobs are not both available everywhere.** The `Agent` tool takes `model` and has no
-effort parameter, so a subagent launched that way inherits the session's effort no matter what you
-announce. Only a Workflow's `agent(..., {model, effort})` sets both. A stage that needs a
-different effort is a reason to reach for a Workflow, but a stage that only needs a different
-model is fine on `Agent`. Never announce an effort setting you have no way to apply.
+**Pass `effort` on every `Agent` launch whose stage level differs from the session's.** Since
+Claude Code 2.1.292 (2026-10-06), the `Agent` tool takes `effort` as well as `model`, for any
+subagent except a fork, and both are set on a Workflow's `agent(..., {model, effort})` too. Claude
+passes `effort` only when a level is asked for by the user, in CLAUDE.md, or in a skill, and the
+stage levels in §2 are that request. In a probe on 2026-10-17, Opus 5.5 and Sonnet 5.5 passed
+`effort: 'low'` for a file read in 4 of 4 runs from a skill's stage table alone, and in 0 of 2 with
+no skill. On an older Claude Code, the tool has no `effort` parameter and a subagent inherits the
+session's effort. The `CLAUDE_CODE_EFFORT_LEVEL` variable, where set, overrides both. Never
+announce an effort setting you have no way to apply.
 
-**The mechanical tier inherits effort too.** Its model has taken an effort setting since 2026-10, so
-a mechanical agent launched through `Agent` from a session at Extra runs at Extra. On one rename
+**Launch a mechanical agent at `low`.** Its model has taken an effort setting since 2026-10, so a
+mechanical agent launched with no `effort` from a session at Extra runs at Extra. On one rename
 task with a test oracle, Extra used about 4 times the output tokens and 2.5 times the wall time of
-Low, and all 3 runs passed at each. For a fan-out of mechanical agents, use a Workflow and set Low.
-For a single agent the difference is seconds, and `Agent` is fine.
+Low, and all 3 runs passed at each.
 
 **A delegated call to another CLI is a third case.** A second provider's CLI, or a nested
 `claude -p`, reads its own configuration, and the host session cannot see what is set in it. Its
