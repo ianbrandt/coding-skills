@@ -207,8 +207,8 @@ has**, then execute it. Two decisions go into it, and they are independent:
   until some condition holds, or several units to drive deterministically. A mechanical lap—polish,
   a doc move, roadmap grooming—stays inline at launch settings: `Tier plan: inline.`
 
-**State a model for every delegated stage, and an effort only for a Workflow stage.** The `Agent`
-tool has no effort parameter, so an effort announced for a plain subagent never applies.
+**State a model and an effort for every delegated stage, and pass both.** The `Agent` tool takes
+`effort` from Claude Code 2.1.292 on, and a Workflow `agent()` takes it too.
 
 Write the plan against the item in front of you. One derived from a real item reads like this:
 
