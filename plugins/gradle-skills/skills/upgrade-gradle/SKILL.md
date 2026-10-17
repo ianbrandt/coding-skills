@@ -27,6 +27,10 @@ https://services.gradle.org/versions/release-candidate   # current RC, or {} if 
 
 Use `version` from the stable response. Mention an available RC; adopt it only if the maintainer asks.
 
+On a minor or major bump, skim the upgrade guide for the new version and report anything that affects
+this build: `https://docs.gradle.org/<version>/userguide/upgrading_version_<major>.html` within a
+major, `upgrading_major_version_<major>.html` across one. A patch bump needs no guide.
+
 ### 2. Find every wrapper
 
 ```
@@ -34,6 +38,18 @@ find . -name gradle-wrapper.properties -not -path '*/build/*' -not -path '*/.cla
 ```
 
 Each hit is a separate build with its own wrapper. Upgrade each in its own directory (steps 3–4).
+
+An included build without a wrapper of its own runs on the including build's Gradle. There is no
+wrapper to upgrade, but validate it all the same:
+
+```
+grep -rn --include='settings.gradle.kts' --include='settings.gradle' includeBuild . \
+  | grep -v -e '/build/' -e '/.claude/worktrees/'
+```
+
+For each hit with no `gradle-wrapper.properties` of its own, add `:<name>:build` to that including
+build's validation (step 4). `<name>` is the included build's directory name, or the `name` set in
+its `includeBuild` block. Builds under `pluginManagement { includeBuild(...) }` count too.
 
 ### 3. Apply the upgrade
 
@@ -72,17 +88,20 @@ type to `bin` and keeps the old checksum, so the next build fails verification.
 ### 4. Validation
 
 ```
-./gradlew build > <log> 2>&1
+./gradlew build [:<name>:build ...] [<repo tasks>] > <log> 2>&1
 ```
 
-A root `build` does not fan out across included builds. If it does not transitively cover an upgraded
-wrapper's build, also run that build's `./gradlew build` or the aggregator task reaching it; when
-the task set is not obvious, confirm it with the maintainer.
+Add the `:<name>:build` tasks from step 2, and any verification tasks documented in the repo, as in
+its `CLAUDE.md` or `CONTRIBUTING`. A root `build` does not fan out across included builds. If it does
+not transitively cover an upgraded wrapper's build, also run that build's `./gradlew build` or the
+aggregator task reaching it; when the task set is not obvious, confirm it with the maintainer.
 
-Wait for the command's exit notification: exit code 0 is a pass, and the log stays unread. On any
-other exit code, take the failing task and the actionable error block (compiler errors with
-`file:line`, failed test names with the assertion) from the log with `grep -a`, not by reading the
-whole log. Must pass before reporting.
+Wait for the command's exit notification: exit code 0 is a pass. On a pass, read only one line:
+`grep -a "Deprecated Gradle features were used in this build" <log>`. Report a hit, with a
+suggestion to rerun with `--warning-mode all` to list the deprecations. On any other exit code,
+take the failing task and the actionable error block (compiler errors with `file:line`, failed test
+names with the assertion) from the log with `grep -a`, not by reading the whole log.
+Must pass before reporting.
 
 `--rerun-tasks` is your judgement: up-to-date checks ignore the Gradle version, so add it when the
 validation must re-exercise the build. Validation build only.
@@ -90,13 +109,16 @@ validation must re-exercise the build. Validation build only.
 ### 5. Reporting
 
 - Previous and new versions
-- Every wrapper upgraded and all files modified (`gradle-wrapper.properties`, `gradle-wrapper.jar`,
-  `gradlew`, `gradlew.bat`, plus the build script under Path A)
-- Validation results
-- No Git commits—leave changes for the maintainer
+- Every wrapper upgraded, and the modified files from `git status --short`. `gradlew` and
+  `gradlew.bat` are often unchanged.
+- Validation results, the tasks run, and any deprecation summary line
+- Anything from the upgrade guide that affects this build
+- A commit message in the style of recent `git log`. Commit only when the user asks, or as the
+  repo's docs describe; otherwise leave the changes for the maintainer.
 
 ## Constraints
 
 - **Scope:** Only the Gradle version. No dependency updates, build-logic changes, or unrelated
   refactors.
-- **Git:** No `git commit`, `git push`, or branch creation unless explicitly instructed.
+- **Git:** No `git commit`, `git push`, or branch creation unless the user asks, or as the repo's
+  docs describe.

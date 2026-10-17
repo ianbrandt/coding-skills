@@ -35,9 +35,9 @@ Guides Claude through upgrading the Gradle wrapper to the latest available versi
 
 **Workflow:**
 1. Query `services.gradle.org/versions/current` for the latest Gradle version
-2. Find every `gradle-wrapper.properties` in the project (the wrapper task is per-build, so each is upgraded in its own directory)
+2. Find every `gradle-wrapper.properties` in the project (the wrapper task is per-build, so each is upgraded in its own directory), and every `includeBuild` target with no wrapper of its own
 3. For each: if that build's script has a `wrapper` task configuration, update the version there; otherwise pass it with `--gradle-version`, along with the distribution type and checksum where the build pins them. Either way, run `./gradlew wrapper` twice: the second run, on the new Gradle, regenerates `gradle-wrapper.jar` and the `gradlew` scripts
-4. Run `build` to validate the upgrade (composite-aware: a root build may not reach every included build)
+4. Run `build` to validate the upgrade, plus `:<name>:build` for each included build without a wrapper and any verification tasks documented in the repo, then check the log for a deprecation summary
 
 **Build output:** The validation build runs in the background with its output written to a log file, and only the verdict is read back.
 
