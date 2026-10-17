@@ -18,11 +18,14 @@ enriches verification.
 ## Composite and included builds
 
 Each directory with its own `settings.gradle(.kts)` is a build, and so is `buildSrc`. Each has its own
-catalog, repositories, and plugins, and gets its own report (step 2).
+catalog, repositories, and plugins, and gets its own report (step 2), unless its report is merged
+into another build's through `dependencyUpdatesAggregation`:
 
 ```
 find . \( -name 'settings.gradle.kts' -o -name 'settings.gradle' -o -type d -name buildSrc \) \
   -not -path '*/build/*' -not -path '*/.claude/worktrees/*'
+grep -rn --include='*.gradle.kts' --include='*.gradle' dependencyUpdatesAggregation . \
+  | grep -v -e '/build/' -e '/.claude/worktrees/'
 ```
 
 ## Running a verification build
@@ -38,13 +41,14 @@ all.
 
 ### 1. Set the run options
 
-1. **Verification tasks**—run after each change (step 5) and once at the end (step 6). Single-build
-   default: `build buildHealth` (drop `buildHealth` if that plugin is absent). Lifecycle tasks do not
-   fan out across included builds: address an included build's task by full path (`:included:task`),
-   and include any aggregator task reaching builds the root lifecycle does not—e.g.
-   `build :modules:buildHealth examplesCheck`. When the right set is not obvious, propose one from the
-   enumeration and confirm it with the maintainer. Step 6 may use a heavier set (`clean build
-   buildHealth`).
+1. **Verification tasks**—run after each change (step 5) and once at the end (step 6). Where the
+   repo documents its validation commands, as in its `CLAUDE.md`, use those over the defaults here.
+   Single-build default: `build buildHealth` (drop `buildHealth` if that plugin is absent).
+   Lifecycle tasks do not fan out across included builds: address an included build's task by full
+   path (`:included:task`), and include any aggregator task reaching builds the root lifecycle does
+   not—e.g. `build :modules:buildHealth examplesCheck`. When the right set is not obvious, propose
+   one from the enumeration and confirm it with the maintainer. Step 6 may use a heavier set
+   (`clean build buildHealth`).
 
 2. **Push**—the only opt-in, default off. Push only after every round and the final verification pass,
    and only if the maintainer opted in.
@@ -58,7 +62,11 @@ One dependency update plus its verification is one **round**.
 
 ### 2. Check for updates
 
-Run `dependencyUpdates` once per build, from that build's directory:
+Run `dependencyUpdates` once per build, from that build's directory. A build listed in a
+`dependencyUpdatesAggregation` entry is the exception: with Versions Plugin 0.66.0 or later, every
+project of that build is merged into the aggregating build's report. Run `dependencyUpdates` once
+from the aggregating build, and run it separately only in the builds no entry covers. The projects
+an entry came from are listed in its `projects` field.
 
 ```
 ./gradlew dependencyUpdates --output-formatter=json -q -p <build-dir>      # plugin already applied
@@ -72,9 +80,10 @@ such a build:** where `DependencyUpdatesTask` is configured by type in the build
 not a subclass of the given type". An init script applies to every build in one invocation, so run
 each build on its own with `-p`, never as `:included:dependencyUpdates` from the root.
 
-Settings plugins are reported only where `io.github.ben-manes.versions.settings` is applied, as the
-init script does. Where only the project plugin is applied, look up each plugin in the settings
-`plugins { }` block by hand: fetch
+Settings plugins are reported where `io.github.ben-manes.versions.settings` is applied, as the init
+script does, and where the core ID `io.github.ben-manes.versions` is applied in the settings
+`plugins { }` block. Where the plugin is applied only in build scripts, look up each plugin in
+the settings `plugins { }` block by hand: fetch
 `https://plugins.gradle.org/m2/<id-with-dots-as-slashes>/<id>.gradle.plugin/maven-metadata.xml`, or
 the same path under that build's `pluginManagement { repositories }`, and take the highest stable
 version.
@@ -134,12 +143,13 @@ One dependency per round, one commit per round. Settings plugins count as single
 **Prioritize by compatibility relationships:**
 1. Build toolchain plugins (compiler plugins, annotation processors, code generators)—update and test
    with the CURRENT language/platform version BEFORE upgrading the language/platform itself
-2. BOM/platform dependencies before their constituent libraries
-3. Core libraries before their dependents
-4. Independent libraries last
+2. Other Gradle plugins, settings plugins included, before any library
+3. BOM/platform dependencies before their constituent libraries
+4. Core libraries before their dependents
+5. Independent libraries last
 
-Place each settings plugin by what it affects (e.g. a toolchain resolver alongside other toolchain
-updates).
+A settings plugin that affects the toolchain, such as a toolchain resolver, goes with the toolchain
+updates.
 
 **Each round:**
 1. Update only its version, to the newest release from step 2, where it is **declared**: the
@@ -181,8 +191,9 @@ deliberate from-scratch check.
 
 Wait for the command's exit notification:
 
-- **Success:** exit code 0. The log stays unread, except that when `buildHealth` ran, confirm with
-  `grep -a` on the log that it reported no issues.
+- **Success:** exit code 0. The log stays unread. When `buildHealth` ran, confirm it passed by
+  reading `build/reports/dependency-analysis/should-fail.txt` under the root project it ran in:
+  `false` there means it passed. Grepping the log for its result is unreliable.
 - **Failure:** any other exit code. Take which task failed and the actionable error block (compiler
   errors with `file:line`, failed test names with the assertion, or the `buildHealth` advice) from
   the log with `grep -a`, not by reading the whole log: only what is needed to decide fix-vs-revert.
@@ -193,10 +204,14 @@ Verification must pass before a round is committed.
 
 After every round has passed and been committed, run `./gradlew <final tasks>` once, the same
 way as step 5. May use the heavier step-1 set; a from-scratch check is often worth
-`--rerun-tasks` even when the per-round builds ran without it.
+`--rerun-tasks` even when the per-round builds ran without it. Skip this run when the last round
+already ran the final task set on the same tree.
 
-- If it fails, **stop and report; do not push.**
-- If it passes and push was enabled in step 1, `git push`. If push is off, the run ends here with
+Then re-run `dependencyUpdates` as in step 2 and confirm the report shows 0 outdated, apart from the
+entries listed in step 7 as held back or not upgraded.
+
+- If either check fails, **stop and report; do not push.**
+- If both pass and push was enabled in step 1, `git push`. If push is off, the run ends here with
   every verified upgrade committed for the maintainer.
 
 ### 7. Reporting

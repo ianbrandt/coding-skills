@@ -18,10 +18,10 @@ Updates come from the [Gradle Versions Plugin](https://github.com/ben-manes/grad
 
 **Workflow:**
 1. Settle the per-round and final verification tasks, and whether to push once everything passes (commits are automatic—one atomic commit per verified upgrade)
-2. Enumerate the builds (root, every `includeBuild` target, and `buildSrc`) and run `dependencyUpdates` in each, through an init script where the build does not apply the plugin
+2. Enumerate the builds (root, every `includeBuild` target, and `buildSrc`) and run `dependencyUpdates` in each, through an init script where the build does not apply the plugin, or once from the aggregating build where `dependencyUpdatesAggregation` merges the others into its report
 3. Update one dependency or settings plugin at a time, where it is declared
 4. Verify with the chosen tasks after each change (adding `--rerun-tasks` when a from-scratch check is warranted); when a major-version bump fails, retry once at the latest minor
-5. Commit each verified change and continue automatically through every update; push only after a final verification passes, and only if you opted into push
+5. Commit each verified change and continue automatically through every update; push only after a final verification passes and a closing `dependencyUpdates` run shows nothing left outdated, and only if you opted into push
 
 **Build output:** Each verification build runs in the background with its output written to a log file, and only the verdict is read back. The raw Gradle output stays out of the conversation, reducing context and plan (token) usage across a multi-round run.
 
