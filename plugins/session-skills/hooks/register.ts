@@ -498,7 +498,9 @@ export const register: Register = on => {
     // terminal's tool in the desktop app and printed the title when that failed.
     const entry = await $.env.get('CLAUDE_CODE_ENTRYPOINT').catch(() => '')
     const title = (await read(`title-${TITLE_RULES[entry as string] ?? 'print'}`)).trimEnd()
-    const rules = (await read('rules')).replace('{{title}}', () => title)
+    // The desktop app ends a turn with its wrap_up tool, which nothing else has.
+    const wrapUp = entry === 'claude-desktop' ? `${(await read('wrap-up-desktop')).trimEnd()}\n\n` : ''
+    const rules = (await read('rules')).replace('{{title}}', () => title).replace('{{wrap-up}}', () => wrapUp)
     return rules ? { ...ran, additionalContext: [...(ran.additionalContext ?? []), rules] } : ran
   })
 

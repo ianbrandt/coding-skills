@@ -49,4 +49,10 @@ into the repo's backlog where it should outlive the session, and never leave it 
 suggested-task feature on its own. All three apply to every session that did real work, including
 the ones that never open a worktree and so never load `land-and-wrap`. That is why they are injected
 by a hook, and why they ship with the plugin instead of sitting in a personal global `CLAUDE.md`.
+
+`{{wrap-up}}` in `rules.md` is replaced with `wrap-up-desktop.md` in the desktop app and removed
+elsewhere. In that app a session calls the `wrap_up` tool at the end of a turn that ran a command.
+Text after a call with an `ask` is never shown, and a call without one returns "nothing is pending",
+which one session took as a reason to skip the hand-off block after a unit landed.
+
 There is no `SubagentStart` hook, because a subagent doesn't end a session.

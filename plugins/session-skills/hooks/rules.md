@@ -69,7 +69,7 @@ It resolves in-flight work by itself, from the primary checkout, so the snippet 
 path—and a freehand prompt reconstructing that state is how a resume becomes a second branch on
 work already half-built.
 
-## Raise an out-of-scope finding in the reply
+{{wrap-up}}## Raise an out-of-scope finding in the reply
 
 Work noticed in passing, a defect outside the current change, a stale doc, a missing test, is
 raised in the reply where it was found. A host's suggested-task feature, where one exists, has

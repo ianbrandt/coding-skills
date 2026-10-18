@@ -6,12 +6,12 @@ import { splice } from './splice'
 function world(on: any, entry?: string) {
   on('fs.read', (_$: any, e: any) => {
     const name = String(e.path).split(/[\\/]/).pop()
-    return { value: name === 'rules.md' ? 'before\n{{title}}\nafter\n' : `<${name}>\n` }
+    return { value: name === 'rules.md' ? 'before\n{{title}}\n{{wrap-up}}after\n' : `<${name}>\n` }
   })
   on('env.get', () => ({ value: entry }))
   on('classic.SessionStart', () => ({ additionalContext: ['from a settings hook'] }))
 }
-const rules = (title: string) => ['from a settings hook', `before\n<${title}>\nafter\n`]
+const rules = (title: string, wrapUp = '') => ['from a settings hook', `before\n<${title}>\n${wrapUp}after\n`]
 
 test('a session starts with rules.md, after the context of a settings hook', async ($: any, on: any) => {
   world(on)
@@ -20,9 +20,9 @@ test('a session starts with rules.md, after the context of a settings hook', asy
   }
 })
 
-test('the desktop app gets the title instruction for its tool', async ($: any, on: any) => {
+test('the desktop app gets the title instruction for its tool and the rule for its wrap_up tool', async ($: any, on: any) => {
   world(on, 'claude-desktop')
-  expect((await $.classic.SessionStart({ source: 'startup' })).additionalContext).toEqual(rules('title-desktop.md'))
+  expect((await $.classic.SessionStart({ source: 'startup' })).additionalContext).toEqual(rules('title-desktop.md', '<wrap-up-desktop.md>\n\n'))
 })
 
 test('a terminal session gets the title instruction for the tool registered there', async ($: any, on: any) => {
