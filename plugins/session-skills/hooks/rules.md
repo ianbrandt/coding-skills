@@ -64,6 +64,10 @@ Recommending a fresh session comes with a launch snippet. Three parts, all requi
 for it.** "Next session starts clean on the parser item" is this handoff in a form nobody can
 copy, with no tier attached. Write the block instead, and never both.
 
+**The block goes in the turn's final text, after its last tool call.** Text written before a tool
+call is lost among that call's output, and a closing line such as "the handoff is above" makes the
+user search back for the block.
+
 Where the repo tracks work in a backlog, the entry point is that backlog plugin's invocation.
 It resolves in-flight work by itself, from the primary checkout, so the snippet needs no worktree
 path—and a freehand prompt reconstructing that state is how a resume becomes a second branch on

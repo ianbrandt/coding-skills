@@ -53,6 +53,8 @@ by a hook, and why they ship with the plugin instead of sitting in a personal gl
 `{{wrap-up}}` in `rules.md` is replaced with `wrap-up-desktop.md` in the desktop app and removed
 elsewhere. In that app a session calls the `wrap_up` tool at the end of a turn that ran a command.
 Text after a call with an `ask` is never shown, and a call without one returns "nothing is pending",
-which one session took as a reason to skip the hand-off block after a unit landed.
+which one session took as a reason to skip the hand-off block after a unit landed. Text written
+before any tool call is folded into that call's activity, and another session wrote the block before
+two more calls and closed with a pointer to it, so the rule puts the block after the last call.
 
 There is no `SubagentStart` hook, because a subagent doesn't end a session.
