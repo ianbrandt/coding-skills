@@ -54,7 +54,10 @@ references are exempt. How to read the five:
    of the changes the diff already shows, in a commit message, an issue, a pull request, or a
    comment. Quote the heading or the first bullet. This one is a literal match, not a judgment of
    length: a heading is allowed in a release note, a document, or a prose file. A squash-merge
-   commit message that lists the squashed commits' subjects as bullets is allowed too.
+   commit message that lists the squashed commits' subjects as bullets is allowed too. So are
+   draft release notes in a pull request body, lists and headings included, when they are
+   introduced as release notes. A list introduced any other way, such as "Changes:", is
+   still a bullet changelog. In its rewrite, never suggest calling it release notes.
 
 Reply with the single word `PASS` when the text passes, and nothing else. Otherwise the first line
 of the reply is the single word `VIOLATION`, and each line after it is one offending sentence in this

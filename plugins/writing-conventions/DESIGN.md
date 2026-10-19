@@ -107,8 +107,11 @@ commit ungated on a Windows session where the PowerShell tool is the shell.
 the title and body and checks that text against the four prohibitions: inanimate agency, mechanics
 (spaced em dashes and the Oxford comma), the banned words, and rule 4's epigrams, paired contrasts,
 and matched clauses. A fifth check is a string match rather than a judgment: a Markdown heading or a
-bullet changelog in a commit message, an issue, a pull request, or a comment. Length is never
-judged, and no other form is. The model replies `PASS`, `SKIP` for a command that publishes nothing
+bullet changelog in a commit message, an issue, a pull request, or a comment. Draft release notes
+in a pull request body are allowed when they are introduced as release notes, as they are in a
+release bump PR. On Sonnet 5.5 one such body was refused 3 times out of 3 before that case was
+added and passed 3 times out of 3 after, and its bullets with no introduction, or under "Changes:",
+were still refused 3 times out of 3. Length is never judged, and no other form is. The model replies `PASS`, `SKIP` for a command that publishes nothing
 new (`gh pr view`, `gh pr checks`, `--amend --no-edit`, a label change), or `VIOLATION` with one
 line per offending sentence: the quoted words, then a plain rewrite.
 
