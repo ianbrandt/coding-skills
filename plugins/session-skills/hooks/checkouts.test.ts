@@ -351,9 +351,16 @@ test('prune_branches deletes a merged branch, and one with a gone upstream and n
     'deleted: feat-merged (upstream gone, content on origin/main)',
     'merged, still checked out: claude/r1-a',
   ].join('\n'))
-  expect(deleted(calls)).toEqual(['branch -d claude/done', 'branch -D feat-squash', 'branch -D feat-merged'])
+  expect(deleted(calls)).toEqual(['branch -D claude/done', 'branch -D feat-squash', 'branch -D feat-merged'])
   expect(calls).toContain(FETCH.replace('-q', '-q --prune'))
   expect(calls).toContain('for-each-ref --merged refs/heads/main --format=%(refname:lstrip=2) refs/heads/claude/* refs/heads/worktree-*')
+})
+
+// `git branch -d` checks the merge against HEAD, and the primary checkout is on another branch.
+test('prune_branches deletes a branch merged into the default branch while the primary checkout is on another', async ($: any, on: any) => {
+  const refused = { exitCode: 1, stdout: '', stderr: "error: the branch 'claude/done' is not fully merged\n" }
+  world(on, line => (line === 'branch -d claude/done' ? refused : reap(line)))
+  expect((await call($, 'prune_branches')).result).toContain('deleted: claude/done (merged into main)\n')
 })
 
 // The remote's default branch is develop, and its main is a release branch
@@ -410,7 +417,7 @@ test('prune_branches finds a default branch the host renamed once the fetch has 
 
 // One world a test, since no hook is added after the first call on `$`: the
 // faked git reads `now`, which the test changes between calls.
-test('prune_branches force-deletes nothing when a check or the fetch fails', async ($: any, on: any) => {
+test('prune_branches deletes no branch with a gone upstream when a check or the fetch fails', async ($: any, on: any) => {
   const one = (line: string) => (line.startsWith(GONE) ? 'feat-squash\t[gone]' : reap(line))
   let now = one
   const calls = world(on, line => now(line))
@@ -423,7 +430,7 @@ test('prune_branches force-deletes nothing when a check or the fetch fails', asy
   await call($, 'prune_branches')
   now = line => (line.includes('fetch') ? 1 : one(line))
   expect((await call($, 'prune_branches')).result).toContain('warning: fetch failed, so no branch with a gone upstream was checked')
-  expect(deleted(calls)).toEqual(Array(checks.length + 2).fill('branch -d claude/done'))
+  expect(deleted(calls)).toEqual(Array(checks.length + 2).fill('branch -D claude/done'))
 })
 
 // A conflict is a merge that has changes the base lacks: exit 1, with the tree
@@ -447,7 +454,7 @@ test('prune_branches keeps a branch with git\'s message where the merge cannot r
   expect((await call($, 'prune_branches')).result).toContain('kept: feat-squash (upstream gone, check failed: exit 1)')
   now = line => (line === whole('feat-squash') ? { exitCode: 1, stdout: 'OTHER\n\nCONFLICT (content): Merge conflict in s\n', stderr: '' } : one(line))
   expect((await call($, 'prune_branches')).result).toContain('kept: feat-squash (upstream gone, content not on origin/main)')
-  expect(deleted(calls)).toEqual(Array(6).fill('branch -d claude/done'))
+  expect(deleted(calls)).toEqual(Array(6).fill('branch -D claude/done'))
 })
 
 test('prune_branches keeps a branch with git\'s message where merge-base or rev-list fails', async ($: any, on: any) => {
@@ -465,7 +472,7 @@ test('prune_branches keeps a branch with git\'s message where merge-base or rev-
   // The merge has run by then, so the two have a commit in common, and exit 1 is not git's answer.
   now = line => (line === `merge-base ${BASE} refs/heads/feat-squash` ? { exitCode: 1, stdout: '', stderr: '' } : one(line))
   expect((await call($, 'prune_branches')).result).toContain('kept: feat-squash (upstream gone, check failed: exit 1)')
-  expect(deleted(calls)).toEqual(Array(5).fill('branch -d claude/done'))
+  expect(deleted(calls)).toEqual(Array(5).fill('branch -D claude/done'))
 })
 
 // feat-hand has a merge commit, M, with a tree that differs from the automatic
@@ -534,7 +541,7 @@ test('prune_branches checks no gone upstream where a merge driver is set in .git
   expect((await call($, 'prune_branches')).result).toContain('deleted: feat-squash')
   files['/repo/.git/info/attributes'] += ' ver.txt\tmerge=ours\n'
   expect((await call($, 'prune_branches')).result).toBe('deleted: claude/done (merged into main)\nwarning: a merge driver is set in .git/info/attributes, so no branch with a gone upstream was checked')
-  expect(deleted(calls).filter(c => c.startsWith('branch -D'))).toEqual(['branch -D feat-squash', 'branch -D feat-merged'])
+  expect(deleted(calls)).toEqual(['branch -D claude/done', 'branch -D feat-squash', 'branch -D feat-merged', 'branch -D claude/done'])
 })
 
 // On a file system that ignores case, `git checkout Feat-Squash` leaves HEAD at
@@ -545,7 +552,7 @@ test('prune_branches leaves a branch that a worktree has checked out under anoth
   const git = (line: string) => (line === 'worktree list --porcelain -z' ? list : line.startsWith(GONE) ? 'feat-squash\t[gone]\nFeat-Upper\t[gone]' : reap(line))
   const calls = world(on, git)
   expect((await call($, 'prune_branches')).result).toBe('deleted: claude/r1-a (merged into main)\nmerged, still checked out: feat-squash\nmerged, still checked out: Feat-Upper')
-  expect(deleted(calls)).toEqual(['branch -d claude/r1-a'])
+  expect(deleted(calls)).toEqual(['branch -D claude/r1-a'])
 })
 
 test('landing_facts reads git config first, and is unknown where no host tool is installed', async ($: any, on: any) => {

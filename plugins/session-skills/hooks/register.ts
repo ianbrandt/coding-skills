@@ -351,9 +351,10 @@ async function pruneBranches($: any): Promise<string> {
   const worktreeBranches = (await worktrees($, main)).map(w => w.branch.toLowerCase())
   const checkedOut = (b: string) => worktreeBranches.includes(b.toLowerCase())
   // A branch a session has just opened has the default branch's tip, and git
-  // refuses to delete it while its worktree stands.
+  // refuses to delete it while its worktree stands. -D, since -d checks the
+  // merge against the primary checkout's HEAD, which may be another branch.
   for (const b of merged.split(/\r?\n/).filter(b => b && !checkedOut(b))) {
-    const gone = await git($, main, 'branch', '-d', b)
+    const gone = await git($, main, 'branch', '-D', b)
     lines.push(gone.exitCode === 0 ? `deleted: ${b} (merged into ${def})` : `left: ${b} (${firstLine(gone.stderr)})`)
   }
 

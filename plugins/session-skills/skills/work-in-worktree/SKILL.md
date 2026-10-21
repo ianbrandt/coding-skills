@@ -146,10 +146,8 @@ Code uses. A name a sibling already took gets a numeric suffix. `$WT` and `$BRAN
 with `GIT_LFS_SKIP_SMUDGE=1`, so `git worktree add` leaves pointer files, and the tool then runs
 `git lfs pull` in the new worktree. A pull that fails is returned as a warning.
 
-**`--no-track` leaves the new branch with no upstream.** A branch tracking `origin/<default>` is
-checked against it by `git branch -d`, so while a public push is held, a branch already merged into
-the local default branch is refused and §4's reap leaves it behind. `git push -u` sets an upstream
-once the branch is pushed, and §4's gone-upstream check covers it from then on.
+**`--no-track` leaves the new branch with no upstream** until `git push -u` sets one, and §4's
+gone-upstream check covers it from then on.
 
 **Prefix the name with the work's backlog ID** where it has one, keeping the slug as the suffix. In `pr` mode the branch is renamed, and where the backlog record is a tracked file the work
 stays open with no pin until its PR merges, so while the PR is open the ID appears only in the
@@ -205,8 +203,10 @@ Call `mcp__session-skills__prune_branches`. It never removes a worktree. In orde
 
 1. fetches `origin` with `--prune`, and reads the refs it will compare against;
 2. runs `git worktree prune`, which only drops worktrees with a directory that is already gone;
-3. deletes each `claude/` and `worktree-` branch merged into `$DEFAULT` with `git branch -d`, leaving
-   any that is checked out in a worktree;
+3. deletes each `claude/` and `worktree-` branch merged into `$DEFAULT`, leaving any that is checked
+   out in a worktree. The merge is read with `git for-each-ref --merged`, and the delete is
+   `git branch -D`, since `-d` checks against the primary checkout's HEAD, which may be another
+   branch;
 4. checks each branch with an upstream that is gone.
 
 Step 4 is for a PR branch the host squashed or rebased on merge, which `--merged` misses, so those
