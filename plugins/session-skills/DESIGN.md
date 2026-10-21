@@ -42,9 +42,9 @@ differs by surface, so `{{title}}` in `rules.md` is replaced with one of three f
 plugin's, and `title-print.md` anywhere else, for a `/rename` command the user pastes. A session
 given all three instructions at once called the terminal's tool in the desktop app and printed the
 title when the call failed. Another runs every turn:
-weigh continuing this session against handing off to a fresh one, silently, and speak only when a
-tell trips—the unit just landed, the session has been compacted, or the next thing is unrelated
-work. The third applies whenever something out of scope turns up: raise it in the reply, write it
+weigh continuing this session against handing off to a fresh one without writing the weighing out,
+and end a turn that closed a unit with the outcome: a hand-off block, a line that this session goes
+on, or a line on what the next item waits on. The third applies whenever something out of scope turns up: raise it in the reply, write it
 into the repo's backlog where it should outlive the session, and never leave it in a host's
 suggested-task feature on its own. All three apply to every session that did real work, including
 the ones that never open a worktree and so never load `land-and-wrap`. That is why they are injected

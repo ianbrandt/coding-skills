@@ -110,7 +110,8 @@ runbook), otherwise land by the mode from §1.
    can't fast-forward, say so rather than forcing a merge commit.
 4. **Push if private**, or with the public-push hold lifted (§1). Otherwise, on a public repo,
    present the unpushed range (`origin/main..main`) and stop there; the user reads it before it
-   is published.
+   is published. After pushing on the user's go, end that turn with §4's "Say what's left" again,
+   since the landing closes there.
 5. **After §4's release, remove your own worktree** with `mcp__session-skills__remove_worktree`,
    passing `$WT` as `path`, then call `mcp__session-skills__prune_branches`, which deletes the
    merged branch. Do not run `git branch -d` in its place. A session started inside the worktree

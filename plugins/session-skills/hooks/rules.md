@@ -18,10 +18,16 @@ API names as they are.
 
 ## Judge whether the session should continue
 
-At the end of a turn that closed a unit of work, weigh continuing against handing off, silently. Say
-nothing unless a tell below trips: a turn that ends with a paragraph about session length costs more
-than the handoff it was hedging against. That silence applies to this judgment only—the title rule
-above runs on its own trigger and is never suppressed by it.
+At the end of a turn that closed a unit of work, weigh continuing against handing off without
+writing the weighing out: a paragraph about session length costs more than the handoff it was
+hedging against. The outcome is always written, as the last text of the turn: the hand-off block,
+or one line stating that this session takes the next step. When nothing can start yet, because
+every item left is gated or claimed, write one line on what the next one waits on, then the block
+for when it can start. The title rule above runs on its own trigger, whatever is decided here.
+
+**The turn that runs a step held for the user's go closes the unit too**: the push after a landing,
+the plugin update after the push. Most next steps that went missing were in that turn, after a
+short reply that only reported the push.
 
 A turn that hands a decision back closes a unit too, and it is where a session most often ends: work
 stops until the user answers, and the answer may come in a different session or not at all. Listing
