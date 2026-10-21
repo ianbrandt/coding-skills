@@ -6,8 +6,8 @@ description: >-
   position-preserving text rewriters, AST rewriters, name re-keying, anything that fails by
   succeeding quietly with corrupted state. Includes the known blind spots to probe (prefix
   hijacks, masked pre-checks, dual-used helpers), the rule that each hypothesis is settled
-  by a live probe rather than a code trace, and the requirement that every confirmed finding
-  becomes a regression test. Trigger after implement-review-fix on transform or rewrite
+  by a live probe rather than a code trace, the generated sweep for a screen that must agree
+  with a compiler, and the requirement that every confirmed finding becomes a regression test. Trigger after implement-review-fix on transform or rewrite
   logic, and whenever a green suite is the only evidence that such logic is correct. NOT for
   ordinary code review, and NOT for how to launch or isolate the agent that runs it (that's
   delegate-to-subagents).
@@ -59,13 +59,28 @@ repositories a build object exposes; the claim was false, a single probe would h
 the branch built on it solved a different problem than the one reported. Probe the one fact that
 discriminates each rejected option, before writing the fix.
 
-## 4. Every confirmed finding becomes a regression test
+## 4. A screen that must agree with a compiler: list the forms, then sweep
+
+A screen that must refuse exactly what javac or kotlinc refuses fails one case at a time. Each fix
+inferred from a few probes leaked the next case: on one such screen, the test matrix
+grew by one dimension per round over five rounds.
+
+- **List every reachable form before the first fix.** Each syntactic form, modifier, and position
+  the screen can meet goes in a list first, and the probes cover the list. Far fewer rounds were
+  needed when a screen was briefed this way.
+- **After a rule leaks twice, switch to a generated sweep.** Generate the cross product of the
+  listed forms, often thousands of pairs, compile each one, and compare the compiler's verdict with
+  the screen's. Keep a rule only when the sweep finds zero missed refusals.
+- **Refuse what the rule cannot prove.** Where a form cannot be shown to compile, the screen
+  refuses it, since a missed refusal passes silently.
+
+## 5. Every confirmed finding becomes a regression test
 
 A finding that ends as a note in a report protects nothing. Turn each confirmed one into a test that
 fails on the old logic and passes on the new. Write it yourself and watch it go red then green—a
 test written by the stage that produced the fix proves nothing about the fix.
 
-## 5. Running the verifier
+## 6. Running the verifier
 
 The verifier writes: scratch probes, and mutations to the code under test to prove a check actually
 distinguishes the branch it names. That makes it a writer, with all the isolation consequences that
