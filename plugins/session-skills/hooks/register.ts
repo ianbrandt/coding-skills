@@ -12,7 +12,7 @@ const TOOLS = {
     inputSchema: NONE,
   },
   open_worktree: {
-    description: "Fetch, then open a new worktree and branch for a unit of work under the primary checkout's .claude/worktrees, starting from the current base, and link the repo's local notes directory into it. A name already taken gets a numeric suffix. Returns the worktree path and branch.",
+    description: "Fetch, then open a new worktree and branch for a unit of work under the primary checkout's .claude/worktrees, starting from the current base, pull its Git LFS files, and link the repo's local notes directory into it. A name already taken gets a numeric suffix. Returns the worktree path and branch.",
     inputSchema: {
       type: 'object',
       properties: {
@@ -59,7 +59,7 @@ async function run($: any, argv: string[], timeoutMs = 30_000): Promise<Ran> {
   }
 }
 const gitArgv = (cwd: string, argv: string[]) => ['git', '-C', cwd, ...argv]
-const gitTimeout = (argv: string[]) => (argv.includes('fetch') ? 120_000 : 30_000)
+const gitTimeout = (argv: string[]) => (argv.includes('fetch') || argv.includes('lfs') ? 120_000 : 30_000)
 const git = ($: any, cwd: string, ...argv: string[]) => run($, gitArgv(cwd, argv), gitTimeout(argv))
 const ok = async (ran: Promise<Ran>) => (await ran).exitCode === 0
 const out = async (ran: Promise<Ran>) => {
@@ -208,6 +208,14 @@ async function openWorktree($: any, e: any): Promise<string> {
   for (let n = 2; (await $.fs.exists(`${root}/${name}`)) || (await ok(git($, main, 'show-ref', '--verify', '--quiet', `refs/heads/claude/${name}`))); n++) name = `${wanted}-${n}`
   const path = `${root}/${name}`
   await must($, main, 'worktree', 'add', '--no-track', path, '-b', `claude/${name}`, baseRef)
+  // Claude Code runs git with GIT_LFS_SKIP_SMUDGE=1, so the checkout leaves LFS
+  // files as pointers. `git lfs pull` writes them without the smudge filter.
+  // ponytail: only the root .gitattributes is read, so an LFS pattern set only in a nested one is missed.
+  const attributes = `${path}/.gitattributes`
+  if ((await $.fs.exists(attributes)) && /\bfilter=lfs\b/.test(await $.fs.read(attributes).catch(() => ''))) {
+    const pulled = await git($, path, 'lfs', 'pull')
+    if (pulled.exitCode !== 0) warnings.push(`LFS files were left as pointers, so run \`git lfs pull\` in the worktree: ${firstLine(pulled.stderr) || `exit ${pulled.exitCode}`}`)
+  }
   const lines = [`worktree: ${path}`, `branch: claude/${name}`, `opened from: ${base}`, `primary checkout: ${main}`, `default branch: ${def}`]
   if (await $.fs.exists(`${main}/${notes}`)) {
     // `ln -s` into a directory that is there links inside it, and reports success.

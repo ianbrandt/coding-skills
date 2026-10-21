@@ -290,6 +290,24 @@ test('open_worktree links a Windows notes directory with a junction', async ($: 
   expect(plain.filter(c => c.startsWith('cmd'))).toEqual(['cmd /c mklink /J C:\\repo\\.claude\\worktrees\\a-b\\notes.local C:\\repo\\notes.local'])
 })
 
+// Claude Code runs git with GIT_LFS_SKIP_SMUDGE=1, so `git worktree add` leaves LFS files as pointers.
+test('open_worktree pulls LFS files where the repo has them, and reports a pull that failed', async ($: any, on: any) => {
+  const lfs = { '/repo/.claude/worktrees/a-b/.gitattributes': '*.jar filter=lfs diff=lfs merge=lfs -text\n' }
+  let pull: Said = undefined
+  const calls = world(on, line => (line === 'lfs pull' ? pull : held(line)), undefined, Object.keys(lfs), lfs)
+  expect((await call($, 'open_worktree', { name: 'a-b' })).result).not.toContain('warning')
+  expect(calls.indexOf('lfs pull')).toBeGreaterThan(calls.findIndex(c => c.startsWith('worktree add')))
+  pull = { exitCode: 1, stdout: '', stderr: "git: 'lfs' is not a git command.\n" }
+  expect((await call($, 'open_worktree', { name: 'a-b' })).result).toContain("warning: LFS files were left as pointers, so run `git lfs pull` in the worktree: git: 'lfs' is not a git command.")
+})
+
+test('open_worktree pulls nothing where the repo has no LFS files', async ($: any, on: any) => {
+  const files = { '/repo/.claude/worktrees/a-b/.gitattributes': '* text=auto\n' }
+  const calls = world(on, held, undefined, Object.keys(files), files)
+  expect((await call($, 'open_worktree', { name: 'a-b' })).result).toContain('worktree: /repo/.claude/worktrees/a-b\n')
+  expect(calls.filter(c => c.startsWith('lfs'))).toEqual([])
+})
+
 // In an argument, cmd reads these as operators or expands them.
 test('open_worktree runs no cmd for a Windows path with a character that cmd reads as an operator', async ($: any, on: any) => {
   const calls = world(on, held, line => (line.startsWith('cmd') ? '' : undefined), ['C:/my%X%repo/notes.local'], {}, 'C:/my%X%repo')

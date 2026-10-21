@@ -142,6 +142,10 @@ branch `claude/<id>-<name>` with no upstream. Those are the directory and the br
 Code uses. A name a sibling already took gets a numeric suffix. `$WT` and `$BRANCH` are the
 `worktree:` and `branch:` lines returned, which may differ from the name passed.
 
+**LFS files are pulled where `filter=lfs` is set in the root `.gitattributes`.** Claude Code runs git
+with `GIT_LFS_SKIP_SMUDGE=1`, so `git worktree add` leaves pointer files, and the tool then runs
+`git lfs pull` in the new worktree. A pull that fails is returned as a warning.
+
 **`--no-track` leaves the new branch with no upstream.** A branch tracking `origin/<default>` is
 checked against it by `git branch -d`, so while a public push is held, a branch already merged into
 the local default branch is refused and §4's reap leaves it behind. `git push -u` sets an upstream
