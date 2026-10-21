@@ -137,7 +137,8 @@ export function excerpt(newText: string, fileText: string, cap: number): string 
 // text quoted from an untrusted source, so no finding is acted on until its
 // quote is found in the text that was sent for review. Anything else returns
 // nothing: a verdict line with a second word, a finding that does not parse, a
-// quote that is nowhere in the sources.
+// quote that is nowhere in the sources, a rewrite that is the quote itself, and
+// a verdict with a later PASS line.
 export function findings(verdict: string, sources: string[]): string {
   const squash = (t: string) => t.replace(/[ \t\r\n]+/g, ' ').replace(/^ /, '').replace(/ $/, '')
   const src = sources.map(text => squash(records(text).map(record => ` ${record}`).join('')))
@@ -150,13 +151,17 @@ export function findings(verdict: string, sources: string[]): string {
       if (squash(record) !== 'VIOLATION' && squash(record) !== 'LOCAL') return ''
       continue
     }
+    if (squash(record) === 'PASS') return ''
     const line = record.replace(/\r$/, '')
     const arrow = line.indexOf('" -> ')
     if (line[0] !== '"' || arrow < 0) continue
     const quoted = line.slice(1, arrow)
     // awk's split of "" yields no fragments, and the check below would pass
     if (quoted === '') continue
-    const verified = quoted.split('" + "').every(fragment => {
+    const fragments = quoted.split('" + "')
+    // A rewrite identical to the quote is not a finding.
+    if (squash(fragments.join(' ')) === squash(line.slice(arrow + 5))) continue
+    const verified = fragments.every(fragment => {
       const want = squash(fragment)
       return want !== '' && src.some(text => text.includes(want))
     })

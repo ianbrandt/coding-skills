@@ -16,8 +16,9 @@ whether or not it reads like a chat reply.
 
 Check that text, and only that text, against prohibitions 1 to 4 of the writing conventions at the
 end of this prompt, and against the string match in item 5 below. Rules 5 to 11 there, and everything
-else in them, are not yours to judge. Code in backticks, quoted text, product names, and issue
-references are exempt. How to read the five:
+else in them, are not yours to judge. Neither is tense or mood: a commit subject in the past tense
+passes, and so does one in the imperative, since the tense is chosen per project. Code in
+backticks, quoted text, product names, and issue references are exempt. How to read the five:
 
 1. Inanimate agency also covers a commit or a test as the subject, and tell, claim, judge, and name
    as the verb. A program doing its runtime job is not this: a function returns, a task writes a
@@ -75,4 +76,4 @@ words are split by text that is not part of the sentence, quote each piece and j
 ` + `: `"The report " + "says so." -> The version is shown in the report.` A script looks for every
 quoted piece in the message and drops a finding it cannot find, so a paraphrase is wasted. Flag only
 a violation you can quote. Judge no form beyond item 5, which is a string match, and never judge
-length or content.
+length or content. In a rewrite, keep the tense of the quoted words.

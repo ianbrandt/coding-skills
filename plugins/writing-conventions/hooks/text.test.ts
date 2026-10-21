@@ -152,6 +152,17 @@ test('a verdict in any other form has no findings', () => {
   ]) expect([verdict, findings(`${verdict}\n`, [SAYS])]).toEqual([verdict, ''])
 })
 
+// The model sometimes writes a finding, then takes it back and ends on PASS.
+test('a verdict with a later PASS line has no findings', () => {
+  expect(findings('VIOLATION\n"The report says so" -> x\n\nWait, that is not a violation.\n\nPASS\n', [SAYS])).toBe('')
+  expect(findings('LOCAL\n"The report says so" -> x\n PASS\r\n', [SAYS])).toBe('')
+})
+
+test('a finding whose rewrite is the quote itself is dropped', () => {
+  expect(findings('VIOLATION\n"The report says so" -> The report  says so\n', [SAYS])).toBe('')
+  expect(findings('VIOLATION\n"The report" + "says so" -> The report says so\n', [SAYS])).toBe('')
+})
+
 // The review model can be shown text that was never sent for review, so a quote from
 // outside the draft, or from a paragraph outside the excerpt, verifies nothing.
 test('a finding is checked against the draft or the excerpt, and nothing outside it', () => {

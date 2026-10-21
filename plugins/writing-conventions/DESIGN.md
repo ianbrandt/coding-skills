@@ -111,15 +111,25 @@ bullet changelog in a commit message, an issue, a pull request, or a comment. Dr
 in a pull request body are allowed when they are introduced as release notes, as they are in a
 release bump PR. On Sonnet 5.5 one such body was refused 3 times out of 3 before that case was
 added and passed 3 times out of 3 after, and its bullets with no introduction, or under "Changes:",
-were still refused 3 times out of 3. Length is never judged, and no other form is. The model replies `PASS`, `SKIP` for a command that publishes nothing
-new (`gh pr view`, `gh pr checks`, `--amend --no-edit`, a label change), or `VIOLATION` with one
-line per offending sentence: the quoted words, then a plain rewrite.
+were still refused 3 times out of 3. Length is never judged, and no other form is. Tense and mood
+are not judged either, since the tense of a commit subject is chosen per project, and the rewrite in
+a finding is in the tense of the quoted words. On Sonnet 5.5 the past-tense subjects "Removed R484
+from the roadmap" and "Removed R486 from the roadmap" were blocked with an imperative rewrite on 6
+of 200 checks before that sentence was added to `gate-prompt.md`, and on none of 200 after. Sixteen
+other past-tense commit subjects were blocked on 5 of 80 checks before and on 1 of 80 after. All 6
+of those were findings of inanimate agency, 5 of them on "what a kept comment break leaves open",
+which was flagged on 4 of 5 checks before and 1 of 5 after. The model replies `PASS`, `SKIP` for a
+command that publishes nothing new (`gh pr view`, `gh pr checks`, `--amend --no-edit`, a label
+change), or `VIOLATION` with one line per offending sentence: the quoted words, then a plain
+rewrite.
 
-`findings()` in [`hooks/text.ts`](hooks/text.ts) looks for each
-quote in the command, with runs of whitespace collapsed. A finding with its quote in the command
-comes back as the tool's error, and the session fixes the text and runs the command again. A reply in any other
-form lets the command through, as a failed call does, because the text the model reads can quote an
-untrusted source.
+`findings()` in [`hooks/text.ts`](hooks/text.ts) looks for each quote in the command, with runs of
+whitespace collapsed. A finding with its quote in the command comes back as the tool's error, and
+the session fixes the text and runs the command again. A finding whose rewrite is the quote itself
+is dropped, and so is every finding in a reply with a later `PASS` line, where the model took its
+findings back. Of the 200 checks above after the tense sentence, 4 replies were one of the two. The
+command goes through on a reply in any other form, as it does on a failed call, because the text the
+model reads can quote an untrusted source.
 
 The check is one `$.model.complete` call, with
 [`hooks/gate-prompt.md`](hooks/gate-prompt.md) as the system prompt and the hook input as the
