@@ -50,7 +50,9 @@ it. A backlog plugin may add its own arguments, such as a hint biasing candidate
 ## 1. Conductor setup—once
 
 The conductor roots in the **main checkout** and never edits repo files outside a unit's worktree,
-the run-state file and the PR draft files excepted. Get the candidate list from the backlog; if it
+the run-state file and the PR draft files excepted. **It reaches a lane only by absolute path and
+`git -C <worktree>`, never by `cd`**: in the desktop app, one `cd <lane worktree> &&` in a
+conductor's Bash call moved the session's working directory into that lane. Get the candidate list from the backlog; if it
 is empty, stop. Run the hygiene pass once—`work-in-worktree` §4's prune, then `claim-a-lane` §2's dead-claim reap. Then:
 
 - **Read how units land** with `land-and-wrap` §1's commands: fork-ness, visibility, the landing
