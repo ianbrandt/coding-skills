@@ -85,6 +85,13 @@ and was killed twenty minutes in having reported nothing. Its result—457 tests
 recovered by reading the worktree's build reports directly. Only the on-disk copy made that
 possible; nothing else recorded what the agent had found.
 
+**Name the findings file in the brief, and keep it off four names.** Claude Code refuses a
+subagent's Write to a file named `findings.md`, `report.md`, `summary.md`, or `analysis.md`, in
+any case, with "Subagents should return findings as text, not write report files". The agent then
+returns the text only, and nothing is on disk if it later goes silent. Only the file name is
+checked: in a 2026-10-20 probe, `R12-findings.md`, `findings.txt`, and `notes.md` were all written,
+in the scratchpad and in `notes.local/`, and a write through Bash was never refused.
+
 ## 4. Bound a read-heavy fan-out
 
 Cap each subset agent at roughly **10 files, read once**. An over-scoped census agent overruns its

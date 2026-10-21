@@ -14,8 +14,10 @@ self-contained units—never a one-liner. Keep emergent or fuzzy work in the mai
   `commit`/`merge`/`push` and shared-doc edits; the orchestrator reconciles and commits serially.
 - **Require findings on disk, and list the tools the task may need.** If you ask only for a return
   value, everything is lost when the agent goes silent: one agent did exactly that, and its result
-  had to be reconstructed from the worktree's build reports. A delegate that is not told it can
-  drive a browser reports a Cloudflare 403 as a dead end.
+  had to be reconstructed from the worktree's build reports. Give the file a path and a name such as
+  `R12-findings.md`: Claude Code refuses a subagent's Write to a file named `findings.md`,
+  `report.md`, `summary.md`, or `analysis.md`, in any case. A delegate that is not told it can drive
+  a browser reports a Cloudflare 403 as a dead end.
 - **Do not launch a stage you cannot afford to verify.** A delegated diff is unreviewed until you
   review it. Weigh that against the context you have left, and hand the whole unit to a fresh
   session rather than passing on a diff nobody read.

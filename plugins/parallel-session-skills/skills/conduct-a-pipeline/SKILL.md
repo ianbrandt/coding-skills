@@ -136,7 +136,9 @@ Workflow: the conductor does them inline in the worktree and processes them in t
   supplies, pasted verbatim rather than referenced; delete agent artifacts (think-aloud comments,
   banners, mismatched test names)—cleanup is part of the work, not a later pass;
 - final message = a structured report: `status` (`ready` | `failed` | `plan_invalidating`), what was
-  built, files touched, findings, and anything that surprised you.
+  built, files touched, findings, and anything that surprised you, also written to
+  `<notes directory>/<unit ID>/<stage>-findings.md` before you return (a file named
+  `findings.md` or `report.md` is refused to a subagent).
 
 Verify stages run as plain agents in the unit's worktree (no isolation—a worktree-isolated agent
 branches from the default branch's HEAD and would test the wrong tree). Tier per stage
