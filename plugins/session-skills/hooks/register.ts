@@ -435,6 +435,8 @@ async function answer(name: string, run: () => Promise<string>) {
 
 const TITLE_RULES: Record<string, string> = { 'claude-desktop': 'desktop', cli: 'cli' }
 
+const NEXT_STEP = 'This turn pushed work, and no next step is written at the end of the reply. Add it as the last text of the turn, under the session rules: the hand-off block for the next unit of work, or one line saying that this session carries on with it. When nothing can start yet, write one line on what the next item waits on, then the block for when it can start. When nothing comes next at all, say so in one line.'
+
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     await $.tool.register({
@@ -481,12 +483,27 @@ export const register: Register = on => {
   // A title that differs from the one at the last prompt is one the user typed
   // since, with /rename, and it is kept.
   on('classic.UserPromptSubmit', async ($, e: any, next: any) => {
+    pushed.delete(e.session_id)
     const ran = await next(e)
     const held = titles.get(e.session_id)
     const renamed = held !== undefined && 'seen' in held && held.seen !== e.session_title
     const title = renamed ? undefined : held?.pending
     titles.set(e.session_id, { seen: title ?? e.session_title })
     return title ? { ...ran, sessionTitle: title } : ran
+  })
+
+  // The turn that pushes is the last turn of a landing, and in October 2026 13
+  // of 16 such turns ended with no next step. One stop is blocked when the
+  // reply has no fenced block, so a reply that states there is none passes.
+  const pushed = new Set<string>()
+  on('classic.PostToolUse', async ($, e: any, next: any) => {
+    if (e.tool_name === 'Bash' && /\bgit(\s+-C\s+\S+)?\s+push\b/.test(String(e.tool_input?.command ?? ''))) pushed.add(e.session_id)
+    return next(e)
+  })
+  on('classic.Stop', async ($, e: any, next: any) => {
+    const ran = await next(e)
+    if (ran.block || !pushed.delete(e.session_id) || /^\s*```/m.test(String(e.last_assistant_message ?? ''))) return ran
+    return { ...ran, block: NEXT_STEP }
   })
 
   // A fork starts with its parent's context, where the rules already are.

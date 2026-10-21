@@ -55,6 +55,14 @@ elsewhere. In that app a session calls the `wrap_up` tool at the end of a turn t
 Text after a call with an `ask` is never shown, and a call without one returns "nothing is pending",
 which one session took as a reason to skip the hand-off block after a unit landed. Text written
 before any tool call is folded into that call's activity, and another session wrote the block before
-two more calls and closed with a pointer to it, so the rule puts the block after the last call.
+two more calls and closed with a pointer to it, so the block now goes after the last call.
+
+A `Stop` hook checks the turn that ran `git push`, the last turn of a landing. In a census of
+October 2026 transcripts from the four owned repos, 13 of the 16 turns that pushed held work ended
+with no next step, often after a landing turn that had asked for the push and deferred the hand-off
+to it. When such a turn's last message has no fenced block, one stop is blocked with a request for the
+next step, or for one line saying there is none. The second stop is let through, so a reply that
+states there is no next step costs one extra turn. A push is recorded from the `PostToolUse` hook
+for `Bash`, and a new prompt drops one left by an interrupted turn.
 
 There is no `SubagentStart` hook, because a subagent doesn't end a session.

@@ -175,3 +175,46 @@ test('the title tool is registered in the terminal only', async ($: any, on: any
     expect(names.includes('set_session_title')).toBe(listed)
   }
 })
+
+const ran = (command: string, session_id = 's1') => ({ session_id, tool_name: 'Bash', tool_input: { command }, tool_response: {}, tool_use_id: 't' })
+const stop = ($: any, text: string, session_id = 's1') => $.classic.Stop({ session_id, last_assistant_message: text })
+const BLOCK = 'Start it in `/repo`:\n\n```\n/next-roadmap-item R12\n```\n\n**Opus + High**'
+function turnEnd(on: any, block?: string) {
+  on('classic.PostToolUse', () => ({}))
+  // The other hook blocks the first stop only.
+  let blocks = block ? 1 : 0
+  on('classic.Stop', () => (blocks-- > 0 ? { block } : {}))
+  on('classic.UserPromptSubmit', () => ({}))
+}
+
+test('after a push, one stop is blocked when no next step is written at the end of the turn', async ($: any, on: any) => {
+  turnEnd(on)
+  await $.classic.PostToolUse(ran('git -C "/repo" push origin main'))
+  expect((await stop($, 'I pushed 47e3656 to origin/main.')).block).toContain('next step')
+  expect((await stop($, 'Nothing comes next: R96 waits on its post count.')).block).toBeUndefined()
+  await $.classic.PostToolUse(ran('git fetch -q origin && git push'))
+  expect((await stop($, `Pushed.\n\n${BLOCK}`)).block).toBeUndefined()
+})
+
+test('a turn that pushed nothing, or pushed in another session, is not blocked', async ($: any, on: any) => {
+  turnEnd(on)
+  await $.classic.PostToolUse(ran('git log --oneline origin/main..main && echo push'))
+  expect((await stop($, 'One commit waits for the push.')).block).toBeUndefined()
+  await $.classic.PostToolUse(ran('git push', 's2'))
+  expect((await stop($, 'Done.')).block).toBeUndefined()
+  expect((await stop($, 'Done.', 's2')).block).toBeDefined()
+})
+
+test('a push from an interrupted turn is dropped at the next prompt', async ($: any, on: any) => {
+  turnEnd(on)
+  await $.classic.PostToolUse(ran('git push'))
+  await $.classic.UserPromptSubmit({ session_id: 's1', prompt: 'next' })
+  expect((await stop($, 'Done.')).block).toBeUndefined()
+})
+
+test('a block from another hook is returned unchanged, and the check runs at the next stop', async ($: any, on: any) => {
+  turnEnd(on, 'emit the corrected draft')
+  await $.classic.PostToolUse(ran('git push'))
+  expect((await stop($, 'Done.')).block).toBe('emit the corrected draft')
+  expect((await stop($, 'Done.')).block).toContain('next step')
+})
