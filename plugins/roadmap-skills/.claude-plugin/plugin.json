@@ -6,5 +6,12 @@
   },
   "repository": "https://github.com/IanBrandt/coding-skills",
   "license": "MIT",
-  "keywords": ["roadmap", "backlog", "worktree", "oss", "contribution"]
+  "types": "./types/index.d.ts",
+  "keywords": [
+    "roadmap",
+    "backlog",
+    "worktree",
+    "oss",
+    "contribution"
+  ]
 }
