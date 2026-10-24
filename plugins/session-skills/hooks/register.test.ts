@@ -144,15 +144,24 @@ test('a title set with the tool is returned once, with the next prompt', async (
 test('a title is dropped when the user renamed the session after the last prompt', async ($: any, on: any) => {
   session(on, 's1')
   await prompt($, 'Typed by the user')
-  await $.tool.call({ tool: TITLE, title: 'Parser cache' })
+  expect((await $.tool.call({ tool: TITLE, title: 'Parser cache' })).result).toContain('next prompt')
   expect((await prompt($, 'Typed again')).sessionTitle).toBeUndefined()
   expect((await prompt($, 'Typed again')).sessionTitle).toBeUndefined()
 })
 
 test('a title set in one session is not returned in another', async ($: any, on: any) => {
   session(on, 's2')
-  await $.tool.call({ tool: TITLE, title: 'Parser cache' })
+  await prompt($)
+  expect((await $.tool.call({ tool: TITLE, title: 'Parser cache' })).result).toContain('next prompt')
   expect((await prompt($)).sessionTitle).toBeUndefined()
+})
+
+test('after a load in the middle of a turn, a title set with the tool waits for the next prompt', async ($: any, on: any) => {
+  session(on, 's1')
+  on('classic.PostToolUse', () => ({}))
+  await $.classic.PostToolUse({ session_id: 's1', tool_name: 'Read', tool_input: {}, tool_response: {}, tool_use_id: 't' })
+  expect((await $.tool.call({ tool: TITLE, title: 'Parser cache' })).result).toContain('next prompt')
+  expect((await prompt($)).sessionTitle).toBe('Parser cache')
 })
 
 test('an empty title is an error', async ($: any, on: any) => {
@@ -251,4 +260,23 @@ test('under the guard, the rules are added to a prompt while the model does not 
   // The rules for another entry point are not the rules for this one.
   w.read = ['before\n<title-print.md>\nafter\n']
   expect(await submit($)).toEqual([rules])
+})
+
+test('after a mid-session load, the rules are added to a prompt while the model does not read them', async ($: any, on: any) => {
+  session(on, 's1')
+  world(on)
+  const w = prompts(on)
+  await prompt($)
+  const rules = 'before\n<title-print.md>\nafter\n'
+  expect(await submit($)).toEqual([rules])
+  w.read = [rules]
+  expect(await submit($)).toEqual([])
+})
+
+test('under the guard, a call to the title tool is an error with the /rename fallback', { plugins: [guard] }, async ($: any, on: any) => {
+  session(on, 's1')
+  await prompt($)
+  const ran = await $.tool.call({ tool: TITLE, title: 'Parser cache' })
+  expect(ran.isError).toBe(true)
+  expect(ran.text).toContain('`/rename`')
 })

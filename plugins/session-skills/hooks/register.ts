@@ -459,12 +459,16 @@ async function readRules($: any): Promise<string> {
   return (await read('rules')).replace('{{title}}', () => title).replace('{{wrap-up}}', () => wrapUp)
 }
 
-// Set when a classic event reaches this plugin. Under managed settings
-// `cc-plugin-sec-default` sends every `classic.*` event past it, and the native
-// event below stands in for the rules. Kept in $.state, which outlives a hot
-// reload.
+// Set when a classic event reaches this plugin, and when classic.SessionStart
+// added the rules. Under managed settings `cc-plugin-sec-default` sends every
+// `classic.*` event past it, and the native event below stands in for the
+// rules. Kept in $.state, which outlives a hot reload. A plugin loaded
+// mid-session sees no classic.SessionStart, so the rules fallback waits on that
+// one alone.
 const CLASSIC = { plugin: 'session-skills', key: 'classic' } as const
+const STARTED = { plugin: 'session-skills', key: 'started' } as const
 const isClassic = async ($: any) => (await $.state.get(CLASSIC).catch(() => ({}))).value === true
+const isStarted = async ($: any) => (await $.state.get(STARTED).catch(() => ({}))).value === true
 
 // Whether the model still reads this text: false after /clear, a compaction,
 // or a plugin update that changed it.
@@ -504,13 +508,16 @@ export const register: Register = on => {
   })
 
   // No call sets a title from a tool. A prompt-submit hook can return one, so
-  // the title waits here for the next prompt.
+  // the title waits here for the next prompt. Under the guard that hook never
+  // runs. The tool stays registered, since in the terminal session.start and
+  // classic.SessionStart run at the same time.
   // ponytail: held in memory, so a title set in the last turn before the process exits is lost.
   const titles = new Map<string, { pending?: string; seen?: string }>()
   on('tool.call', { tool: 'mcp__session-skills__set_session_title' }, async ($, e: any) =>
     answer('set_session_title', async () => {
       const title = String(e.title ?? '').trim()
       if (!title) throw new Error('the title is empty')
+      if (!(await isClassic($))) throw new Error('no title can be set in this session. End the reply with a `**Session title:**` label line, then `/rename` and the title alone in a plain untagged fenced block.')
       const id = await $.session.id()
       titles.set(id, { ...titles.get(id), pending: title })
       return `The title is set to ${JSON.stringify(title)} when the user sends the next prompt.`
@@ -519,6 +526,7 @@ export const register: Register = on => {
   // A title that differs from the one at the last prompt is one the user typed
   // since, with /rename, and it is kept.
   on('classic.UserPromptSubmit', async ($, e: any, next: any) => {
+    await $.state.set(CLASSIC, true).catch(() => {})
     pushed.delete(e.session_id)
     const ran = await next(e)
     const held = titles.get(e.session_id)
@@ -533,10 +541,12 @@ export const register: Register = on => {
   // reply has no fenced block, so a reply that states there is none passes.
   const pushed = new Set<string>()
   on('classic.PostToolUse', async ($, e: any, next: any) => {
+    await $.state.set(CLASSIC, true).catch(() => {})
     if (e.tool_name === 'Bash' && /\bgit(\s+-C\s+\S+)?\s+push\b/.test(String(e.tool_input?.command ?? ''))) pushed.add(e.session_id)
     return next(e)
   })
   on('classic.Stop', async ($, e: any, next: any) => {
+    await $.state.set(CLASSIC, true).catch(() => {})
     const ran = await next(e)
     if (ran.block || !pushed.delete(e.session_id) || /^\s*```/m.test(String(e.last_assistant_message ?? ''))) return ran
     return { ...ran, block: NEXT_STEP }
@@ -545,6 +555,7 @@ export const register: Register = on => {
   // A fork starts with its parent's context, where the rules already are.
   on('classic.SessionStart', async ($, e: any, next: any) => {
     await $.state.set(CLASSIC, true).catch(() => {})
+    await $.state.set(STARTED, true).catch(() => {})
     const ran = await next(e)
     if (e.source === 'fork') return ran
     const rules = await readRules($)
@@ -553,7 +564,7 @@ export const register: Register = on => {
 
   // ponytail: under the guard the title, the push check, and the Stop block do not run, since no native event sets a title or blocks a stop.
   on('prompt.submit', async ($, e: any, next: any) => {
-    if (await isClassic($)) return next(e)
+    if (await isStarted($)) return next(e)
     const rules = await readRules($)
     return next(rules && !(await isRead($, rules)) ? { ...e, context: [...(e.context ?? []), rules] } : e)
   })

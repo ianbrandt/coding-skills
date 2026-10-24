@@ -29,7 +29,9 @@ that sets the session title. No call in the mod API sets one either, so the titl
 user's next prompt and returned there as the `sessionTitle` of a `UserPromptSubmit` hook, which
 renames the session as `/rename` does. A title is dropped when the user renamed the session in
 between. The tool is registered only where `CLAUDE_CODE_ENTRYPOINT` is `cli`: the desktop app has a
-title tool, and a `claude -p` session has no next prompt.
+title tool, and a `claude -p` session has no next prompt. Where no classic event has reached the
+plugin, as under managed settings, a call to the tool returns an error, and the model is told to
+print the `/rename` block instead.
 
 `hooks/checkouts.test.ts` and `hooks/register.test.ts` run under `claude plugin test`. The
 tool definitions are in every session's context, at roughly 600 tokens by estimate for the six.
