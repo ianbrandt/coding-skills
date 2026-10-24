@@ -394,11 +394,15 @@ async function notePath($: any, session: unknown): Promise<string> {
   return id && `${await tmp($)}/claude-reply-lint-${id}.txt`
 }
 
-// Set when a classic event reaches this plugin. Under managed settings
-// `cc-plugin-sec-default` sends every `classic.*` event past it, and the native
-// events stand in where they can. Kept in $.state, which outlives a hot reload.
+// Set when a classic event reaches this plugin, and when classic.SessionStart
+// added the rules. Under managed settings `cc-plugin-sec-default` sends every
+// `classic.*` event past it, and the native events stand in where they can.
+// Kept in $.state, which outlives a hot reload. A plugin loaded mid-session
+// sees no classic.SessionStart, so the rules fallback waits on that one alone.
 const CLASSIC = { plugin: 'writing-conventions', key: 'classic' } as const
+const STARTED = { plugin: 'writing-conventions', key: 'started' } as const
 const isClassic = async ($: any) => (await $.state.get(CLASSIC).catch(() => ({}))).value === true
+const isStarted = async ($: any) => (await $.state.get(STARTED).catch(() => ({}))).value === true
 
 // Whether the model still reads this text: false after /clear, a compaction,
 // or a plugin update that changed it.
@@ -439,7 +443,8 @@ export const register: Register = on => {
     }
     if ((e.tool === 'Write' || e.tool === 'Edit') && !(await isClassic($))) {
       const ran = await next(e)
-      if ((ran as any).deny !== undefined || (ran as any).isError) return ran
+      // A classic.PostToolUse that ran inside the call checked the file already.
+      if ((ran as any).deny !== undefined || (ran as any).isError || (await isClassic($))) return ran
       const { tool, tool_use_id, agentId, ...tool_input } = e as any
       const added = await wrote($, { tool_name: tool, tool_input })
       return added.length > 0 ? { ...ran, context: [...(ran.context ?? []), ...added] } : ran
@@ -512,6 +517,7 @@ export const register: Register = on => {
   // A session starts with the rules, on any version the module runs on.
   on('classic.SessionStart', async ($, e: any, next: any) => {
     await $.state.set(CLASSIC, true).catch(() => {})
+    await $.state.set(STARTED, true).catch(() => {})
     const ran = await next(e)
     const rules = await $.fs.read(`${$.plugin.root}/hooks/rules.md`).catch(() => '')
     return rules ? { ...ran, additionalContext: [...(ran.additionalContext ?? []), rules] } : ran
@@ -528,11 +534,11 @@ export const register: Register = on => {
 
   // Under the guard, the rules are added to a prompt once the model no longer
   // reads them, then the note and the reminder.
+  // ponytail: on the first prompt after a mid-session load, the reminder is added here and again by classic.UserPromptSubmit, which runs beneath.
   on('prompt.submit', async ($, e: any, next: any) => {
-    if (await isClassic($)) return next(e)
-    const rules = await $.fs.read(`${$.plugin.root}/hooks/rules.md`).catch(() => '')
+    const rules = (await isStarted($)) ? '' : await $.fs.read(`${$.plugin.root}/hooks/rules.md`).catch(() => '')
     const added = rules && !(await isRead($, rules)) ? [rules] : []
-    if (await isChecked($).catch(() => false)) added.push(await turnNote($, await $.session.id().catch(() => '')))
+    if (!(await isClassic($)) && (await isChecked($).catch(() => false))) added.push(await turnNote($, await $.session.id().catch(() => '')))
     return next(added.length > 0 ? { ...e, context: [...(e.context ?? []), ...added] } : e)
   })
 }

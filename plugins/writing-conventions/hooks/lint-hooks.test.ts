@@ -160,3 +160,10 @@ test('a classic event after a late load ends the fallback', async ($: any, on: a
   await $.tool.call({ tool: 'Agent', prompt: 'look', description: 'd' })
   expect(w.task).toBe('look')
 })
+
+test('after a mid-session load, a classic event before the first prompt still leaves the rules to the fallback', async ($: any, on: any) => {
+  world(on)
+  native(on)
+  await $.classic.PostToolUse({ tool_name: 'Read', tool_input: { file_path: '/p/a.md' }, tool_response: {}, tool_use_id: 't' })
+  expect(await submit($)).toEqual(['<rules.md>'])
+})

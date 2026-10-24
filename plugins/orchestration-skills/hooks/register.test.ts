@@ -63,3 +63,9 @@ test('a classic event after a late load ends the fallback', async ($: any, on: a
   await $.tool.call({ tool: 'Agent', prompt: 'look', description: 'd' })
   expect(w.task).toBe('look')
 })
+
+test('after a mid-session load, a subagent before the first prompt still leaves the rules to the fallback', async ($: any, on: any) => {
+  world(on)
+  await $.classic.SubagentStart({})
+  expect((await $.prompt.submit({ text: 'hi' })).context).toEqual([RULES])
+})
