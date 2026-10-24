@@ -119,7 +119,10 @@ function native(on: any) {
   on('session.id', () => ({ value: 's1' }))
   on('session.messages', () => ({ value: w.read.map(text => ({ role: 'user', content: [{ type: 'text', text }] })) }))
   on('prompt.submit', (_$: any, e: any) => ({ text: e.text, context: e.context }))
-  on('tool.call', (_$: any, e: any) => { w.task = e.prompt; return { result: '' } })
+  on('tool.call', (_$: any, e: any) => {
+    w.task = e.prompt
+    return { result: e.tool === 'Write' ? { type: 'create', filePath: e.file_path, content: e.content } : '' }
+  })
   return w
 }
 const submit = async ($: any) => (await $.prompt.submit({ text: 'next' })).context ?? []

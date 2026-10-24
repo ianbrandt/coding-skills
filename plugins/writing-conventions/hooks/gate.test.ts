@@ -21,6 +21,8 @@ type World = {
   // The session is on Windows: its directory is C:\proj, and stat returns a real
   // path with a drive letter and backslashes.
   win?: boolean
+  // What a tool call returns from beneath the plugin, in place of a Bash run.
+  result?: unknown
 }
 
 // world(on, w): answers every call the gate makes to the engine, and records the
@@ -65,7 +67,7 @@ function world(on: any, w: World = {}) {
     list.push(e.prompt)
     return { value: w.down || reply === undefined ? { isAnswered: false, reason: 'api-error', status: 529, usage: {} } : { isAnswered: true, text: reply, usage: {} } }
   })
-  on('tool.call', () => { seen.ran++; return { result: { stdout: 'ran' } } })
+  on('tool.call', () => { seen.ran++; return { result: w.result ?? { stdout: 'ran' } } })
   on('classic.PostToolUse', () => ({ additionalContext: ['from a settings hook'] }))
   on('classic.Stop', () => ({}))
   return seen
@@ -443,4 +445,32 @@ test('the off switch for the draft check makes no call', async ($: any, on: any)
   const off = world(on, { verdict: FINDING, env: { WRITING_CONVENTIONS_STOP_READER: '0' } })
   expect((await $.classic.Stop(reply('p5', DRAFT))).block).toBeUndefined()
   expect(off.reader).toHaveLength(0)
+})
+
+// Under managed settings cc-plugin-sec-default sends every classic.* event past
+// user plugins, as this copy of its rule does, and the file is checked from the
+// Write or Edit result: a hook beneath may have rewritten the arguments.
+const guard = { name: 'guard', tier: 'prepend' as const, register(on: any) {
+  on('classic.*', (_$: any, e: any, next: any) => next.to(e, 'append'))
+} }
+
+test('under the guard, the file is reviewed as the tool wrote it', { plugins: [guard] }, async ($: any, on: any) => {
+  const seen = world(on, { verdict: FINDING, result: { type: 'create', filePath: '/proj/b.md', content: 'The report says so.' } })
+  const ran = await $.tool.call({ tool: 'Write', file_path: '/proj/a.md', content: 'Plain.', tool_use_id: 'toolu_3' })
+  expect(seen.reader).toEqual(['File: /proj/b.md\n\nThe report says so.'])
+  expect(ran.context.join('\n')).toContain('Fix the quoted text in /proj/b.md.')
+})
+
+test('under the guard, an edit is reviewed by the string the tool wrote', { plugins: [guard] }, async ($: any, on: any) => {
+  const text = 'First one.\n\nThe report says so. It is short.\n\nThird one.\n'
+  const seen = world(on, { verdict: FINDING, files: { '/proj/a.md': text }, result: { filePath: '/proj/a.md', oldString: 'x', newString: 'says' } })
+  await $.tool.call({ tool: 'Edit', file_path: '/proj/a.md', old_string: 'x', new_string: 'Third', tool_use_id: 'toolu_4' })
+  expect(seen.reader[0]).toContain('It is short.')
+  expect(seen.reader[0]).not.toContain('Third one')
+})
+
+test('under the guard, a write held for review is not checked', { plugins: [guard] }, async ($: any, on: any) => {
+  const seen = world(on, { verdict: FINDING, result: { type: 'create', filePath: '/proj/a.md', content: 'The report says so.', staged: true } })
+  expect((await $.tool.call({ tool: 'Write', file_path: '/proj/a.md', content: 'The report says so.', tool_use_id: 'toolu_3' })).context).toBeUndefined()
+  expect(seen.reader).toHaveLength(0)
 })

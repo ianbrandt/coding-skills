@@ -445,8 +445,10 @@ export const register: Register = on => {
       const ran = await next(e)
       // A classic.PostToolUse that ran inside the call checked the file already.
       if ((ran as any).deny !== undefined || (ran as any).isError || (await isClassic($))) return ran
-      const { tool, tool_use_id, agentId, ...tool_input } = e as any
-      const added = await wrote($, { tool_name: tool, tool_input })
+      // What was written is in the result, after any hook beneath rewrote the call.
+      const done = (ran as any).result ?? {}
+      if (done.staged || typeof done.filePath !== 'string') return ran
+      const added = await wrote($, { tool_name: e.tool, tool_input: { file_path: done.filePath, content: done.content, new_string: done.newString } })
       return added.length > 0 ? { ...ran, context: [...(ran.context ?? []), ...added] } : ran
     }
     if (!/^(Bash$|PowerShell$|mcp__)/.test(e.tool)) return next(e)
