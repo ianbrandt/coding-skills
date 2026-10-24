@@ -1,15 +1,14 @@
 // claude plugin test: the reply lint's hooks, the reminders, and the lint tool.
 import { expect, test } from 'claude-code/testing'
 
-// `sessionId` carries the id this test's $-dispatched calls see from
-// `$.session.id()`, letting a test switch sessions by mutating `w.sessionId`.
+// `read` is the text the model still reads, the rules by default, and `task` is
+// the last subagent task that reached the Agent tool.
 function world(on: any, base = '2.1.289', env: Record<string, string> = {}) {
-  const w = { sessionId: 's1', files: {} as Record<string, string> }
   on('session.version', () => ({ value: { version: base, base, builtAt: '' } }))
-  on('session.id', () => ({ value: w.sessionId }))
-  on('session.start', (_$: any, e: any) => e)
-  on('prompt.submit', (_$: any, e: any) => ({ ...e, text: `from a settings hook\n\n${String(e.text ?? '')}` }))
-  on('tool.call', () => ({ result: '' }))
+  const w = { files: {} as Record<string, string>, session: 's1', read: ['<rules.md>'], task: '' }
+  const { files } = w
+  on('session.id', () => ({ value: w.session }))
+  on('session.messages', () => ({ value: w.read.map(text => ({ role: 'user', content: [{ type: 'text', text }] })) }))
   // On Windows an engine-level step turns a "/foo" path into "C:\foo" before the
   // mock sees it, so each lookup reads it back as POSIX.
   const posix = (p: string) => p.replace(/^[A-Za-z]:/, '').replace(/\\/g, '/')
@@ -17,52 +16,50 @@ function world(on: any, base = '2.1.289', env: Record<string, string> = {}) {
   on('fs.read', (_$: any, e: any) => {
     const p = posix(e.path)
     if (p.endsWith('.md')) return { value: `<${p.split('/').pop()}>` }
-    if (!(p in w.files)) throw new Error('ENOENT')
-    return { value: w.files[p] }
+    if (!(p in files)) throw new Error('ENOENT')
+    return { value: files[p] }
   })
-  on('fs.exists', (_$: any, e: any) => ({ value: posix(e.path) in w.files }))
-  on('fs.write', (_$: any, e: any) => { w.files[posix(e.path)] = e.text; return { value: undefined } })
+  on('fs.exists', (_$: any, e: any) => ({ value: posix(e.path) in files }))
+  on('fs.write', (_$: any, e: any) => { files[posix(e.path)] = e.text; return { value: undefined } })
   on('ui.toast', () => ({ value: undefined }))
   on('classic.Stop', () => ({}))
-  on('classic.SubagentStart', () => ({}))
+  on('prompt.submit', (_$: any, e: any) => ({ text: e.text, context: ['from a settings hook', ...(e.context ?? [])] }))
+  on('tool.call', (_$: any, e: any) => { w.task = e.prompt; return { result: '' } })
   return w
 }
 
 const stop = ($: any, text: string, session_id = 's1') => $.classic.Stop({ session_id, last_assistant_message: text })
-// What the plugin prepends to the first (or every) prompt, as the text before
-// a `<user>` leaf. The returned string is empty when nothing was prepended.
-const prompt = async (w: { sessionId: string }, $: any, session_id = 's1') => {
-  w.sessionId = session_id
-  const { text } = await $.prompt.submit({ text: '<user>' })
-  const match = String(text).match(/^(.*)\n\n<user>$/s)
-  if (!match) return ''
-  return match[1]
+const prompt = async ($: any, w: { session: string }, session = 's1') => {
+  w.session = session
+  return (await $.prompt.submit({ text: 'next' })).context
 }
 
 test('the note on a reply opens the next turn, once, before the reminder', async ($: any, on: any) => {
   const w = world(on)
   expect((await stop($, 'The report says the build is load-bearing.')).block).toBeUndefined()
-  expect(await prompt(w, $)).toMatch(/^from a settings hook\n\n<rules.md>\n\nA house-style lint flagged the previous reply:\n[\s\S]*banned word[\s\S]*\nStyle, for this reply/)
-  expect(await prompt(w, $)).toMatch(/^from a settings hook\n\nStyle, for this reply/)
+  const first = await prompt($, w)
+  expect(first[0]).toBe('from a settings hook')
+  expect(first[1]).toMatch(/^A house-style lint flagged the previous reply:\n[\s\S]*banned word[\s\S]*\nStyle, for this reply/)
+  expect((await prompt($, w))[1]).toMatch(/^Style, for this reply/)
 })
 
 test('the note is cleared after a clean reply, and is kept per session', async ($: any, on: any) => {
   const w = world(on)
   await stop($, 'The build is load-bearing.')
   await stop($, 'The build passed.')
-  expect(await prompt(w, $)).toMatch(/\nStyle/)
+  expect((await prompt($, w))[1]).toMatch(/^Style/)
   await stop($, 'The build is load-bearing.', 's2')
-  expect(await prompt(w, $, 's1')).toMatch(/\nStyle/)
-  expect(await prompt(w, $, 's2')).toMatch(/\nA house-style lint/)
+  expect((await prompt($, w, 's1'))[1]).toMatch(/^Style/)
+  expect((await prompt($, w, 's2'))[1]).toMatch(/^A house-style lint/)
 })
 
 test('the text in a draft fence is linted as prose', async ($: any, on: any) => {
   const w = world(on)
   const F = '```'
   await stop($, `Here it is.\n${F}draft\nThe build is load-bearing.\n${F}\n`)
-  expect(await prompt(w, $)).toContain('banned word')
+  expect((await prompt($, w))[1]).toContain('banned word')
   await stop($, `Here it is.\n${F}sh\necho load-bearing\n${F}\n`)
-  expect(await prompt(w, $)).toMatch(/\nStyle/)
+  expect((await prompt($, w))[1]).toMatch(/^Style/)
 })
 
 test('the re-read request is added for a prose or source file just written, in any letter case', async ($: any, on: any) => {
@@ -75,15 +72,16 @@ test('the re-read request is added for a prose or source file just written, in a
   expect(await wrote('Read', '/p/a.md')).toEqual([])
 })
 
-// The rules go in on the first prompt now, on every CLI the module runs on.
-test('a session starts with the rules, on an older CLI too', async ($: any, on: any) => {
+test('the rules are added once the model no longer reads them, on an older CLI too', async ($: any, on: any) => {
   const w = world(on, '2.1.200')
-  expect(await prompt(w, $)).toBe('from a settings hook\n\n<rules.md>')
+  w.read = []
+  expect(await prompt($, w)).toEqual(['from a settings hook', '<rules.md>'])
 })
 
 test('a subagent starts with the rules', async ($: any, on: any) => {
-  world(on)
-  expect((await $.classic.SubagentStart({ agent_id: 'a1', agent_type: 'Explore' })).additionalContext).toEqual(['<rules.md>'])
+  const w = world(on)
+  await $.tool.call({ tool: 'Agent', prompt: 'look', description: 'd' })
+  expect(w.task).toBe('<rules.md>\n\nlook')
 })
 
 test('the lint tool returns the flagged lines, or clean', async ($: any, on: any) => {
@@ -99,27 +97,22 @@ test('the lint tool reads a draft passed inside its fence', async ($: any, on: a
 })
 
 test('the note is kept in TEMP where there is no TMPDIR', async ($: any, on: any) => {
-  const w = world(on, '2.1.289', { TEMP: '/win/Temp' })
+  const { files } = world(on, '2.1.289', { TEMP: '/win/Temp' })
   await stop($, 'The build is load-bearing.')
-  expect(Object.keys(w.files)).toEqual(['/win/Temp/claude-reply-lint-s1.txt'])
+  expect(Object.keys(files)).toEqual(['/win/Temp/claude-reply-lint-s1.txt'])
 })
 
 test('with no session id nothing is saved', async ($: any, on: any) => {
   const w = world(on)
   await stop($, 'The build is load-bearing.', '')
-  // The first prompt sees the rules too; the lint note is what matters here.
-  expect(await prompt(w, $, '')).toMatch(/\nStyle/)
+  expect((await prompt($, w, ''))[1]).toMatch(/^Style/)
 })
 
-// On an older CLI the lint note isn't recorded or added, but the rules still
-// go in on the first prompt.
-test('on an older CLI no lint note is recorded or added', async ($: any, on: any) => {
+test('on an older CLI nothing is recorded or added', async ($: any, on: any) => {
   const w = world(on, '2.1.200')
   await stop($, 'The build is load-bearing.')
   expect(Object.keys(w.files)).toEqual([])
-  // First prompt gets the rules.
-  expect(await prompt(w, $)).toBe('from a settings hook\n\n<rules.md>')
-  // Second prompt gets no prepends, so only the settings-hook stays.
-  expect(await prompt(w, $)).toBe('from a settings hook')
-  expect((await $.classic.SubagentStart({ agent_id: 'a1', agent_type: 'Explore' })).additionalContext).toBeUndefined()
+  expect(await prompt($, w)).toEqual(['from a settings hook'])
+  await $.tool.call({ tool: 'Agent', prompt: 'look', description: 'd' })
+  expect(w.task).toBe('look')
 })

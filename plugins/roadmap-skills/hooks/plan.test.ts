@@ -1,4 +1,4 @@
-// claude plugin test: where the plan of record is, the rule at session start,
+// claude plugin test: where the plan of record is, the rule added to a prompt,
 // and the tool that reports both.
 import { expect, test } from 'claude-code/testing'
 import { planOf } from './plan'
@@ -23,7 +23,7 @@ test('a local-only roadmap comes first, then the fork check, then a tracked one'
 type Failed = { exitCode: number; stderr: string }
 type Repo = { root?: string; files?: string[]; hasUpstream?: boolean; tracked?: string[]; remote?: Failed; listed?: Failed }
 function world(on: any, first: Repo) {
-  const w = { now: first, argvs: [] as string[][], cwds: [] as unknown[] }
+  const w = { now: first, argvs: [] as string[][], cwds: [] as unknown[], read: [] as string[] }
   on('session.repo', () => ({ value: w.now.root ? { root: w.now.root, remote: null, internal: false } : null }))
   on('fs.exists', (_$: any, e: any) => ({ value: (w.now.files ?? []).includes(String(e.path).replace(/^[A-Za-z]:/, '').replace(/\\/g, '/')) }))
   on('process.run', (_$: any, e: any) => {
@@ -34,20 +34,13 @@ function world(on: any, first: Repo) {
     if (failed) return { value: { stdout: '', ...failed } }
     return e.argv.includes('remote') ? out(w.now.hasUpstream ? 0 : 2) : out(0, (w.now.tracked ?? []).map(p => p + '\n').join(''))
   })
-  on('tool.register', () => ({ value: undefined }))
-  on('session.start', (_$: any, e: any) => e)
-  on('prompt.submit', (_$: any, e: any) => ({ ...e, text: `from a settings hook\n\n${String(e.text ?? '')}` }))
+  on('session.messages', () => ({ value: w.read.map(text => ({ role: 'user', content: [{ type: 'text', text }] })) }))
+  on('prompt.submit', (_$: any, e: any) => ({ text: e.text, context: ['from a settings hook', ...(e.context ?? [])] }))
   return w
 }
-// The rule the plugin prepends to the first prompt of a non-fork session, as
-// a pair with the settings-hook prefix, split off from the user's text.
-const start = async ($: any, source = 'startup') => {
-  await $.session.start({ cwd: '/repo', source })
-  const { text } = await $.prompt.submit({ text: '<user>' })
-  const m = String(text).match(/^from a settings hook\n\n(?:(.*)\n\n)?<user>$/s)
-  if (!m) throw new Error(`unrecognised prompt text: ${JSON.stringify(text)}`)
-  return m[1] === undefined ? ['from a settings hook'] : ['from a settings hook', m[1]]
-}
+// The context a prompt enters with, the rule the plugin adds after that of a
+// settings hook. `w.read` is the text the model still reads.
+const start = async ($: any) => (await $.prompt.submit({ text: '<user>' })).context
 const FIND = 'mcp__roadmap-skills__find_roadmap'
 const found = async ($: any) => (await $.tool.call({ tool: FIND })).result
 
@@ -100,7 +93,7 @@ test('on a tracked roadmap the highest ID used is a line in the header, first se
   expect((await start($))[1]).not.toContain('Highest ID used')
 })
 
-test('nothing is added with no roadmap, in a fork with only a tracked one, outside a repo, or to a fork of a session', async ($: any, on: any) => {
+test('nothing is added with no roadmap, in a fork with only a tracked one, outside a repo, or while the model still reads the rule', async ($: any, on: any) => {
   const w = world(on, { root: '/repo' })
   expect(await start($)).toEqual(['from a settings hook'])
   w.now = { root: '/repo', hasUpstream: true, tracked: ['ROADMAP.md'] }
@@ -108,8 +101,10 @@ test('nothing is added with no roadmap, in a fork with only a tracked one, outsi
   w.now = {}
   expect(await start($)).toEqual(['from a settings hook'])
   w.now = { root: '/repo', tracked: ['ROADMAP.md'] }
-  expect(await start($, 'fork')).toEqual(['from a settings hook'])
-  expect((await start($, 'compact'))[1]).toContain('`ROADMAP.md`')
+  w.read = ['ROADMAP RULE ACTIVE\n\nthe rule']
+  expect(await start($)).toEqual(['from a settings hook'])
+  w.read = []
+  expect((await start($))[1]).toContain('`ROADMAP.md`')
 })
 
 test('the tool returns absolute paths in the primary checkout', async ($: any, on: any) => {
@@ -143,7 +138,7 @@ test('the tool reports a lookup of the upstream remote that failed, and not a re
 })
 
 // A list that failed is not an empty one, and the session still starts.
-test('a list of the tracked paths that failed is reported by the tool, and in one line at session start', async ($: any, on: any) => {
+test('a list of the tracked paths that failed is reported by the tool, and in one line of context on a prompt', async ($: any, on: any) => {
   const w = world(on, { root: '/repo', listed: { exitCode: 128, stderr: 'fatal: index file corrupt\r\nmore\r\n' } })
   const ran = await $.tool.call({ tool: FIND })
   expect(ran.isError).toBe(true)
@@ -152,5 +147,6 @@ test('a list of the tracked paths that failed is reported by the tool, and in on
   expect(await start($)).toEqual(['from a settings hook', `${lookup}git ls-files in /repo: fatal: index file corrupt`])
   w.now = { root: '/repo', remote: { exitCode: 1, stderr: '' } }
   expect(await start($)).toEqual(['from a settings hook', `${lookup}git remote get-url upstream in /repo: exit 1`])
-  expect(await start($, 'fork')).toEqual(['from a settings hook'])
+  w.read = [`${lookup}exit 1`]
+  expect(await start($)).toEqual(['from a settings hook'])
 })

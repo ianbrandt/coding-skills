@@ -1,37 +1,25 @@
-// claude plugin test: the context added at a session's start, and the edit to a
+// claude plugin test: the context added to a prompt, and the edit to a
 // file in the primary checkout.
 import { expect, test } from 'claude-code/testing'
 import { splice } from './splice'
 
-function world(on: any, entry?: string, id = 's1') {
+function world(on: any, entry?: string, read: string[] = []) {
   on('fs.read', (_$: any, e: any) => {
     const name = String(e.path).split(/[\\/]/).pop()
     return { value: name === 'rules.md' ? 'before\n{{title}}\n{{wrap-up}}after\n' : `<${name}>\n` }
   })
   on('env.get', () => ({ value: entry }))
-  on('tool.register', () => ({ value: undefined }))
-  on('session.id', () => ({ value: id }))
-  on('session.start', (_$: any, e: any) => e)
-  on('prompt.submit', (_$: any, e: any) => ({ ...e, text: `from a settings hook\n\n${String(e.text ?? '')}` }))
+  on('session.id', () => ({ value: 's1' }))
+  on('session.messages', () => ({ value: read.map(text => ({ role: 'user', content: [{ type: 'text', text }] })) }))
+  on('prompt.submit', (_$: any, e: any) => ({ text: e.text, context: ['from a settings hook', ...(e.context ?? [])] }))
 }
-// The rules the plugin prepends to the first prompt of a non-fork session,
-// returned as a pair with the settings-hook prefix, split off from the user's
-// text. The rules.md fixture ends with a newline, so there is one blank line
-// between it and `<user>`.
-const start = async ($: any, source = 'startup') => {
-  await $.session.start({ cwd: '/repo', source })
-  const { text } = await $.prompt.submit({ text: '<user>' })
-  const m = String(text).match(/^from a settings hook\n\n(?:(.*)\n\n\n)?<user>$/s)
-  if (!m) throw new Error(`unrecognised prompt text: ${JSON.stringify(text)}`)
-  return m[1] === undefined ? ['from a settings hook'] : ['from a settings hook', m[1] + '\n']
-}
+// The context a prompt enters with: a settings hook's, then the plugin's.
+const start = async ($: any) => (await $.prompt.submit({ text: 'hi' })).context
 const rules = (title: string, wrapUp = '') => ['from a settings hook', `before\n<${title}>\n${wrapUp}after\n`]
 
-test('the first prompt of a session opens with rules.md, after a settings hook', async ($: any, on: any) => {
-  world(on)
-  for (const source of ['startup', 'resume', 'clear', 'compact']) {
-    expect(await start($, source)).toEqual(rules('title-print.md'))
-  }
+test('rules.md is added after the context of a settings hook once the model no longer reads it', async ($: any, on: any) => {
+  world(on, undefined, ['hi'])
+  expect(await start($)).toEqual(rules('title-print.md'))
 })
 
 test('the desktop app gets the title instruction for its tool and the rule for its wrap_up tool', async ($: any, on: any) => {
@@ -49,9 +37,9 @@ test('any other entry point gets the printed title block', async ($: any, on: an
   expect(await start($)).toEqual(rules('title-print.md'))
 })
 
-test('a fork gets nothing added', async ($: any, on: any) => {
-  world(on)
-  expect(await start($, 'fork')).toEqual(['from a settings hook'])
+test('nothing is added while the model still reads the rules', async ($: any, on: any) => {
+  world(on, undefined, ['before\n<title-print.md>\nafter\n'])
+  expect(await start($)).toEqual(['from a settings hook'])
 })
 
 test('a passage is replaced where it occurs once, and a replacement with $& in it is literal', () => {
@@ -138,24 +126,41 @@ test('the tool writes nothing when the file changed after it was first read', as
 })
 
 const TITLE = 'mcp__session-skills__set_session_title'
+const prompt = ($: any, session_title?: string) => $.classic.UserPromptSubmit({ session_id: 's1', prompt: 'next', session_title })
 function session(on: any, id: string) {
   on('session.id', () => ({ value: id }))
+  on('classic.UserPromptSubmit', () => ({ additionalContext: ['from a settings hook'] }))
 }
 
-// ponytail: the title's rename on the next prompt is dropped under the native
-// `prompt.submit` event, which returns only `{ text }` or `{ drop }`. The tool
-// still records the title, so the previous tests of the one-shot application
-// and the /rename interaction are gone with it.
-test('a title set with the tool reports back the title it will apply', async ($: any, on: any) => {
+test('a title set with the tool is returned once, with the next prompt', async ($: any, on: any) => {
   session(on, 's1')
-  const ran = await $.tool.call({ tool: TITLE, title: ' Parser cache ' })
-  expect(ran.result).toContain('"Parser cache"')
-  expect(ran.result).toContain('next prompt')
+  expect((await prompt($)).sessionTitle).toBeUndefined()
+  expect((await $.tool.call({ tool: TITLE, title: ' Parser cache ' })).result).toContain('next prompt')
+  expect(await prompt($)).toEqual({ additionalContext: ['from a settings hook'], sessionTitle: 'Parser cache' })
+  expect((await prompt($, 'Parser cache')).sessionTitle).toBeUndefined()
+  // A second title replaces the first, which the session now has.
+  await $.tool.call({ tool: TITLE, title: 'R12: parser cache' })
+  expect((await prompt($, 'Parser cache')).sessionTitle).toBe('R12: parser cache')
+})
+
+test('a title is dropped when the user renamed the session after the last prompt', async ($: any, on: any) => {
+  session(on, 's1')
+  await prompt($, 'Typed by the user')
+  await $.tool.call({ tool: TITLE, title: 'Parser cache' })
+  expect((await prompt($, 'Typed again')).sessionTitle).toBeUndefined()
+  expect((await prompt($, 'Typed again')).sessionTitle).toBeUndefined()
+})
+
+test('a title set in one session is not returned in another', async ($: any, on: any) => {
+  session(on, 's2')
+  await $.tool.call({ tool: TITLE, title: 'Parser cache' })
+  expect((await prompt($)).sessionTitle).toBeUndefined()
 })
 
 test('an empty title is an error', async ($: any, on: any) => {
   session(on, 's1')
   expect((await $.tool.call({ tool: TITLE, title: '  ' })).isError).toBe(true)
+  expect((await prompt($)).sessionTitle).toBeUndefined()
 })
 
 test('the title tool is registered in the terminal only', async ($: any, on: any) => {
@@ -173,8 +178,6 @@ test('the title tool is registered in the terminal only', async ($: any, on: any
   }
 })
 
-// `tool.call` for Bash reaches the session-skills push-detector by its id,
-// not by any input shape, so session_id comes from `on('session.id', ...)`.
 const bash = ($: any, command: string) => $.tool.call({ tool: 'Bash', command, tool_use_id: 't' })
 const stop = ($: any, text: string, session_id = 's1') => $.classic.Stop({ session_id, last_assistant_message: text })
 const BLOCK = 'Start it in `/repo`:\n\n```\n/next-roadmap-item R12\n```\n\n**Opus + High**'
@@ -184,6 +187,9 @@ function turnEnd(on: any, block?: string, id = 's1') {
   // The other hook blocks the first stop only.
   let blocks = block ? 1 : 0
   on('classic.Stop', () => (blocks-- > 0 ? { block } : {}))
+  on('fs.read', () => ({ value: '' }))
+  on('env.get', () => ({ value: undefined }))
+  on('prompt.submit', (_$: any, e: any) => ({ text: e.text }))
 }
 
 test('after a push, one stop is blocked when no next step is written at the end of the turn', async ($: any, on: any) => {
@@ -201,15 +207,18 @@ test('a turn that pushed nothing is not blocked', async ($: any, on: any) => {
   expect((await stop($, 'One commit waits for the push.')).block).toBeUndefined()
 })
 
-// `tool.call` reads the session.id of its own call, so a Bash hook fired in a
-// different test world keeps its own session. The classic.Stop that follows
-// here runs in the same world, and the stop for a different session_id does
-// not clear the push flag.
-test("a push in one session is not blocked by another session's stop", async ($: any, on: any) => {
+test('a push in another session is not blocked', async ($: any, on: any) => {
   turnEnd(on, undefined, 's2')
   await bash($, 'git push')
-  expect((await stop($, 'Done.', 's1')).block).toBeUndefined()
+  expect((await stop($, 'Done.')).block).toBeUndefined()
   expect((await stop($, 'Done.', 's2')).block).toBeDefined()
+})
+
+test('a push from an interrupted turn is dropped at the next prompt', async ($: any, on: any) => {
+  turnEnd(on)
+  await bash($, 'git push')
+  await $.prompt.submit({ text: 'next' })
+  expect((await stop($, 'Done.')).block).toBeUndefined()
 })
 
 test('a block from another hook is returned unchanged, and the check runs at the next stop', async ($: any, on: any) => {

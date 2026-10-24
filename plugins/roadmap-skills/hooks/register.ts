@@ -31,9 +31,17 @@ async function find($: any): Promise<{ main: string; plan: Plan } | null> {
   return { main, plan: planOf({ hasLocal, hasUpstream, tracked }) }
 }
 
+// The first line of the rule, and of the one line added when the lookup failed.
+const HEADS = ['ROADMAP RULE ACTIVE', 'The roadmap lookup failed']
+
+// Whether the model still reads text that starts with one of these lines:
+// false after /clear or a compaction, true in a fork or a resumed session.
+async function isRead($: any, heads: string[]): Promise<boolean> {
+  const messages: any[] = await $.session.messages({ as: 'api' }).catch(() => [])
+  return messages.some(m => m.role === 'user' && m.content.some((b: any) => b.type === 'text' && heads.some(h => String(b.text).includes(h))))
+}
+
 export const register: Register = on => {
-  // ponytail: `cc-plugin-sec-default` forwards `classic.SessionStart` past user mods under managed settings, so the rule goes in on the first prompt instead.
-  const seen = new Set<string>()
   on('session.start', async ($, e, next) => {
     await $.tool.register({
       name: 'find_roadmap',
@@ -54,25 +62,21 @@ export const register: Register = on => {
       },
       isDeferred: false,
     })
-    // A fork starts with its parent's context, where the rule already is.
-    // Every other start resets, so /clear and /compact get the rule again.
-    const id = String((await $.session.id().catch(() => '')) ?? '')
-    if ((e as any).source === 'fork') seen.add(id)
-    else seen.delete(id)
     return next(e)
   })
 
   // In a repo with no roadmap of its own nothing is added. A lookup that
-  // failed is one line of context, since the repo may have a roadmap.
+  // failed is one line of context, since the repo may have a roadmap. Under
+  // managed settings `cc-plugin-sec-default` sends `classic.SessionStart` past
+  // this plugin, so the rule rides on a prompt, once the model no longer reads
+  // it.
   on('prompt.submit', async ($, e: any, next: any) => {
-    const id = String((await $.session.id().catch(() => '')) ?? '')
-    if (seen.has(id)) return next(e)
-    seen.add(id)
+    if (await isRead($, HEADS)) return next(e)
     const added = await find($).then(
       found => (found && 'roadmap' in found.plan ? rule(found.plan, found.main) : ''),
       err => `The roadmap lookup failed, so it is not known whether this repo has a roadmap: ${(err as Error).message}`,
     )
-    return next(added ? { ...e, text: `${added}\n\n${String(e.text ?? '')}` } : e)
+    return next(added ? { ...e, context: [...(e.context ?? []), added] } : e)
   })
 
   on('tool.call', { tool: FIND }, async $ => {

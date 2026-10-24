@@ -446,8 +446,16 @@ const TITLE_RULES: Record<string, string> = { 'claude-desktop': 'desktop', cli: 
 
 const NEXT_STEP = 'This turn pushed work, and no next step is written at the end of the reply. Add it as the last text of the turn, under the session rules: the hand-off block for the next unit of work, or one line saying that this session carries on with it. When nothing can start yet, write one line on what the next item waits on, then the block for when it can start. When nothing comes next at all, say so in one line.'
 
-// The rules a non-fork session starts with: title block and, in the desktop
-// app, the wrap-up instruction.
+// Whether the model still reads text that starts with this line: false after
+// /clear or a compaction, true in a fork or a resumed session.
+async function isRead($: any, text: string): Promise<boolean> {
+  const head = text.split('\n')[0]
+  const messages: any[] = await $.session.messages({ as: 'api' }).catch(() => [])
+  return messages.some(m => m.role === 'user' && m.content.some((b: any) => b.type === 'text' && String(b.text).includes(head)))
+}
+
+// The session rules: the title instruction and, in the desktop app, the
+// wrap-up instruction.
 async function readRules($: any): Promise<string> {
   const read = (name: string) => $.fs.read(`${$.plugin.root}/hooks/${name}.md`).catch(() => '')
   // One title instruction per surface: a session given all three called the
@@ -486,11 +494,6 @@ export const register: Register = on => {
         isDeferred: false,
       })
     }
-    // A fork starts with its parent's context, where the rules already are.
-    // Every other start resets, so /clear and /compact get the rules again.
-    const id = String((await $.session.id().catch(() => '')) ?? '')
-    if ((e as any).source === 'fork') seenPrompt.add(id)
-    else seenPrompt.delete(id)
     return next(e)
   })
 
@@ -507,28 +510,35 @@ export const register: Register = on => {
       return `The title is set to ${JSON.stringify(title)} when the user sends the next prompt.`
     }),
   )
-  // The rules go in on the first prompt of a session, prepended to the user's
-  // text so the model reads them before the prompt.
-  // ponytail: `cc-plugin-sec-default` forwards `classic.SessionStart` and `classic.UserPromptSubmit` past user mods under managed settings, so this runs on the native `prompt.submit` event instead. The title tool's rename on the next prompt is dropped: the native `prompt.submit` return accepts only `{ text }` or `{ drop }`.
-  const seenPrompt = new Set<string>()
+  // A title that differs from the one at the last prompt is one the user typed
+  // since, with /rename, and it is kept.
+  // ponytail: under managed settings `cc-plugin-sec-default` sends `classic.UserPromptSubmit` past this plugin, and no native event sets a title, so the tool's title is never applied there.
+  on('classic.UserPromptSubmit', async ($, e: any, next: any) => {
+    const ran = await next(e)
+    const held = titles.get(e.session_id)
+    const renamed = held !== undefined && 'seen' in held && held.seen !== e.session_title
+    const title = renamed ? undefined : held?.pending
+    titles.set(e.session_id, { seen: title ?? e.session_title })
+    return title ? { ...ran, sessionTitle: title } : ran
+  })
+  // Under managed settings `cc-plugin-sec-default` sends `classic.SessionStart`
+  // past this plugin, so the rules ride on a prompt, once the model no longer
+  // reads them.
   on('prompt.submit', async ($, e: any, next: any) => {
-    const id = String((await $.session.id().catch(() => '')) ?? e.session_id ?? '')
-    pushed.delete(id)
-    const first = !seenPrompt.has(id)
-    seenPrompt.add(id)
-    const rules = first ? await readRules($) : ''
-    return next(rules ? { ...e, text: `${rules}\n\n${String(e.text ?? '')}` } : e)
+    pushed.delete(await $.session.id().catch(() => ''))
+    const rules = await readRules($)
+    return next(rules && !(await isRead($, rules)) ? { ...e, context: [...(e.context ?? []), rules] } : e)
   })
 
   // The turn that pushes is the last turn of a landing, and in October 2026 13
   // of 16 such turns ended with no next step. One stop is blocked when the
   // reply has no fenced block, so a reply that states there is none passes.
-  // Stop stays on the classic event: no native event blocks a turn's end.
+  // ponytail: under managed settings `cc-plugin-sec-default` sends `classic.Stop` past this plugin, and no native event blocks a turn's end, so no stop is blocked there.
   const pushed = new Set<string>()
   on('tool.call', async ($, e: any, next: any) => {
     const ran = await next(e)
     if (e.tool === 'Bash' && /\bgit(\s+-C\s+\S+)?\s+push\b/.test(String(e.command ?? ''))) {
-      pushed.add(String((await $.session.id().catch(() => '')) ?? ''))
+      pushed.add(await $.session.id().catch(() => ''))
     }
     return ran
   })

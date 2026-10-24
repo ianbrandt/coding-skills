@@ -1,31 +1,25 @@
-// The plugin's hooks module: the rules a session starts with, and the one rule
-// a subagent starts with.
+// The plugin's hooks module: the rules a session's prompts carry, and the one
+// rule a subagent's task opens with.
 import type { Register } from 'claude-code'
 
 export const SUBAGENT_RULE = "You are a subagent with no user to ask. Before a decision that is hard to reverse (a wire contract or public API, a data schema or file format, a name that becomes permanent, text that publishes under the user's name, a push to a public repository, a call later work will build on), put the decision and its options, with what each costs, in your result instead of settling it silently. The agent reading your report is the one who can stop."
 
+// Whether the model still reads text that starts with this line: false after
+// /clear or a compaction, true in a fork or a resumed session.
+async function isRead($: any, text: string): Promise<boolean> {
+  const head = text.split('\n')[0]
+  const messages: any[] = await $.session.messages({ as: 'api' }).catch(() => [])
+  return messages.some(m => m.role === 'user' && m.content.some((b: any) => b.type === 'text' && String(b.text).includes(head)))
+}
+
+// Under managed settings `cc-plugin-sec-default` sends every `classic.*` event
+// past this plugin, so the rules ride on prompts and subagent tasks instead.
 export const register: Register = on => {
-  // A fork starts with its parent's context, where the rules already are, so
-  // the first prompt in a fork sees nothing added.
-  // ponytail: `cc-plugin-sec-default` forwards `classic.SessionStart` past user mods under managed settings, so the rules go in on the first prompt instead.
-  const seen = new Set<string>()
-  on('session.start', async ($, e: any, next: any) => {
-    const ran = await next(e)
-    const id = String((await $.session.id().catch(() => '')) ?? '')
-    if (e.source === 'fork') seen.add(id)
-    else seen.delete(id)
-    return ran
-  })
   on('prompt.submit', async ($, e: any, next: any) => {
-    const id = String((await $.session.id().catch(() => '')) ?? '')
-    if (seen.has(id)) return next(e)
-    seen.add(id)
     const rules = await $.fs.read(`${$.plugin.root}/hooks/rules.md`).catch(() => '')
-    return next(rules ? { ...e, text: `${rules}\n\n${String(e.text ?? '')}` } : e)
+    return next(rules && !(await isRead($, rules)) ? { ...e, context: [...(e.context ?? []), rules] } : e)
   })
 
-  on('classic.SubagentStart', async ($, e: any, next: any) => {
-    const ran = await next(e)
-    return { ...ran, additionalContext: [...(ran.additionalContext ?? []), SUBAGENT_RULE] }
-  })
+  // ponytail: only a subagent started with the Agent tool gets the rule, so a Workflow's agents start without it.
+  on('tool.call', { tool: 'Agent' }, async ($, e: any, next: any) => next({ ...e, prompt: `${SUBAGENT_RULE}\n\n${e.prompt}` }))
 }

@@ -394,14 +394,29 @@ async function notePath($: any, session: unknown): Promise<string> {
   return id && `${await tmp($)}/claude-reply-lint-${id}.txt`
 }
 
+// Whether the model still reads text that starts with this line: false after
+// /clear or a compaction, true in a fork or a resumed session.
+async function isRead($: any, text: string): Promise<boolean> {
+  const head = text.split('\n')[0]
+  const messages: any[] = await $.session.messages({ as: 'api' }).catch(() => [])
+  return messages.some(m => m.role === 'user' && m.content.some((b: any) => b.type === 'text' && String(b.text).includes(head)))
+}
+
 export const register: Register = on => {
-  // The lint tool is answered here. Any other command or MCP call is checked
-  // before it runs. Write and Edit are checked after, where the file is prose:
-  // the re-read request is added, and the gate's findings come back beside it.
-  // ponytail: `cc-plugin-sec-default` forwards `classic.PostToolUse` past user mods under managed settings, so the Write/Edit check moved here too.
+  // The lint tool is answered here, and a subagent's task opens with the rules.
+  // Any other command or MCP call is checked before it runs. A file written
+  // with Write or Edit is checked after: for one with prose in it, code comments
+  // included, the re-read request is added, and the gate's findings on a prose
+  // file come back beside it. Under managed settings `cc-plugin-sec-default`
+  // sends every `classic.*` event past this plugin, so these run here instead.
   on('tool.call', async ($, e, next) => {
     // A draft may come inside its fence, and lint() drops every closed fence.
     if (e.tool === TOOL) return { result: lint(drafts(String((e as any).text ?? ''), { unwrap: true })).replace(/\n+$/, '') || 'clean' }
+    // ponytail: only a subagent started with the Agent tool gets the rules, so a Workflow's agents start without them.
+    if (e.tool === 'Agent') {
+      const rules = (await isChecked($).catch(() => false)) ? await $.fs.read(`${$.plugin.root}/hooks/rules.md`).catch(() => '') : ''
+      return next(rules ? { ...e, prompt: `${rules}\n\n${(e as any).prompt}` } as any : e)
+    }
     if (e.tool === 'Write' || e.tool === 'Edit') {
       const ran = await next(e)
       if ((ran as any).deny !== undefined || (ran as any).isError) return ran
@@ -432,7 +447,6 @@ export const register: Register = on => {
       : ran
   })
 
-  const seenPrompt = new Set<string>()
   on('session.start', async ($, e, next) => {
     if (await isChecked($)) {
       await $.tool.register({
@@ -441,11 +455,6 @@ export const register: Register = on => {
         inputSchema: { type: 'object', properties: { text: { type: 'string', description: 'The prose to lint.' } }, required: ['text'] },
       })
     }
-    // A fork starts with its parent's context, where the rules already are.
-    // Every other start resets, so /clear and /compact get the rules again.
-    const id = String((await $.session.id().catch(() => '')) ?? '')
-    if ((e as any).source === 'fork') seenPrompt.add(id)
-    else seenPrompt.delete(id)
     return next(e)
   })
 
@@ -468,30 +477,16 @@ export const register: Register = on => {
   })
 
   // The next turn opens with the saved note, then the standing reminder, and
-  // the first prompt of a session starts with the rules. Each piece is
-  // prepended to the user's text so the model reads them before the prompt.
-  // ponytail: `cc-plugin-sec-default` forwards `classic.UserPromptSubmit` and `classic.SessionStart` past user mods under managed settings, so this runs on the native `prompt.submit` event instead.
+  // the rules once the model no longer reads them.
   on('prompt.submit', async ($, e: any, next: any) => {
-    const id = String((await $.session.id().catch(() => '')) ?? e.session_id ?? '')
-    const first = !seenPrompt.has(id)
-    seenPrompt.add(id)
-    const rules = first ? await $.fs.read(`${$.plugin.root}/hooks/rules.md`).catch(() => '') : ''
-    let note = ''
-    if (await isChecked($).catch(() => false)) {
-      const path = await notePath($, id).catch(() => '')
-      note = path ? await $.fs.read(path).catch(() => '') : ''
-      if (note) await $.fs.write(path, '').catch(() => {})
-      note = note + REMINDER
-    }
-    const prepend = [rules, note].filter(Boolean).join('\n\n')
-    return next(prepend ? { ...e, text: `${prepend}\n\n${String(e.text ?? '')}` } : e)
-  })
-
-  // A subagent starts with the rules the session started with.
-  on('classic.SubagentStart', async ($, e: any, next: any) => {
-    const ran = await next(e)
-    if (!(await isChecked($).catch(() => false))) return ran
     const rules = await $.fs.read(`${$.plugin.root}/hooks/rules.md`).catch(() => '')
-    return rules ? { ...ran, additionalContext: [...(ran.additionalContext ?? []), rules] } : ran
+    const added = rules && !(await isRead($, rules)) ? [rules] : []
+    if (await isChecked($).catch(() => false)) {
+      const path = await notePath($, await $.session.id().catch(() => '')).catch(() => '')
+      const note = path ? await $.fs.read(path).catch(() => '') : ''
+      if (note) await $.fs.write(path, '').catch(() => {})
+      added.push(note + REMINDER)
+    }
+    return next(added.length > 0 ? { ...e, context: [...(e.context ?? []), ...added] } : e)
   })
 }
