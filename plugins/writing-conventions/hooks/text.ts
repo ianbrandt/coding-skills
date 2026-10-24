@@ -17,7 +17,7 @@ function index(s: string, t: string): number {
 }
 
 // awk's length() in macOS awk, which counts bytes of UTF-8 in every locale.
-function bytes(s: string): number {
+export function bytes(s: string): number {
   let n = 0
   for (const c of s) {
     const p = c.codePointAt(0)!

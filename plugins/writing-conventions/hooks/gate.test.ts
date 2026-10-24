@@ -21,8 +21,11 @@ type World = {
   // The session is on Windows: its directory is C:\proj, and stat returns a real
   // path with a drive letter and backslashes.
   win?: boolean
-  // What a tool call returns from beneath the plugin, in place of a Bash run.
+  // What a tool call returns from beneath the plugin, in place of a Bash run or
+  // the Write or Edit made with the call's arguments.
   result?: unknown
+  // A call denied by a hook beneath the plugin, or one that failed.
+  failed?: 'deny' | 'error'
 }
 
 // world(on, w): answers every call the gate makes to the engine, and records the
@@ -67,8 +70,16 @@ function world(on: any, w: World = {}) {
     list.push(e.prompt)
     return { value: w.down || reply === undefined ? { isAnswered: false, reason: 'api-error', status: 529, usage: {} } : { isAnswered: true, text: reply, usage: {} } }
   })
-  on('tool.call', () => { seen.ran++; return { result: w.result ?? { stdout: 'ran' } } })
-  on('classic.PostToolUse', () => ({ additionalContext: ['from a settings hook'] }))
+  on('tool.call', (_$: any, e: any) => {
+    seen.ran++
+    if (w.failed === 'deny') return { deny: 'blocked by a hook' }
+    if (w.failed === 'error') return { result: 'Error: String to replace not found in file.', isError: true }
+    return {
+      result: w.result ?? (e.tool === 'Write' ? { type: 'create', filePath: e.file_path, content: e.content }
+        : e.tool === 'Edit' ? { filePath: e.file_path, oldString: e.old_string, newString: e.new_string }
+        : { stdout: 'ran' }),
+    }
+  })
   on('classic.Stop', () => ({}))
   return seen
 }
@@ -351,30 +362,39 @@ test('a tool of this marketplace that writes a local file is not classified or b
   expect(seen.tool).toHaveLength(0)
 })
 
-const write = (path: string, content: string) => ({ tool_name: 'Write', tool_input: { file_path: path, content }, tool_response: {}, tool_use_id: 'toolu_3' })
-const edit = (path: string, fresh: string) => ({ tool_name: 'Edit', tool_input: { file_path: path, old_string: 'x', new_string: fresh }, tool_response: {}, tool_use_id: 'toolu_4' })
-const gateNote = (ran: any) => ran.additionalContext.filter((c: string) => !c.startsWith('You just wrote prose') && c !== 'from a settings hook').join('\n')
+const write = ($: any, path: string, content: string) => $.tool.call({ tool: 'Write', file_path: path, content, tool_use_id: 'toolu_3' })
+const edit = ($: any, path: string, fresh: string) => $.tool.call({ tool: 'Edit', file_path: path, old_string: 'x', new_string: fresh, tool_use_id: 'toolu_4' })
+const gateNote = (ran: any) => ran.context.filter((c: string) => !c.startsWith('You just wrote prose')).join('\n')
 
 test('findings on a prose file come back as context, and nothing is blocked', async ($: any, on: any) => {
   const seen = world(on, { verdict: FINDING })
-  const ran = await $.classic.PostToolUse(write('/proj/a.md', 'The report says so.'))
-  expect(ran.block).toBeUndefined()
-  expect(ran.additionalContext[0]).toBe('from a settings hook')
+  const ran = await write($, '/proj/a.md', 'The report says so.')
+  expect(ran.deny).toBeUndefined()
+  expect(ran.result.filePath).toBe('/proj/a.md')
   expect(gateNote(ran)).toContain('Fix the quoted text in /proj/a.md.')
   expect(seen.reader).toEqual(['File: /proj/a.md\n\nThe report says so.'])
 })
 
 test('a file that is not prose, and a tool that writes none, make no call', async ($: any, on: any) => {
   const seen = world(on, { verdict: FINDING })
-  await $.classic.PostToolUse(write('/proj/a.kt', '// The report says so.'))
-  await $.classic.PostToolUse({ tool_name: 'Read', tool_input: { file_path: '/proj/a.md' }, tool_response: {}, tool_use_id: 'toolu_5' })
+  await write($, '/proj/a.kt', '// The report says so.')
+  await $.tool.call({ tool: 'Read', file_path: '/proj/a.md', tool_use_id: 'toolu_5' })
+  expect(seen.reader).toHaveLength(0)
+})
+
+test('a write or an edit that was denied or failed is not reviewed', async ($: any, on: any) => {
+  const w: World = { verdict: FINDING, failed: 'deny' }
+  const seen = world(on, w)
+  expect((await write($, '/proj/a.md', 'The report says so.')).context).toBeUndefined()
+  w.failed = 'error'
+  expect((await edit($, '/proj/a.md', 'The report says so.')).context).toBeUndefined()
   expect(seen.reader).toHaveLength(0)
 })
 
 test('an edit is reviewed as the paragraphs that contain it', async ($: any, on: any) => {
   const text = 'First one.\n\nThe report says so. It is short.\n\nThird one.\n'
   const seen = world(on, { verdict: FINDING, files: { '/proj/a.md': text } })
-  const ran = await $.classic.PostToolUse(edit('/proj/a.md', 'says'))
+  const ran = await edit($, '/proj/a.md', 'says')
   expect(seen.reader[0]).toContain('It is short.')
   expect(seen.reader[0]).not.toContain('Third one')
   expect(gateNote(ran)).toContain('The report says so.')
@@ -382,10 +402,10 @@ test('an edit is reviewed as the paragraphs that contain it', async ($: any, on:
 
 test('what is not reviewed in an edit is stated', async ($: any, on: any) => {
   const seen = world(on, { verdict: 'PASS', files: { '/proj/big.md': 'x'.repeat(1048577) } })
-  expect(gateNote(await $.classic.PostToolUse(edit('/proj/a.md', '  ')))).toBe('Not reviewed: this edit to /proj/a.md only deleted text.')
+  expect(gateNote(await edit($, '/proj/a.md', '  '))).toBe('Not reviewed: this edit to /proj/a.md only deleted text.')
   expect(seen.reader).toHaveLength(0)
-  expect(gateNote(await $.classic.PostToolUse(edit('/proj/big.md', 'Plain.')))).toContain('Only the new text was reviewed')
-  expect(gateNote(await $.classic.PostToolUse(write('/proj/a.md', 'word '.repeat(10001))))).toBe('Only the first 50000 characters of the text were reviewed.')
+  expect(gateNote(await edit($, '/proj/big.md', 'Plain.'))).toContain('Only the new text was reviewed')
+  expect(gateNote(await write($, '/proj/a.md', 'word '.repeat(10001)))).toBe('Only the first 50000 characters of the text were reviewed.')
   expect(seen.reader[1]).toHaveLength('File: /proj/a.md\n\n'.length + 50000)
 })
 
@@ -447,21 +467,16 @@ test('the off switch for the draft check makes no call', async ($: any, on: any)
   expect(off.reader).toHaveLength(0)
 })
 
-// Under managed settings cc-plugin-sec-default sends every classic.* event past
-// user plugins, as this copy of its rule does, and the file is checked from the
-// Write or Edit result: a hook beneath may have rewritten the arguments.
-const guard = { name: 'guard', tier: 'prepend' as const, register(on: any) {
-  on('classic.*', (_$: any, e: any, next: any) => next.to(e, 'append'))
-} }
-
-test('under the guard, the file is reviewed as the tool wrote it', { plugins: [guard] }, async ($: any, on: any) => {
+// The file is checked from the Write or Edit result: a hook beneath may have
+// rewritten the arguments.
+test('the file is reviewed as the tool wrote it', async ($: any, on: any) => {
   const seen = world(on, { verdict: FINDING, result: { type: 'create', filePath: '/proj/b.md', content: 'The report says so.' } })
   const ran = await $.tool.call({ tool: 'Write', file_path: '/proj/a.md', content: 'Plain.', tool_use_id: 'toolu_3' })
   expect(seen.reader).toEqual(['File: /proj/b.md\n\nThe report says so.'])
   expect(ran.context.join('\n')).toContain('Fix the quoted text in /proj/b.md.')
 })
 
-test('under the guard, an edit is reviewed by the string the tool wrote', { plugins: [guard] }, async ($: any, on: any) => {
+test('an edit is reviewed by the string the tool wrote', async ($: any, on: any) => {
   const text = 'First one.\n\nThe report says so. It is short.\n\nThird one.\n'
   const seen = world(on, { verdict: FINDING, files: { '/proj/a.md': text }, result: { filePath: '/proj/a.md', oldString: 'x', newString: 'says' } })
   await $.tool.call({ tool: 'Edit', file_path: '/proj/a.md', old_string: 'x', new_string: 'Third', tool_use_id: 'toolu_4' })
@@ -469,7 +484,44 @@ test('under the guard, an edit is reviewed by the string the tool wrote', { plug
   expect(seen.reader[0]).not.toContain('Third one')
 })
 
-test('under the guard, a write held for review is not checked', { plugins: [guard] }, async ($: any, on: any) => {
+test('an edit is reviewed in the text it wrote, after a hook beneath reflowed the file', async ($: any, on: any) => {
+  const structuredPatch = [{ oldStart: 3, oldLines: 2, newStart: 3, newLines: 3, lines: [' The report', '-says so.', '+says it', '+is so.'] }]
+  const result = { filePath: '/proj/a.md', oldString: 'says so.', newString: 'says it\nis so.', originalFile: 'First one.\n\nThe report\nsays so.\n\nThird one.\n', structuredPatch }
+  const seen = world(on, { verdict: FINDING, files: { '/proj/a.md': 'First one.\n\nThe report says it is so.\n\nThird one.\n' }, result })
+  await $.tool.call({ tool: 'Edit', file_path: '/proj/a.md', old_string: 'says so.', new_string: 'says it\nis so.', tool_use_id: 'toolu_4' })
+  expect(seen.reader[0]).toBe('File: /proj/a.md\n\nThe report\nsays it\nis so.\n')
+})
+
+test('an edit written other than as its newString is reviewed from the file', async ($: any, on: any) => {
+  // The patch has the line as written, with the escape decoded.
+  const structuredPatch = [{ oldStart: 3, oldLines: 1, newStart: 3, newLines: 1, lines: ['-The report is x.', '+The report is "so".'] }]
+  const result = { filePath: '/proj/a.md', oldString: 'x.', newString: '\\u0022so\\u0022.', originalFile: 'First one.\n\nThe report is x.\n', structuredPatch }
+  const seen = world(on, { verdict: FINDING, files: { '/proj/a.md': 'First one.\n\nThe report is "so".\n' }, result })
+  await $.tool.call({ tool: 'Edit', file_path: '/proj/a.md', old_string: 'x.', new_string: '\\u0022so\\u0022.', tool_use_id: 'toolu_4' })
+  expect(seen.reader[0]).toBe('File: /proj/a.md\n\n\\u0022so\\u0022.')
+})
+
+test('a replace-all edit is reviewed in every paragraph it changed, and an edit whose old string is missing from the result is read from the file', async ($: any, on: any) => {
+  const structuredPatch = [{ oldStart: 1, oldLines: 3, newStart: 1, newLines: 3, lines: ['-One x.', ' ', '-Two x.', '+One says.', ' ', '+Two says.'] }]
+  const w: World = { verdict: FINDING, result: { filePath: '/proj/a.md', oldString: 'x.', newString: 'says.', replaceAll: true, originalFile: 'One x.\n\nTwo x.\n', structuredPatch } }
+  const seen = world(on, w)
+  await $.tool.call({ tool: 'Edit', file_path: '/proj/a.md', old_string: 'x.', new_string: 'says.', replace_all: true, tool_use_id: 'toolu_4' })
+  expect(seen.reader[0]).toBe('File: /proj/a.md\n\nOne says.\n\nTwo says.\n')
+  seen.files['/proj/a.md'] = 'On disk, it says.\n'
+  w.result = { filePath: '/proj/a.md', oldString: 'gone', newString: 'says.', originalFile: 'One x.\n', structuredPatch }
+  await $.tool.call({ tool: 'Edit', file_path: '/proj/a.md', old_string: 'gone', new_string: 'says.', tool_use_id: 'toolu_4' })
+  expect(seen.reader[1]).toBe('File: /proj/a.md\n\nOn disk, it says.\n')
+})
+
+test('the text an edit wrote is held to 1 MB in bytes', async ($: any, on: any) => {
+  const originalFile = `${'\u00e9'.repeat(600000)}\n\nThe report is x.\n`
+  const structuredPatch = [{ oldStart: 3, oldLines: 1, newStart: 3, newLines: 1, lines: ['-The report is x.', '+The report is plain.'] }]
+  world(on, { verdict: 'PASS', result: { filePath: '/proj/a.md', oldString: 'x.', newString: 'plain.', originalFile, structuredPatch } })
+  const ran = await $.tool.call({ tool: 'Edit', file_path: '/proj/a.md', old_string: 'x.', new_string: 'plain.', tool_use_id: 'toolu_4' })
+  expect(gateNote(ran)).toContain('Only the new text was reviewed')
+})
+
+test('a write held for review is not checked', async ($: any, on: any) => {
   const seen = world(on, { verdict: FINDING, result: { type: 'create', filePath: '/proj/a.md', content: 'The report says so.', staged: true } })
   expect((await $.tool.call({ tool: 'Write', file_path: '/proj/a.md', content: 'The report says so.', tool_use_id: 'toolu_3' })).context).toBeUndefined()
   expect(seen.reader).toHaveLength(0)

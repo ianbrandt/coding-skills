@@ -19,7 +19,6 @@ function world(on: any, base = '2.1.289', env: Record<string, string> = {}) {
   on('ui.toast', () => ({ value: undefined }))
   on('classic.Stop', () => ({}))
   on('classic.UserPromptSubmit', () => ({ additionalContext: ['from a settings hook'] }))
-  on('classic.PostToolUse', () => ({}))
   on('classic.SubagentStart', () => ({}))
   on('classic.SessionStart', () => ({}))
   return files
@@ -58,8 +57,9 @@ test('the text in a draft fence is linted as prose', async ($: any, on: any) => 
 
 test('the re-read request is added for a prose or source file just written, in any letter case', async ($: any, on: any) => {
   world(on)
-  const wrote = async (tool_name: string, file_path: string) =>
-    (await $.classic.PostToolUse({ tool_name, tool_input: { file_path, content: '' }, tool_response: {}, tool_use_id: 't' })).additionalContext ?? []
+  native(on)
+  const wrote = async (tool: string, file_path: string) =>
+    (await $.tool.call({ tool, file_path, content: '', old_string: 'x', new_string: 'y', tool_use_id: 't' })).context ?? []
   for (const p of ['/p/a.md', '/p/README.MD', '/p/A.kt', '/p/b.txt']) expect((await wrote('Write', p)).join()).toContain('You just wrote prose')
   expect((await wrote('Edit', '/p/a.md')).join()).toContain('You just wrote prose')
   expect(await wrote('Write', '/p/a.py')).toEqual([])
@@ -121,20 +121,24 @@ function native(on: any) {
   on('prompt.submit', (_$: any, e: any) => ({ text: e.text, context: e.context }))
   on('tool.call', (_$: any, e: any) => {
     w.task = e.prompt
-    return { result: e.tool === 'Write' ? { type: 'create', filePath: e.file_path, content: e.content } : '' }
+    return {
+      result: e.tool === 'Write' ? { type: 'create', filePath: e.file_path, content: e.content }
+        : e.tool === 'Edit' ? { filePath: e.file_path, oldString: e.old_string, newString: e.new_string }
+        : '',
+    }
   })
   return w
 }
 const submit = async ($: any) => (await $.prompt.submit({ text: 'next' })).context ?? []
 
-test('where the classic events run, nothing is added to a prompt, an Agent task, or a Write result', async ($: any, on: any) => {
+test('where the classic events run, nothing is added to a prompt or an Agent task, and a Write is checked', async ($: any, on: any) => {
   world(on)
   const w = native(on)
   await $.classic.SessionStart({ source: 'startup' })
   expect(await submit($)).toEqual([])
   await $.tool.call({ tool: 'Agent', prompt: 'look', description: 'd' })
   expect(w.task).toBe('look')
-  expect((await $.tool.call({ tool: 'Write', file_path: '/p/a.md', content: '', tool_use_id: 't' })).context).toBeUndefined()
+  expect((await $.tool.call({ tool: 'Write', file_path: '/p/a.md', content: '', tool_use_id: 't' })).context.join()).toContain('You just wrote prose')
 })
 
 test('under the guard, the rules are added to a prompt while the model does not read them, then the note and the reminder', { plugins: [guard] }, async ($: any, on: any) => {
@@ -167,6 +171,6 @@ test('a classic event after a late load ends the fallback', async ($: any, on: a
 test('after a mid-session load, a classic event before the first prompt still leaves the rules to the fallback', async ($: any, on: any) => {
   world(on)
   native(on)
-  await $.classic.PostToolUse({ tool_name: 'Read', tool_input: { file_path: '/p/a.md' }, tool_response: {}, tool_use_id: 't' })
-  expect(await submit($)).toEqual(['<rules.md>'])
+  await stop($, 'The build passed.')
+  expect((await submit($))[0]).toBe('<rules.md>')
 })

@@ -303,19 +303,24 @@ plugin first.
 ### Prose files
 
 A `Write` or `Edit` to a `.md`, `.markdown`, `.txt`, `.adoc`, or `.rst` file is read the same way
-after the fact, by a `PostToolUse` hook. Nothing is blocked, because a file is cheap to fix and a
-blocked edit stops the turn: a verified finding comes back as `additionalContext`, and the session
-fixes the file in place. The advisory re-read request on `Write|Edit` is unchanged and still fires
+after the fact, from the result of its `tool.call`. Nothing is blocked, because a file is cheap to
+fix and a blocked edit stops the turn: a verified finding is added as context to the tool result,
+and the session fixes the file in place. The advisory re-read request on `Write|Edit` is unchanged and still fires
 for the same files, so a session in which the review model cannot run keeps it. For a source file
 there is only the re-read request.
 
-The review model has no tools, so the gate reads, and only the file the tool just wrote. For a
+The review model has no tools, so the gate reads, and only the text the tool just wrote. For a
 `Write` the text under review is `content`. For an `Edit` it is the whole paragraphs, bounded by
 blank lines, that contain `new_string` in the edited file (`excerpt()` in
 [`hooks/text.ts`](hooks/text.ts)): replacing "includes" with "says" in "The report includes the
 version." makes a violation that the one word does not show. The size of the excerpt follows the
 edit and not the file, so a release note added to a large changelog is read. The review model is
-sent that text and the file path, not the hook input.
+sent that text and the file path, not the tool call.
+
+The edited file is rebuilt from the `Edit` result's `originalFile`, `oldString`, and `newString`,
+and is read from disk only where the result lacks them or where the rebuilt text is missing a line
+of the result's `structuredPatch`. The check runs after the `PostToolUse` hooks beneath it, and a
+formatter among them may have reflowed the file, so that `new_string` is no longer found there.
 
 What is not read is stated in the same feedback: text past the first 50,000 characters, an `Edit`
 that only deletes, and the sentences around an `Edit` to a file over 1 MB, where `new_string` alone

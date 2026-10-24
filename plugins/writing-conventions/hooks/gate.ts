@@ -16,7 +16,7 @@
 import type { Register } from 'claude-code'
 import { bodyFiles, keys, walk } from './keys'
 import { lint } from './lint'
-import { drafts, excerpt, findings } from './text'
+import { bytes, drafts, excerpt, findings } from './text'
 
 // The first CLI where hooks modules are on by default, and the oldest one the
 // module was checked on, by the live checks in the README. On an older one the
@@ -292,8 +292,8 @@ async function mcp($: any, input: any): Promise<Verdict> {
   return found === '' ? {} : { block: join(found, `Rewrite the quoted text and make the call again. ${ADVICE}`) }
 }
 
-// A prose file just written. Only the file the tool wrote is read, and the
-// review model is sent the text under review, not the hook input, which for a Write
+// A prose file just written. Only the text the tool wrote is read, and the
+// review model is sent the text under review, not the tool call, which for a Write
 // includes the whole file. A file is cheap to fix after the fact and a blocked edit
 // stops the turn, so the findings come back as context and nothing is blocked.
 async function file($: any, e: any): Promise<Verdict> {
@@ -304,8 +304,12 @@ async function file($: any, e: any): Promise<Verdict> {
   if (e.tool_name === 'Edit') {
     const fresh = String(e.tool_input.new_string ?? '')
     if (!/\S/.test(fresh)) return { context: `Not reviewed: this edit to ${path} only deleted text.` }
-    const stat = await $.fs.stat(path).catch(() => undefined)
-    const whole = stat?.kind === 'file' && stat.size <= 1048576 ? await $.fs.read(path).catch(() => undefined) : undefined
+    // The text the Edit wrote where the caller has it, or else the file on disk.
+    let whole: string | undefined = e.whole
+    if (whole === undefined) {
+      const stat = await $.fs.stat(path).catch(() => undefined)
+      whole = stat?.kind === 'file' && stat.size <= 1048576 ? await $.fs.read(path).catch(() => undefined) : undefined
+    } else if (bytes(whole) > 1048576) whole = undefined
     if (whole === undefined) {
       text = fresh
       unread = `Only the new text was reviewed, not the sentences around it: ${path} is over 1 MB or could not be read.`
@@ -420,6 +424,19 @@ async function wrote($: any, e: any): Promise<string[]> {
   return [...(isProse && (await isChecked($).catch(() => false)) ? [NUDGE] : []), ...(verdict.context ? [verdict.context] : [])]
 }
 
+// The file as the Edit in this result wrote it. A classic.PostToolUse hook
+// beneath, such as a formatter, may have changed it on disk since. The Edit
+// tool may write newString changed, with an escape decoded, so the text is
+// used only where it has every line the patch added.
+function edited(done: any): string | undefined {
+  const { originalFile: was, oldString: old, newString: fresh, structuredPatch: patch } = done
+  if (typeof was !== 'string' || typeof old !== 'string' || typeof fresh !== 'string' || old === '' || !was.includes(old) || !Array.isArray(patch)) return undefined
+  const text = done.replaceAll ? was.split(old).join(fresh) : was.replace(old, () => fresh)
+  const lines = new Set(text.split('\n'))
+  const added = patch.flatMap((h: any) => h.lines ?? []).filter((l: string) => l.startsWith('+')).map((l: string) => l.slice(1))
+  return added.every((l: string) => lines.has(l)) ? text : undefined
+}
+
 // The next turn opens with the saved note, then the standing reminder.
 async function turnNote($: any, session: unknown): Promise<string> {
   const path = await notePath($, session).catch(() => '')
@@ -429,10 +446,9 @@ async function turnNote($: any, session: unknown): Promise<string> {
 }
 
 export const register: Register = on => {
-  // The lint tool is answered here. Any other command or MCP call is checked
-  // before it runs. Under the guard, the rules are added at the start of a
-  // subagent's task, and a file written with Write or Edit is checked after it
-  // is written.
+  // The lint tool is answered here. A file written with Write or Edit is
+  // checked after it is written, and any other command or MCP call before it
+  // runs. Under the guard, the rules are added at the start of a subagent's task.
   on('tool.call', async ($, e, next) => {
     // A draft may come inside its fence, and lint() drops every closed fence.
     if (e.tool === TOOL) return { result: lint(drafts(String((e as any).text ?? ''), { unwrap: true })).replace(/\n+$/, '') || 'clean' }
@@ -441,14 +457,14 @@ export const register: Register = on => {
       const rules = (await isChecked($).catch(() => false)) ? await $.fs.read(`${$.plugin.root}/hooks/rules.md`).catch(() => '') : ''
       return next(rules ? { ...e, prompt: `${rules}\n\n${(e as any).prompt}` } as any : e)
     }
-    if ((e.tool === 'Write' || e.tool === 'Edit') && !(await isClassic($))) {
+    if (e.tool === 'Write' || e.tool === 'Edit') {
       const ran = await next(e)
-      // A classic.PostToolUse that ran inside the call checked the file already.
-      if ((ran as any).deny !== undefined || (ran as any).isError || (await isClassic($))) return ran
-      // What was written is in the result, after any hook beneath rewrote the call.
+      // What was written is in the result, after any hook beneath rewrote the
+      // call. A denied or failed call has no filePath, and a staged write is a
+      // settings file held for review.
       const done = (ran as any).result ?? {}
       if (done.staged || typeof done.filePath !== 'string') return ran
-      const added = await wrote($, { tool_name: e.tool, tool_input: { file_path: done.filePath, content: done.content, new_string: done.newString } })
+      const added = await wrote($, { tool_name: e.tool, tool_input: { file_path: done.filePath, content: done.content, new_string: done.newString }, whole: edited(done) })
       return added.length > 0 ? { ...ran, context: [...(ran.context ?? []), ...added] } : ran
     }
     if (!/^(Bash$|PowerShell$|mcp__)/.test(e.tool)) return next(e)
@@ -506,14 +522,6 @@ export const register: Register = on => {
     const ran = await next(e)
     if (!(await isChecked($).catch(() => false))) return ran
     return { ...ran, additionalContext: [...(ran.additionalContext ?? []), await turnNote($, e.session_id)] }
-  })
-
-  on('classic.PostToolUse', async ($, e: any, next: any) => {
-    await $.state.set(CLASSIC, true).catch(() => {})
-    if (e.tool_name !== 'Write' && e.tool_name !== 'Edit') return next(e)
-    const added = await wrote($, e)
-    const ran = await next(e)
-    return added.length > 0 ? { ...ran, additionalContext: [...(ran.additionalContext ?? []), ...added] } : ran
   })
 
   // A session starts with the rules, on any version the module runs on.
