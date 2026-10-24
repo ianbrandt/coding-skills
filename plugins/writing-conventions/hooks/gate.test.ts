@@ -349,29 +349,30 @@ test('a tool of this marketplace that writes a local file is not classified or b
   expect(seen.tool).toHaveLength(0)
 })
 
-const write = ($: any, path: string, content: string) => $.tool.call({ tool: 'Write', file_path: path, content, tool_use_id: 'toolu_3' })
-const edit = ($: any, path: string, fresh: string) => $.tool.call({ tool: 'Edit', file_path: path, old_string: 'x', new_string: fresh, tool_use_id: 'toolu_4' })
-const gateNote = (ran: any) => (ran.context ?? []).filter((c: string) => !c.startsWith('You just wrote prose')).join('\n')
+const write = (path: string, content: string) => ({ tool_name: 'Write', tool_input: { file_path: path, content }, tool_response: {}, tool_use_id: 'toolu_3' })
+const edit = (path: string, fresh: string) => ({ tool_name: 'Edit', tool_input: { file_path: path, old_string: 'x', new_string: fresh }, tool_response: {}, tool_use_id: 'toolu_4' })
+const gateNote = (ran: any) => ran.additionalContext.filter((c: string) => !c.startsWith('You just wrote prose') && c !== 'from a settings hook').join('\n')
 
 test('findings on a prose file come back as context, and nothing is blocked', async ($: any, on: any) => {
   const seen = world(on, { verdict: FINDING })
-  const ran = await write($, '/proj/a.md', 'The report says so.')
-  expect((ran as any).deny).toBeUndefined()
+  const ran = await $.classic.PostToolUse(write('/proj/a.md', 'The report says so.'))
+  expect(ran.block).toBeUndefined()
+  expect(ran.additionalContext[0]).toBe('from a settings hook')
   expect(gateNote(ran)).toContain('Fix the quoted text in /proj/a.md.')
   expect(seen.reader).toEqual(['File: /proj/a.md\n\nThe report says so.'])
 })
 
 test('a file that is not prose, and a tool that writes none, make no call', async ($: any, on: any) => {
   const seen = world(on, { verdict: FINDING })
-  await write($, '/proj/a.kt', '// The report says so.')
-  await $.tool.call({ tool: 'Read', file_path: '/proj/a.md', tool_use_id: 'toolu_5' })
+  await $.classic.PostToolUse(write('/proj/a.kt', '// The report says so.'))
+  await $.classic.PostToolUse({ tool_name: 'Read', tool_input: { file_path: '/proj/a.md' }, tool_response: {}, tool_use_id: 'toolu_5' })
   expect(seen.reader).toHaveLength(0)
 })
 
 test('an edit is reviewed as the paragraphs that contain it', async ($: any, on: any) => {
   const text = 'First one.\n\nThe report says so. It is short.\n\nThird one.\n'
   const seen = world(on, { verdict: FINDING, files: { '/proj/a.md': text } })
-  const ran = await edit($, '/proj/a.md', 'says')
+  const ran = await $.classic.PostToolUse(edit('/proj/a.md', 'says'))
   expect(seen.reader[0]).toContain('It is short.')
   expect(seen.reader[0]).not.toContain('Third one')
   expect(gateNote(ran)).toContain('The report says so.')
@@ -379,10 +380,10 @@ test('an edit is reviewed as the paragraphs that contain it', async ($: any, on:
 
 test('what is not reviewed in an edit is stated', async ($: any, on: any) => {
   const seen = world(on, { verdict: 'PASS', files: { '/proj/big.md': 'x'.repeat(1048577) } })
-  expect(gateNote(await edit($, '/proj/a.md', '  '))).toBe('Not reviewed: this edit to /proj/a.md only deleted text.')
+  expect(gateNote(await $.classic.PostToolUse(edit('/proj/a.md', '  ')))).toBe('Not reviewed: this edit to /proj/a.md only deleted text.')
   expect(seen.reader).toHaveLength(0)
-  expect(gateNote(await edit($, '/proj/big.md', 'Plain.'))).toContain('Only the new text was reviewed')
-  expect(gateNote(await write($, '/proj/a.md', 'word '.repeat(10001)))).toBe('Only the first 50000 characters of the text were reviewed.')
+  expect(gateNote(await $.classic.PostToolUse(edit('/proj/big.md', 'Plain.')))).toContain('Only the new text was reviewed')
+  expect(gateNote(await $.classic.PostToolUse(write('/proj/a.md', 'word '.repeat(10001))))).toBe('Only the first 50000 characters of the text were reviewed.')
   expect(seen.reader[1]).toHaveLength('File: /proj/a.md\n\n'.length + 50000)
 })
 

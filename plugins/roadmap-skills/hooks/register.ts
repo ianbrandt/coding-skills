@@ -31,14 +31,24 @@ async function find($: any): Promise<{ main: string; plan: Plan } | null> {
   return { main, plan: planOf({ hasLocal, hasUpstream, tracked }) }
 }
 
-// The first line of the rule, and of the one line added when the lookup failed.
-const HEADS = ['ROADMAP RULE ACTIVE', 'The roadmap lookup failed']
+// In a repo with no roadmap of its own nothing is added. A lookup that failed
+// is one line of context, since the repo may have a roadmap.
+const added = ($: any) => find($).then(
+  found => (found && 'roadmap' in found.plan ? rule(found.plan, found.main) : ''),
+  err => `The roadmap lookup failed, so it is not known whether this repo has a roadmap: ${(err as Error).message}`,
+)
 
-// Whether the model still reads text that starts with one of these lines:
-// false after /clear or a compaction, true in a fork or a resumed session.
-async function isRead($: any, heads: string[]): Promise<boolean> {
+// Set when a classic event reaches this plugin. Under managed settings
+// `cc-plugin-sec-default` sends every `classic.*` event past it, and the native
+// event below stands in. Kept in $.state, which outlives a hot reload.
+const CLASSIC = { plugin: 'roadmap-skills', key: 'classic' } as const
+const isClassic = async ($: any) => (await $.state.get(CLASSIC).catch(() => ({}))).value === true
+
+// Whether the model still reads this text: false after /clear, a compaction,
+// or a plugin update that changed it.
+async function isRead($: any, text: string): Promise<boolean> {
   const messages: any[] = await $.session.messages({ as: 'api' }).catch(() => [])
-  return messages.some(m => m.role === 'user' && m.content.some((b: any) => b.type === 'text' && heads.some(h => String(b.text).includes(h))))
+  return messages.some(m => m.role === 'user' && m.content.some((b: any) => b.type === 'text' && String(b.text).includes(text)))
 }
 
 export const register: Register = on => {
@@ -65,18 +75,20 @@ export const register: Register = on => {
     return next(e)
   })
 
-  // In a repo with no roadmap of its own nothing is added. A lookup that
-  // failed is one line of context, since the repo may have a roadmap. Under
-  // managed settings `cc-plugin-sec-default` sends `classic.SessionStart` past
-  // this plugin, so the rule rides on a prompt, once the model no longer reads
-  // it.
+  // A fork starts with its parent's context, where the rule already is.
+  on('classic.SessionStart', async ($, e: any, next: any) => {
+    await $.state.set(CLASSIC, true).catch(() => {})
+    const ran = await next(e)
+    if (e.source === 'fork') return ran
+    const text = await added($)
+    return text ? { ...ran, additionalContext: [...(ran.additionalContext ?? []), text] } : ran
+  })
+
+  // ponytail: under the guard the lookup runs on every prompt, since the rule is compared whole with what the model still reads.
   on('prompt.submit', async ($, e: any, next: any) => {
-    if (await isRead($, HEADS)) return next(e)
-    const added = await find($).then(
-      found => (found && 'roadmap' in found.plan ? rule(found.plan, found.main) : ''),
-      err => `The roadmap lookup failed, so it is not known whether this repo has a roadmap: ${(err as Error).message}`,
-    )
-    return next(added ? { ...e, context: [...(e.context ?? []), added] } : e)
+    if (await isClassic($)) return next(e)
+    const text = await added($)
+    return next(text && !(await isRead($, text)) ? { ...e, context: [...(e.context ?? []), text] } : e)
   })
 
   on('tool.call', { tool: FIND }, async $ => {

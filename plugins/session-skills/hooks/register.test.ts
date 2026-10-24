@@ -1,45 +1,43 @@
-// claude plugin test: the context added to a prompt, and the edit to a
+// claude plugin test: the context added at a session's start, and the edit to a
 // file in the primary checkout.
 import { expect, test } from 'claude-code/testing'
 import { splice } from './splice'
 
-function world(on: any, entry?: string, read: string[] = []) {
+function world(on: any, entry?: string) {
   on('fs.read', (_$: any, e: any) => {
     const name = String(e.path).split(/[\\/]/).pop()
     return { value: name === 'rules.md' ? 'before\n{{title}}\n{{wrap-up}}after\n' : `<${name}>\n` }
   })
   on('env.get', () => ({ value: entry }))
-  on('session.id', () => ({ value: 's1' }))
-  on('session.messages', () => ({ value: read.map(text => ({ role: 'user', content: [{ type: 'text', text }] })) }))
-  on('prompt.submit', (_$: any, e: any) => ({ text: e.text, context: ['from a settings hook', ...(e.context ?? [])] }))
+  on('classic.SessionStart', () => ({ additionalContext: ['from a settings hook'] }))
 }
-// The context a prompt enters with: a settings hook's, then the plugin's.
-const start = async ($: any) => (await $.prompt.submit({ text: 'hi' })).context
 const rules = (title: string, wrapUp = '') => ['from a settings hook', `before\n<${title}>\n${wrapUp}after\n`]
 
-test('rules.md is added after the context of a settings hook once the model no longer reads it', async ($: any, on: any) => {
-  world(on, undefined, ['hi'])
-  expect(await start($)).toEqual(rules('title-print.md'))
+test('a session starts with rules.md, after the context of a settings hook', async ($: any, on: any) => {
+  world(on)
+  for (const source of ['startup', 'resume', 'clear', 'compact']) {
+    expect((await $.classic.SessionStart({ source })).additionalContext).toEqual(rules('title-print.md'))
+  }
 })
 
 test('the desktop app gets the title instruction for its tool and the rule for its wrap_up tool', async ($: any, on: any) => {
   world(on, 'claude-desktop')
-  expect(await start($)).toEqual(rules('title-desktop.md', '<wrap-up-desktop.md>\n\n'))
+  expect((await $.classic.SessionStart({ source: 'startup' })).additionalContext).toEqual(rules('title-desktop.md', '<wrap-up-desktop.md>\n\n'))
 })
 
 test('a terminal session gets the title instruction for the tool registered there', async ($: any, on: any) => {
   world(on, 'cli')
-  expect(await start($)).toEqual(rules('title-cli.md'))
+  expect((await $.classic.SessionStart({ source: 'startup' })).additionalContext).toEqual(rules('title-cli.md'))
 })
 
 test('any other entry point gets the printed title block', async ($: any, on: any) => {
   world(on, 'sdk-cli')
-  expect(await start($)).toEqual(rules('title-print.md'))
+  expect((await $.classic.SessionStart({ source: 'startup' })).additionalContext).toEqual(rules('title-print.md'))
 })
 
-test('nothing is added while the model still reads the rules', async ($: any, on: any) => {
-  world(on, undefined, ['before\n<title-print.md>\nafter\n'])
-  expect(await start($)).toEqual(['from a settings hook'])
+test('a fork gets nothing added', async ($: any, on: any) => {
+  world(on)
+  expect((await $.classic.SessionStart({ source: 'fork' })).additionalContext).toEqual(['from a settings hook'])
 })
 
 test('a passage is replaced where it occurs once, and a replacement with $& in it is literal', () => {
@@ -178,52 +176,79 @@ test('the title tool is registered in the terminal only', async ($: any, on: any
   }
 })
 
-const bash = ($: any, command: string) => $.tool.call({ tool: 'Bash', command, tool_use_id: 't' })
+const ran = (command: string, session_id = 's1') => ({ session_id, tool_name: 'Bash', tool_input: { command }, tool_response: {}, tool_use_id: 't' })
 const stop = ($: any, text: string, session_id = 's1') => $.classic.Stop({ session_id, last_assistant_message: text })
 const BLOCK = 'Start it in `/repo`:\n\n```\n/next-roadmap-item R12\n```\n\n**Opus + High**'
-function turnEnd(on: any, block?: string, id = 's1') {
-  on('session.id', () => ({ value: id }))
-  on('tool.call', () => ({ result: '' }))
+function turnEnd(on: any, block?: string) {
+  on('classic.PostToolUse', () => ({}))
   // The other hook blocks the first stop only.
   let blocks = block ? 1 : 0
   on('classic.Stop', () => (blocks-- > 0 ? { block } : {}))
-  on('fs.read', () => ({ value: '' }))
-  on('env.get', () => ({ value: undefined }))
-  on('prompt.submit', (_$: any, e: any) => ({ text: e.text }))
+  on('classic.UserPromptSubmit', () => ({}))
 }
 
 test('after a push, one stop is blocked when no next step is written at the end of the turn', async ($: any, on: any) => {
   turnEnd(on)
-  await bash($, 'git -C "/repo" push origin main')
+  await $.classic.PostToolUse(ran('git -C "/repo" push origin main'))
   expect((await stop($, 'I pushed 47e3656 to origin/main.')).block).toContain('next step')
   expect((await stop($, 'Nothing comes next: R96 waits on its post count.')).block).toBeUndefined()
-  await bash($, 'git fetch -q origin && git push')
+  await $.classic.PostToolUse(ran('git fetch -q origin && git push'))
   expect((await stop($, `Pushed.\n\n${BLOCK}`)).block).toBeUndefined()
 })
 
-test('a turn that pushed nothing is not blocked', async ($: any, on: any) => {
+test('a turn that pushed nothing, or pushed in another session, is not blocked', async ($: any, on: any) => {
   turnEnd(on)
-  await bash($, 'git log --oneline origin/main..main && echo push')
+  await $.classic.PostToolUse(ran('git log --oneline origin/main..main && echo push'))
   expect((await stop($, 'One commit waits for the push.')).block).toBeUndefined()
-})
-
-test('a push in another session is not blocked', async ($: any, on: any) => {
-  turnEnd(on, undefined, 's2')
-  await bash($, 'git push')
+  await $.classic.PostToolUse(ran('git push', 's2'))
   expect((await stop($, 'Done.')).block).toBeUndefined()
   expect((await stop($, 'Done.', 's2')).block).toBeDefined()
 })
 
 test('a push from an interrupted turn is dropped at the next prompt', async ($: any, on: any) => {
   turnEnd(on)
-  await bash($, 'git push')
-  await $.prompt.submit({ text: 'next' })
+  await $.classic.PostToolUse(ran('git push'))
+  await $.classic.UserPromptSubmit({ session_id: 's1', prompt: 'next' })
   expect((await stop($, 'Done.')).block).toBeUndefined()
 })
 
 test('a block from another hook is returned unchanged, and the check runs at the next stop', async ($: any, on: any) => {
   turnEnd(on, 'emit the corrected draft')
-  await bash($, 'git push')
+  await $.classic.PostToolUse(ran('git push'))
   expect((await stop($, 'Done.')).block).toBe('emit the corrected draft')
   expect((await stop($, 'Done.')).block).toContain('next step')
+})
+
+// Under managed settings cc-plugin-sec-default sends every classic.* event past
+// user plugins, as this copy of its rule does. The rules then come with a
+// prompt, once the model no longer reads them.
+const guard = { name: 'guard', tier: 'prepend' as const, register(on: any) {
+  on('classic.*', (_$: any, e: any, next: any) => next.to(e, 'append'))
+} }
+function prompts(on: any) {
+  const w = { read: [] as string[] }
+  on('session.messages', () => ({ value: w.read.map(text => ({ role: 'user', content: [{ type: 'text', text }] })) }))
+  on('prompt.submit', (_$: any, e: any) => ({ text: e.text, context: e.context }))
+  return w
+}
+const submit = async ($: any) => (await $.prompt.submit({ text: 'hi' })).context ?? []
+
+test('where the classic events run, nothing is added to a prompt', async ($: any, on: any) => {
+  world(on)
+  prompts(on)
+  await $.classic.SessionStart({ source: 'startup' })
+  expect(await submit($)).toEqual([])
+})
+
+test('under the guard, the rules are added to a prompt while the model does not read them', { plugins: [guard] }, async ($: any, on: any) => {
+  world(on, 'claude-desktop')
+  const w = prompts(on)
+  expect((await $.classic.SessionStart({ source: 'startup' })).additionalContext).toEqual(['from a settings hook'])
+  const rules = 'before\n<title-desktop.md>\n<wrap-up-desktop.md>\n\nafter\n'
+  expect(await submit($)).toEqual([rules])
+  w.read = [`<system-reminder>\n${rules}</system-reminder>`]
+  expect(await submit($)).toEqual([])
+  // The rules for another entry point are not the rules for this one.
+  w.read = ['before\n<title-print.md>\nafter\n']
+  expect(await submit($)).toEqual([rules])
 })
