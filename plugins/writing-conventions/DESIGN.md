@@ -21,7 +21,7 @@ agent-facing files, so those files are formatted for whatever a model reads best
 
 The reply lint runs on both ends of a turn, from the plugin's hooks module
 ([`hooks/gate.ts`](hooks/gate.ts)). On `Stop` the final reply is linted and what is found is saved.
-On `UserPromptSubmit` the next turn opens with those hits and a one-line reminder, and the saved
+On `prompt.submit` the next turn opens with those hits and a one-line reminder, and the saved
 note is cleared. After a `Write` or an `Edit`, the session is asked to re-read the file just written
 when it is prose, or is a source file with comments and test names in it (`.md`, `.markdown`,
 `.txt`, `.kt`, `.kts`, `.java`, `.groovy`, in any letter case). The lint itself is `lint()` in

@@ -505,6 +505,7 @@ export const register: Register = on => {
   // review model cannot run. Then the gate reads the drafts, and a finding
   // blocks the stop.
   on('classic.Stop', async ($, e: any, next: any) => {
+    await $.state.set(CLASSIC, true).catch(() => {})
     const text = String(e.last_assistant_message ?? '')
     if (await isChecked($).catch(() => false)) {
       const note = lint(drafts(text, { unwrap: true }), { note: true })
@@ -515,13 +516,6 @@ export const register: Register = on => {
     const verdict = text.includes('draft') ? await gate($, () => stop($, e)) : {}
     const ran = await next(e)
     return verdict.block ? { ...ran, block: verdict.block } : ran
-  })
-
-  on('classic.UserPromptSubmit', async ($, e: any, next: any) => {
-    await $.state.set(CLASSIC, true).catch(() => {})
-    const ran = await next(e)
-    if (!(await isChecked($).catch(() => false))) return ran
-    return { ...ran, additionalContext: [...(ran.additionalContext ?? []), await turnNote($, e.session_id)] }
   })
 
   // A session starts with the rules, on any version the module runs on.
@@ -542,13 +536,13 @@ export const register: Register = on => {
     return rules ? { ...ran, additionalContext: [...(ran.additionalContext ?? []), rules] } : ran
   })
 
-  // Under the guard, the rules are added to a prompt once the model no longer
-  // reads them, then the note and the reminder.
-  // ponytail: on the first prompt after a mid-session load, the reminder is added here and again by classic.UserPromptSubmit, which runs beneath.
+  // The note and the reminder go with every prompt. On 2.1.310 this event and
+  // classic.UserPromptSubmit fired for the same prompts, whatever their origin.
+  // Under the guard, the rules come first once the model no longer reads them.
   on('prompt.submit', async ($, e: any, next: any) => {
     const rules = (await isStarted($)) ? '' : await $.fs.read(`${$.plugin.root}/hooks/rules.md`).catch(() => '')
     const added = rules && !(await isRead($, rules)) ? [rules] : []
-    if (!(await isClassic($)) && (await isChecked($).catch(() => false))) added.push(await turnNote($, await $.session.id().catch(() => '')))
+    if (await isChecked($).catch(() => false)) added.push(await turnNote($, await $.session.id().catch(() => '')))
     return next(added.length > 0 ? { ...e, context: [...(e.context ?? []), ...added] } : e)
   })
 }
