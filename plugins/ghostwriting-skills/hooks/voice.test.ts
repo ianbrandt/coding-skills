@@ -130,3 +130,13 @@ test('with no rules file the model is told to re-read it by hand', async ($: any
   const { text } = await $.skill.prompt({ skill: 'ghostwrite', text: 'SKILL' })
   expect(text).toContain('did not find the always-on rules file')
 })
+
+// Under managed settings `skill.prompt` is sent past this plugin. The Skill
+// tool's result then includes the text, unless skill.prompt already added it.
+test('a Skill call that skill.prompt did not reach gets the spec beside its result', async ($: any, on: any) => {
+  files(on, { [SPEC]: 'SPEC TEXT' })
+  on('tool.call', () => ({ result: 'Launching skill' }))
+  const ran = await $.tool.call({ tool: 'Skill', skill: 'ghostwriting-skills:ghostwrite' })
+  expect(ran.context.join('\n')).toContain('SPEC TEXT')
+  expect((await $.tool.call({ tool: 'Skill', skill: 'session-skills:land-and-wrap' })).context).toBeUndefined()
+})

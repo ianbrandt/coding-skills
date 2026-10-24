@@ -103,16 +103,41 @@ async function voice($: any, configured: string | undefined): Promise<string> {
   return out
 }
 
+// The text added after the skill's own, or '' for any other skill.
+async function added($: any, skill: string, configured: unknown): Promise<string> {
+  const name = skill.split(':').pop()
+  if (name === 'ghostwrite') return voice($, configured)
+  return name === 'share-ghostwriting-spec' ? directory($, configured) : ''
+}
+
 export const register: Register = (on, options) => {
+  // How many times skill.prompt added the text, so a Skill call can tell
+  // whether it ran.
+  let appended = 0
   on('skill.prompt', async ($, e, next) => {
     const prompt = await next(e)
-    const skill = e.skill.split(':').pop()
-    if (skill !== 'ghostwrite' && skill !== 'share-ghostwriting-spec') return prompt
     try {
-      const configured = (options as any)?.voice_dir
-      return { ...prompt, text: prompt.text + (await (skill === 'ghostwrite' ? voice($, configured) : directory($, configured))) }
+      const text = await added($, e.skill, (options as any)?.voice_dir)
+      if (!text) return prompt
+      appended++
+      return { ...prompt, text: prompt.text + text }
     } catch {
       return prompt
+    }
+  })
+
+  // Under managed settings `cc-plugin-sec-default` sends `skill.prompt` past
+  // this plugin, so the text comes back beside the Skill tool's result.
+  // ponytail: a skill run by typing its slash command makes no Skill call, so no text is added there.
+  on('tool.call', { tool: 'Skill' }, async ($, e: any, next: any) => {
+    const before = appended
+    const ran = await next(e)
+    if (appended !== before || ran.deny !== undefined || ran.isError) return ran
+    try {
+      const text = await added($, String(e.skill ?? ''), (options as any)?.voice_dir)
+      return text ? { ...ran, context: [...(ran.context ?? []), text] } : ran
+    } catch {
+      return ran
     }
   })
 }
