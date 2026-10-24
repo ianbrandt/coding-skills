@@ -191,10 +191,11 @@ export const register: Register = on => {
   // A session that ends without wrapping still hands its lane back. Every
   // failure is silent: an error at session end is noise, and a claim left
   // behind is reaped once its worktree is gone.
-  on('classic.SessionEnd', async ($, e: any, next: any) => {
+  on('session.end', async ($, e: any, next: any) => {
     try {
       const main = await primary($)
-      for (const mine of ownedBy(await entries($, main), String(e.session_id ?? ''))) await remove($, main, mine.name)
+      const id = String((await $.session.id().catch(() => '')) ?? '')
+      for (const mine of ownedBy(await entries($, main), id)) await remove($, main, mine.name)
     } catch {}
     return next(e)
   })

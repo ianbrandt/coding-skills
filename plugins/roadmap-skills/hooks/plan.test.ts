@@ -34,10 +34,20 @@ function world(on: any, first: Repo) {
     if (failed) return { value: { stdout: '', ...failed } }
     return e.argv.includes('remote') ? out(w.now.hasUpstream ? 0 : 2) : out(0, (w.now.tracked ?? []).map(p => p + '\n').join(''))
   })
-  on('classic.SessionStart', () => ({ additionalContext: ['from a settings hook'] }))
+  on('tool.register', () => ({ value: undefined }))
+  on('session.start', (_$: any, e: any) => e)
+  on('prompt.submit', (_$: any, e: any) => ({ ...e, text: `from a settings hook\n\n${String(e.text ?? '')}` }))
   return w
 }
-const start = async ($: any, source = 'startup') => (await $.classic.SessionStart({ source })).additionalContext
+// The rule the plugin prepends to the first prompt of a non-fork session, as
+// a pair with the settings-hook prefix, split off from the user's text.
+const start = async ($: any, source = 'startup') => {
+  await $.session.start({ cwd: '/repo', source })
+  const { text } = await $.prompt.submit({ text: '<user>' })
+  const m = String(text).match(/^from a settings hook\n\n(?:(.*)\n\n)?<user>$/s)
+  if (!m) throw new Error(`unrecognised prompt text: ${JSON.stringify(text)}`)
+  return m[1] === undefined ? ['from a settings hook'] : ['from a settings hook', m[1]]
+}
 const FIND = 'mcp__roadmap-skills__find_roadmap'
 const found = async ($: any) => (await $.tool.call({ tool: FIND })).result
 

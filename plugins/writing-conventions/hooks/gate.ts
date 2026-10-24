@@ -396,10 +396,21 @@ async function notePath($: any, session: unknown): Promise<string> {
 
 export const register: Register = on => {
   // The lint tool is answered here. Any other command or MCP call is checked
-  // before it runs.
+  // before it runs. Write and Edit are checked after, where the file is prose:
+  // the re-read request is added, and the gate's findings come back beside it.
+  // ponytail: `cc-plugin-sec-default` forwards `classic.PostToolUse` past user mods under managed settings, so the Write/Edit check moved here too.
   on('tool.call', async ($, e, next) => {
     // A draft may come inside its fence, and lint() drops every closed fence.
     if (e.tool === TOOL) return { result: lint(drafts(String((e as any).text ?? ''), { unwrap: true })).replace(/\n+$/, '') || 'clean' }
+    if (e.tool === 'Write' || e.tool === 'Edit') {
+      const ran = await next(e)
+      if ((ran as any).deny !== undefined || (ran as any).isError) return ran
+      const classic = { tool_name: e.tool, tool_input: { file_path: (e as any).file_path, content: (e as any).content, new_string: (e as any).new_string } }
+      const verdict = await gate($, () => file($, classic))
+      const isProse = /\.(md|markdown|txt|kt|kts|java|groovy)$/i.test(String((e as any).file_path ?? ''))
+      const added = [...(isProse && (await isChecked($).catch(() => false)) ? [NUDGE] : []), ...(verdict.context ? [verdict.context] : [])]
+      return added.length > 0 ? { ...ran, context: [...(ran.context ?? []), ...added] } : ran
+    }
     if (!/^(Bash$|PowerShell$|mcp__)/.test(e.tool)) return next(e)
     if (e.tool in LOCAL_TOOLS) {
       const ran = await next(e)
@@ -421,6 +432,7 @@ export const register: Register = on => {
       : ran
   })
 
+  const seenPrompt = new Set<string>()
   on('session.start', async ($, e, next) => {
     if (await isChecked($)) {
       await $.tool.register({
@@ -429,6 +441,11 @@ export const register: Register = on => {
         inputSchema: { type: 'object', properties: { text: { type: 'string', description: 'The prose to lint.' } }, required: ['text'] },
       })
     }
+    // A fork starts with its parent's context, where the rules already are.
+    // Every other start resets, so /clear and /compact get the rules again.
+    const id = String((await $.session.id().catch(() => '')) ?? '')
+    if ((e as any).source === 'fork') seenPrompt.add(id)
+    else seenPrompt.delete(id)
     return next(e)
   })
 
@@ -450,33 +467,24 @@ export const register: Register = on => {
     return verdict.block ? { ...ran, block: verdict.block } : ran
   })
 
-  // The next turn opens with the saved note, then the standing reminder.
-  on('classic.UserPromptSubmit', async ($, e: any, next: any) => {
-    const ran = await next(e)
-    if (!(await isChecked($).catch(() => false))) return ran
-    const path = await notePath($, e.session_id).catch(() => '')
-    const note = path ? await $.fs.read(path).catch(() => '') : ''
-    if (note) await $.fs.write(path, '').catch(() => {})
-    return { ...ran, additionalContext: [...(ran.additionalContext ?? []), note + REMINDER] }
-  })
-
-  // A file just written. For one with prose in it, code comments included, the
-  // re-read request is added, and the gate's findings on a prose file come back
-  // beside it.
-  on('classic.PostToolUse', async ($, e: any, next: any) => {
-    if (e.tool_name !== 'Write' && e.tool_name !== 'Edit') return next(e)
-    const verdict = await gate($, () => file($, e))
-    const ran = await next(e)
-    const isProse = /\.(md|markdown|txt|kt|kts|java|groovy)$/i.test(String(e.tool_input?.file_path ?? ''))
-    const added = [...(isProse && (await isChecked($).catch(() => false)) ? [NUDGE] : []), ...(verdict.context ? [verdict.context] : [])]
-    return added.length > 0 ? { ...ran, additionalContext: [...(ran.additionalContext ?? []), ...added] } : ran
-  })
-
-  // A session starts with the rules, on any version the module runs on.
-  on('classic.SessionStart', async ($, e: any, next: any) => {
-    const ran = await next(e)
-    const rules = await $.fs.read(`${$.plugin.root}/hooks/rules.md`).catch(() => '')
-    return rules ? { ...ran, additionalContext: [...(ran.additionalContext ?? []), rules] } : ran
+  // The next turn opens with the saved note, then the standing reminder, and
+  // the first prompt of a session starts with the rules. Each piece is
+  // prepended to the user's text so the model reads them before the prompt.
+  // ponytail: `cc-plugin-sec-default` forwards `classic.UserPromptSubmit` and `classic.SessionStart` past user mods under managed settings, so this runs on the native `prompt.submit` event instead.
+  on('prompt.submit', async ($, e: any, next: any) => {
+    const id = String((await $.session.id().catch(() => '')) ?? e.session_id ?? '')
+    const first = !seenPrompt.has(id)
+    seenPrompt.add(id)
+    const rules = first ? await $.fs.read(`${$.plugin.root}/hooks/rules.md`).catch(() => '') : ''
+    let note = ''
+    if (await isChecked($).catch(() => false)) {
+      const path = await notePath($, id).catch(() => '')
+      note = path ? await $.fs.read(path).catch(() => '') : ''
+      if (note) await $.fs.write(path, '').catch(() => {})
+      note = note + REMINDER
+    }
+    const prepend = [rules, note].filter(Boolean).join('\n\n')
+    return next(prepend ? { ...e, text: `${prepend}\n\n${String(e.text ?? '')}` } : e)
   })
 
   // A subagent starts with the rules the session started with.

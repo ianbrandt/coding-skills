@@ -50,9 +50,9 @@ test('an empty session id matches no claim', () => {
 function world(on: any, worktrees: Record<string, string>, files: Record<string, string>, session = 'MINE', other: Record<string, string> = {}) {
   const posix = (p: string) => p.replace(/^[A-Za-z]:/, '').replace(/\\/g, '/')
   const dir = '/repo/.claude/claims/'
-  const w = { files, worktrees, now: 1_000_000, root: '/repo' as string | null, torn: null as { name: string; text: string } | null, writing: null as string | null, stale: {} as Record<string, string> }
+  const w = { files, worktrees, now: 1_000_000, root: '/repo' as string | null, torn: null as { name: string; text: string } | null, writing: null as string | null, stale: {} as Record<string, string>, sessionId: session }
   on('session.repo', () => ({ value: w.root ? { root: w.root, remote: null, internal: false } : null }))
-  on('session.id', () => ({ value: session }))
+  on('session.id', () => ({ value: w.sessionId }))
   on('clock.now', () => ({ value: w.now }))
   on('fs.list', (_$: any, e: any) => {
     if (posix(e.path) + '/' !== dir || Object.keys(w.files).length === 0) throw new Error('ENOENT')
@@ -92,7 +92,7 @@ function world(on: any, worktrees: Record<string, string>, files: Record<string,
     if (argv[0] === 'clean') delete w.files[argv[argv.length - 1].replace(':(literal).claude/claims/', '')]
     return out('')
   })
-  on('classic.SessionEnd', () => ({}))
+  on('session.end', () => ({ sessionId: w.sessionId }))
   return w
 }
 const call = ($: any, name: string, input: object = {}) => $.tool.call({ tool: `mcp__parallel-session-skills__${name}`, ...input })
@@ -242,13 +242,13 @@ test("the end of a session deletes that session's claims and no other", async ($
   const w = world(on, {}, {
     'a.json': claim('claude/a', 'MINE'), 'b.json': claim('claude/b', 'SIBLING'), 'c.json': '{ "item": "no session", "branch": "claude/c" }', 'd.json': claim('claude/d', ''),
   })
-  await $.classic.SessionEnd({ reason: 'other', session_id: 'NOBODY' })
-  await $.classic.SessionEnd({ reason: 'other', session_id: '' })
+  w.sessionId = 'NOBODY'; await $.session.end({ reason: 'other' })
+  w.sessionId = '';       await $.session.end({ reason: 'other' })
   expect(Object.keys(w.files)).toEqual(['a.json', 'b.json', 'c.json', 'd.json'])
-  await $.classic.SessionEnd({ reason: 'other', session_id: 'MINE' })
+  w.sessionId = 'MINE';   await $.session.end({ reason: 'other' })
   expect(Object.keys(w.files)).toEqual(['b.json', 'c.json', 'd.json'])
   w.root = null
-  await $.classic.SessionEnd({ reason: 'other', session_id: 'SIBLING' })
+  w.sessionId = 'SIBLING'; await $.session.end({ reason: 'other' })
   expect(Object.keys(w.files)).toEqual(['b.json', 'c.json', 'd.json'])
 })
 
@@ -260,7 +260,8 @@ test("a claim is released after the lane's worktree is removed, by the tool and 
   expect(ran.result).toContain('/wt/a is not a worktree of this repo')
   expect(w.files).toEqual({})
   w.files['claude-c.json'] = claim('claude/c', 'MINE')
-  await $.classic.SessionEnd({ reason: 'other', session_id: 'MINE' })
+  w.sessionId = 'MINE'
+  await $.session.end({ reason: 'other' })
   expect(w.files).toEqual({})
 })
 

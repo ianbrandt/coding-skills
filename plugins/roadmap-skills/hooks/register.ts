@@ -32,6 +32,8 @@ async function find($: any): Promise<{ main: string; plan: Plan } | null> {
 }
 
 export const register: Register = on => {
+  // ponytail: `cc-plugin-sec-default` forwards `classic.SessionStart` past user mods under managed settings, so the rule goes in on the first prompt instead.
+  const seen = new Set<string>()
   on('session.start', async ($, e, next) => {
     await $.tool.register({
       name: 'find_roadmap',
@@ -52,20 +54,25 @@ export const register: Register = on => {
       },
       isDeferred: false,
     })
+    // A fork starts with its parent's context, where the rule already is.
+    // Every other start resets, so /clear and /compact get the rule again.
+    const id = String((await $.session.id().catch(() => '')) ?? '')
+    if ((e as any).source === 'fork') seen.add(id)
+    else seen.delete(id)
     return next(e)
   })
 
-  // In a repo with no roadmap of its own nothing is added. A fork starts with
-  // its parent's context, where the rule already is. A lookup that failed is
-  // one line of context, since the repo may have a roadmap.
-  on('classic.SessionStart', async ($, e: any, next: any) => {
-    const ran = await next(e)
-    if (e.source === 'fork') return ran
+  // In a repo with no roadmap of its own nothing is added. A lookup that
+  // failed is one line of context, since the repo may have a roadmap.
+  on('prompt.submit', async ($, e: any, next: any) => {
+    const id = String((await $.session.id().catch(() => '')) ?? '')
+    if (seen.has(id)) return next(e)
+    seen.add(id)
     const added = await find($).then(
       found => (found && 'roadmap' in found.plan ? rule(found.plan, found.main) : ''),
       err => `The roadmap lookup failed, so it is not known whether this repo has a roadmap: ${(err as Error).message}`,
     )
-    return added ? { ...ran, additionalContext: [...(ran.additionalContext ?? []), added] } : ran
+    return next(added ? { ...e, text: `${added}\n\n${String(e.text ?? '')}` } : e)
   })
 
   on('tool.call', { tool: FIND }, async $ => {

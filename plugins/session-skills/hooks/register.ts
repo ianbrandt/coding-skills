@@ -446,6 +446,19 @@ const TITLE_RULES: Record<string, string> = { 'claude-desktop': 'desktop', cli: 
 
 const NEXT_STEP = 'This turn pushed work, and no next step is written at the end of the reply. Add it as the last text of the turn, under the session rules: the hand-off block for the next unit of work, or one line saying that this session carries on with it. When nothing can start yet, write one line on what the next item waits on, then the block for when it can start. When nothing comes next at all, say so in one line.'
 
+// The rules a non-fork session starts with: title block and, in the desktop
+// app, the wrap-up instruction.
+async function readRules($: any): Promise<string> {
+  const read = (name: string) => $.fs.read(`${$.plugin.root}/hooks/${name}.md`).catch(() => '')
+  // One title instruction per surface: a session given all three called the
+  // terminal's tool in the desktop app and printed the title when that failed.
+  const entry = await $.env.get('CLAUDE_CODE_ENTRYPOINT').catch(() => '')
+  const title = (await read(`title-${TITLE_RULES[entry as string] ?? 'print'}`)).trimEnd()
+  // The desktop app ends a turn with its wrap_up tool, which nothing else has.
+  const wrapUp = entry === 'claude-desktop' ? `${(await read('wrap-up-desktop')).trimEnd()}\n\n` : ''
+  return (await read('rules')).replace('{{title}}', () => title).replace('{{wrap-up}}', () => wrapUp)
+}
+
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     await $.tool.register({
@@ -473,6 +486,11 @@ export const register: Register = on => {
         isDeferred: false,
       })
     }
+    // A fork starts with its parent's context, where the rules already are.
+    // Every other start resets, so /clear and /compact get the rules again.
+    const id = String((await $.session.id().catch(() => '')) ?? '')
+    if ((e as any).source === 'fork') seenPrompt.add(id)
+    else seenPrompt.delete(id)
     return next(e)
   })
 
@@ -489,45 +507,35 @@ export const register: Register = on => {
       return `The title is set to ${JSON.stringify(title)} when the user sends the next prompt.`
     }),
   )
-  // A title that differs from the one at the last prompt is one the user typed
-  // since, with /rename, and it is kept.
-  on('classic.UserPromptSubmit', async ($, e: any, next: any) => {
-    pushed.delete(e.session_id)
-    const ran = await next(e)
-    const held = titles.get(e.session_id)
-    const renamed = held !== undefined && 'seen' in held && held.seen !== e.session_title
-    const title = renamed ? undefined : held?.pending
-    titles.set(e.session_id, { seen: title ?? e.session_title })
-    return title ? { ...ran, sessionTitle: title } : ran
+  // The rules go in on the first prompt of a session, prepended to the user's
+  // text so the model reads them before the prompt.
+  // ponytail: `cc-plugin-sec-default` forwards `classic.SessionStart` and `classic.UserPromptSubmit` past user mods under managed settings, so this runs on the native `prompt.submit` event instead. The title tool's rename on the next prompt is dropped: the native `prompt.submit` return accepts only `{ text }` or `{ drop }`.
+  const seenPrompt = new Set<string>()
+  on('prompt.submit', async ($, e: any, next: any) => {
+    const id = String((await $.session.id().catch(() => '')) ?? e.session_id ?? '')
+    pushed.delete(id)
+    const first = !seenPrompt.has(id)
+    seenPrompt.add(id)
+    const rules = first ? await readRules($) : ''
+    return next(rules ? { ...e, text: `${rules}\n\n${String(e.text ?? '')}` } : e)
   })
 
   // The turn that pushes is the last turn of a landing, and in October 2026 13
   // of 16 such turns ended with no next step. One stop is blocked when the
   // reply has no fenced block, so a reply that states there is none passes.
+  // Stop stays on the classic event: no native event blocks a turn's end.
   const pushed = new Set<string>()
-  on('classic.PostToolUse', async ($, e: any, next: any) => {
-    if (e.tool_name === 'Bash' && /\bgit(\s+-C\s+\S+)?\s+push\b/.test(String(e.tool_input?.command ?? ''))) pushed.add(e.session_id)
-    return next(e)
+  on('tool.call', async ($, e: any, next: any) => {
+    const ran = await next(e)
+    if (e.tool === 'Bash' && /\bgit(\s+-C\s+\S+)?\s+push\b/.test(String(e.command ?? ''))) {
+      pushed.add(String((await $.session.id().catch(() => '')) ?? ''))
+    }
+    return ran
   })
   on('classic.Stop', async ($, e: any, next: any) => {
     const ran = await next(e)
     if (ran.block || !pushed.delete(e.session_id) || /^\s*```/m.test(String(e.last_assistant_message ?? ''))) return ran
     return { ...ran, block: NEXT_STEP }
-  })
-
-  // A fork starts with its parent's context, where the rules already are.
-  on('classic.SessionStart', async ($, e: any, next: any) => {
-    const ran = await next(e)
-    if (e.source === 'fork') return ran
-    const read = (name: string) => $.fs.read(`${$.plugin.root}/hooks/${name}.md`).catch(() => '')
-    // One title instruction per surface: a session given all three called the
-    // terminal's tool in the desktop app and printed the title when that failed.
-    const entry = await $.env.get('CLAUDE_CODE_ENTRYPOINT').catch(() => '')
-    const title = (await read(`title-${TITLE_RULES[entry as string] ?? 'print'}`)).trimEnd()
-    // The desktop app ends a turn with its wrap_up tool, which nothing else has.
-    const wrapUp = entry === 'claude-desktop' ? `${(await read('wrap-up-desktop')).trimEnd()}\n\n` : ''
-    const rules = (await read('rules')).replace('{{title}}', () => title).replace('{{wrap-up}}', () => wrapUp)
-    return rules ? { ...ran, additionalContext: [...(ran.additionalContext ?? []), rules] } : ran
   })
 
   on('tool.call', { tool: 'mcp__session-skills__find_checkouts' }, async $ => answer('find_checkouts', () => findCheckouts($)))
