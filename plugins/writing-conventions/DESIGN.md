@@ -354,10 +354,12 @@ A verified finding is submitted as a fix-up prompt with `$.prompt.submit`, so th
 corrected draft in one more turn. Claude Code has no hook that runs before a reply is displayed, so
 review happens afterward, and the reply is re-emitted whole. The fix-ups are counted per session and
 stop after two in a row; the third time, the user is told that review is unresolved, and the reply
-stands. Any prompt but this plugin's fix-up starts the count over. A fix-up prompt gets no lint
-note, because the note's instruction is to leave the reply alone. The note on the fix-up reply
-replaces it. The check runs under managed settings too, where `cc-plugin-sec-default` sends
-`classic.Stop` past user plugins. `WRITING_CONVENTIONS_STOP_READER=0` turns this check off.
+stands. A prompt that no plugin submitted starts the count over, so session-skills' request for a
+next step does not. No lint note is added to a fix-up prompt, because the note's instruction is to
+leave the reply alone. The note on the fix-up reply replaces it. The note is saved before the event
+is passed on to other plugins, so a follow-up prompt from one of them opens with it.
+The check runs under managed settings too, where `cc-plugin-sec-default` sends `classic.Stop` past
+user plugins. Set `WRITING_CONVENTIONS_STOP_READER=0` to turn this check off.
 
 Tagging keeps this check cheap, since an untagged draft has no reliable form: without the rule,
 drafts came back in plain fences, blockquotes, and between `---` rules, and a plain fence of 8 words

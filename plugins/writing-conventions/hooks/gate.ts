@@ -349,7 +349,7 @@ const LOCAL_TOOLS: Record<string, [string, string] | null> = {
 
 // The fix-up prompts submitted in a row, by session. Each one costs a whole
 // re-emitted reply, so they stop after two when something is found in each
-// rewrite. A prompt from anywhere else starts the count over.
+// rewrite. A prompt that no plugin submitted starts the count over.
 const fixups = new Map<string, number>()
 
 // A reply in which a draft for publication is tagged. Only the text inside a
@@ -519,10 +519,10 @@ export const register: Register = on => {
   // review model cannot run. Then the gate reads the drafts, and a finding is
   // submitted as a fix-up prompt. This runs under the guard too, which sends
   // classic.Stop past user plugins. An interrupted turn and a subagent's turn
-  // are not checked.
+  // are not checked. The note is written before next(), where another plugin
+  // may submit a prompt that reads it.
   on('turn.complete', async ($, e, next) => {
-    const ran = await next(e)
-    if (e.agentId || e.reason !== 'answer') return ran
+    if (e.agentId || e.reason !== 'answer') return next(e)
     const text = String(e.answer ?? '')
     if (await isChecked($).catch(() => false)) {
       const note = lint(drafts(text, { unwrap: true }), { note: true })
@@ -532,7 +532,7 @@ export const register: Register = on => {
     }
     const verdict = text.includes('draft') ? await gate($, () => stop($, text)) : {}
     if (verdict.block) await $.prompt.submit({ text: verdict.block }).catch(() => {})
-    return ran
+    return next(e)
   })
 
   // A session starts with the rules, on any version the module runs on.
@@ -560,7 +560,9 @@ export const register: Register = on => {
   // reply alone, and the fix-up reply's own note replaces it.
   on('prompt.submit', async ($, e: any, next: any) => {
     const isFixup = e.origin?.kind === 'plugin' && e.origin.name === 'writing-conventions'
-    if (!isFixup) fixups.delete(await $.session.id().catch(() => ''))
+    // Another plugin's follow-up, such as session-skills' request for the next
+    // step, does not start the count over.
+    if (e.origin?.kind !== 'plugin') fixups.delete(await $.session.id().catch(() => ''))
     const rules = (await isStarted($)) ? '' : await $.fs.read(`${$.plugin.root}/hooks/rules.md`).catch(() => '')
     const added = rules && !(await isRead($, rules)) ? [rules] : []
     if (!isFixup && (await isChecked($).catch(() => false))) added.push(await turnNote($, await $.session.id().catch(() => '')))

@@ -473,6 +473,26 @@ test('a fix-up prompt gets no lint note, and the next prompt gets it', async ($:
   expect(seen.contexts[1].join()).toContain('A house-style lint flagged the previous reply')
 })
 
+// A plugin that submits a follow-up at the end of every turn, as session-skills
+// does after a push, above this plugin or beneath it.
+const other = (tier: 'prepend' | 'append') => ({ name: 'other', tier, register(on: any) {
+  on('turn.complete', async ($: any, e: any, next: any) => {
+    const ran = await next(e)
+    await $.prompt.submit({ text: 'What comes next?' })
+    return ran
+  })
+} })
+
+for (const tier of ['prepend', 'append'] as const) {
+  test(`another plugin's follow-up gets the note and leaves the fix-up count, from ${tier}`, { plugins: [other(tier)] }, async ($: any, on: any) => {
+    const seen = world(on, { verdict: FINDING })
+    for (let i = 0; i < 3; i++) await end($, DRAFT)
+    expect(seen.sent.filter(t => t.startsWith('The draft in your last reply'))).toHaveLength(2)
+    expect(seen.toasts.join()).toContain('Review is unresolved')
+    expect(seen.contexts[seen.sent.indexOf('What comes next?')].join()).toContain('A house-style lint flagged the previous reply')
+  })
+}
+
 test('the fix-ups are counted per session', async ($: any, on: any) => {
   const w: World = { verdict: FINDING }
   const seen = world(on, w)
