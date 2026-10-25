@@ -551,7 +551,8 @@ export const register: Register = on => {
   })
   on('tool.call', { tool: 'Bash' }, async ($, e: any, next: any) => {
     const ran = await next(e)
-    if (ran.deny === undefined && PUSH.test(String(e.command ?? '')) && !(await isClassic($))) pushed.add(await $.session.id())
+    // classic.PostToolUse does not fire for a denied or failed call.
+    if (ran.deny === undefined && !(ran as any).isError && PUSH.test(String(e.command ?? '')) && !(await isClassic($))) pushed.add(await $.session.id())
     return ran
   })
   on('turn.complete', async ($, e, next) => {

@@ -67,7 +67,8 @@ prompt with `$.prompt.submit`, asking for the next step or for one line saying t
 follow-up turn pushed nothing, so a reply that states there is no next step costs one extra turn.
 The check runs under managed settings too, where `cc-plugin-sec-default` sends `classic.Stop` past
 user plugins. A push is recorded from the `PostToolUse` hook for `Bash`, which sees a command that a
-settings hook rewrote, and from the `tool.call` for `Bash` where no classic event has arrived. An
-interrupted turn drops its push, and a subagent's turn leaves it for the main loop.
+settings hook rewrote, and from the `tool.call` for `Bash` where no classic event has arrived, for a
+call that was not denied and did not fail. A push is dropped when its turn is interrupted or ends on
+an error, and kept past the end of a subagent's turn for the main loop.
 
 There is no `SubagentStart` hook, because a subagent doesn't end a session.

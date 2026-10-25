@@ -190,12 +190,12 @@ const end = ($: any, answer: string, more: any = {}) => $.turn.complete({ answer
 const BLOCK = 'Start it in `/repo`:\n\n```\n/next-roadmap-item R12\n```\n\n**Opus + High**'
 // The prompts the plugin submits, in a session with an id the test sets.
 function turnEnd(on: any) {
-  const w = { id: 's1', sent: [] as string[] }
+  const w = { id: 's1', sent: [] as string[], bash: { result: {} } as any }
   on('session.id', () => ({ value: w.id }))
   on('classic.PostToolUse', () => ({}))
   on('turn.complete', (_$: any, e: any) => ({ text: e.answer }))
   on('prompt.submit', (_$: any, e: any) => { w.sent.push(e.text); return { text: e.text } })
-  on('tool.call', { tool: 'Bash' }, () => ({ result: {} }))
+  on('tool.call', { tool: 'Bash' }, () => w.bash)
   return w
 }
 
@@ -296,8 +296,29 @@ test('under the guard, a push is recorded from the Bash call, and the follow-up 
   await $.tool.call({ tool: 'Bash', command: 'git status' })
   await end($, 'Done.')
   expect(w.sent).toEqual([])
+  // A push refused at the permission prompt, or rejected by the remote.
+  for (const bash of [{ deny: 'not now' }, { result: 'rejected', text: 'rejected', isError: true }]) {
+    w.bash = bash
+    await $.tool.call({ tool: 'Bash', command: 'git push origin main' })
+    await end($, 'Done.')
+  }
+  expect(w.sent).toEqual([])
+  w.bash = { result: {} }
+  w.id = 's2'
   await $.tool.call({ tool: 'Bash', command: 'git push origin main' })
+  w.id = 's1'
+  await end($, 'Pushed.')
+  expect(w.sent).toEqual([])
+  w.id = 's2'
   await end($, 'Pushed.')
   expect(w.sent).toHaveLength(1)
   expect(w.sent[0]).toContain('next step')
+})
+
+test('where the classic events run, a push is recorded from classic.PostToolUse alone', async ($: any, on: any) => {
+  const w = turnEnd(on)
+  await $.classic.PostToolUse(ran('git status'))
+  await $.tool.call({ tool: 'Bash', command: 'git push origin main' })
+  await end($, 'Done.')
+  expect(w.sent).toEqual([])
 })
