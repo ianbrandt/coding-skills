@@ -15,10 +15,15 @@ const isClassic = async ($: any) => (await $.state.get(CLASSIC).catch(() => ({})
 const isStarted = async ($: any) => (await $.state.get(STARTED).catch(() => ({}))).value === true
 
 // Whether the model still reads this text: false after /clear, a compaction,
-// or a plugin update that changed it.
-async function isRead($: any, text: string): Promise<boolean> {
-  const messages: any[] = await $.session.messages({ as: 'api' }).catch(() => [])
-  return messages.some(m => m.role === 'user' && m.content.some((b: any) => b.type === 'text' && String(b.text).includes(text)))
+// or a plugin update that changed it, and undefined where the conversation is
+// not read back, as a Workflow agent's is not on 2.1.310. Context added to a
+// tool call is in its result.
+async function isRead($: any, text: string, agentId?: string): Promise<boolean | undefined> {
+  const messages = await $.session.messages({ ...(agentId && { agentId }), as: 'api' }).catch(() => undefined)
+  if (!Array.isArray(messages)) return undefined
+  const has = (b: any): boolean => b.type === 'text' ? String(b.text).includes(text)
+    : b.type === 'tool_result' && (typeof b.content === 'string' ? b.content.includes(text) : Array.isArray(b.content) && b.content.some(has))
+  return messages.some(m => m.role === 'user' && Array.isArray(m.content) && m.content.some(has))
 }
 
 export const register: Register = on => {
@@ -42,7 +47,27 @@ export const register: Register = on => {
     return next(rules && !(await isRead($, rules)) ? { ...e, context: [...(e.context ?? []), rules] } : e)
   })
 
-  // ponytail: under the guard only a subagent started with the Agent tool gets the rule, so a Workflow's agents start without it.
   on('tool.call', { tool: 'Agent' }, async ($, e: any, next: any) =>
     next((await isClassic($)) ? e : { ...e, prompt: `${SUBAGENT_RULE}\n\n${e.prompt}` }))
+
+  // Under the guard a Workflow's agents start without the rule, and after an
+  // automatic compaction in the middle of a turn the main loop goes without
+  // the rules until the next prompt. They are added to the next tool result.
+  // ponytail: kept in memory, so after a hot reload a running Workflow agent gets the rule a second time.
+  const told = new Set<string>()
+  on('tool.call', async ($, e: any, next: any) => {
+    const ran = await next(e)
+    if (ran.deny !== undefined) return ran
+    let text = ''
+    if (e.agentId) {
+      if (await isClassic($)) return ran
+      const read = await isRead($, SUBAGENT_RULE, e.agentId)
+      if (read === false || (read === undefined && !told.has(e.agentId))) text = SUBAGENT_RULE
+      told.add(e.agentId)
+    } else if (!(await isStarted($))) {
+      const rules = await $.fs.read(`${$.plugin.root}/hooks/rules.md`).catch(() => '')
+      if (rules && (await isRead($, rules)) === false) text = rules
+    }
+    return text ? { ...ran, context: [...(ran.context ?? []), text] } : ran
+  })
 }

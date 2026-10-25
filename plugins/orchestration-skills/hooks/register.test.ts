@@ -57,6 +57,52 @@ test('under the guard, an Agent task opens with the escalation rule', { plugins:
   expect(w.task).toBe(`${SUBAGENT_RULE}\n\nlook`)
 })
 
+// The conversations read back, by agent: the main loop under '', an Agent
+// subagent's under its ID, and none for a Workflow agent, as on 2.1.310.
+function agents(on: any, read: Record<string, string[]>) {
+  on('fs.read', () => ({ value: RULES }))
+  on('classic.SessionStart', () => ({}))
+  on('session.messages', (_$: any, e: any) => {
+    const texts = read[e.agentId ?? '']
+    if (!texts) return { value: { deny: `no conversation of agent ${e.agentId} in this session` } }
+    return { value: texts.map(text => ({ role: 'user', content: [{ type: 'tool_result', tool_use_id: 't', content: text }] })) }
+  })
+  on('tool.call', () => ({ result: 'ok' }))
+}
+const call = async ($: any, agentId?: string) => (await $.tool.call({ tool: 'Bash', command: 'ls', ...(agentId && { agentId }) })).context ?? []
+
+test('under the guard, a Workflow agent gets the escalation rule with its first tool result only', { plugins: [guard] }, async ($: any, on: any) => {
+  agents(on, { '': [RULES] })
+  expect(await call($, 'w1')).toEqual([SUBAGENT_RULE])
+  expect(await call($, 'w1')).toEqual([])
+  expect(await call($, 'w2')).toEqual([SUBAGENT_RULE])
+})
+
+test('under the guard, an Agent subagent gets the escalation rule again only once its task is compacted away', { plugins: [guard] }, async ($: any, on: any) => {
+  const read: Record<string, string[]> = { '': [RULES], a1: [`${SUBAGENT_RULE}\n\nlook`] }
+  agents(on, read)
+  expect(await call($, 'a1')).toEqual([])
+  read.a1 = ['a summary']
+  expect(await call($, 'a1')).toEqual([SUBAGENT_RULE])
+})
+
+test('under the guard, the rules are added to a tool result after a compaction, until the model reads them there', { plugins: [guard] }, async ($: any, on: any) => {
+  const read: Record<string, string[]> = { '': [`<system-reminder>\n${RULES}\n</system-reminder>`] }
+  agents(on, read)
+  expect(await call($)).toEqual([])
+  read[''] = ['a summary']
+  expect(await call($)).toEqual([RULES])
+  read[''] = ['a summary', `ok\n\n<system-reminder>\ntool.call hook additional context: ${RULES}\n</system-reminder>`]
+  expect(await call($)).toEqual([])
+})
+
+test('where the classic events run, nothing is added to a tool result', async ($: any, on: any) => {
+  agents(on, { '': ['a summary'] })
+  await $.classic.SessionStart({ source: 'startup' })
+  expect(await call($)).toEqual([])
+  expect(await call($, 'w1')).toEqual([])
+})
+
 test('a classic event after a late load ends the fallback', async ($: any, on: any) => {
   const w = world(on)
   await $.classic.SubagentStart({})
