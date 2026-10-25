@@ -404,8 +404,8 @@ claude plugin eval . --runs 2 --judge-model sonnet --no-publish -j 4
 Each run scores the same prompts with and without the plugin loaded and reports the difference. A
 run costs a fraction of a dollar, so the suite is for a change to the rules file or the hooks, not
 for every commit. Results go under `evals/results/`, which is ignored. The draft check is on during
-a run, so a plugin-loaded draft is scored after any fix-up turn, which is why `max_turns` is 8 in every
-case.
+a run, and a fix-up is a second turn under `-p`. Whether a plugin-loaded draft is scored before or
+after that turn is not checked yet. `max_turns` is 8 in every case.
 
 The latest whole-suite run, on 2026-10-08, scored 0.94 with the plugin and 0.83 without. The score
 without the plugin moved by 0.05 between two runs of the same prompts, so a gain from a single run is
