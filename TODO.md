@@ -7,12 +7,13 @@ On a machine with managed settings, the built-in `cc-plugin-sec-default` plugin 
 2.1.309, and 2.1.310. The classic hooks are still the main path, and the native fallbacks run only
 where the classic events do not reach a plugin: the rules as `prompt.submit` context where
 `classic.SessionStart` did not run, re-added once the model no longer reads them, and the subagent
-rules prepended to an Agent `tool.call` where no classic event has arrived yet. The rules are also
-added to the next tool result after a compaction in the middle of a turn, and to a Workflow agent's
+rules prepended to an Agent `tool.call` where no classic event has arrived yet. The rules of
+writing-conventions, session-skills, and orchestration-skills are also added to the next tool
+result after a compaction in the middle of a turn, and the subagent rules to a Workflow agent's
 first tool result. The per-turn style reminder, the reply lint, the Write/Edit check, the draft
-check, and the next-step check after a push run on native events only. The ghostwriting voice text comes back beside the Skill tool's
-result when `skill.prompt` does not run. The fallbacks were checked on macOS with a copy of the
-guard in the plugin test kit, not under the real guard.
+check, and the next-step check after a push run on native events only. The ghostwriting voice
+text comes back beside the Skill tool's result when `skill.prompt` does not run. The fallbacks were
+checked on macOS with a copy of the guard in the plugin test kit, not under the real guard.
 
 On the work machine, after updating the plugins, start a session and check nine things:
 
@@ -32,5 +33,6 @@ On the work machine, after updating the plugins, start a session and check nine 
 9. A Workflow agent that runs one command can then quote `WRITING CONVENTIONS ACTIVE` and the line
    `You are a subagent with no user to ask`.
 
-The title from `set_session_title` in the terminal stays off under the guard, since no native
-event can set it.
+Two things stay off under the guard: the title from `set_session_title` in the terminal, since no
+native event can set it, and the roadmap rule after a compaction in the middle of a turn, until the
+next prompt.
