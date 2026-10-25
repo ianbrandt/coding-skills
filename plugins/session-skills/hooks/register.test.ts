@@ -271,6 +271,36 @@ test('under the guard, the rules are added to a prompt while the model does not 
   expect(await submit($)).toEqual([rules])
 })
 
+// The text of a tool result, as it is read back.
+function results(on: any) {
+  const w = { read: [] as string[] }
+  on('session.messages', () => ({ value: w.read.map(content => ({ role: 'user', content: [{ type: 'tool_result', tool_use_id: 't', content }] })) }))
+  on('tool.call', () => ({ result: 'ok' }))
+  return w
+}
+const call = async ($: any, more: any = {}) => (await $.tool.call({ tool: 'Read', file_path: '/p/a.md', ...more })).context ?? []
+
+test('under the guard, the rules are added to a tool result after a compaction, until the model reads them there', { plugins: [guard] }, async ($: any, on: any) => {
+  world(on)
+  const w = results(on)
+  const rules = 'before\n<title-print.md>\nafter\n'
+  w.read = [`<system-reminder>\n${rules}</system-reminder>`]
+  expect(await call($)).toEqual([])
+  w.read = ['a summary']
+  expect(await call($, { agentId: 'w1' })).toEqual([])
+  expect(await call($)).toEqual([rules])
+  w.read = ['a summary', `ok\n\n<system-reminder>\ntool.call hook additional context: ${rules}</system-reminder>`]
+  expect(await call($)).toEqual([])
+})
+
+test('where the classic events run, nothing is added to a tool result', async ($: any, on: any) => {
+  world(on)
+  const w = results(on)
+  await $.classic.SessionStart({ source: 'startup' })
+  w.read = ['a summary']
+  expect(await call($)).toEqual([])
+})
+
 test('after a mid-session load, the rules are added to a prompt while the model does not read them', async ($: any, on: any) => {
   session(on, 's1')
   world(on)

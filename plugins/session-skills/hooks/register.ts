@@ -471,10 +471,14 @@ const isClassic = async ($: any) => (await $.state.get(CLASSIC).catch(() => ({})
 const isStarted = async ($: any) => (await $.state.get(STARTED).catch(() => ({}))).value === true
 
 // Whether the model still reads this text: false after /clear, a compaction,
-// or a plugin update that changed it.
-async function isRead($: any, text: string): Promise<boolean> {
-  const messages: any[] = await $.session.messages({ as: 'api' }).catch(() => [])
-  return messages.some(m => m.role === 'user' && m.content.some((b: any) => b.type === 'text' && String(b.text).includes(text)))
+// or a plugin update that changed it, and undefined where the conversation is
+// not read back. Context added to a tool call is in its result.
+async function isRead($: any, text: string): Promise<boolean | undefined> {
+  const messages = await $.session.messages({ as: 'api' }).catch(() => undefined)
+  if (!Array.isArray(messages)) return undefined
+  const has = (b: any): boolean => b.type === 'text' ? String(b.text).includes(text)
+    : b.type === 'tool_result' && (typeof b.content === 'string' ? b.content.includes(text) : Array.isArray(b.content) && b.content.some(has))
+  return messages.some(m => m.role === 'user' && Array.isArray(m.content) && m.content.some(has))
 }
 
 export const register: Register = on => {
@@ -577,6 +581,16 @@ export const register: Register = on => {
     if (await isStarted($)) return next(e)
     const rules = await readRules($)
     return next(rules && !(await isRead($, rules)) ? { ...e, context: [...(e.context ?? []), rules] } : e)
+  })
+
+  // Under the guard, after an automatic compaction in the middle of a turn the
+  // main loop goes without the rules until the next prompt. They are added to
+  // the next tool result. A subagent never gets them.
+  on('tool.call', async ($, e: any, next: any) => {
+    const ran = await next(e)
+    if (ran.deny !== undefined || e.agentId || (await isStarted($))) return ran
+    const rules = await readRules($).catch(() => '')
+    return rules && (await isRead($, rules)) === false ? { ...ran, context: [...(ran.context ?? []), rules] } : ran
   })
 
   on('tool.call', { tool: 'mcp__session-skills__find_checkouts' }, async $ => answer('find_checkouts', () => findCheckouts($)))
