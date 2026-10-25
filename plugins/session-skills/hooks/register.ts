@@ -444,7 +444,7 @@ async function answer(name: string, run: () => Promise<string>) {
 
 const TITLE_RULES: Record<string, string> = { 'claude-desktop': 'desktop', cli: 'cli' }
 
-const NEXT_STEP = 'This turn pushed work, and no next step is written at the end of the reply. Add it as the last text of the turn, under the session rules: the hand-off block for the next unit of work, or one line saying that this session carries on with it. When nothing can start yet, write one line on what the next item waits on, then the block for when it can start. When nothing comes next at all, say so in one line.'
+const NEXT_STEP = 'The last turn pushed work, and no next step is written at the end of its reply. Write it now, under the session rules: the hand-off block for the next unit of work, or one line saying that this session carries on with it. When nothing can start yet, write one line on what the next item waits on, then the block for when it can start. When nothing comes next at all, say so in one line.'
 
 // The session rules: the title instruction and, in the desktop app, the
 // wrap-up instruction.
@@ -527,7 +527,6 @@ export const register: Register = on => {
   // since, with /rename, and it is kept.
   on('classic.UserPromptSubmit', async ($, e: any, next: any) => {
     await $.state.set(CLASSIC, true).catch(() => {})
-    pushed.delete(e.session_id)
     const ran = await next(e)
     const held = titles.get(e.session_id)
     const renamed = held !== undefined && 'seen' in held && held.seen !== e.session_title
@@ -537,19 +536,29 @@ export const register: Register = on => {
   })
 
   // The turn that pushes is the last turn of a landing, and in October 2026 13
-  // of 16 such turns ended with no next step. One stop is blocked when the
-  // reply has no fenced block, so a reply that states there is none passes.
+  // of 16 such turns ended with no next step. When the reply of such a turn has
+  // no fenced block, one follow-up prompt asks for it. The follow-up turn pushed
+  // nothing, so it gets no follow-up of its own when the model answers that
+  // nothing comes next. The push is recorded from classic.PostToolUse, which
+  // sees a command a settings hook rewrote, and from the call where no classic
+  // event arrives.
   const pushed = new Set<string>()
+  const PUSH = /\bgit(\s+-C\s+\S+)?\s+push\b/
   on('classic.PostToolUse', async ($, e: any, next: any) => {
     await $.state.set(CLASSIC, true).catch(() => {})
-    if (e.tool_name === 'Bash' && /\bgit(\s+-C\s+\S+)?\s+push\b/.test(String(e.tool_input?.command ?? ''))) pushed.add(e.session_id)
+    if (e.tool_name === 'Bash' && PUSH.test(String(e.tool_input?.command ?? ''))) pushed.add(e.session_id)
     return next(e)
   })
-  on('classic.Stop', async ($, e: any, next: any) => {
-    await $.state.set(CLASSIC, true).catch(() => {})
+  on('tool.call', { tool: 'Bash' }, async ($, e: any, next: any) => {
     const ran = await next(e)
-    if (ran.block || !pushed.delete(e.session_id) || /^\s*```/m.test(String(e.last_assistant_message ?? ''))) return ran
-    return { ...ran, block: NEXT_STEP }
+    if (ran.deny === undefined && PUSH.test(String(e.command ?? '')) && !(await isClassic($))) pushed.add(await $.session.id())
+    return ran
+  })
+  on('turn.complete', async ($, e, next) => {
+    const ran = await next(e)
+    if (e.agentId || !pushed.delete(await $.session.id()) || e.reason !== 'answer' || /^\s*```/m.test(e.answer)) return ran
+    await $.prompt.submit({ text: NEXT_STEP }).catch(() => {})
+    return ran
   })
 
   // A fork starts with its parent's context, where the rules already are.
@@ -562,7 +571,7 @@ export const register: Register = on => {
     return rules ? { ...ran, additionalContext: [...(ran.additionalContext ?? []), rules] } : ran
   })
 
-  // ponytail: under the guard the title, the push check, and the Stop block do not run, since no native event sets a title or blocks a stop.
+  // ponytail: under the guard the title is not set, since no native event sets one.
   on('prompt.submit', async ($, e: any, next: any) => {
     if (await isStarted($)) return next(e)
     const rules = await readRules($)

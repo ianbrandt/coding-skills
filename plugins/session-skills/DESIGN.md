@@ -59,12 +59,15 @@ which one session took as a reason to skip the hand-off block after a unit lande
 before any tool call is folded into that call's activity, and another session wrote the block before
 two more calls and closed with a pointer to it, so the block now goes after the last call.
 
-A `Stop` hook checks the turn that ran `git push`, the last turn of a landing. In a census of
-October 2026 transcripts from the four owned repos, 13 of the 16 turns that pushed held work ended
-with no next step, often after a landing turn that had asked for the push and deferred the hand-off
-to it. When such a turn's last message has no fenced block, one stop is blocked with a request for the
-next step, or for one line saying there is none. The second stop is let through, so a reply that
-states there is no next step costs one extra turn. A push is recorded from the `PostToolUse` hook
-for `Bash`, and a new prompt drops one left by an interrupted turn.
+A `turn.complete` hook checks the turn that ran `git push`, the last turn of a landing. In a census
+of October 2026 transcripts from the four owned repos, 13 of the 16 turns that pushed held work
+ended with no next step, often after a landing turn that had asked for the push and deferred the
+hand-off to it. When such a turn's final reply has no fenced block, the hook submits one follow-up
+prompt with `$.prompt.submit`, asking for the next step or for one line saying there is none. The
+follow-up turn pushed nothing, so a reply that states there is no next step costs one extra turn.
+The check runs under managed settings too, where `cc-plugin-sec-default` sends `classic.Stop` past
+user plugins. A push is recorded from the `PostToolUse` hook for `Bash`, which sees a command that a
+settings hook rewrote, and from the `tool.call` for `Bash` where no classic event has arrived. An
+interrupted turn drops its push, and a subagent's turn leaves it for the main loop.
 
 There is no `SubagentStart` hook, because a subagent doesn't end a session.

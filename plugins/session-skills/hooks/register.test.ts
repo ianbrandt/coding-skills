@@ -186,46 +186,55 @@ test('the title tool is registered in the terminal only', async ($: any, on: any
 })
 
 const ran = (command: string, session_id = 's1') => ({ session_id, tool_name: 'Bash', tool_input: { command }, tool_response: {}, tool_use_id: 't' })
-const stop = ($: any, text: string, session_id = 's1') => $.classic.Stop({ session_id, last_assistant_message: text })
+const end = ($: any, answer: string, more: any = {}) => $.turn.complete({ answer, reason: 'answer', isAborted: false, durationMs: 1, turnId: 't1', ...more })
 const BLOCK = 'Start it in `/repo`:\n\n```\n/next-roadmap-item R12\n```\n\n**Opus + High**'
-function turnEnd(on: any, block?: string) {
+// The prompts the plugin submits, in a session with an id the test sets.
+function turnEnd(on: any) {
+  const w = { id: 's1', sent: [] as string[] }
+  on('session.id', () => ({ value: w.id }))
   on('classic.PostToolUse', () => ({}))
-  // The other hook blocks the first stop only.
-  let blocks = block ? 1 : 0
-  on('classic.Stop', () => (blocks-- > 0 ? { block } : {}))
-  on('classic.UserPromptSubmit', () => ({}))
+  on('turn.complete', (_$: any, e: any) => ({ text: e.answer }))
+  on('prompt.submit', (_$: any, e: any) => { w.sent.push(e.text); return { text: e.text } })
+  on('tool.call', { tool: 'Bash' }, () => ({ result: {} }))
+  return w
 }
 
-test('after a push, one stop is blocked when no next step is written at the end of the turn', async ($: any, on: any) => {
-  turnEnd(on)
+test('after a push, one follow-up is submitted when no next step is written at the end of the turn', async ($: any, on: any) => {
+  const w = turnEnd(on)
   await $.classic.PostToolUse(ran('git -C "/repo" push origin main'))
-  expect((await stop($, 'I pushed 47e3656 to origin/main.')).block).toContain('next step')
-  expect((await stop($, 'Nothing comes next: R96 waits on its post count.')).block).toBeUndefined()
+  await end($, 'I pushed 47e3656 to origin/main.')
+  expect(w.sent).toHaveLength(1)
+  expect(w.sent[0]).toContain('next step')
+  // The model answers the follow-up with nothing to come next.
+  await end($, 'Nothing comes next: R96 waits on its post count.')
   await $.classic.PostToolUse(ran('git fetch -q origin && git push'))
-  expect((await stop($, `Pushed.\n\n${BLOCK}`)).block).toBeUndefined()
+  await end($, `Pushed.\n\n${BLOCK}`)
+  expect(w.sent).toHaveLength(1)
 })
 
-test('a turn that pushed nothing, or pushed in another session, is not blocked', async ($: any, on: any) => {
-  turnEnd(on)
+test('no follow-up is submitted after a turn that pushed nothing, or pushed in another session', async ($: any, on: any) => {
+  const w = turnEnd(on)
   await $.classic.PostToolUse(ran('git log --oneline origin/main..main && echo push'))
-  expect((await stop($, 'One commit waits for the push.')).block).toBeUndefined()
+  await end($, 'One commit waits for the push.')
   await $.classic.PostToolUse(ran('git push', 's2'))
-  expect((await stop($, 'Done.')).block).toBeUndefined()
-  expect((await stop($, 'Done.', 's2')).block).toBeDefined()
+  await end($, 'Done.')
+  expect(w.sent).toEqual([])
+  w.id = 's2'
+  await end($, 'Done.')
+  expect(w.sent).toHaveLength(1)
 })
 
-test('a push from an interrupted turn is dropped at the next prompt', async ($: any, on: any) => {
-  turnEnd(on)
+test('a push from an interrupted turn is dropped, and the end of a subagent turn leaves it for the main loop', async ($: any, on: any) => {
+  const w = turnEnd(on)
   await $.classic.PostToolUse(ran('git push'))
-  await $.classic.UserPromptSubmit({ session_id: 's1', prompt: 'next' })
-  expect((await stop($, 'Done.')).block).toBeUndefined()
-})
-
-test('a block from another hook is returned unchanged, and the check runs at the next stop', async ($: any, on: any) => {
-  turnEnd(on, 'emit the corrected draft')
+  await end($, '', { reason: 'aborted', isAborted: true })
+  await end($, 'Done.')
+  expect(w.sent).toEqual([])
   await $.classic.PostToolUse(ran('git push'))
-  expect((await stop($, 'Done.')).block).toBe('emit the corrected draft')
-  expect((await stop($, 'Done.')).block).toContain('next step')
+  await end($, 'Pushed.', { agentId: 'a1' })
+  expect(w.sent).toEqual([])
+  await end($, 'Done.')
+  expect(w.sent).toHaveLength(1)
 })
 
 // Under managed settings cc-plugin-sec-default sends every classic.* event past
@@ -279,4 +288,16 @@ test('under the guard, a call to the title tool is an error with the /rename fal
   const ran = await $.tool.call({ tool: TITLE, title: 'Parser cache' })
   expect(ran.isError).toBe(true)
   expect(ran.text).toContain('`/rename`')
+})
+
+
+test('under the guard, a push is recorded from the Bash call, and the follow-up is submitted', { plugins: [guard] }, async ($: any, on: any) => {
+  const w = turnEnd(on)
+  await $.tool.call({ tool: 'Bash', command: 'git status' })
+  await end($, 'Done.')
+  expect(w.sent).toEqual([])
+  await $.tool.call({ tool: 'Bash', command: 'git push origin main' })
+  await end($, 'Pushed.')
+  expect(w.sent).toHaveLength(1)
+  expect(w.sent[0]).toContain('next step')
 })
