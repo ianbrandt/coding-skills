@@ -2,8 +2,11 @@
 import { expect, test } from 'claude-code/testing'
 
 // The session a prompt is sent in, the text the model still reads, and the
-// conversations of agents read back, which a Workflow agent's is not.
-const session = { id: 's1', read: [] as string[], agents: {} as Record<string, string[]> }
+// conversations of agents read back, which a Workflow agent's is not. A string
+// is a text block, as a prompt's context and an Agent task are, and `result`
+// is the text of a tool result.
+type Read = string | { result: string }
+const session = { id: 's1', read: [] as Read[], agents: {} as Record<string, Read[]> }
 
 function world(on: any, base = '2.1.289', env: Record<string, string> = {}) {
   session.id = 's1'
@@ -14,7 +17,7 @@ function world(on: any, base = '2.1.289', env: Record<string, string> = {}) {
   on('session.messages', (_$: any, e: any) => {
     const texts = e.agentId ? session.agents[e.agentId] : session.read
     if (!texts) return { value: { deny: `no conversation of agent ${e.agentId} in this session` } }
-    return { value: texts.map(text => ({ role: 'user', content: [{ type: 'tool_result', tool_use_id: 't', content: text }] })) }
+    return { value: texts.map(t => ({ role: 'user', content: [typeof t === 'string' ? { type: 'text', text: t } : { type: 'tool_result', tool_use_id: 't', content: t.result }] })) }
   })
   on('prompt.submit', (_$: any, e: any) => ({ text: e.text, context: e.context }))
   const files: Record<string, string> = {}
@@ -142,11 +145,12 @@ test('on an older CLI no note, reminder, or subagent rules are recorded or added
 const guard = { name: 'guard', tier: 'prepend' as const, register(on: any) {
   on('classic.*', (_$: any, e: any, next: any) => next.to(e, 'append'))
 } }
-// `task` is the last subagent task.
+// `task` is the last subagent task, and `deny` refuses the next tool call.
 function native(on: any) {
-  const w = { task: '' }
+  const w = { task: '', deny: false }
   on('tool.call', (_$: any, e: any) => {
     w.task = e.prompt
+    if (w.deny) return { deny: 'not now' }
     return {
       result: e.tool === 'Write' ? { type: 'create', filePath: e.file_path, content: e.content }
         : e.tool === 'Edit' ? { filePath: e.file_path, oldString: e.old_string, newString: e.new_string }
@@ -210,28 +214,36 @@ test('under the guard, the note on a reply opens the next turn', { plugins: [gua
 })
 
 const bash = async ($: any, agentId?: string) => (await $.tool.call({ tool: 'Bash', command: 'ls', ...(agentId && { agentId }) })).context ?? []
+const restored = { result: 'ok\n\n<system-reminder>\ntool.call hook additional context: <rules.md>\n</system-reminder>' }
 
 test('under the guard, a Workflow agent gets the rules with its first tool result only, and an Agent subagent once its task is compacted away', { plugins: [guard] }, async ($: any, on: any) => {
   world(on)
   native(on)
   session.read = ['<rules.md>']
   session.agents = { a1: ['<rules.md>\n\nlook'] }
-  expect(await bash($, 'w1')).toEqual(['<rules.md>'])
+  expect(await Promise.all([bash($, 'w1'), bash($, 'w1')])).toEqual([['<rules.md>'], []])
   expect(await bash($, 'w1')).toEqual([])
   expect(await bash($, 'a1')).toEqual([])
   session.agents.a1 = ['a summary']
-  expect(await bash($, 'a1')).toEqual(['<rules.md>'])
+  expect(await Promise.all([bash($, 'a1'), bash($, 'a1')])).toEqual([['<rules.md>'], []])
+  session.agents.a1 = ['a summary', restored]
+  expect(await bash($, 'a1')).toEqual([])
 })
 
-test('under the guard, the rules are added to a tool result after a compaction, until the model reads them there', { plugins: [guard] }, async ($: any, on: any) => {
+test('under the guard, the rules are added to one tool result after a compaction, until the model reads them there', { plugins: [guard] }, async ($: any, on: any) => {
   world(on)
-  native(on)
+  const w = native(on)
   session.read = ['<rules.md>']
   expect(await bash($)).toEqual([])
   session.read = ['a summary']
-  expect(await bash($)).toEqual(['<rules.md>'])
-  session.read = ['a summary', 'ok\n\n<system-reminder>\ntool.call hook additional context: <rules.md>\n</system-reminder>']
+  w.deny = true
   expect(await bash($)).toEqual([])
+  w.deny = false
+  expect(await Promise.all([bash($), bash($)])).toEqual([['<rules.md>'], []])
+  session.read = ['a summary', restored]
+  expect(await bash($)).toEqual([])
+  session.read = ['another summary']
+  expect(await bash($)).toEqual(['<rules.md>'])
 })
 
 test('where the classic events run, nothing is added to a tool result', async ($: any, on: any) => {

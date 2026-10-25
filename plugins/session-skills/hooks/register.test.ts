@@ -271,16 +271,17 @@ test('under the guard, the rules are added to a prompt while the model does not 
   expect(await submit($)).toEqual([rules])
 })
 
-// The text of a tool result, as it is read back.
+// The conversation read back: a string is a text block, as a prompt's context
+// is, and `result` is the text of a tool result. `deny` refuses the next call.
 function results(on: any) {
-  const w = { read: [] as string[] }
-  on('session.messages', () => ({ value: w.read.map(content => ({ role: 'user', content: [{ type: 'tool_result', tool_use_id: 't', content }] })) }))
-  on('tool.call', () => ({ result: 'ok' }))
+  const w = { read: [] as (string | { result: string })[], deny: false }
+  on('session.messages', () => ({ value: w.read.map(t => ({ role: 'user', content: [typeof t === 'string' ? { type: 'text', text: t } : { type: 'tool_result', tool_use_id: 't', content: t.result }] })) }))
+  on('tool.call', () => (w.deny ? { deny: 'not now' } : { result: 'ok' }))
   return w
 }
 const call = async ($: any, more: any = {}) => (await $.tool.call({ tool: 'Read', file_path: '/p/a.md', ...more })).context ?? []
 
-test('under the guard, the rules are added to a tool result after a compaction, until the model reads them there', { plugins: [guard] }, async ($: any, on: any) => {
+test('under the guard, the rules are added to one tool result after a compaction, until the model reads them there', { plugins: [guard] }, async ($: any, on: any) => {
   world(on)
   const w = results(on)
   const rules = 'before\n<title-print.md>\nafter\n'
@@ -288,9 +289,14 @@ test('under the guard, the rules are added to a tool result after a compaction, 
   expect(await call($)).toEqual([])
   w.read = ['a summary']
   expect(await call($, { agentId: 'w1' })).toEqual([])
-  expect(await call($)).toEqual([rules])
-  w.read = ['a summary', `ok\n\n<system-reminder>\ntool.call hook additional context: ${rules}</system-reminder>`]
+  w.deny = true
   expect(await call($)).toEqual([])
+  w.deny = false
+  expect(await Promise.all([call($), call($)])).toEqual([[rules], []])
+  w.read = ['a summary', { result: `ok\n\n<system-reminder>\ntool.call hook additional context: ${rules}</system-reminder>` }]
+  expect(await call($)).toEqual([])
+  w.read = ['another summary']
+  expect(await call($)).toEqual([rules])
 })
 
 test('where the classic events run, nothing is added to a tool result', async ($: any, on: any) => {

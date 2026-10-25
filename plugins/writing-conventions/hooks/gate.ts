@@ -507,23 +507,23 @@ async function call($: any, e: any, next: any): Promise<any> {
 
 // Under the guard a Workflow's agents start without the rules, and after an
 // automatic compaction in the middle of a turn the main loop goes without them
-// until the next prompt. They are added to the next tool result.
+// until the next prompt. They are added to the next tool result, and not again
+// until the model reads them back: calls that run in parallel all start before
+// any result is read back, and a Workflow agent's conversation is never read
+// back.
 // ponytail: kept in memory, so after a hot reload a running Workflow agent gets the rules a second time.
-const restored = new Set<string>()
+const added = new Set<string>()
 async function restore($: any, e: any, ran: any): Promise<any> {
   if (ran.deny !== undefined) return ran
-  let text = ''
-  if (e.agentId) {
-    if ((await isClassic($)) || !(await isChecked($).catch(() => false))) return ran
-    const rules = await $.fs.read(`${$.plugin.root}/hooks/rules.md`).catch(() => '')
-    const read = rules ? await isRead($, rules, e.agentId) : true
-    if (read === false || (read === undefined && !restored.has(e.agentId))) text = rules
-    restored.add(e.agentId)
-  } else if (!(await isStarted($))) {
-    const rules = await $.fs.read(`${$.plugin.root}/hooks/rules.md`).catch(() => '')
-    if (rules && (await isRead($, rules)) === false) text = rules
-  }
-  return text ? { ...ran, context: [...(ran.context ?? []), text] } : ran
+  const key = e.agentId ?? (await $.session.id().catch(() => ''))
+  const wanted = e.agentId ? !(await isClassic($)) && (await isChecked($).catch(() => false)) : !(await isStarted($))
+  const rules = wanted ? await $.fs.read(`${$.plugin.root}/hooks/rules.md`).catch(() => '') : ''
+  if (!rules) return ran
+  const read = await isRead($, rules, e.agentId)
+  if (read) added.delete(key)
+  if (read || added.has(key) || (read === undefined && !e.agentId)) return ran
+  added.add(key)
+  return { ...ran, context: [...(ran.context ?? []), rules] }
 }
 
 export const register: Register = on => {

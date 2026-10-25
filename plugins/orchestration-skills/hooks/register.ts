@@ -52,22 +52,23 @@ export const register: Register = on => {
 
   // Under the guard a Workflow's agents start without the rule, and after an
   // automatic compaction in the middle of a turn the main loop goes without
-  // the rules until the next prompt. They are added to the next tool result.
+  // the rules until the next prompt. They are added to the next tool result,
+  // and not again until the model reads them back: calls that run in parallel
+  // all start before any result is read back, and a Workflow agent's
+  // conversation is never read back.
   // ponytail: kept in memory, so after a hot reload a running Workflow agent gets the rule a second time.
-  const told = new Set<string>()
+  const added = new Set<string>()
   on('tool.call', async ($, e: any, next: any) => {
     const ran = await next(e)
     if (ran.deny !== undefined) return ran
-    let text = ''
-    if (e.agentId) {
-      if (await isClassic($)) return ran
-      const read = await isRead($, SUBAGENT_RULE, e.agentId)
-      if (read === false || (read === undefined && !told.has(e.agentId))) text = SUBAGENT_RULE
-      told.add(e.agentId)
-    } else if (!(await isStarted($))) {
-      const rules = await $.fs.read(`${$.plugin.root}/hooks/rules.md`).catch(() => '')
-      if (rules && (await isRead($, rules)) === false) text = rules
-    }
-    return text ? { ...ran, context: [...(ran.context ?? []), text] } : ran
+    const key = e.agentId ?? (await $.session.id().catch(() => ''))
+    const text = e.agentId ? ((await isClassic($)) ? '' : SUBAGENT_RULE)
+      : (await isStarted($)) ? '' : await $.fs.read(`${$.plugin.root}/hooks/rules.md`).catch(() => '')
+    if (!text) return ran
+    const read = await isRead($, text, e.agentId)
+    if (read) added.delete(key)
+    if (read || added.has(key) || (read === undefined && !e.agentId)) return ran
+    added.add(key)
+    return { ...ran, context: [...(ran.context ?? []), text] }
   })
 }

@@ -585,12 +585,20 @@ export const register: Register = on => {
 
   // Under the guard, after an automatic compaction in the middle of a turn the
   // main loop goes without the rules until the next prompt. They are added to
-  // the next tool result. A subagent never gets them.
+  // the next tool result, and not again until the model reads them back, since
+  // calls that run in parallel all start before any result is read back. A
+  // subagent never gets them.
+  const added = new Set<string>()
   on('tool.call', async ($, e: any, next: any) => {
     const ran = await next(e)
     if (ran.deny !== undefined || e.agentId || (await isStarted($))) return ran
     const rules = await readRules($).catch(() => '')
-    return rules && (await isRead($, rules)) === false ? { ...ran, context: [...(ran.context ?? []), rules] } : ran
+    const read = rules ? await isRead($, rules) : undefined
+    const id = await $.session.id().catch(() => '')
+    if (read) added.delete(id)
+    if (read !== false || added.has(id)) return ran
+    added.add(id)
+    return { ...ran, context: [...(ran.context ?? []), rules] }
   })
 
   on('tool.call', { tool: 'mcp__session-skills__find_checkouts' }, async $ => answer('find_checkouts', () => findCheckouts($)))

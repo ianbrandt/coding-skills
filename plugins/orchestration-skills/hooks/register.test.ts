@@ -58,42 +58,61 @@ test('under the guard, an Agent task opens with the escalation rule', { plugins:
 })
 
 // The conversations read back, by agent: the main loop under '', an Agent
-// subagent's under its ID, and none for a Workflow agent, as on 2.1.310.
-function agents(on: any, read: Record<string, string[]>) {
+// subagent's under its ID, and none for a Workflow agent, as on 2.1.310. A
+// string is a text block, as a prompt's context and an Agent task are, and
+// `result` is the text of a tool result. `deny` refuses the next tool call.
+type Read = string | { result: string }
+function agents(on: any, read: Record<string, Read[]>) {
+  const w = { deny: false }
   on('fs.read', () => ({ value: RULES }))
   on('classic.SessionStart', () => ({}))
   on('session.messages', (_$: any, e: any) => {
     const texts = read[e.agentId ?? '']
     if (!texts) return { value: { deny: `no conversation of agent ${e.agentId} in this session` } }
-    return { value: texts.map(text => ({ role: 'user', content: [{ type: 'tool_result', tool_use_id: 't', content: text }] })) }
+    return { value: texts.map(t => ({ role: 'user', content: [typeof t === 'string' ? { type: 'text', text: t } : { type: 'tool_result', tool_use_id: 't', content: t.result }] })) }
   })
-  on('tool.call', () => ({ result: 'ok' }))
+  on('tool.call', () => (w.deny ? { deny: 'not now' } : { result: 'ok' }))
+  return w
 }
 const call = async ($: any, agentId?: string) => (await $.tool.call({ tool: 'Bash', command: 'ls', ...(agentId && { agentId }) })).context ?? []
+const restored = (text: string) => ({ result: `ok\n\n<system-reminder>\ntool.call hook additional context: ${text}\n</system-reminder>` })
 
 test('under the guard, a Workflow agent gets the escalation rule with its first tool result only', { plugins: [guard] }, async ($: any, on: any) => {
-  agents(on, { '': [RULES] })
-  expect(await call($, 'w1')).toEqual([SUBAGENT_RULE])
+  const w = agents(on, { '': [RULES] })
+  w.deny = true
+  expect(await call($, 'w1')).toEqual([])
+  w.deny = false
+  expect(await Promise.all([call($, 'w1'), call($, 'w1')])).toEqual([[SUBAGENT_RULE], []])
   expect(await call($, 'w1')).toEqual([])
   expect(await call($, 'w2')).toEqual([SUBAGENT_RULE])
 })
 
 test('under the guard, an Agent subagent gets the escalation rule again only once its task is compacted away', { plugins: [guard] }, async ($: any, on: any) => {
-  const read: Record<string, string[]> = { '': [RULES], a1: [`${SUBAGENT_RULE}\n\nlook`] }
+  const read: Record<string, Read[]> = { '': [RULES], a1: [`${SUBAGENT_RULE}\n\nlook`] }
   agents(on, read)
   expect(await call($, 'a1')).toEqual([])
   read.a1 = ['a summary']
   expect(await call($, 'a1')).toEqual([SUBAGENT_RULE])
+  expect(await call($, 'a1')).toEqual([])
+  read.a1 = ['a summary', restored(SUBAGENT_RULE)]
+  expect(await call($, 'a1')).toEqual([])
+  read.a1 = ['another summary']
+  expect(await call($, 'a1')).toEqual([SUBAGENT_RULE])
 })
 
-test('under the guard, the rules are added to a tool result after a compaction, until the model reads them there', { plugins: [guard] }, async ($: any, on: any) => {
-  const read: Record<string, string[]> = { '': [`<system-reminder>\n${RULES}\n</system-reminder>`] }
-  agents(on, read)
+test('under the guard, the rules are added to one tool result after a compaction, until the model reads them there', { plugins: [guard] }, async ($: any, on: any) => {
+  const read: Record<string, Read[]> = { '': [`<system-reminder>\n${RULES}\n</system-reminder>`] }
+  const w = agents(on, read)
   expect(await call($)).toEqual([])
   read[''] = ['a summary']
-  expect(await call($)).toEqual([RULES])
-  read[''] = ['a summary', `ok\n\n<system-reminder>\ntool.call hook additional context: ${RULES}\n</system-reminder>`]
+  w.deny = true
   expect(await call($)).toEqual([])
+  w.deny = false
+  expect(await Promise.all([call($), call($), call($)])).toEqual([[RULES], [], []])
+  read[''] = ['a summary', restored(RULES)]
+  expect(await call($)).toEqual([])
+  read[''] = ['another summary']
+  expect(await call($)).toEqual([RULES])
 })
 
 test('where the classic events run, nothing is added to a tool result', async ($: any, on: any) => {
