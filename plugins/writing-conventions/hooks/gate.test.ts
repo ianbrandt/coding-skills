@@ -638,10 +638,11 @@ test('no heading is kept for a repo gh cannot read', async ($: any, on: any) => 
   const cmd = 'gh issue create --repo o5/r5 --body "### Problem Statement\nPlain."'
   await bash($, cmd)
   expect(JSON.parse(seen.reader[0]).tool_input.command).toContain('### Problem Statement')
-  // The repo is read again at the next check.
+  // The repo is not read again in the session, so offline no check waits on gh.
   w.templates = { 'o5/r5': { 'feature.yml': FORM } }
   await bash($, cmd)
-  expect(JSON.parse(seen.reader[1]).tool_input.command).toBe('gh issue create --repo o5/r5 --body "Plain."')
+  expect(JSON.parse(seen.reader[1]).tool_input.command).toContain('### Problem Statement')
+  expect(seen.gh).toEqual(['api graphql'])
 })
 
 test('template headings are reviewed in a command beside the issue command, or before it', async ($: any, on: any) => {

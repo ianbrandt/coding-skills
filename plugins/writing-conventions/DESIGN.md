@@ -127,7 +127,8 @@ An issue to a repo with an issue template follows the template, headings include
 is sent the text, [`hooks/template.ts`](hooks/template.ts) removes each heading that is a field
 label of one of the repo's issue forms or a heading of its Markdown templates, so item 5 flags only
 the other headings. The templates are read from `.github/ISSUE_TEMPLATE` with one `gh api graphql`
-call per repo, kept for the session when it succeeds. For a repo with none, the owner's `.github`
+call per repo, kept for the session. After a failed call the repo has no templates for the rest of
+the session, so offline no later check waits for gh. For a repo with none, the owner's `.github`
 templates are used, as on GitHub. Headings are removed only from a command that starts with
 `gh issue create`, `new`, or `edit` and has no other publishing command in it. The repo is the one
 given with the last `--repo` or `-R`, or with `GH_REPO`, or else the one `gh repo view` reports; a

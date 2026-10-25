@@ -60,13 +60,13 @@ export function repoFlag(cmd: string): string | undefined {
 const QUERY = 'query($owner:String!,$name:String!){repository(owner:$owner,name:$name){object(expression:"HEAD:.github/ISSUE_TEMPLATE"){... on Tree{entries{name object{... on Blob{text}}}}}}}'
 
 // Each repo's templates and each directory's repo are read with gh once a
-// session. A failed read is tried again at the next check, and meanwhile the
-// repo has no templates.
+// session. After a failed read, the repo has no templates for the rest of the
+// session, so that offline each check does not wait for gh to time out.
 const templates = new Map<string, Promise<string[]>>()
 const defaults = new Map<string, Promise<string>>()
 
 function once<T>(cache: Map<string, Promise<T>>, key: string, read: () => Promise<T>, none: T): Promise<T> {
-  if (!cache.has(key)) cache.set(key, read().catch(() => { cache.delete(key); return none }))
+  if (!cache.has(key)) cache.set(key, read().catch(() => none))
   return cache.get(key)!
 }
 
