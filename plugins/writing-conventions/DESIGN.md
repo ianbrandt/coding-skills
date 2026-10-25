@@ -123,6 +123,18 @@ command that publishes nothing new (`gh pr view`, `gh pr checks`, `--amend --no-
 change), or `VIOLATION` with one line per offending sentence: the quoted words, then a plain
 rewrite.
 
+An issue to a repo with an issue template follows the template, headings included. Before the model
+is sent the text, [`hooks/template.ts`](hooks/template.ts) removes each heading that is a field
+label of one of the repo's issue forms or a heading of its Markdown templates, so item 5 flags only
+the other headings. The templates are read from `.github/ISSUE_TEMPLATE` with one `gh api graphql`
+call per repo, kept for the session when it succeeds. For `gh issue create`, `new`, or `edit`, the
+repo is the one passed with `--repo` or `-R`, or else the one `gh repo view` reports. No repo is
+given in a draft or a prose file, so the repos it links to with a `github.com` URL are used, or else
+the `gh repo view` one. No `gh` call is made for text with no heading, and an organization's default
+templates, in its `.github` repo, are not read. With the headings left in, a
+feature request to anthropics/claude-code was refused 3 times out of 3 on Sonnet 5.5, and with them
+removed it passed 3 times out of 3.
+
 `findings()` in [`hooks/text.ts`](hooks/text.ts) looks for each quote in the command, with runs of
 whitespace collapsed. A finding with its quote in the command comes back as the tool's error, and
 the session fixes the text and runs the command again. A finding whose rewrite is the quote itself

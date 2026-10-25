@@ -26,6 +26,12 @@ type World = {
   result?: unknown
   // A call denied by a hook beneath the plugin, or one that failed.
   failed?: 'deny' | 'error'
+  // The files in each repo's .github/ISSUE_TEMPLATE, and the repo gh picks in
+  // the session's directory.
+  templates?: Record<string, Record<string, string>>
+  here?: string
+  // The session's directory, where it is not /proj.
+  cwd?: string
 }
 
 // world(on, w): answers every call the gate makes to the engine, and records the
@@ -35,7 +41,7 @@ type World = {
 function world(on: any, w: World = {}) {
   const base = w.base ?? '2.1.289'
   const files: Record<string, string> = { ...w.files }
-  const seen = { reader: [] as string[], commands: [] as string[], tool: [] as string[], system: '', toasts: [] as string[], files, ran: 0 }
+  const seen = { reader: [] as string[], commands: [] as string[], tool: [] as string[], system: '', toasts: [] as string[], files, ran: 0, gh: [] as string[] }
   // On Windows an engine-level step turns a "/foo" path into "C:\foo" before the
   // mock sees it, so each lookup reads it back as POSIX. On macOS a "C:/foo"
   // path is not absolute, so the engine prepends the cwd and the drive letter
@@ -45,7 +51,7 @@ function world(on: any, w: World = {}) {
   mock.env(on, { CLAUDE_CONFIG_DIR: '/cfg', TMPDIR: '/tmp', ...w.env })
   on('session.version', () => ({ value: { version: base, base, builtAt: '' } }))
   on('session.id', () => { if (w.noSession) throw new Error('no session'); return { value: 's1' } })
-  on('session.cwd', () => ({ value: w.win ? 'C:\\proj' : '/proj' }))
+  on('session.cwd', () => ({ value: w.cwd ?? (w.win ? 'C:\\proj' : '/proj') }))
   on('session.root', () => ({ value: w.win ? 'C:\\proj' : '/proj' }))
   on('ui.toast', (_$: any, e: any) => { seen.toasts.push(JSON.stringify(e)); return { value: undefined } })
   on('fs.read', (_$: any, e: any) => {
@@ -79,6 +85,16 @@ function world(on: any, w: World = {}) {
         : e.tool === 'Edit' ? { filePath: e.file_path, oldString: e.old_string, newString: e.new_string }
         : { stdout: 'ran' }),
     }
+  })
+  on('process.run', (_$: any, e: any) => {
+    const argv = e.argv as string[]
+    seen.gh.push(argv.slice(1, 3).join(' '))
+    const out = (stdout: string) => ({ value: { exitCode: stdout ? 0 : 1, stdout, stderr: '' } })
+    if (argv[1] === 'repo') return out(w.here ? `${w.here}\n` : '')
+    const arg = (k: string) => argv.find(a => a.startsWith(`${k}=`))!.slice(k.length + 1)
+    const files = w.templates?.[`${arg('owner')}/${arg('name')}`]
+    const entries = Object.entries(files ?? {}).map(([name, text]) => ({ name, object: { text } }))
+    return out(files ? JSON.stringify({ data: { repository: { object: { entries } } } }) : '')
   })
   on('classic.Stop', () => ({}))
   return seen
@@ -525,4 +541,51 @@ test('a write held for review is not checked', async ($: any, on: any) => {
   const seen = world(on, { verdict: FINDING, result: { type: 'create', filePath: '/proj/a.md', content: 'The report says so.', staged: true } })
   expect((await $.tool.call({ tool: 'Write', file_path: '/proj/a.md', content: 'The report says so.', tool_use_id: 'toolu_3' })).context).toBeUndefined()
   expect(seen.reader).toHaveLength(0)
+})
+
+// An issue form and a Markdown template, as GitHub keeps them.
+const FORM = 'name: Feature\nbody:\n  - type: checkboxes\n    attributes:\n      label: Preflight Checklist\n      options:\n        - label: I searched\n  - type: textarea\n    attributes:\n      label: "Problem Statement"\n'
+const TEMPLATE = '---\nname: Bug\n---\n\n## Steps\n\n1. Run it.\n'
+const ISSUE = '### Preflight Checklist\n\n- [x] I searched\n\n### Problem Statement\n\nPlain.\n\n## Steps\n\nRun it.\n\n### Summary\n\nMore.\n'
+
+test('template headings are kept in an issue to its repo, and any other heading is reviewed', async ($: any, on: any) => {
+  const seen = world(on, { verdict: 'PASS', templates: { 'o1/r1': { 'feature.yml': FORM, 'bug.md': TEMPLATE, 'config.yml': 'blank_issues_enabled: false\n' } }, files: { '/proj/body.md': ISSUE } })
+  await bash($, 'gh issue create --repo o1/r1 --title x --body-file body.md')
+  expect(seen.reader[0]).toContain('\n\nFile: body.md\n\n\n- [x] I searched\n\n\nPlain.\n\n\nRun it.\n\n### Summary\n')
+  // A checkbox option is not a field label.
+  await bash($, 'gh issue create -R https://github.com/o1/r1 --body "### I searched\n\n### Problem Statement\nPlain."')
+  expect(JSON.parse(seen.reader[1]).tool_input.command).toBe('gh issue create -R https://github.com/o1/r1 --body "### I searched\n\nPlain."')
+  expect(seen.gh).toEqual(['api graphql'])
+})
+
+test('with no --repo, the headings of the repo gh picks are kept, and none in a pull request', async ($: any, on: any) => {
+  // The repo gh picks is kept per directory.
+  const seen = world(on, { verdict: 'PASS', cwd: '/elsewhere', here: 'o2/r2', templates: { 'o2/r2': { 'feature.yml': FORM } } })
+  await bash($, 'gh issue create --body "### Problem Statement\nPlain."')
+  expect(JSON.parse(seen.reader[0]).tool_input.command).toBe('gh issue create --body "Plain."')
+  await bash($, 'gh pr create --body "### Problem Statement\nPlain."')
+  expect(JSON.parse(seen.reader[1]).tool_input.command).toContain('### Problem Statement')
+  // No gh call is made for text with no heading.
+  await bash($, 'gh issue create --body "Plain."')
+  expect(seen.gh).toEqual(['repo view', 'api graphql'])
+})
+
+test('template headings are kept in a draft or a prose file, from a repo linked there or else the session\'s repo', async ($: any, on: any) => {
+  const seen = world(on, { verdict: 'PASS', here: 'o4/r4', templates: { 'o3/r3': { 'feature.yml': FORM }, 'o4/r4': { 'bug.md': TEMPLATE } } })
+  await $.classic.Stop(reply('p9', 'For https://github.com/o3/r3/issues:\n~draft\n### Problem Statement\nPlain.\n### Steps\nRun it.\n~'))
+  expect(seen.reader[0]).toBe('Plain.\n### Steps\nRun it.\n\n\n')
+  await write($, '/proj/issue.md', '## Steps\nRun it.\n### Problem Statement\nPlain.\n')
+  expect(seen.reader[1]).toBe('File: /proj/issue.md\n\nRun it.\n### Problem Statement\nPlain.\n')
+})
+
+test('no heading is kept for a repo gh cannot read', async ($: any, on: any) => {
+  const w: World = { verdict: 'PASS' }
+  const seen = world(on, w)
+  const cmd = 'gh issue create --repo o5/r5 --body "### Problem Statement\nPlain."'
+  await bash($, cmd)
+  expect(JSON.parse(seen.reader[0]).tool_input.command).toContain('### Problem Statement')
+  // The repo is read again at the next check.
+  w.templates = { 'o5/r5': { 'feature.yml': FORM } }
+  await bash($, cmd)
+  expect(JSON.parse(seen.reader[1]).tool_input.command).toBe('gh issue create --repo o5/r5 --body "Plain."')
 })

@@ -16,6 +16,7 @@
 import type { Register } from 'claude-code'
 import { bodyFiles, keys, walk } from './keys'
 import { lint } from './lint'
+import { headings, linked, repoFlag, unheaded } from './template'
 import { bytes, drafts, excerpt, findings } from './text'
 
 // The first CLI where hooks modules are on by default, and the oldest one the
@@ -249,7 +250,10 @@ async function shell($: any, input: any): Promise<Verdict> {
     toFile = true
   }
   const { read: files, unread } = await bodies($, cmd, mode, input.cwd, proj)
-  const prompt = JSON.stringify(input) + files.map(f => `\n\nFile: ${f.name}\n\n${f.text}`).join('')
+  // The headings of the repo's issue template are allowed in an issue.
+  const kept = /gh issue (create|new|edit)\b/.test(cmd) ? await headings($, input.cwd, [cmd, ...files.map(f => f.text)], [repoFlag(cmd) ?? ''].filter(r => r !== '')) : new Set<string>()
+  const shown = { ...input, tool_input: { ...input.tool_input, command: unheaded(cmd, kept) } }
+  const prompt = JSON.stringify(shown) + files.map(f => `\n\nFile: ${f.name}\n\n${unheaded(f.text, kept)}`).join('')
   const { found, local } = await read($, prompt, [cmd, ...files.map(f => f.text)])
   const notRead = unread.join('\n')
   if (found === '') return notRead ? { context: notRead } : {}
@@ -319,7 +323,9 @@ async function file($: any, e: any): Promise<Verdict> {
     text = text.slice(0, CAP)
     unread = `Only the first ${CAP} characters of the text were reviewed.`
   }
-  const { found } = await read($, `File: ${path}\n\n${text}`, [text])
+  // A file may be the draft of an issue, to a repo it links or else to the session's.
+  const kept = await headings($, await $.session.cwd(), [text], linked(text))
+  const { found } = await read($, `File: ${path}\n\n${unheaded(text, kept)}`, [text])
   return { context: join(found && `${found}\nFix the quoted text in ${path}. ${ADVICE}`, unread) }
 }
 
@@ -355,7 +361,9 @@ async function stop($: any, e: any): Promise<Verdict> {
   if (text === '' || turn === '') return {}
   // The review model is sent the drafts and nothing else. Each one stays a source of
   // its own, so no finding can quote across two of them.
-  const { found } = await read($, text.replace(/\x01/g, '\n'), text.split('\x01'))
+  // A draft may be an issue, to a repo the reply links or else to the session's.
+  const kept = await headings($, await $.session.cwd(), [text], linked(String(e.last_assistant_message)))
+  const { found } = await read($, unheaded(text, kept).replace(/\x01/g, '\n'), text.split('\x01'))
   if (found === '') return {}
   const count = blocked.get(turn) ?? 0
   if (count >= 2) {

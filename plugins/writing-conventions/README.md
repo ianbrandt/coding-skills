@@ -28,6 +28,8 @@ only with `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1` set.
   is reviewed and the session fixes what is found. Nothing is blocked.
 - A draft the session hands you to post elsewhere goes in a fenced block tagged `draft`. It is
   reviewed when the turn ends, and the session corrects it after a finding, at most twice per turn.
+- The headings of a repo's issue template are allowed in an issue to that repo, and the template is
+  read with `gh`. Any other heading in an issue is still flagged.
 
 Each review is one model call, Sonnet by default, and usually takes a few seconds. When no model can
 be called, the command goes through and you are told once per session, in a toast, that review is
