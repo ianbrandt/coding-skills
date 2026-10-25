@@ -423,10 +423,15 @@ const isClassic = async ($: any) => (await $.state.get(CLASSIC).catch(() => ({})
 const isStarted = async ($: any) => (await $.state.get(STARTED).catch(() => ({}))).value === true
 
 // Whether the model still reads this text: false after /clear, a compaction,
-// or a plugin update that changed it.
-async function isRead($: any, text: string): Promise<boolean> {
-  const messages: any[] = await $.session.messages({ as: 'api' }).catch(() => [])
-  return messages.some(m => m.role === 'user' && m.content.some((b: any) => b.type === 'text' && String(b.text).includes(text)))
+// or a plugin update that changed it, and undefined where the conversation is
+// not read back, as a Workflow agent's is not on 2.1.310. Context added to a
+// tool call is in its result.
+async function isRead($: any, text: string, agentId?: string): Promise<boolean | undefined> {
+  const messages = await $.session.messages({ ...(agentId && { agentId }), as: 'api' }).catch(() => undefined)
+  if (!Array.isArray(messages)) return undefined
+  const has = (b: any): boolean => b.type === 'text' ? String(b.text).includes(text)
+    : b.type === 'tool_result' && (typeof b.content === 'string' ? b.content.includes(text) : Array.isArray(b.content) && b.content.some(has))
+  return messages.some(m => m.role === 'user' && Array.isArray(m.content) && m.content.some(has))
 }
 
 // The context added after a Write or Edit: for a file with prose in it, code
@@ -459,48 +464,70 @@ async function turnNote($: any, session: unknown): Promise<string> {
   return note + REMINDER
 }
 
-export const register: Register = on => {
-  // The lint tool is answered here. A file written with Write or Edit is
-  // checked after it is written, and any other command or MCP call before it
-  // runs. Under the guard, the rules are added at the start of a subagent's task.
-  on('tool.call', async ($, e, next) => {
-    // A draft may come inside its fence, and lint() drops every closed fence.
-    if (e.tool === TOOL) return { result: lint(drafts(String((e as any).text ?? ''), { unwrap: true })).replace(/\n+$/, '') || 'clean' }
-    // ponytail: under the guard only a subagent started with the Agent tool gets the rules, so a Workflow's agents start without them.
-    if (e.tool === 'Agent' && !(await isClassic($))) {
-      const rules = (await isChecked($).catch(() => false)) ? await $.fs.read(`${$.plugin.root}/hooks/rules.md`).catch(() => '') : ''
-      return next(rules ? { ...e, prompt: `${rules}\n\n${(e as any).prompt}` } as any : e)
-    }
-    if (e.tool === 'Write' || e.tool === 'Edit') {
-      const ran = await next(e)
-      // What was written is in the result, after any hook beneath rewrote the
-      // call. A denied or failed call has no filePath, and a staged write is a
-      // settings file held for review.
-      const done = (ran as any).result ?? {}
-      if (done.staged || typeof done.filePath !== 'string') return ran
-      const added = await wrote($, { tool_name: e.tool, tool_input: { file_path: done.filePath, content: done.content, new_string: done.newString }, whole: edited(done) })
-      return added.length > 0 ? { ...ran, context: [...(ran.context ?? []), ...added] } : ran
-    }
-    if (!/^(Bash$|PowerShell$|mcp__)/.test(e.tool)) return next(e)
-    if (e.tool in LOCAL_TOOLS) {
-      const ran = await next(e)
-      const fields = LOCAL_TOOLS[e.tool]
-      if (!fields || ran.deny !== undefined || (ran as any).isError) return ran
-      const [path, fresh] = fields.map(f => (e as any)[f])
-      const found = await gate($, () => file($, { tool_name: 'Edit', tool_input: { file_path: path, new_string: fresh } }))
-      return found.context ? { ...ran, context: [...(ran.context ?? []), found.context] } : ran
-    }
-    const { tool, tool_use_id, agentId, ...tool_input } = e as any
-    const verdict = await gate($, async () => {
-      const input = { session_id: await $.session.id(), cwd: await $.session.cwd(), tool_name: tool, tool_input, tool_use_id }
-      return tool.startsWith('mcp__') ? mcp($, input) : shell($, input)
-    })
-    if (verdict.block) return { deny: verdict.block }
+// The lint tool is answered here. A file written with Write or Edit is
+// checked after it is written, and any other command or MCP call before it
+// runs. Under the guard, the rules are added at the start of a subagent's task.
+async function call($: any, e: any, next: any): Promise<any> {
+  // A draft may come inside its fence, and lint() drops every closed fence.
+  if (e.tool === TOOL) return { result: lint(drafts(String((e as any).text ?? ''), { unwrap: true })).replace(/\n+$/, '') || 'clean' }
+  if (e.tool === 'Agent' && !(await isClassic($))) {
+    const rules = (await isChecked($).catch(() => false)) ? await $.fs.read(`${$.plugin.root}/hooks/rules.md`).catch(() => '') : ''
+    return next(rules ? { ...e, prompt: `${rules}\n\n${(e as any).prompt}` } as any : e)
+  }
+  if (e.tool === 'Write' || e.tool === 'Edit') {
     const ran = await next(e)
-    return verdict.context && ran.deny === undefined
-      ? { ...ran, context: [...(ran.context ?? []), verdict.context] }
-      : ran
+    // What was written is in the result, after any hook beneath rewrote the
+    // call. A denied or failed call has no filePath, and a staged write is a
+    // settings file held for review.
+    const done = (ran as any).result ?? {}
+    if (done.staged || typeof done.filePath !== 'string') return ran
+    const added = await wrote($, { tool_name: e.tool, tool_input: { file_path: done.filePath, content: done.content, new_string: done.newString }, whole: edited(done) })
+    return added.length > 0 ? { ...ran, context: [...(ran.context ?? []), ...added] } : ran
+  }
+  if (!/^(Bash$|PowerShell$|mcp__)/.test(e.tool)) return next(e)
+  if (e.tool in LOCAL_TOOLS) {
+    const ran = await next(e)
+    const fields = LOCAL_TOOLS[e.tool]
+    if (!fields || ran.deny !== undefined || (ran as any).isError) return ran
+    const [path, fresh] = fields.map(f => (e as any)[f])
+    const found = await gate($, () => file($, { tool_name: 'Edit', tool_input: { file_path: path, new_string: fresh } }))
+    return found.context ? { ...ran, context: [...(ran.context ?? []), found.context] } : ran
+  }
+  const { tool, tool_use_id, agentId, ...tool_input } = e as any
+  const verdict = await gate($, async () => {
+    const input = { session_id: await $.session.id(), cwd: await $.session.cwd(), tool_name: tool, tool_input, tool_use_id }
+    return tool.startsWith('mcp__') ? mcp($, input) : shell($, input)
   })
+  if (verdict.block) return { deny: verdict.block }
+  const ran = await next(e)
+  return verdict.context && ran.deny === undefined
+    ? { ...ran, context: [...(ran.context ?? []), verdict.context] }
+    : ran
+}
+
+// Under the guard a Workflow's agents start without the rules, and after an
+// automatic compaction in the middle of a turn the main loop goes without them
+// until the next prompt. They are added to the next tool result.
+// ponytail: kept in memory, so after a hot reload a running Workflow agent gets the rules a second time.
+const restored = new Set<string>()
+async function restore($: any, e: any, ran: any): Promise<any> {
+  if (ran.deny !== undefined) return ran
+  let text = ''
+  if (e.agentId) {
+    if ((await isClassic($)) || !(await isChecked($).catch(() => false))) return ran
+    const rules = await $.fs.read(`${$.plugin.root}/hooks/rules.md`).catch(() => '')
+    const read = rules ? await isRead($, rules, e.agentId) : true
+    if (read === false || (read === undefined && !restored.has(e.agentId))) text = rules
+    restored.add(e.agentId)
+  } else if (!(await isStarted($))) {
+    const rules = await $.fs.read(`${$.plugin.root}/hooks/rules.md`).catch(() => '')
+    if (rules && (await isRead($, rules)) === false) text = rules
+  }
+  return text ? { ...ran, context: [...(ran.context ?? []), text] } : ran
+}
+
+export const register: Register = on => {
+  on('tool.call', async ($, e, next) => restore($, e, await call($, e, next)))
 
   on('session.start', async ($, e, next) => {
     if (await isChecked($)) {

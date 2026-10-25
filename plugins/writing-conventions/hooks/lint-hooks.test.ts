@@ -1,15 +1,21 @@
 // claude plugin test: the reply lint's hooks, the reminders, and the lint tool.
 import { expect, test } from 'claude-code/testing'
 
-// The session a prompt is sent in, and the text the model still reads.
-const session = { id: 's1', read: [] as string[] }
+// The session a prompt is sent in, the text the model still reads, and the
+// conversations of agents read back, which a Workflow agent's is not.
+const session = { id: 's1', read: [] as string[], agents: {} as Record<string, string[]> }
 
 function world(on: any, base = '2.1.289', env: Record<string, string> = {}) {
   session.id = 's1'
   session.read = []
+  session.agents = {}
   on('session.version', () => ({ value: { version: base, base, builtAt: '' } }))
   on('session.id', () => ({ value: session.id }))
-  on('session.messages', () => ({ value: session.read.map(text => ({ role: 'user', content: [{ type: 'text', text }] })) }))
+  on('session.messages', (_$: any, e: any) => {
+    const texts = e.agentId ? session.agents[e.agentId] : session.read
+    if (!texts) return { value: { deny: `no conversation of agent ${e.agentId} in this session` } }
+    return { value: texts.map(text => ({ role: 'user', content: [{ type: 'tool_result', tool_use_id: 't', content: text }] })) }
+  })
   on('prompt.submit', (_$: any, e: any) => ({ text: e.text, context: e.context }))
   const files: Record<string, string> = {}
   // On Windows an engine-level step turns a "/foo" path into "C:\foo" before the
@@ -80,6 +86,7 @@ test('the text in a draft fence is linted as prose', async ($: any, on: any) => 
 test('the re-read request is added for a prose or source file just written, in any letter case', async ($: any, on: any) => {
   world(on)
   native(on)
+  session.read = ['<rules.md>']
   const wrote = async (tool: string, file_path: string) =>
     (await $.tool.call({ tool, file_path, content: '', old_string: 'x', new_string: 'y', tool_use_id: 't' })).context ?? []
   for (const p of ['/p/a.md', '/p/README.MD', '/p/A.kt', '/p/b.txt']) expect((await wrote('Write', p)).join()).toContain('You just wrote prose')
@@ -200,4 +207,45 @@ test('under the guard, the note on a reply opens the next turn', { plugins: [gua
   session.read = ['<rules.md>']
   await stop($, 'The build is load-bearing.')
   expect((await submit($))[0]).toMatch(/^A house-style lint flagged the previous reply:\n[\s\S]*banned word/)
+})
+
+const bash = async ($: any, agentId?: string) => (await $.tool.call({ tool: 'Bash', command: 'ls', ...(agentId && { agentId }) })).context ?? []
+
+test('under the guard, a Workflow agent gets the rules with its first tool result only, and an Agent subagent once its task is compacted away', { plugins: [guard] }, async ($: any, on: any) => {
+  world(on)
+  native(on)
+  session.read = ['<rules.md>']
+  session.agents = { a1: ['<rules.md>\n\nlook'] }
+  expect(await bash($, 'w1')).toEqual(['<rules.md>'])
+  expect(await bash($, 'w1')).toEqual([])
+  expect(await bash($, 'a1')).toEqual([])
+  session.agents.a1 = ['a summary']
+  expect(await bash($, 'a1')).toEqual(['<rules.md>'])
+})
+
+test('under the guard, the rules are added to a tool result after a compaction, until the model reads them there', { plugins: [guard] }, async ($: any, on: any) => {
+  world(on)
+  native(on)
+  session.read = ['<rules.md>']
+  expect(await bash($)).toEqual([])
+  session.read = ['a summary']
+  expect(await bash($)).toEqual(['<rules.md>'])
+  session.read = ['a summary', 'ok\n\n<system-reminder>\ntool.call hook additional context: <rules.md>\n</system-reminder>']
+  expect(await bash($)).toEqual([])
+})
+
+test('where the classic events run, nothing is added to a tool result', async ($: any, on: any) => {
+  world(on)
+  native(on)
+  await $.classic.SessionStart({ source: 'startup' })
+  session.read = ['a summary']
+  expect(await bash($)).toEqual([])
+  expect(await bash($, 'w1')).toEqual([])
+})
+
+test('on an older CLI a Workflow agent gets no rules', { plugins: [guard] }, async ($: any, on: any) => {
+  world(on, '2.1.200')
+  native(on)
+  session.read = ['<rules.md>']
+  expect(await bash($, 'w1')).toEqual([])
 })
