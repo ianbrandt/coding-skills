@@ -114,8 +114,11 @@ export const register: Register = (on, options) => {
   // How many times skill.prompt added the text, so a Skill call can tell
   // whether it ran.
   let appended = 0
+  // The skill typed as a slash command, while prompt.submit adds its text.
+  let typed: string | undefined
   on('skill.prompt', async ($, e, next) => {
     const prompt = await next(e)
+    if (typed !== undefined && e.skill.split(':').pop() === typed) return prompt
     try {
       const text = await added($, e.skill, (options as any)?.voice_dir)
       if (!text) return prompt
@@ -128,7 +131,6 @@ export const register: Register = (on, options) => {
 
   // Under managed settings `cc-plugin-sec-default` sends `skill.prompt` past
   // this plugin, so the text comes back beside the Skill tool's result.
-  // ponytail: a skill run by typing its slash command makes no Skill call, so no text is added there.
   on('tool.call', { tool: 'Skill' }, async ($, e: any, next: any) => {
     const before = appended
     const ran = await next(e)
@@ -138,6 +140,21 @@ export const register: Register = (on, options) => {
       return text ? { ...ran, context: [...(ran.context ?? []), text] } : ran
     } catch {
       return ran
+    }
+  })
+
+  // No Skill call is made for a typed slash command, and its skill.prompt runs
+  // inside next() here, where the guard may skip it too. Context added after next() is
+  // dropped, so the text goes in before it, and skill.prompt adds none.
+  on('prompt.submit', async ($, e: any, next: any) => {
+    const skill = String(e.command?.name ?? '')
+    const text = skill ? await added($, skill, (options as any)?.voice_dir).catch(() => '') : ''
+    if (!text) return next(e)
+    typed = skill.split(':').pop()
+    try {
+      return await next({ ...e, context: [...(e.context ?? []), text] })
+    } finally {
+      typed = undefined
     }
   })
 }

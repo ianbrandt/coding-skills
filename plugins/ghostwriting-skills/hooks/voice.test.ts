@@ -140,3 +140,47 @@ test('a Skill call that skill.prompt did not reach gets the spec beside its resu
   expect(ran.context.join('\n')).toContain('SPEC TEXT')
   expect((await $.tool.call({ tool: 'Skill', skill: 'session-skills:land-and-wrap' })).context).toBeUndefined()
 })
+
+// For a typed slash command the engine runs skill.prompt inside prompt.submit's
+// next(), as this stand-in does, and makes no Skill call.
+function typed($: any, on: any) {
+  on('prompt.submit', async (_$: any, e: any) => {
+    const skill = e.command ? (await $.skill.prompt({ skill: e.command.name, text: 'SKILL' })).text : ''
+    return { text: e.text, context: e.context, skill }
+  })
+}
+
+const guard = { name: 'guard', tier: 'prepend' as const, register(on: any) {
+  on('skill.prompt', (_$: any, e: any, next: any) => next.to(e, 'append'))
+} }
+
+const count = (r: any) => [...(r.context ?? []), r.skill].join('\n').split('SPEC TEXT').length - 1
+
+test('a typed command gets the spec once', async ($: any, on: any) => {
+  files(on, { [SPEC]: 'SPEC TEXT' })
+  typed($, on)
+  expect(count(await $.prompt.submit({ text: '/ghostwrite', command: { name: 'ghostwrite', args: '' } }))).toBe(1)
+  expect(count(await $.prompt.submit({ text: '/ghostwriting-skills:ghostwrite a PR', command: { name: 'ghostwriting-skills:ghostwrite', args: 'a PR' } }))).toBe(1)
+})
+
+test('under the guard, a typed command still gets the spec once', { plugins: [guard] }, async ($: any, on: any) => {
+  files(on, { [SPEC]: 'SPEC TEXT' })
+  typed($, on)
+  const r = await $.prompt.submit({ text: '/ghostwriting-skills:ghostwrite', command: { name: 'ghostwriting-skills:ghostwrite', args: '' } })
+  expect(r.skill).toBe('SKILL')
+  expect(count(r)).toBe(1)
+})
+
+test('a prompt that is not one of these commands gets no context', async ($: any, on: any) => {
+  files(on, { [SPEC]: 'SPEC TEXT' })
+  typed($, on)
+  expect((await $.prompt.submit({ text: 'draft a PR' })).context ?? []).toEqual([])
+  expect((await $.prompt.submit({ text: '/land-and-wrap', command: { name: 'session-skills:land-and-wrap', args: '' } })).context ?? []).toEqual([])
+})
+
+test('after a typed command, the skill loaded another way gets the spec again', async ($: any, on: any) => {
+  files(on, { [SPEC]: 'SPEC TEXT' })
+  typed($, on)
+  await $.prompt.submit({ text: '/ghostwrite', command: { name: 'ghostwrite', args: '' } })
+  expect((await $.skill.prompt({ skill: 'ghostwrite', text: 'SKILL' })).text).toContain('SPEC TEXT')
+})
