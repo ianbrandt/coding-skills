@@ -127,11 +127,15 @@ An issue to a repo with an issue template follows the template, headings include
 is sent the text, [`hooks/template.ts`](hooks/template.ts) removes each heading that is a field
 label of one of the repo's issue forms or a heading of its Markdown templates, so item 5 flags only
 the other headings. The templates are read from `.github/ISSUE_TEMPLATE` with one `gh api graphql`
-call per repo, kept for the session when it succeeds. For `gh issue create`, `new`, or `edit`, the
-repo is the one passed with `--repo` or `-R`, or else the one `gh repo view` reports. No repo is
-given in a draft or a prose file, so the repos it links to with a `github.com` URL are used, or else
-the `gh repo view` one. No `gh` call is made for text with no heading, and an organization's default
-templates, in its `.github` repo, are not read. With the headings left in, a
+call per repo, kept for the session when it succeeds. For a repo with none, the owner's `.github`
+templates are used, as on GitHub. Headings are removed only from a command that starts with
+`gh issue create`, `new`, or `edit` and has no other publishing command in it. The repo is the one
+given with the last `--repo` or `-R`, or with `GH_REPO`, or else the one `gh repo view` reports; a
+repo given on a host other than github.com has no templates. No repo is given in a draft or a prose
+file, so the templates of each repo linked from it with a `github.com` URL are used, and those of
+the `gh repo view` one too. Since a draft's destination is not known, template headings are also
+removed from a pull request draft, and they are flagged when it is published with `gh pr`. No `gh`
+call is made for text with no heading. With the headings left in, a
 feature request to anthropics/claude-code was refused 3 times out of 3 on Sonnet 5.5, and with them
 removed it passed 3 times out of 3.
 

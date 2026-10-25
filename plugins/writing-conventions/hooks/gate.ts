@@ -55,6 +55,12 @@ const ADVICE = 'Each rewrite after -> is only a suggestion; where one reads stif
 // covers `git -C <path> commit`, which no `Bash(git commit *)` rule matches.
 const FAMILIES = /git commit|git -C[\s\S]*commit|gh pr |gh issue |gh release /
 
+// An issue command, alone: template headings are removed from its body, and
+// from no other command's. With a second publishing command beside it, every
+// heading is reviewed.
+const ISSUE = /^\s*(?:\w+=\S*\s+)*gh issue (?:create|new|edit)\b/
+const OTHER = /git commit|git -C[\s\S]*commit|gh pr |gh release |gh issue [\s\S]*gh issue /
+
 // A model call that failed, or a reply that could not be used.
 class Off extends Error {}
 
@@ -251,7 +257,8 @@ async function shell($: any, input: any): Promise<Verdict> {
   }
   const { read: files, unread } = await bodies($, cmd, mode, input.cwd, proj)
   // The headings of the repo's issue template are allowed in an issue.
-  const kept = /gh issue (create|new|edit)\b/.test(cmd) ? await headings($, input.cwd, [cmd, ...files.map(f => f.text)], [repoFlag(cmd) ?? ''].filter(r => r !== '')) : new Set<string>()
+  const repo = repoFlag(cmd)
+  const kept = ISSUE.test(cmd) && !OTHER.test(cmd) ? await headings($, input.cwd, [cmd, ...files.map(f => f.text)], repo ? [repo] : [], repo === undefined) : new Set<string>()
   const shown = { ...input, tool_input: { ...input.tool_input, command: unheaded(cmd, kept) } }
   const prompt = JSON.stringify(shown) + files.map(f => `\n\nFile: ${f.name}\n\n${unheaded(f.text, kept)}`).join('')
   const { found, local } = await read($, prompt, [cmd, ...files.map(f => f.text)])
@@ -323,8 +330,8 @@ async function file($: any, e: any): Promise<Verdict> {
     text = text.slice(0, CAP)
     unread = `Only the first ${CAP} characters of the text were reviewed.`
   }
-  // A file may be the draft of an issue, to a repo it links or else to the session's.
-  const kept = await headings($, await $.session.cwd(), [text], linked(text))
+  // A file may be the draft of an issue, to a repo it links or to the session's.
+  const kept = await headings($, await $.session.cwd(), [text], linked(text), true)
   const { found } = await read($, `File: ${path}\n\n${unheaded(text, kept)}`, [text])
   return { context: join(found && `${found}\nFix the quoted text in ${path}. ${ADVICE}`, unread) }
 }
@@ -361,8 +368,10 @@ async function stop($: any, e: any): Promise<Verdict> {
   if (text === '' || turn === '') return {}
   // The review model is sent the drafts and nothing else. Each one stays a source of
   // its own, so no finding can quote across two of them.
-  // A draft may be an issue, to a repo the reply links or else to the session's.
-  const kept = await headings($, await $.session.cwd(), [text], linked(String(e.last_assistant_message)))
+  // A draft may be an issue, to a repo the reply links or to the session's. Its
+  // destination is not known, so these headings are removed from a pull request
+  // draft too, and they are flagged at the gh pr gate instead.
+  const kept = await headings($, await $.session.cwd(), [text], linked(String(e.last_assistant_message)), true)
   const { found } = await read($, unheaded(text, kept).replace(/\x01/g, '\n'), text.split('\x01'))
   if (found === '') return {}
   const count = blocked.get(turn) ?? 0

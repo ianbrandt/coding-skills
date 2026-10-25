@@ -26,9 +26,9 @@ type World = {
   result?: unknown
   // A call denied by a hook beneath the plugin, or one that failed.
   failed?: 'deny' | 'error'
-  // The files in each repo's .github/ISSUE_TEMPLATE, and the repo gh picks in
-  // the session's directory.
-  templates?: Record<string, Record<string, string>>
+  // The files in each repo's .github/ISSUE_TEMPLATE, or null for a repo with
+  // none, and the repo gh picks in the session's directory.
+  templates?: Record<string, Record<string, string> | null>
   here?: string
   // The session's directory, where it is not /proj.
   cwd?: string
@@ -94,7 +94,7 @@ function world(on: any, w: World = {}) {
     const arg = (k: string) => argv.find(a => a.startsWith(`${k}=`))!.slice(k.length + 1)
     const files = w.templates?.[`${arg('owner')}/${arg('name')}`]
     const entries = Object.entries(files ?? {}).map(([name, text]) => ({ name, object: { text } }))
-    return out(files ? JSON.stringify({ data: { repository: { object: { entries } } } }) : '')
+    return out(files === undefined ? '' : JSON.stringify({ data: { repository: { object: files && { entries } } } }))
   })
   on('classic.Stop', () => ({}))
   return seen
@@ -570,10 +570,10 @@ test('with no --repo, the headings of the repo gh picks are kept, and none in a 
   expect(seen.gh).toEqual(['repo view', 'api graphql'])
 })
 
-test('template headings are kept in a draft or a prose file, from a repo linked there or else the session\'s repo', async ($: any, on: any) => {
+test('template headings are kept in a draft or a prose file, from a repo linked there and the session\'s repo', async ($: any, on: any) => {
   const seen = world(on, { verdict: 'PASS', here: 'o4/r4', templates: { 'o3/r3': { 'feature.yml': FORM }, 'o4/r4': { 'bug.md': TEMPLATE } } })
-  await $.classic.Stop(reply('p9', 'For https://github.com/o3/r3/issues:\n~draft\n### Problem Statement\nPlain.\n### Steps\nRun it.\n~'))
-  expect(seen.reader[0]).toBe('Plain.\n### Steps\nRun it.\n\n\n')
+  await $.classic.Stop(reply('p9', 'For https://github.com/o3/r3/issues:\n~draft\n### Problem Statement\nPlain.\n### Steps\nRun it.\n### Summary\nMore.\n~'))
+  expect(seen.reader[0]).toBe('Plain.\nRun it.\n### Summary\nMore.\n\n\n')
   await write($, '/proj/issue.md', '## Steps\nRun it.\n### Problem Statement\nPlain.\n')
   expect(seen.reader[1]).toBe('File: /proj/issue.md\n\nRun it.\n### Problem Statement\nPlain.\n')
 })
@@ -588,4 +588,30 @@ test('no heading is kept for a repo gh cannot read', async ($: any, on: any) => 
   w.templates = { 'o5/r5': { 'feature.yml': FORM } }
   await bash($, cmd)
   expect(JSON.parse(seen.reader[1]).tool_input.command).toBe('gh issue create --repo o5/r5 --body "Plain."')
+})
+
+test('template headings are reviewed in a command beside the issue command, or before it', async ($: any, on: any) => {
+  const seen = world(on, { verdict: 'PASS', templates: { 'o6/r6': { 'feature.yml': FORM } } })
+  await bash($, 'gh issue edit 1 --repo o6/r6 --add-label x && gh pr comment 2 --body "### Problem Statement\nPlain."')
+  await bash($, 'git commit -m "Check gh issue create --repo o6/r6\n\n### Problem Statement\nPlain."')
+  await bash($, 'cd sub && gh issue create --repo o6/r6 --body "### Problem Statement\nPlain."')
+  for (const prompt of seen.reader) expect(prompt).toContain('### Problem Statement')
+  expect(seen.gh).toEqual([])
+})
+
+test('the repo is read from GH_REPO and the last --repo or -R, and a repo off github.com has no templates', async ($: any, on: any) => {
+  const seen = world(on, { verdict: 'PASS', here: 'o7/here', templates: { 'o7/r7': { 'feature.yml': FORM }, 'o7/here': { 'feature.yml': FORM } } })
+  await bash($, 'GH_REPO=o7/r7 gh issue create --body "### Problem Statement\nPlain."')
+  await bash($, 'gh issue create --title "Support -R x/y" -Ro7/r7 --body "### Problem Statement\nPlain."')
+  for (const prompt of seen.reader) expect(prompt).not.toContain('### Problem Statement')
+  await bash($, 'gh issue create --repo ghe.example.com/o7/r7 --body "### Problem Statement\nPlain."')
+  expect(seen.reader[2]).toContain('### Problem Statement')
+  // gh repo view is never run: each command names its repo.
+  expect(seen.gh).toEqual(['api graphql'])
+})
+
+test('a repo with no issue template has its owner\'s .github templates', async ($: any, on: any) => {
+  const seen = world(on, { verdict: 'PASS', templates: { 'o8/r8': null, 'o8/.github': { 'feature.yml': FORM } } })
+  await bash($, 'gh issue create --repo o8/r8 --body "### Problem Statement\nPlain."')
+  expect(JSON.parse(seen.reader[0]).tool_input.command).toBe('gh issue create --repo o8/r8 --body "Plain."')
 })
