@@ -25,13 +25,16 @@ function world(on: any, base = '2.1.289', env: Record<string, string> = {}) {
   on('fs.exists', (_$: any, e: any) => ({ value: posix(e.path) in files }))
   on('fs.write', (_$: any, e: any) => { files[posix(e.path)] = e.text; return { value: undefined } })
   on('ui.toast', () => ({ value: undefined }))
-  on('classic.Stop', () => ({}))
+  on('turn.complete', (_$: any, e: any) => ({ text: e.answer }))
   on('classic.SubagentStart', () => ({}))
   on('classic.SessionStart', () => ({}))
   return files
 }
 
-const stop = ($: any, text: string, session_id = 's1') => $.classic.Stop({ session_id, last_assistant_message: text })
+const stop = ($: any, answer: string, id = 's1', more: any = {}) => {
+  session.id = id
+  return $.turn.complete({ answer, reason: 'answer', isAborted: false, durationMs: 1, turnId: 't1', ...more })
+}
 // What is added to a prompt, past the rules, which a session that started
 // under the classic events already has.
 const prompt = async ($: any, id = 's1') => {
@@ -41,11 +44,18 @@ const prompt = async ($: any, id = 's1') => {
 
 test('the note on a reply opens the next turn, once, before the reminder', async ($: any, on: any) => {
   world(on)
-  expect((await stop($, 'The report says the build is load-bearing.')).block).toBeUndefined()
+  await stop($, 'The report says the build is load-bearing.')
   const first = await prompt($)
   expect(first).toHaveLength(1)
   expect(first[0]).toMatch(/^A house-style lint flagged the previous reply:\n[\s\S]*banned word[\s\S]*\nStyle, for this reply/)
   expect(await prompt($)).toEqual([expect.stringMatching(/^Style, for this reply/)])
+})
+
+test('an interrupted turn and a subagent\'s turn leave no note', async ($: any, on: any) => {
+  world(on)
+  await stop($, 'The build is load-bearing.', 's1', { reason: 'aborted', isAborted: true })
+  await stop($, 'The build is load-bearing.', 's1', { agentId: 'a1' })
+  expect((await prompt($))[0]).toMatch(/^Style/)
 })
 
 test('the note is cleared after a clean reply, and is kept per session', async ($: any, on: any) => {
@@ -177,17 +187,17 @@ test('a classic event after a late load ends the fallback', async ($: any, on: a
   expect(w.task).toBe('look')
 })
 
-test('a classic.Stop after a late load ends the Agent fallback', async ($: any, on: any) => {
-  world(on)
-  const w = native(on)
-  await stop($, 'The build passed.')
-  await $.tool.call({ tool: 'Agent', prompt: 'look', description: 'd' })
-  expect(w.task).toBe('look')
-})
-
 test('after a mid-session load, a classic event before the first prompt still leaves the rules to the fallback', async ($: any, on: any) => {
   world(on)
   native(on)
-  await stop($, 'The build passed.')
+  await $.classic.SubagentStart({ agent_id: 'a1', agent_type: 'Explore' })
   expect((await submit($))[0]).toBe('<rules.md>')
+})
+
+test('under the guard, the note on a reply opens the next turn', { plugins: [guard] }, async ($: any, on: any) => {
+  world(on)
+  native(on)
+  session.read = ['<rules.md>']
+  await stop($, 'The build is load-bearing.')
+  expect((await submit($))[0]).toMatch(/^A house-style lint flagged the previous reply:\n[\s\S]*banned word/)
 })

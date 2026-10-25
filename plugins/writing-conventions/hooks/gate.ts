@@ -347,40 +347,37 @@ const LOCAL_TOOLS: Record<string, [string, string] | null> = {
   'mcp__parallel-session-skills__write_claim': null,
 }
 
-// The blocks of each turn's replies, by prompt_id. A blocked Stop costs a whole
-// re-emitted reply, so blocking stops after two when something is found in
-// each rewrite.
-const blocked = new Map<string, number>()
+// The fix-up prompts submitted in a row, by session. Each one costs a whole
+// re-emitted reply, so they stop after two when something is found in each
+// rewrite. A prompt from anywhere else starts the count over.
+const fixups = new Map<string, number>()
 
 // A reply in which a draft for publication is tagged. Only the text inside a
 // `draft` fence is reviewed, so nothing else in the reply is judged by the
 // model, and a reply with no such fence costs no call. An untagged draft is read
-// by the reply lint alone.
-async function stop($: any, e: any): Promise<Verdict> {
+// by the reply lint alone. A finding comes back as the fix-up prompt.
+async function stop($: any, answer: string): Promise<Verdict> {
   if ((await $.env.get('WRITING_CONVENTIONS_STOP_READER')) === '0') return {}
   // Each draft ends on a line with only \x01, and the cap comes off before
   // the review model is sent them, so a quote from past it is never verified.
-  const text = drafts(String(e.last_assistant_message ?? '')).slice(0, CAP)
-  // Blocking is counted per turn, by the prompt_id, which is the same on every
-  // Stop of one turn. Without one nothing can be counted, so nothing is blocked
-  // and no call is made.
-  const turn = String(e.prompt_id ?? '')
-  if (text === '' || turn === '') return {}
+  const text = drafts(answer).slice(0, CAP)
+  if (text === '') return {}
   // The review model is sent the drafts and nothing else. Each one stays a source of
   // its own, so no finding can quote across two of them.
   // A draft may be an issue, to a repo the reply links or to the session's. Its
   // destination is not known, so these headings are removed from a pull request
   // draft too, and they are flagged at the gh pr gate instead.
-  const kept = await headings($, await $.session.cwd(), [text], linked(String(e.last_assistant_message)), true)
+  const kept = await headings($, await $.session.cwd(), [text], linked(answer), true)
   const { found } = await read($, unheaded(text, kept).replace(/\x01/g, '\n'), text.split('\x01'))
   if (found === '') return {}
-  const count = blocked.get(turn) ?? 0
+  const session = await $.session.id().catch(() => '')
+  const count = fixups.get(session) ?? 0
   if (count >= 2) {
     $.ui.toast('writing-conventions: the draft in this reply still reads as a violation after two rewrites. Review is unresolved and the reply stands.', { timeoutMs: 15000 })
     return {}
   }
-  blocked.set(turn, count + 1)
-  return { block: join(found, `Rewrite the quoted text and emit the corrected draft. ${ADVICE}`) }
+  fixups.set(session, count + 1)
+  return { block: join(`The draft in your last reply breaks the writing conventions:\n${found}`, `Rewrite the quoted text and emit the corrected draft. ${ADVICE}`) }
 }
 
 // Runs one check. A check that throws does not stop the event.
@@ -392,8 +389,8 @@ async function gate($: any, check: () => Promise<Verdict>): Promise<Verdict> {
   }
 }
 
-// The reply lint and the reminders around it. None of them blocks: a Stop hook
-// cannot patch a reply, so blocking one costs a full re-emission of an answer
+// The reply lint and the reminders around it. None of them asks for a fix-up:
+// a hook cannot patch a reply, so a fix-up costs a full re-emission of an answer
 // the user has already seen. The correction is made in the next reply instead.
 const REMINDER = 'Style, for this reply and any prose written to files: an inanimate subject takes no agentive verb—"the entry declared in the `plugins` block", never "the `plugins` block owns/says/gives". Em dashes unspaced (word—word). Plain words.'
 const NUDGE = "You just wrote prose to a file. Re-read it now for inanimate agency (report/build/entry/declaration as subject of says/gives/owns/configures/carries), spaced em dashes, and banned vocabulary; fix in place before moving on. If this text will publish under the user's name, have a fresh-context subagent sweep it against the rules before hand-over."
@@ -519,20 +516,23 @@ export const register: Register = on => {
   // The final reply is linted and the note saved. lint() drops every closed
   // fence, so the fence lines of a draft block come off first and its text stays
   // in place: a draft is prose, and this is the one check left on it when the
-  // review model cannot run. Then the gate reads the drafts, and a finding
-  // blocks the stop.
-  on('classic.Stop', async ($, e: any, next: any) => {
-    await $.state.set(CLASSIC, true).catch(() => {})
-    const text = String(e.last_assistant_message ?? '')
+  // review model cannot run. Then the gate reads the drafts, and a finding is
+  // submitted as a fix-up prompt. This runs under the guard too, which sends
+  // classic.Stop past user plugins. An interrupted turn and a subagent's turn
+  // are not checked.
+  on('turn.complete', async ($, e, next) => {
+    const ran = await next(e)
+    if (e.agentId || e.reason !== 'answer') return ran
+    const text = String(e.answer ?? '')
     if (await isChecked($).catch(() => false)) {
       const note = lint(drafts(text, { unwrap: true }), { note: true })
-      const path = await notePath($, e.session_id).catch(() => '')
+      const path = await notePath($, await $.session.id().catch(() => '')).catch(() => '')
       // After a clean reply the note from the one before it is cleared.
       if (path && (note || (await $.fs.exists(path).catch(() => false)))) await $.fs.write(path, note).catch(() => {})
     }
-    const verdict = text.includes('draft') ? await gate($, () => stop($, e)) : {}
-    const ran = await next(e)
-    return verdict.block ? { ...ran, block: verdict.block } : ran
+    const verdict = text.includes('draft') ? await gate($, () => stop($, text)) : {}
+    if (verdict.block) await $.prompt.submit({ text: verdict.block }).catch(() => {})
+    return ran
   })
 
   // A session starts with the rules, on any version the module runs on.
@@ -556,10 +556,14 @@ export const register: Register = on => {
   // The note and the reminder go with every prompt. On 2.1.310 this event and
   // classic.UserPromptSubmit fired for the same prompts, whatever their origin.
   // Under the guard, the rules come first once the model no longer reads them.
+  // A fix-up gets no note or reminder: the note's instruction is to leave the
+  // reply alone, and the fix-up reply's own note replaces it.
   on('prompt.submit', async ($, e: any, next: any) => {
+    const isFixup = e.origin?.kind === 'plugin' && e.origin.name === 'writing-conventions'
+    if (!isFixup) fixups.delete(await $.session.id().catch(() => ''))
     const rules = (await isStarted($)) ? '' : await $.fs.read(`${$.plugin.root}/hooks/rules.md`).catch(() => '')
     const added = rules && !(await isRead($, rules)) ? [rules] : []
-    if (await isChecked($).catch(() => false)) added.push(await turnNote($, await $.session.id().catch(() => '')))
+    if (!isFixup && (await isChecked($).catch(() => false))) added.push(await turnNote($, await $.session.id().catch(() => '')))
     return next(added.length > 0 ? { ...e, context: [...(e.context ?? []), ...added] } : e)
   })
 }

@@ -12,7 +12,7 @@ The hooks module adds [`hooks/rules.md`](hooks/rules.md) to every session at its
 after `/clear`, compaction, and a fork, and to every subagent as it starts, since a subagent's
 report is what a later summary is built from. The reasoning behind each rule, and its edge cases,
 are in [`STYLE-GUIDE.md`](STYLE-GUIDE.md), which nothing loads. A draft for publication goes in
-a fence tagged `draft` under the last rule in `rules.md`, and the `Stop` check below looks for that
+a fence tagged `draft` under the last rule in `rules.md`, and the draft check below looks for that
 tag.
 
 Prohibitions apply everywhere, `SKILL.md` files included, because they are about precision rather
@@ -20,7 +20,7 @@ than register. Form rules—bold, redundancy, length, and the reader-facing voic
 agent-facing files, so those files are formatted for whatever a model reads best.
 
 The reply lint runs on both ends of a turn, from the plugin's hooks module
-([`hooks/gate.ts`](hooks/gate.ts)). On `Stop` the final reply is linted and what is found is saved.
+([`hooks/gate.ts`](hooks/gate.ts)). On `turn.complete` the final reply is linted and what is found is saved.
 On `prompt.submit` the next turn opens with those hits and a one-line reminder, and the saved
 note is cleared. After a `Write` or an `Edit`, the session is asked to re-read the file just written
 when it is prose, or is a source file with comments and test names in it (`.md`, `.markdown`,
@@ -46,8 +46,8 @@ matched 44 of 582 sentences in this repo's last 400 commit messages and 27 of 41
 nearly all of them ordinary compound sentences, and it did not match the sentence the rule was
 written from. Whether two facts are related cannot be told from a pattern match.
 
-The lint never blocks. A `Stop` hook cannot patch a reply, so blocking one gets a corrected answer
-only by re-emitting the entire original, which you have already read and which stays in the
+The lint never asks for a fix-up turn. A hook cannot patch a reply, so a corrected answer requires
+re-emitting the entire original, which you have already read and which stays in the
 transcript beside it. Carrying the hits into the next turn costs a few dozen tokens instead, and the
 flagged reply stands as sent.
 
@@ -71,7 +71,7 @@ What the lint skips is left as written: a fenced block, inline code, and text in
 curly double quotes. A fence counts when it opens in a block quote or on a list item's first line,
 and a code span or a quote left open at the end of a line stays open until it closes or a blank
 line ends the paragraph. A `draft` fence is the exception, since its text is for publication, though a
-fence inside it is left alone. The other findings in a draft still need the review model, so the `Stop`
+fence inside it is left alone. The other findings in a draft still need the review model, so the draft
 check is unchanged. Three more cases are left as written because the spaces are markdown: a dash with
 no letter, code span, or quote before it on its line, as after a list or heading marker, a dash
 alone in a table cell, and spaces between a dash and a line break.
@@ -346,14 +346,18 @@ is read. A draft written to a file with a shell redirect is not read at all.
 
 A draft the session hands its user to paste somewhere else is never in a shell command or an MCP
 tool call. A draft for publication goes in its own fenced block with the info string `draft`; that rule
-is loaded into every session. On `Stop`, the text inside each `draft` fence is sent to the review model, and
-nothing else in the reply is. A turn with no such fence costs one scan and no model call.
+is loaded into every session. On `turn.complete`, the text inside each `draft` fence is sent to the
+review model, and nothing else in the reply is. A turn with no such fence costs one scan and no model
+call. An interrupted turn and a subagent's turn are not checked.
 
-A verified finding blocks the stop. That continues the turn, so the session emits a corrected
-draft. Claude Code has no hook that runs before a reply is displayed, so review happens afterward. A
-blocked reply is re-emitted whole. The blocking is counted per turn, by the turn's `prompt_id`, and
-it stops after two; the third time, the user is told that review is unresolved, and the reply
-stands. `WRITING_CONVENTIONS_STOP_READER=0` turns this check off.
+A verified finding is submitted as a fix-up prompt with `$.prompt.submit`, so the session emits a
+corrected draft in one more turn. Claude Code has no hook that runs before a reply is displayed, so
+review happens afterward, and the reply is re-emitted whole. The fix-ups are counted per session and
+stop after two in a row; the third time, the user is told that review is unresolved, and the reply
+stands. Any prompt but this plugin's fix-up starts the count over. A fix-up prompt gets no lint
+note, because the note's instruction is to leave the reply alone. The note on the fix-up reply
+replaces it. The check runs under managed settings too, where `cc-plugin-sec-default` sends
+`classic.Stop` past user plugins. `WRITING_CONVENTIONS_STOP_READER=0` turns this check off.
 
 Tagging keeps this check cheap, since an untagged draft has no reliable form: without the rule,
 drafts came back in plain fences, blockquotes, and between `---` rules, and a plain fence of 8 words
@@ -363,7 +367,7 @@ ordinary replies used the tag. The miss gave review feedback as the body of the 
 a block. A draft the session does not tag is checked by the reply lint alone.
 
 The lint drops every closed fenced block before matching, so the `draft` fences are unwrapped
-first (`drafts()` in [`hooks/text.ts`](hooks/text.ts), the same scanner the `Stop` check uses), and
+first (`drafts()` in [`hooks/text.ts`](hooks/text.ts), the same scanner the draft check uses), and
 the whole reply is still linted in one pass. A code fence inside a draft is still a fence and is
 still dropped, which is why a draft that includes one goes in a longer fence.
 
@@ -399,8 +403,8 @@ claude plugin eval . --runs 2 --judge-model sonnet --no-publish -j 4
 
 Each run scores the same prompts with and without the plugin loaded and reports the difference. A
 run costs a fraction of a dollar, so the suite is for a change to the rules file or the hooks, not
-for every commit. Results go under `evals/results/`, which is ignored. The `Stop` check is on during
-a run, so a plugin-loaded draft is scored after any rewrite, which is why `max_turns` is 8 in every
+for every commit. Results go under `evals/results/`, which is ignored. The draft check is on during
+a run, so a plugin-loaded draft is scored after any fix-up turn, which is why `max_turns` is 8 in every
 case.
 
 The latest whole-suite run, on 2026-10-08, scored 0.94 with the plugin and 0.83 without. The score

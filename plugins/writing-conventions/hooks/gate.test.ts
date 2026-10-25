@@ -32,6 +32,8 @@ type World = {
   here?: string
   // The session's directory, where it is not /proj.
   cwd?: string
+  // The session's id, where it is not s1.
+  session?: string
 }
 
 // world(on, w): answers every call the gate makes to the engine, and records the
@@ -41,7 +43,7 @@ type World = {
 function world(on: any, w: World = {}) {
   const base = w.base ?? '2.1.289'
   const files: Record<string, string> = { ...w.files }
-  const seen = { reader: [] as string[], commands: [] as string[], tool: [] as string[], system: '', toasts: [] as string[], files, ran: 0, gh: [] as string[] }
+  const seen = { reader: [] as string[], commands: [] as string[], tool: [] as string[], system: '', toasts: [] as string[], files, ran: 0, gh: [] as string[], sent: [] as string[], origins: [] as unknown[], contexts: [] as string[][] }
   // On Windows an engine-level step turns a "/foo" path into "C:\foo" before the
   // mock sees it, so each lookup reads it back as POSIX. On macOS a "C:/foo"
   // path is not absolute, so the engine prepends the cwd and the drive letter
@@ -50,7 +52,7 @@ function world(on: any, w: World = {}) {
   const posix = (p: string) => p.replace(/\\/g, '/').replace(/^(.*\/)?[A-Za-z]:(?=\/)/, '')
   mock.env(on, { CLAUDE_CONFIG_DIR: '/cfg', TMPDIR: '/tmp', ...w.env })
   on('session.version', () => ({ value: { version: base, base, builtAt: '' } }))
-  on('session.id', () => { if (w.noSession) throw new Error('no session'); return { value: 's1' } })
+  on('session.id', () => { if (w.noSession) throw new Error('no session'); return { value: w.session ?? 's1' } })
   on('session.cwd', () => ({ value: w.cwd ?? (w.win ? 'C:\\proj' : '/proj') }))
   on('session.root', () => ({ value: w.win ? 'C:\\proj' : '/proj' }))
   on('ui.toast', (_$: any, e: any) => { seen.toasts.push(JSON.stringify(e)); return { value: undefined } })
@@ -96,7 +98,8 @@ function world(on: any, w: World = {}) {
     const entries = Object.entries(files ?? {}).map(([name, text]) => ({ name, object: { text } }))
     return out(files === undefined ? '' : JSON.stringify({ data: { repository: { object: files && { entries } } } }))
   })
-  on('classic.Stop', () => ({}))
+  on('turn.complete', (_$: any, e: any) => ({ text: e.answer }))
+  on('prompt.submit', (_$: any, e: any) => { seen.sent.push(e.text); seen.origins.push(e.origin); seen.contexts.push(e.context ?? []); return { text: e.text, context: e.context } })
   return seen
 }
 
@@ -426,61 +429,92 @@ test('what is not reviewed in an edit is stated', async ($: any, on: any) => {
 })
 
 const F = '```'
-const reply = (prompt_id: string | undefined, text: string) => ({ prompt_id, last_assistant_message: text.replace(/~/g, F) })
+const end = ($: any, text: string, more: any = {}) => $.turn.complete({ answer: text.replace(/~/g, F), reason: 'answer', isAborted: false, durationMs: 1, turnId: 't1', ...more })
+const DRAFT = '~draft\nThe report says so.\n~'
 
 test('only the text in a draft fence is read, and a reply without one costs no call', async ($: any, on: any) => {
   const seen = world(on, { verdict: FINDING })
-  expect((await $.classic.Stop(reply('p1', 'The report says so.'))).block).toBeUndefined()
-  expect((await $.classic.Stop(reply('p1', 'A draft:\n~sh\nThe report says so.\n~'))).block).toBeUndefined()
+  await end($, 'The report says so.')
+  await end($, 'A draft:\n~sh\nThe report says so.\n~')
   expect(seen.reader).toHaveLength(0)
-  const ran = await $.classic.Stop(reply('p1', 'Outside text.\n~draft\nThe report says so.\n~\nMore outside.'))
-  expect(ran.block).toContain('emit the corrected draft')
+  expect(seen.sent).toEqual([])
+  await end($, 'Outside text.\n~draft\nThe report says so.\n~\nMore outside.')
+  expect(seen.sent).toHaveLength(1)
+  expect(seen.sent[0]).toMatch(/^The draft in your last reply[\s\S]*"The report says so\."[\s\S]*emit the corrected draft/)
   expect(seen.reader[0]).toBe('The report says so.\n\n\n')
 })
 
-test('a finding that quotes text outside every draft fence does not block', async ($: any, on: any) => {
-  world(on, { verdict: FINDING })
-  expect((await $.classic.Stop(reply('p2', 'The report says so.\n~draft\nPlain text.\n~'))).block).toBeUndefined()
-  // Each draft is a source of its own, so one quote cannot span two.
-  expect((await $.classic.Stop(reply('p2', '~draft\nThe report\n~\n~draft\nsays so.\n~'))).block).toBeUndefined()
-})
-
-test('a reply is blocked twice in a turn, then the user is told and it stands', async ($: any, on: any) => {
+test('a finding that quotes text outside every draft fence submits no fix-up', async ($: any, on: any) => {
   const seen = world(on, { verdict: FINDING })
-  const draft = reply('p3', '~draft\nThe report says so.\n~')
-  expect((await $.classic.Stop(draft)).block).toBeDefined()
-  expect((await $.classic.Stop(draft)).block).toBeDefined()
-  expect((await $.classic.Stop(draft)).block).toBeUndefined()
+  await end($, 'The report says so.\n~draft\nPlain text.\n~')
+  // Each draft is a source of its own, so one quote cannot span two.
+  await end($, '~draft\nThe report\n~\n~draft\nsays so.\n~')
+  expect(seen.reader).toHaveLength(2)
+  expect(seen.sent).toEqual([])
+})
+
+test('a draft gets two fix-ups, then the user is told and it stands', async ($: any, on: any) => {
+  const seen = world(on, { verdict: FINDING })
+  for (let i = 0; i < 3; i++) await end($, DRAFT)
+  expect(seen.sent).toHaveLength(2)
+  expect(seen.origins).toEqual([{ kind: 'plugin', name: 'writing-conventions' }, { kind: 'plugin', name: 'writing-conventions' }])
   expect(seen.toasts.join()).toContain('Review is unresolved')
-  // The count is per turn, so the next turn starts over.
-  expect((await $.classic.Stop({ ...draft, prompt_id: 'p4' })).block).toBeDefined()
+  // A prompt from the user starts the count over.
+  await $.prompt.submit({ text: 'Try again.' })
+  await end($, DRAFT)
+  expect(seen.sent).toHaveLength(4)
 })
 
-test('the count of one turn\'s blocks outlasts a Stop of another turn', async ($: any, on: any) => {
-  world(on, { verdict: FINDING })
-  const draft = (prompt_id: string) => reply(prompt_id, '~draft\nThe report says so.\n~')
-  expect((await $.classic.Stop(draft('p7'))).block).toBeDefined()
-  expect((await $.classic.Stop(draft('p7'))).block).toBeDefined()
-  expect((await $.classic.Stop(draft('p8'))).block).toBeDefined()
-  expect((await $.classic.Stop(draft('p7'))).block).toBeUndefined()
+test('a fix-up prompt gets no lint note, and the next prompt gets it', async ($: any, on: any) => {
+  const seen = world(on, { verdict: FINDING })
+  await end($, DRAFT)
+  expect(seen.contexts[0].join()).not.toContain('house-style lint')
+  await $.prompt.submit({ text: 'next' })
+  expect(seen.contexts[1].join()).toContain('A house-style lint flagged the previous reply')
 })
 
-const DRAFT = '~draft\nThe report says so.\n~'
-
-test('nothing is blocked without a prompt_id, or with no review model', async ($: any, on: any) => {
+test('the fix-ups are counted per session', async ($: any, on: any) => {
   const w: World = { verdict: FINDING }
   const seen = world(on, w)
-  expect((await $.classic.Stop(reply(undefined, DRAFT))).block).toBeUndefined()
+  await end($, DRAFT)
+  await end($, DRAFT)
+  w.session = 's2'
+  await end($, DRAFT)
+  w.session = undefined
+  await end($, DRAFT)
+  expect(seen.sent).toHaveLength(3)
+})
+
+test('an interrupted turn, a subagent\'s turn, and a turn with no review model submit no fix-up', async ($: any, on: any) => {
+  const w: World = { verdict: FINDING }
+  const seen = world(on, w)
+  await end($, DRAFT, { reason: 'aborted', isAborted: true })
+  await end($, DRAFT, { agentId: 'a1' })
   expect(seen.reader).toHaveLength(0)
   w.down = true
-  expect((await $.classic.Stop(reply('p6', DRAFT))).block).toBeUndefined()
+  await end($, DRAFT)
+  expect(seen.sent).toEqual([])
   expect(seen.toasts.join()).toContain('model review is off')
 })
 
 test('the off switch for the draft check makes no call', async ($: any, on: any) => {
   const off = world(on, { verdict: FINDING, env: { WRITING_CONVENTIONS_STOP_READER: '0' } })
-  expect((await $.classic.Stop(reply('p5', DRAFT))).block).toBeUndefined()
+  await end($, DRAFT)
   expect(off.reader).toHaveLength(0)
+  expect(off.sent).toEqual([])
+})
+
+// Under managed settings cc-plugin-sec-default sends every classic.* event past
+// user plugins, as this copy of its rule does.
+const guard = { name: 'guard', tier: 'prepend' as const, register(on: any) {
+  on('classic.*', (_$: any, e: any, next: any) => next.to(e, 'append'))
+} }
+
+test('under the guard, a draft that breaks a rule gets a fix-up', { plugins: [guard] }, async ($: any, on: any) => {
+  const seen = world(on, { verdict: FINDING })
+  await end($, DRAFT)
+  expect(seen.sent).toHaveLength(1)
+  expect(seen.sent[0]).toContain('emit the corrected draft')
 })
 
 // The file is checked from the Write or Edit result: a hook beneath may have
@@ -572,7 +606,7 @@ test('with no --repo, the headings of the repo gh picks are kept, and none in a 
 
 test('template headings are kept in a draft or a prose file, from a repo linked there and the session\'s repo', async ($: any, on: any) => {
   const seen = world(on, { verdict: 'PASS', here: 'o4/r4', templates: { 'o3/r3': { 'feature.yml': FORM }, 'o4/r4': { 'bug.md': TEMPLATE } } })
-  await $.classic.Stop(reply('p9', 'For https://github.com/o3/r3/issues:\n~draft\n### Problem Statement\nPlain.\n### Steps\nRun it.\n### Summary\nMore.\n~'))
+  await end($, 'For https://github.com/o3/r3/issues:\n~draft\n### Problem Statement\nPlain.\n### Steps\nRun it.\n### Summary\nMore.\n~')
   expect(seen.reader[0]).toBe('Plain.\nRun it.\n### Summary\nMore.\n\n\n')
   await write($, '/proj/issue.md', '## Steps\nRun it.\n### Problem Statement\nPlain.\n')
   expect(seen.reader[1]).toBe('File: /proj/issue.md\n\nRun it.\n### Problem Statement\nPlain.\n')
