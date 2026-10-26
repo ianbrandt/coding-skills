@@ -68,9 +68,10 @@ in the marketplace's README.
 
 The skills call six tools that the plugin registers as `mcp__session-skills__<tool>`, and the session
 rules in [`hooks/rules.md`](hooks/rules.md) are loaded at every session start, including after
-`/clear` and compaction. After a turn that ran `git push`, a stop with no next step in the reply is
-blocked once. Claude Code 2.1.286 or later is required. [DESIGN.md](DESIGN.md) covers
-each tool, how the session title is set, and why the rules are loaded by a hook.
+`/clear` and compaction. After a turn that ran `git push`, a reply with no next step at its end
+gets one follow-up prompt that asks for it. Claude Code 2.1.286 or later is required.
+[DESIGN.md](DESIGN.md) covers each tool, how the session title is set, and why the rules are loaded
+by a hook.
 
 ## Measuring it
 
