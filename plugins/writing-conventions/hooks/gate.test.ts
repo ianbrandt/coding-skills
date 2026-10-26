@@ -562,13 +562,15 @@ test('an edit is reviewed in the text it wrote, after a hook beneath reflowed th
   expect(seen.reader[0]).toBe('File: /proj/a.md\n\nThe report\nsays it\nis so.\n')
 })
 
-test('an edit written other than as its newString is reviewed from the file', async ($: any, on: any) => {
+test('the file is read for an edit written other than as its newString', async ($: any, on: any) => {
   // The patch has the line as written, with the escape decoded.
   const structuredPatch = [{ oldStart: 3, oldLines: 1, newStart: 3, newLines: 1, lines: ['-The report is x.', '+The report is "so".'] }]
   const result = { filePath: '/proj/a.md', oldString: 'x.', newString: '\\u0022so\\u0022.', originalFile: 'First one.\n\nThe report is x.\n', structuredPatch }
   const seen = world(on, { verdict: FINDING, files: { '/proj/a.md': 'First one.\n\nThe report is "so".\n' }, result })
-  await $.tool.call({ tool: 'Edit', file_path: '/proj/a.md', old_string: 'x.', new_string: '\\u0022so\\u0022.', tool_use_id: 'toolu_4' })
+  const ran = await $.tool.call({ tool: 'Edit', file_path: '/proj/a.md', old_string: 'x.', new_string: '\\u0022so\\u0022.', tool_use_id: 'toolu_4' })
   expect(seen.reader[0]).toBe('File: /proj/a.md\n\n\\u0022so\\u0022.')
+  // The new text is not in the file as written, but the file was read.
+  expect(ran.context.join('\n')).not.toContain('could not be read')
 })
 
 test('a replace-all edit is reviewed in every paragraph it changed, and an edit whose old string is missing from the result is read from the file', async ($: any, on: any) => {
