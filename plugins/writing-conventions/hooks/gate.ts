@@ -14,7 +14,7 @@
 // failure lets the event through, and the user is told once. Only a finding with its
 // quote in the text under review blocks a command, a call, or a reply.
 import type { Register } from 'claude-code'
-import { bodyFiles, keys, walk } from './keys'
+import { bodyFiles, keys, type Mode, walk } from './keys'
 import { lint } from './lint'
 import { headings, linked, repoFlag, unheaded } from './template'
 import { bytes, drafts, excerpt, findings } from './text'
@@ -56,10 +56,10 @@ const ADVICE = 'Each rewrite after -> is only a suggestion; where one reads stif
 const FAMILIES = /git commit|git -C[\s\S]*commit|gh pr |gh issue |gh release /
 
 // An issue command, alone: template headings are removed from its body, and
-// from no other command's. With a second publishing command beside it, every
-// heading is reviewed.
+// from no other command's. A `cat` that reads a heredoc into the body is the
+// one other command allowed beside it.
 const ISSUE = /^\s*(?:\w+=\S*\s+)*gh issue (?:create|new|edit)\b/
-const OTHER = /git commit|git -C[\s\S]*commit|gh pr |gh release |gh issue [\s\S]*gh issue /
+const alone = (cmd: string, mode: Mode) => ISSUE.test(cmd) && keys(cmd, mode).every(l => /^(0\tPROSE|1\t(?!READ$).*|\d+\tcat)$/.test(l))
 
 // A model call that failed, or a reply that could not be used.
 class Off extends Error {}
@@ -258,7 +258,7 @@ async function shell($: any, input: any): Promise<Verdict> {
   const { read: files, unread } = await bodies($, cmd, mode, input.cwd, proj)
   // The headings of the repo's issue template are allowed in an issue.
   const repo = repoFlag(cmd)
-  const kept = ISSUE.test(cmd) && !OTHER.test(cmd) ? await headings($, input.cwd, [cmd, ...files.map(f => f.text)], repo ? [repo] : [], repo === undefined) : new Set<string>()
+  const kept = alone(cmd, mode) ? await headings($, input.cwd, [cmd, ...files.map(f => f.text)], repo ? [repo] : [], repo === undefined) : new Set<string>()
   const shown = { ...input, tool_input: { ...input.tool_input, command: unheaded(cmd, kept) } }
   const prompt = JSON.stringify(shown) + files.map(f => `\n\nFile: ${f.name}\n\n${unheaded(f.text, kept)}`).join('')
   const { found, local } = await read($, prompt, [cmd, ...files.map(f => f.text)])

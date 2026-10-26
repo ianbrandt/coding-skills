@@ -609,6 +609,9 @@ test('template headings are kept in an issue to its repo, and any other heading 
   // A checkbox option is not a field label.
   await bash($, 'gh issue create -R https://github.com/o1/r1 --body "### I searched\n\n### Problem Statement\nPlain."')
   expect(JSON.parse(seen.reader[1]).tool_input.command).toBe('gh issue create -R https://github.com/o1/r1 --body "### I searched\n\nPlain."')
+  // A body read from a heredoc by cat.
+  await bash($, `gh issue create --repo o1/r1 --body "$(cat <<'EOF'\n### Problem Statement\nPlain.\nEOF\n)"`)
+  expect(JSON.parse(seen.reader[2]).tool_input.command).toBe(`gh issue create --repo o1/r1 --body "$(cat <<'EOF'\nPlain.\nEOF\n)"`)
   expect(seen.gh).toEqual(['api graphql'])
 })
 
@@ -650,6 +653,7 @@ test('template headings are reviewed in a command beside the issue command, or b
   await bash($, 'gh issue edit 1 --repo o6/r6 --add-label x && gh pr comment 2 --body "### Problem Statement\nPlain."')
   await bash($, 'git commit -m "Check gh issue create --repo o6/r6\n\n### Problem Statement\nPlain."')
   await bash($, 'cd sub && gh issue create --repo o6/r6 --body "### Problem Statement\nPlain."')
+  await bash($, "gh issue edit 1 --repo o6/r6 --add-label x && gh api repos/o6/r6/issues/2/comments -f body='### Problem Statement\nPlain.'")
   for (const prompt of seen.reader) expect(prompt).toContain('### Problem Statement')
   expect(seen.gh).toEqual([])
 })

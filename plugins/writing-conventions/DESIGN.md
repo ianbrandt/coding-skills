@@ -130,8 +130,9 @@ the other headings. The templates are read from `.github/ISSUE_TEMPLATE` with on
 call per repo, kept for the session. After a failed call the repo has no templates for the rest of
 the session, so offline no later check waits for gh. For a repo with none, the owner's `.github`
 templates are used, as on GitHub. Headings are removed only from a command that starts with
-`gh issue create`, `new`, or `edit` and has no other publishing command in it. The repo is the one
-given with the last `--repo` or `-R` outside a quoted argument, or with `GH_REPO`, or else the one `gh repo view` reports; a
+`gh issue create`, `new`, or `edit` and has no other command in it but a `cat` that reads a heredoc
+into the body. The repo is the one given with the last `--repo` or `-R` outside a quoted argument,
+or with `GH_REPO`, or else the one `gh repo view` reports; a
 repo given on a host other than github.com has no templates. No repo is given in a draft or a prose
 file, so the templates of each repo linked from it with a `github.com` URL are used, and those of
 the `gh repo view` one too. Since a draft's destination is not known, template headings are also
