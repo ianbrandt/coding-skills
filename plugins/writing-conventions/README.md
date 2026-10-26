@@ -53,6 +53,9 @@ line per command or tool. You can edit those files. Where a command or tool has 
 ## Limits
 
 - `git push` is not reviewed, and neither is a file written with a shell redirect.
+- With `claude -p` and the default text output, a reply with a draft that is corrected is printed,
+  then the corrected reply after it. Under `--output-format stream-json` each reply has a `result`
+  event of its own, and under `--output-format json` only the last reply is in `result`.
 - The lint catches only the mechanical rules: banned words, spaced dashes, a missing Oxford comma,
   and an object that "says" or "wants" something. The rest depends on the session following the
   rules and on the model review.
