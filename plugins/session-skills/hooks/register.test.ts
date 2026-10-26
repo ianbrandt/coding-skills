@@ -215,6 +215,9 @@ test('after a push, one follow-up is submitted when no next step is written at t
   await end($, 'Nothing comes next: R96 waits on its post count.')
   await $.classic.PostToolUse(ran('git fetch -q origin && git push'))
   await end($, `Pushed.\n\n${BLOCK}`)
+  // A fence of tildes is a fenced block too, as writing-conventions reads a draft.
+  await $.classic.PostToolUse(ran('git push'))
+  await end($, 'Pushed. The release note:\n\n~~~draft\nPlain.\n~~~')
   expect(w.sent).toHaveLength(1)
 })
 

@@ -551,7 +551,9 @@ export const register: Register = on => {
 
   // The turn that pushes is the last turn of a landing, and in October 2026 13
   // of 16 such turns ended with no next step. When the reply of such a turn has
-  // no fenced block, one follow-up prompt asks for it. The follow-up turn pushed
+  // no fenced block, one follow-up prompt asks for it. A fence of tildes counts:
+  // writing-conventions submits a fix-up only for a draft in a fence, so the two
+  // follow-ups never come after the same reply. The follow-up turn pushed
   // nothing, so it gets no follow-up of its own when the model answers that
   // nothing comes next. The push is recorded from classic.PostToolUse, which
   // sees a command a settings hook rewrote, and from the call where no classic
@@ -571,7 +573,7 @@ export const register: Register = on => {
   })
   on('turn.complete', async ($, e, next) => {
     const ran = await next(e)
-    if (e.agentId || !pushed.delete(await $.session.id()) || e.reason !== 'answer' || /^\s*```/m.test(e.answer)) return ran
+    if (e.agentId || !pushed.delete(await $.session.id()) || e.reason !== 'answer' || /^\s*(```|~~~)/m.test(e.answer)) return ran
     await $.prompt.submit({ text: NEXT_STEP }).catch(() => {})
     return ran
   })
