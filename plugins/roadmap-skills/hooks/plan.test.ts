@@ -177,3 +177,56 @@ test('under the guard, the rule is added to a prompt while the model does not re
   repo.now = { root: '/repo' }
   expect(await submit($)).toEqual([])
 })
+
+// The conversation read back: a string is a text block, as a prompt's context
+// is, and `result` is the text of a tool result. `deny` refuses the next call.
+function results(on: any) {
+  const w = { read: [] as (string | { result: string })[], deny: false }
+  on('session.messages', () => ({ value: w.read.map(t => ({ role: 'user', content: [typeof t === 'string' ? { type: 'text', text: t } : { type: 'tool_result', tool_use_id: 't', content: t.result }] })) }))
+  on('prompt.submit', (_$: any, e: any) => ({ text: e.text, context: e.context }))
+  on('tool.call', () => (w.deny ? { deny: 'not now' } : { result: 'ok' }))
+  return w
+}
+const call = async ($: any, more: any = {}) => (await $.tool.call({ tool: 'Read', file_path: '/p/a.md', ...more })).context ?? []
+
+test('under the guard, the rule is added to one tool result after each compaction, until the model reads it there', { plugins: [guard] }, async ($: any, on: any) => {
+  const repo = world(on, { root: '/repo', files: ['/repo/ROADMAP.local.md'] })
+  const w = results(on)
+  await start($)
+  const [rule] = await submit($)
+  const runs = repo.argvs.length
+  w.read = [`<system-reminder>\n${rule}\n</system-reminder>`]
+  expect(await call($)).toEqual([])
+  w.read = ['a summary']
+  expect(await call($, { agentId: 'w1' })).toEqual([])
+  w.deny = true
+  expect(await call($)).toEqual([])
+  w.deny = false
+  expect(await Promise.all([call($), call($)])).toEqual([[rule], []])
+  // A second compaction before the model reads it back.
+  w.read = ['another summary']
+  expect(await call($)).toEqual([rule])
+  w.read = ['a third summary', { result: `ok\n\n<system-reminder>\ntool.call hook additional context: ${rule}</system-reminder>` }]
+  expect(await call($)).toEqual([])
+  w.read = ['a fourth summary']
+  expect(await call($)).toEqual([rule])
+  // The rule found at the last prompt is used, so a tool call runs no git.
+  expect(repo.argvs).toHaveLength(runs)
+})
+
+test('with no roadmap, nothing is added to a tool result', { plugins: [guard] }, async ($: any, on: any) => {
+  world(on, { root: '/repo' })
+  const w = results(on)
+  expect(await submit($)).toEqual([])
+  w.read = ['a summary']
+  expect(await call($)).toEqual([])
+})
+
+test('where the classic events run, nothing is added to a tool result', async ($: any, on: any) => {
+  world(on, { root: '/repo', files: ['/repo/ROADMAP.local.md'] })
+  const w = results(on)
+  await start($)
+  expect(await submit($)).toEqual([])
+  w.read = ['a summary']
+  expect(await call($)).toEqual([])
+})

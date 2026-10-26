@@ -44,11 +44,20 @@ const added = ($: any) => find($).then(
 const CLASSIC = { plugin: 'roadmap-skills', key: 'classic' } as const
 const isClassic = async ($: any) => (await $.state.get(CLASSIC).catch(() => ({}))).value === true
 
+// The conversation as the model reads it, or undefined where it is not read
+// back.
+const conversation = async ($: any): Promise<any[] | undefined> => {
+  const messages = await $.session.messages({ as: 'api' }).catch(() => undefined)
+  return Array.isArray(messages) ? messages : undefined
+}
+
 // Whether the model still reads this text: false after /clear, a compaction,
-// or a plugin update that changed it.
-async function isRead($: any, text: string): Promise<boolean> {
-  const messages: any[] = await $.session.messages({ as: 'api' }).catch(() => [])
-  return messages.some(m => m.role === 'user' && m.content.some((b: any) => b.type === 'text' && String(b.text).includes(text)))
+// or a plugin update that changed it. Context added to a tool call is in its
+// result.
+function isRead(messages: any[], text: string): boolean {
+  const has = (b: any): boolean => b.type === 'text' ? String(b.text).includes(text)
+    : b.type === 'tool_result' && (typeof b.content === 'string' ? b.content.includes(text) : Array.isArray(b.content) && b.content.some(has))
+  return messages.some(m => m.role === 'user' && Array.isArray(m.content) && m.content.some(has))
 }
 
 export const register: Register = on => {
@@ -84,11 +93,36 @@ export const register: Register = on => {
     return text ? { ...ran, additionalContext: [...(ran.additionalContext ?? []), text] } : ran
   })
 
+  // The rule found at the last prompt in each session, for the tool calls of its
+  // turn. Where the classic events run there is none.
+  const found = new Map<string, string>()
   // ponytail: under the guard the lookup runs on every prompt, since the rule is compared whole with what the model still reads.
   on('prompt.submit', async ($, e: any, next: any) => {
     if (await isClassic($)) return next(e)
     const text = await added($)
-    return next(text && !(await isRead($, text)) ? { ...e, context: [...(e.context ?? []), text] } : e)
+    found.set(await $.session.id().catch(() => ''), text)
+    return next(text && !isRead((await conversation($)) ?? [], text) ? { ...e, context: [...(e.context ?? []), text] } : e)
+  })
+
+  // Under the guard, after an automatic compaction in the middle of a turn the
+  // main loop goes without the rule until the next prompt. It is added to the
+  // next tool result, and not again until the model reads it back, since calls
+  // that run in parallel all start before any result is read back. The first
+  // message, the summary, is kept with that, so a second compaction adds it
+  // again. A subagent never gets it.
+  const after = new Map<string, string>()
+  on('tool.call', async ($, e: any, next: any) => {
+    const ran = await next(e)
+    if (ran.deny !== undefined || e.agentId) return ran
+    const id = await $.session.id().catch(() => '')
+    // shortcut: a hot reload in the middle of a turn empties `found`, so the rule waits for the next prompt; keep it in $.state if that shows up.
+    const text = found.get(id)
+    const messages = text ? await conversation($) : undefined
+    if (!text || !messages) return ran
+    const head = JSON.stringify(messages[0] ?? null)
+    if (isRead(messages, text) || after.get(id) === head) return ran
+    after.set(id, head)
+    return { ...ran, context: [...(ran.context ?? []), text] }
   })
 
   on('tool.call', { tool: FIND }, async $ => {
