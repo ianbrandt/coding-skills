@@ -656,6 +656,7 @@ test('template headings are reviewed in a command beside the issue command, or b
   await bash($, 'git commit -m "Check gh issue create --repo o6/r6\n\n### Problem Statement\nPlain."')
   await bash($, 'cd sub && gh issue create --repo o6/r6 --body "### Problem Statement\nPlain."')
   await bash($, "gh issue edit 1 --repo o6/r6 --add-label x && gh api repos/o6/r6/issues/2/comments -f body='### Problem Statement\nPlain.'")
+  await bash($, 'gh issue create --repo o9/r9 --body "### Problem Statement\nPlain." && gh issue create --repo o6/r6 --body "### Problem Statement\nPlain."')
   for (const prompt of seen.reader) expect(prompt).toContain('### Problem Statement')
   expect(seen.gh).toEqual([])
 })
