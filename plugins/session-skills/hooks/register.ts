@@ -520,14 +520,18 @@ export const register: Register = on => {
   // No call sets a title from a tool. A prompt-submit hook can return one, so
   // the title waits here for the next prompt. Under the guard that hook never
   // runs. The tool stays registered, since in the terminal session.start and
-  // classic.SessionStart run at the same time.
+  // classic.SessionStart run at the same time. classic.UserPromptSubmit runs
+  // inside the next() of prompt.submit, so a prompt that comes back with no
+  // classic event seen is the guard.
   // ponytail: held in memory, so a title set in the last turn before the process exits is lost.
+  // ponytail: after a load in the middle of a turn under the guard, a title set before the next prompt is held and never set.
   const titles = new Map<string, { pending?: string; seen?: string }>()
+  let guarded = false
   on('tool.call', { tool: 'mcp__session-skills__set_session_title' }, async ($, e: any) =>
     answer('set_session_title', async () => {
       const title = String(e.title ?? '').trim()
       if (!title) throw new Error('the title is empty')
-      if (!(await isClassic($))) throw new Error('no title can be set in this session. End the reply with a `**Session title:**` label line, then `/rename` and the title alone in a plain untagged fenced block.')
+      if (guarded) throw new Error('no title can be set in this session. End the reply with a `**Session title:**` label line, then `/rename` and the title alone in a plain untagged fenced block.')
       const id = await $.session.id()
       titles.set(id, { ...titles.get(id), pending: title })
       return `The title is set to ${JSON.stringify(title)} when the user sends the next prompt.`
@@ -584,9 +588,10 @@ export const register: Register = on => {
 
   // ponytail: under the guard the title is not set, since no native event sets one.
   on('prompt.submit', async ($, e: any, next: any) => {
-    if (await isStarted($)) return next(e)
-    const rules = await readRules($)
-    return next(rules && !(await isRead($, rules)) ? { ...e, context: [...(e.context ?? []), rules] } : e)
+    const rules = (await isStarted($)) ? '' : await readRules($)
+    const ran = await next(rules && !(await isRead($, rules)) ? { ...e, context: [...(e.context ?? []), rules] } : e)
+    if (!(await isClassic($))) guarded = true
+    return ran
   })
 
   // Under the guard, after an automatic compaction in the middle of a turn the

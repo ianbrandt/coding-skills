@@ -164,6 +164,12 @@ test('after a load in the middle of a turn, a title set with the tool waits for 
   expect((await prompt($)).sessionTitle).toBe('Parser cache')
 })
 
+test('after a load in the middle of a turn, a title set before any other event waits for the next prompt', async ($: any, on: any) => {
+  session(on, 's1')
+  expect((await $.tool.call({ tool: TITLE, title: 'Parser cache' })).result).toContain('next prompt')
+  expect((await prompt($)).sessionTitle).toBe('Parser cache')
+})
+
 test('an empty title is an error', async ($: any, on: any) => {
   session(on, 's1')
   expect((await $.tool.call({ tool: TITLE, title: '  ' })).isError).toBe(true)
@@ -323,7 +329,9 @@ test('after a mid-session load, the rules are added to a prompt while the model 
 
 test('under the guard, a call to the title tool is an error with the /rename fallback', { plugins: [guard] }, async ($: any, on: any) => {
   session(on, 's1')
+  prompts(on)
   await prompt($)
+  await $.prompt.submit({ text: 'next' })
   const ran = await $.tool.call({ tool: TITLE, title: 'Parser cache' })
   expect(ran.isError).toBe(true)
   expect(ran.text).toContain('`/rename`')
