@@ -27,7 +27,9 @@ only with `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1` set.
 - After a `Write` or `Edit` to a `.md`, `.markdown`, `.txt`, `.adoc`, or `.rst` file, the new text
   is reviewed and the session fixes what is found. Nothing is blocked.
 - A draft the session hands you to post elsewhere goes in a fenced block tagged `draft`. It is
-  reviewed when the turn ends, and the session corrects it after a finding, at most twice per turn.
+  reviewed when the turn ends, and after a finding a follow-up prompt asks the session to correct
+  it, in a turn of its own. After two corrections in a row with a finding in each, you are told and
+  the draft stands until your next message.
 - The headings of a repo's issue template are allowed in an issue to that repo, and the template is
   read with `gh`. Any other heading in an issue is still flagged.
 
