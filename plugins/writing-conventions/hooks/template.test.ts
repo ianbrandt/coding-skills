@@ -5,6 +5,8 @@ import { labels, linked, repoFlag, unheaded } from './template'
 test('a form label is read as YAML writes it on one line', () => {
   const form = "body:\n  - attributes:\n      label: Version # which one\n  - attributes:\n      label: 'It''s broken'\n  - attributes:\n      label: >-\n        Folded\n  - attributes:\n      label: \"Quoted\"\r\n"
   expect(labels([{ name: 'bug.yaml', text: form }])).toEqual(['Version', "It's broken", 'Quoted'])
+  const commented = "body:\n  - attributes:\n      label: \"Problem Statement\" # shown\n  - attributes:\n      label: 'It''s' # c\n"
+  expect(labels([{ name: 'bug.yml', text: commented }])).toEqual(['Problem Statement', "It's"])
 })
 
 test('a heading is matched indented up to three spaces, with a closing sequence, or after a quote', () => {

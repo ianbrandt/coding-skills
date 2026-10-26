@@ -7,10 +7,10 @@
 // A heading line, or the first line of a body quoted in a shell command.
 const HEADING = /(^ {0,3}|["'])#{1,6}[ \t]+([^\n]*?)(?:[ \t]+#+)?[ \t]*\r?$\n?/gm
 
-// A YAML label as written on one line: quoted, or plain up to a comment.
+// A YAML label as written on one line, quoted or plain, up to a comment.
 function scalar(v: string): string {
-  if (v.startsWith("'")) return v.replace(/^'(.*)'$/, '$1').replace(/''/g, "'")
-  if (v.startsWith('"')) return v.replace(/^"(.*)"$/, '$1')
+  if (v.startsWith("'")) return v.replace(/^'((?:[^']|'')*)'(?:[ \t]+#.*)?$/, '$1').replace(/''/g, "'")
+  if (v.startsWith('"')) return v.replace(/^"((?:[^"\\]|\\.)*)"(?:[ \t]+#.*)?$/, '$1')
   return v.replace(/[ \t]+#.*$/, '')
 }
 
