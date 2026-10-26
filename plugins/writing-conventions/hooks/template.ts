@@ -46,9 +46,15 @@ export function linked(text: string): string[] {
   return [...new Set(found)].slice(0, 3)
 }
 
+// The command with the body of each heredoc whose delimiter is quoted taken
+// out. No command in such a body runs, and a quote in it closes nothing.
+export function literal(cmd: string): string {
+  return cmd.replace(/(<<-?[ \t]*(["'])([^"'\s]+)\2[^\n]*\n)[\s\S]*?^([ \t]*\3)$/gm, '$1$4')
+}
+
 // The command with each quoted argument emptied, so that the text of a body is
 // not read as a flag. The quoted value of a repo flag is kept.
-function unquoted(cmd: string): string {
+export function unquoted(cmd: string): string {
   return cmd.replace(/(--repo(?:=|\s+)|-R\s*)?("(?:[^"\\]|\\[\s\S])*"|'[^']*')/g, (arg, flag) => (flag ? arg : '""'))
 }
 
@@ -56,7 +62,7 @@ function unquoted(cmd: string): string {
 // else with GH_REPO before the command: undefined where none is given, and ''
 // where the one given is not a repo on github.com.
 export function repoFlag(cmd: string): string | undefined {
-  const flags = [...unquoted(cmd).matchAll(/(?:^|\s)(?:--repo(?:=|\s+)|-R\s*)(["']?)(\S+?)\1(?=\s|$)/g)]
+  const flags = [...unquoted(literal(cmd)).matchAll(/(?:^|\s)(?:--repo(?:=|\s+)|-R\s*)(["']?)(\S+?)\1(?=\s|$)/g)]
   const raw = flags.length > 0 ? flags[flags.length - 1][2] : /^\s*(?:\w+=\S*\s+)*?GH_REPO=(["']?)(\S+?)\1\s/.exec(cmd)?.[2]
   if (raw === undefined) return undefined
   const repo = raw.replace(/^https?:\/\//, '').replace(/^github\.com\//, '').replace(/\.git$|\/$/, '')

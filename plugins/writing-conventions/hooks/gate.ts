@@ -16,7 +16,7 @@
 import type { Register } from 'claude-code'
 import { bodyFiles, keys, type Mode, walk } from './keys'
 import { lint } from './lint'
-import { headings, linked, repoFlag, unheaded } from './template'
+import { headings, linked, literal, repoFlag, unheaded } from './template'
 import { bytes, drafts, excerpt, findings } from './text'
 
 // The first CLI where hooks modules are on by default, and the oldest one the
@@ -59,7 +59,10 @@ const FAMILIES = /git commit|git -C[\s\S]*commit|gh pr |gh issue |gh release /
 // from no other command's. A `cat` that reads a heredoc into the body is the
 // one other command allowed beside it.
 const ISSUE = /^\s*(?:\w+=\S*\s+)*gh issue (?:create|new|edit)\b/
-const alone = (cmd: string, mode: Mode) => ISSUE.test(cmd) && keys(cmd, mode).every(l => /^(0\tPROSE|1\t(?!READ$).*|\d+\tcat)$/.test(l))
+function alone(cmd: string, mode: Mode): boolean {
+  const text = literal(cmd)
+  return ISSUE.test(cmd) && keys(text, mode).every(l => /^(0\tPROSE|1\t(?!READ$).*|\d+\tcat)$/.test(l))
+}
 
 // A model call that failed, or a reply that could not be used.
 class Off extends Error {}

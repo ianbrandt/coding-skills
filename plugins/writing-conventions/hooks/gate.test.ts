@@ -611,9 +611,9 @@ test('template headings are kept in an issue to its repo, and any other heading 
   // A checkbox option is not a field label.
   await bash($, 'gh issue create -R https://github.com/o1/r1 --body "### I searched\n\n### Problem Statement\nPlain."')
   expect(JSON.parse(seen.reader[1]).tool_input.command).toBe('gh issue create -R https://github.com/o1/r1 --body "### I searched\n\nPlain."')
-  // A body read from a heredoc by cat.
-  await bash($, `gh issue create --repo o1/r1 --body "$(cat <<'EOF'\n### Problem Statement\nPlain.\nEOF\n)"`)
-  expect(JSON.parse(seen.reader[2]).tool_input.command).toBe(`gh issue create --repo o1/r1 --body "$(cat <<'EOF'\nPlain.\nEOF\n)"`)
+  // A body read from a heredoc by cat, with code and a parenthesis in it.
+  await bash($, `gh issue create --repo o1/r1 --body "$(cat <<'EOF'\n### Problem Statement\n1) Run \`npm test\`, or "gh -R o9/r9".\nEOF\n)"`)
+  expect(JSON.parse(seen.reader[2]).tool_input.command).toBe(`gh issue create --repo o1/r1 --body "$(cat <<'EOF'\n1) Run \`npm test\`, or "gh -R o9/r9".\nEOF\n)"`)
   expect(seen.gh).toEqual(['api graphql'])
 })
 
