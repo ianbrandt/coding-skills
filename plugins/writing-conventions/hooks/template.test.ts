@@ -25,4 +25,7 @@ test('the repo flag is the last one given, and a repo off github.com is none', (
   expect(repoFlag('A=1 GH_REPO=o/r gh issue create')).toBe('o/r')
   expect(repoFlag('gh issue create --repo ghe.example.com/o/r')).toBe('')
   expect(repoFlag('gh issue create --body x')).toBeUndefined()
+  // A flag inside a quoted argument is text, not a flag.
+  expect(repoFlag('gh issue create --repo o/r --body "Run gh -R x/y status, or \\"gh --repo x/z\\"."')).toBe('o/r')
+  expect(repoFlag("gh issue create --body 'Run gh -R x/y.'")).toBeUndefined()
 })

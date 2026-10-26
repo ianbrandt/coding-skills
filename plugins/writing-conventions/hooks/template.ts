@@ -46,11 +46,17 @@ export function linked(text: string): string[] {
   return [...new Set(found)].slice(0, 3)
 }
 
+// The command with each quoted argument emptied, so that the text of a body is
+// not read as a flag. The quoted value of a repo flag is kept.
+function unquoted(cmd: string): string {
+  return cmd.replace(/(--repo(?:=|\s+)|-R\s*)?("(?:[^"\\]|\\[\s\S])*"|'[^']*')/g, (arg, flag) => (flag ? arg : '""'))
+}
+
 // The repo a gh command is run against, given with the last --repo or -R, or
 // else with GH_REPO before the command: undefined where none is given, and ''
 // where the one given is not a repo on github.com.
 export function repoFlag(cmd: string): string | undefined {
-  const flags = [...cmd.matchAll(/(?:^|\s)(?:--repo(?:=|\s+)|-R\s*)(["']?)(\S+?)\1(?=\s|$)/g)]
+  const flags = [...unquoted(cmd).matchAll(/(?:^|\s)(?:--repo(?:=|\s+)|-R\s*)(["']?)(\S+?)\1(?=\s|$)/g)]
   const raw = flags.length > 0 ? flags[flags.length - 1][2] : /^\s*(?:\w+=\S*\s+)*?GH_REPO=(["']?)(\S+?)\1\s/.exec(cmd)?.[2]
   if (raw === undefined) return undefined
   const repo = raw.replace(/^https?:\/\//, '').replace(/^github\.com\//, '').replace(/\.git$|\/$/, '')
