@@ -98,6 +98,10 @@ test('under the guard, an Agent subagent gets the escalation rule again only onc
   expect(await call($, 'a1')).toEqual([])
   read.a1 = ['another summary']
   expect(await call($, 'a1')).toEqual([SUBAGENT_RULE])
+  // A second compaction before the model read the rule back.
+  read.a1 = ['a third summary']
+  expect(await call($, 'a1')).toEqual([SUBAGENT_RULE])
+  expect(await call($, 'a1')).toEqual([])
 })
 
 test('under the guard, the rules are added to one tool result after a compaction, until the model reads them there', { plugins: [guard] }, async ($: any, on: any) => {
@@ -112,6 +116,9 @@ test('under the guard, the rules are added to one tool result after a compaction
   read[''] = ['a summary', restored(RULES)]
   expect(await call($)).toEqual([])
   read[''] = ['another summary']
+  expect(await call($)).toEqual([RULES])
+  // A second compaction before the model read them back.
+  read[''] = ['a third summary']
   expect(await call($)).toEqual([RULES])
 })
 

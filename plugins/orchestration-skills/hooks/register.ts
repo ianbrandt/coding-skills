@@ -26,6 +26,13 @@ async function isRead($: any, text: string, agentId?: string): Promise<boolean |
   return messages.some(m => m.role === 'user' && Array.isArray(m.content) && m.content.some(has))
 }
 
+// The first message of a conversation, which a compaction or /clear replaces,
+// and '' where the conversation is not read back.
+async function head($: any, agentId?: string): Promise<string> {
+  const messages = await $.session.messages({ ...(agentId && { agentId }), as: 'api' }).catch(() => undefined)
+  return Array.isArray(messages) ? JSON.stringify(messages[0] ?? null) : ''
+}
+
 export const register: Register = on => {
   on('classic.SessionStart', async ($, e: any, next: any) => {
     await $.state.set(CLASSIC, true).catch(() => {})
@@ -53,11 +60,12 @@ export const register: Register = on => {
   // Under the guard a Workflow's agents start without the rule, and after an
   // automatic compaction in the middle of a turn the main loop goes without
   // the rules until the next prompt. They are added to the next tool result,
-  // and not again until the model reads them back: calls that run in parallel
-  // all start before any result is read back, and a Workflow agent's
-  // conversation is never read back.
+  // and not again until the model reads them back, or the conversation they
+  // were added to is compacted again: calls that run in parallel all start
+  // before any result is read back, and a Workflow agent's conversation is
+  // never read back.
   // ponytail: kept in memory, so after a hot reload a running Workflow agent gets the rule a second time.
-  const added = new Set<string>()
+  const added = new Map<string, string>()
   on('tool.call', async ($, e: any, next: any) => {
     const ran = await next(e)
     if (ran.deny !== undefined) return ran
@@ -67,8 +75,10 @@ export const register: Register = on => {
     if (!text) return ran
     const read = await isRead($, text, e.agentId)
     if (read) added.delete(key)
-    if (read || added.has(key) || (read === undefined && !e.agentId)) return ran
-    added.add(key)
+    if (read || (read === undefined && !e.agentId)) return ran
+    const at = await head($, e.agentId)
+    if (added.get(key) === at) return ran
+    added.set(key, at)
     return { ...ran, context: [...(ran.context ?? []), text] }
   })
 }

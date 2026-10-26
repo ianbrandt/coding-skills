@@ -297,6 +297,9 @@ test('under the guard, the rules are added to one tool result after a compaction
   expect(await call($)).toEqual([])
   w.read = ['another summary']
   expect(await call($)).toEqual([rules])
+  // A second compaction before the model read them back.
+  w.read = ['a third summary']
+  expect(await call($)).toEqual([rules])
 })
 
 test('where the classic events run, nothing is added to a tool result', async ($: any, on: any) => {

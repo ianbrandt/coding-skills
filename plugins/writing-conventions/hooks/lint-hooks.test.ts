@@ -244,6 +244,9 @@ test('under the guard, the rules are added to one tool result after a compaction
   expect(await bash($)).toEqual([])
   session.read = ['another summary']
   expect(await bash($)).toEqual(['<rules.md>'])
+  // A second compaction before the model read them back.
+  session.read = ['a third summary']
+  expect(await bash($)).toEqual(['<rules.md>'])
 })
 
 test('where the classic events run, nothing is added to a tool result', async ($: any, on: any) => {

@@ -481,6 +481,12 @@ async function isRead($: any, text: string): Promise<boolean | undefined> {
   return messages.some(m => m.role === 'user' && Array.isArray(m.content) && m.content.some(has))
 }
 
+// The first message of the conversation, which a compaction or /clear replaces.
+async function head($: any): Promise<string> {
+  const messages = await $.session.messages({ as: 'api' }).catch(() => undefined)
+  return Array.isArray(messages) ? JSON.stringify(messages[0] ?? null) : ''
+}
+
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     await $.tool.register({
@@ -585,10 +591,10 @@ export const register: Register = on => {
 
   // Under the guard, after an automatic compaction in the middle of a turn the
   // main loop goes without the rules until the next prompt. They are added to
-  // the next tool result, and not again until the model reads them back, since
-  // calls that run in parallel all start before any result is read back. A
-  // subagent never gets them.
-  const added = new Set<string>()
+  // the next tool result, and not again until the model reads them back or the
+  // conversation is compacted again, since calls that run in parallel all start
+  // before any result is read back. A subagent never gets them.
+  const added = new Map<string, string>()
   on('tool.call', async ($, e: any, next: any) => {
     const ran = await next(e)
     if (ran.deny !== undefined || e.agentId || (await isStarted($))) return ran
@@ -596,8 +602,10 @@ export const register: Register = on => {
     const read = rules ? await isRead($, rules) : undefined
     const id = await $.session.id().catch(() => '')
     if (read) added.delete(id)
-    if (read !== false || added.has(id)) return ran
-    added.add(id)
+    if (read !== false) return ran
+    const at = await head($)
+    if (added.get(id) === at) return ran
+    added.set(id, at)
     return { ...ran, context: [...(ran.context ?? []), rules] }
   })
 
