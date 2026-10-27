@@ -34,7 +34,7 @@ Everything below runs in the session through its Bash tool, with no step done by
 2. Replace the text under `Results from Windows` below with the whole content of that `.txt` file in
    a fenced block, verbatim. If the script fails to run, record the error output there instead.
 3. Commit `TODO.md` alone, with the message `Record the Windows fallback probe results`, and push
-   it to `main`.
+   it to `main`. Ian asked for this push when he set up the run, on 2026-10-27.
 
 ### Results from Windows
 
