@@ -416,16 +416,6 @@ async function notePath($: any, session: unknown): Promise<string> {
   return id && `${await tmp($)}/claude-reply-lint-${id}.txt`
 }
 
-// Set when a classic event reaches this plugin, and when classic.SessionStart
-// added the rules. Under managed settings `cc-plugin-sec-default` sends every
-// `classic.*` event past it, and the native events stand in where they can.
-// Kept in $.state, which outlives a hot reload. A plugin loaded mid-session
-// sees no classic.SessionStart, so the rules fallback waits on that one alone.
-const CLASSIC = { plugin: 'writing-conventions', key: 'classic' } as const
-const STARTED = { plugin: 'writing-conventions', key: 'started' } as const
-const isClassic = async ($: any) => (await $.state.get(CLASSIC).catch(() => ({}))).value === true
-const isStarted = async ($: any) => (await $.state.get(STARTED).catch(() => ({}))).value === true
-
 // Whether the model still reads this text: false after /clear, a compaction,
 // or a plugin update that changed it, and undefined where the conversation is
 // not read back, as a Workflow agent's is not on 2.1.310. Context added to a
@@ -477,11 +467,11 @@ async function turnNote($: any, session: unknown): Promise<string> {
 
 // The lint tool is answered here. A file written with Write or Edit is
 // checked after it is written, and any other command or MCP call before it
-// runs. Under the guard, the rules are added at the start of a subagent's task.
+// runs. The rules are added at the start of a subagent's task.
 async function call($: any, e: any, next: any): Promise<any> {
   // A draft may come inside its fence, and lint() drops every closed fence.
   if (e.tool === TOOL) return { result: lint(drafts(String((e as any).text ?? ''), { unwrap: true })).replace(/\n+$/, '') || 'clean' }
-  if (e.tool === 'Agent' && !(await isClassic($))) {
+  if (e.tool === 'Agent') {
     const rules = (await isChecked($).catch(() => false)) ? await $.fs.read(`${$.plugin.root}/hooks/rules.md`).catch(() => '') : ''
     return next(rules ? { ...e, prompt: `${rules}\n\n${(e as any).prompt}` } as any : e)
   }
@@ -516,8 +506,8 @@ async function call($: any, e: any, next: any): Promise<any> {
     : ran
 }
 
-// Under the guard a Workflow's agents start without the rules, and after an
-// automatic compaction in the middle of a turn the main loop goes without them
+// A Workflow's agents start without the rules, and after an automatic
+// compaction in the middle of a turn the main loop goes without them
 // until the next prompt. They are added to the next tool result, and not again
 // until the model reads them back, or the conversation they were added to is
 // compacted again: calls that run in parallel all start before any result is
@@ -527,7 +517,7 @@ const added = new Map<string, string>()
 async function restore($: any, e: any, ran: any): Promise<any> {
   if (ran.deny !== undefined) return ran
   const key = e.agentId ?? (await $.session.id().catch(() => ''))
-  const wanted = e.agentId ? !(await isClassic($)) && (await isChecked($).catch(() => false)) : !(await isStarted($))
+  const wanted = e.agentId ? await isChecked($).catch(() => false) : true
   const rules = wanted ? await $.fs.read(`${$.plugin.root}/hooks/rules.md`).catch(() => '') : ''
   if (!rules) return ran
   const read = await isRead($, rules, e.agentId)
@@ -557,8 +547,7 @@ export const register: Register = on => {
   // fence, so the fence lines of a draft block come off first and its text stays
   // in place: a draft is prose, and this is the one check left on it when the
   // review model cannot run. Then the gate reads the drafts, and a finding is
-  // submitted as a fix-up prompt. This runs under the guard too, which sends
-  // classic.Stop past user plugins. An interrupted turn and a subagent's turn
+  // submitted as a fix-up prompt. An interrupted turn and a subagent's turn
   // are not checked. The note is written before next(), where another plugin
   // may submit a prompt that reads it.
   on('turn.complete', async ($, e, next) => {
@@ -575,27 +564,8 @@ export const register: Register = on => {
     return next(e)
   })
 
-  // A session starts with the rules, on any version the module runs on.
-  on('classic.SessionStart', async ($, e: any, next: any) => {
-    await $.state.set(CLASSIC, true).catch(() => {})
-    await $.state.set(STARTED, true).catch(() => {})
-    const ran = await next(e)
-    const rules = await $.fs.read(`${$.plugin.root}/hooks/rules.md`).catch(() => '')
-    return rules ? { ...ran, additionalContext: [...(ran.additionalContext ?? []), rules] } : ran
-  })
-
-  // A subagent starts with the rules the session started with.
-  on('classic.SubagentStart', async ($, e: any, next: any) => {
-    await $.state.set(CLASSIC, true).catch(() => {})
-    const ran = await next(e)
-    if (!(await isChecked($).catch(() => false))) return ran
-    const rules = await $.fs.read(`${$.plugin.root}/hooks/rules.md`).catch(() => '')
-    return rules ? { ...ran, additionalContext: [...(ran.additionalContext ?? []), rules] } : ran
-  })
-
-  // The note and the reminder go with every prompt. On 2.1.310 this event and
-  // classic.UserPromptSubmit fired for the same prompts, whatever their origin.
-  // Under the guard, the rules come first once the model no longer reads them.
+  // The note and the reminder go with every prompt, and the rules come first
+  // on the first prompt and once the model no longer reads them.
   // A fix-up gets no note or reminder: the note's instruction is to leave the
   // reply alone, and the fix-up reply's own note replaces it.
   on('prompt.submit', async ($, e: any, next: any) => {
@@ -603,7 +573,7 @@ export const register: Register = on => {
     // Another plugin's follow-up, such as session-skills' request for the next
     // step, does not start the count over.
     if (e.origin?.kind !== 'plugin') fixups.delete(await $.session.id().catch(() => ''))
-    const rules = (await isStarted($)) ? '' : await $.fs.read(`${$.plugin.root}/hooks/rules.md`).catch(() => '')
+    const rules = await $.fs.read(`${$.plugin.root}/hooks/rules.md`).catch(() => '')
     const added = rules && !(await isRead($, rules)) ? [rules] : []
     if (!isFixup && (await isChecked($).catch(() => false))) added.push(await turnNote($, await $.session.id().catch(() => '')))
     return next(added.length > 0 ? { ...e, context: [...(e.context ?? []), ...added] } : e)

@@ -8,9 +8,12 @@ correction became a rule.
 
 ## What loads every session
 
-The hooks module adds [`hooks/rules.md`](hooks/rules.md) to every session at its start, including
-after `/clear`, compaction, and a fork, and to every subagent as it starts, since a subagent's
-report is what a later summary is built from. The reasoning behind each rule, and its edge cases,
+The hooks module adds [`hooks/rules.md`](hooks/rules.md) to the first prompt of every session, and
+again to a prompt or a tool result once the model no longer reads it: after `/clear`, a compaction,
+or a plugin update that changed the text. It adds them to the start of every Agent subagent's task,
+and to a Workflow agent's first tool result, since a subagent's report is what a later summary is
+built from. Every hook is on a native event: under managed settings, `cc-plugin-sec-default` sends
+each `classic.*` event past user plugins and prints a notice that the hook was skipped. The reasoning behind each rule, and its edge cases,
 are in [`STYLE-GUIDE.md`](STYLE-GUIDE.md), which nothing loads. A draft for publication goes in
 a fence tagged `draft` under the last rule in `rules.md`, and the draft check below looks for that
 tag.
@@ -90,10 +93,8 @@ because `hooks.json` may list only one module.
 Everything runs in the plugin's hooks module, [`hooks/register.ts`](hooks/register.ts), so a
 Windows session runs the same code as any other and no shell is involved.
 
-Hooks modules are on by default from CLI 2.1.286 (listed as Mods in the Claude Code changelog from
-2.1.287). On an older CLI with `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1` set, only the session-start
-rules load, and the user is told once in a toast that the rest is off. Without that variable nothing
-loads and there is no toast. `claude --debug` logs a module that did not load.
+The oldest version supported is 2.1.308. Below 2.1.286 the gate and the reply lint are off, and the
+user is told once in a toast. `claude --debug` logs a module that did not load.
 
 ## The gate at publication
 
@@ -360,8 +361,7 @@ stands. A prompt that no plugin submitted starts the count over, so session-skil
 next step does not. No lint note is added to a fix-up prompt, because the note's instruction is to
 leave the reply alone. The note on the fix-up reply replaces it. The note is saved before the event
 is passed on to other plugins, so a follow-up prompt from one of them opens with it.
-The check runs under managed settings too, where `cc-plugin-sec-default` sends `classic.Stop` past
-user plugins. Set `WRITING_CONVENTIONS_STOP_READER=0` to turn this check off.
+Set `WRITING_CONVENTIONS_STOP_READER=0` to turn this check off.
 
 Tagging keeps this check cheap, since an untagged draft has no reliable form: without the rule,
 drafts came back in plain fences, blockquotes, and between `---` rules, and a plain fence of 8 words

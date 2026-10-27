@@ -524,19 +524,6 @@ test('the off switch for the draft check makes no call', async ($: any, on: any)
   expect(off.sent).toEqual([])
 })
 
-// Under managed settings cc-plugin-sec-default sends every classic.* event past
-// user plugins, as this copy of its rule does.
-const guard = { name: 'guard', tier: 'prepend' as const, register(on: any) {
-  on('classic.*', (_$: any, e: any, next: any) => next.to(e, 'append'))
-} }
-
-test('under the guard, a draft that breaks a rule gets a fix-up', { plugins: [guard] }, async ($: any, on: any) => {
-  const seen = world(on, { verdict: FINDING })
-  await end($, DRAFT)
-  expect(seen.sent).toHaveLength(1)
-  expect(seen.sent[0]).toContain('emit the corrected draft')
-})
-
 // The file is checked from the Write or Edit result: a hook beneath may have
 // rewritten the arguments.
 test('the file is reviewed as the tool wrote it', async ($: any, on: any) => {

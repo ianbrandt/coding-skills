@@ -35,8 +35,6 @@ function world(on: any, base = '2.1.289', env: Record<string, string> = {}) {
   on('fs.write', (_$: any, e: any) => { files[posix(e.path)] = e.text; return { value: undefined } })
   on('ui.toast', () => ({ value: undefined }))
   on('turn.complete', (_$: any, e: any) => ({ text: e.answer }))
-  on('classic.SubagentStart', () => ({}))
-  on('classic.SessionStart', () => ({}))
   return files
 }
 
@@ -44,8 +42,7 @@ const stop = ($: any, answer: string, id = 's1', more: any = {}) => {
   session.id = id
   return $.turn.complete({ answer, reason: 'answer', isAborted: false, durationMs: 1, turnId: 't1', ...more })
 }
-// What is added to a prompt, past the rules, which a session that started
-// under the classic events already has.
+// What is added to a prompt, past the rules.
 const prompt = async ($: any, id = 's1') => {
   session.id = id
   return ((await $.prompt.submit({ text: 'next' })).context ?? []).filter((c: string) => c !== '<rules.md>')
@@ -98,14 +95,9 @@ test('the re-read request is added for a prose or source file just written, in a
   expect(await wrote('Read', '/p/a.md')).toEqual([])
 })
 
-test('a session starts with the rules, on an older CLI too', async ($: any, on: any) => {
+test('the rules are added to the first prompt, on an older CLI too', async ($: any, on: any) => {
   world(on, '2.1.200')
-  expect((await $.classic.SessionStart({ source: 'fork' })).additionalContext).toEqual(['<rules.md>'])
-})
-
-test('a subagent starts with the rules', async ($: any, on: any) => {
-  world(on)
-  expect((await $.classic.SubagentStart({ agent_id: 'a1', agent_type: 'Explore' })).additionalContext).toEqual(['<rules.md>'])
+  expect((await $.prompt.submit({ text: 'hi' })).context).toEqual(['<rules.md>'])
 })
 
 test('the lint tool returns the flagged lines, or clean', async ($: any, on: any) => {
@@ -137,14 +129,8 @@ test('on an older CLI no note, reminder, or subagent rules are recorded or added
   await stop($, 'The build is load-bearing.')
   expect(Object.keys(files)).toEqual([])
   expect(await prompt($)).toEqual([])
-  expect((await $.classic.SubagentStart({ agent_id: 'a1', agent_type: 'Explore' })).additionalContext).toBeUndefined()
 })
 
-// Under managed settings cc-plugin-sec-default sends every classic.* event past
-// user plugins, as this copy of its rule does. The native events stand in.
-const guard = { name: 'guard', tier: 'prepend' as const, register(on: any) {
-  on('classic.*', (_$: any, e: any, next: any) => next.to(e, 'append'))
-} }
 // `task` is the last subagent task, and `deny` refuses the next tool call.
 function native(on: any) {
   const w = { task: '', deny: false }
@@ -161,20 +147,9 @@ function native(on: any) {
 }
 const submit = async ($: any) => (await $.prompt.submit({ text: 'next' })).context ?? []
 
-test('where the classic events run, the rules are not added to a prompt or an Agent task, and a Write is checked', async ($: any, on: any) => {
-  world(on)
-  const w = native(on)
-  await $.classic.SessionStart({ source: 'startup' })
-  expect(await submit($)).toEqual([expect.stringMatching(/^Style, for this reply/)])
-  await $.tool.call({ tool: 'Agent', prompt: 'look', description: 'd' })
-  expect(w.task).toBe('look')
-  expect((await $.tool.call({ tool: 'Write', file_path: '/p/a.md', content: '', tool_use_id: 't' })).context.join()).toContain('You just wrote prose')
-})
-
-test('under the guard, the rules are added to a prompt while the model does not read them, then the note and the reminder', { plugins: [guard] }, async ($: any, on: any) => {
+test('the rules are added to a prompt while the model does not read them, then the note and the reminder', async ($: any, on: any) => {
   world(on)
   native(on)
-  expect((await $.classic.SessionStart({ source: 'startup' })).additionalContext).toBeUndefined()
   const [rules, reminder] = await submit($)
   expect(rules).toBe('<rules.md>')
   expect(reminder).toMatch(/^Style, for this reply/)
@@ -182,7 +157,7 @@ test('under the guard, the rules are added to a prompt while the model does not 
   expect((await submit($))[0]).toMatch(/^Style/)
 })
 
-test('under the guard, the rules are added at the start of an Agent task, and the re-read request to a Write result', { plugins: [guard] }, async ($: any, on: any) => {
+test('the rules are added at the start of an Agent task, and the re-read request to a Write result', async ($: any, on: any) => {
   world(on)
   const w = native(on)
   await $.tool.call({ tool: 'Agent', prompt: 'look', description: 'd' })
@@ -190,22 +165,7 @@ test('under the guard, the rules are added at the start of an Agent task, and th
   expect((await $.tool.call({ tool: 'Write', file_path: '/p/a.md', content: '', tool_use_id: 't' })).context.join()).toContain('You just wrote prose')
 })
 
-test('a classic event after a late load ends the fallback', async ($: any, on: any) => {
-  world(on)
-  const w = native(on)
-  await $.classic.SubagentStart({ agent_id: 'a1', agent_type: 'Explore' })
-  await $.tool.call({ tool: 'Agent', prompt: 'look', description: 'd' })
-  expect(w.task).toBe('look')
-})
-
-test('after a mid-session load, a classic event before the first prompt still leaves the rules to the fallback', async ($: any, on: any) => {
-  world(on)
-  native(on)
-  await $.classic.SubagentStart({ agent_id: 'a1', agent_type: 'Explore' })
-  expect((await submit($))[0]).toBe('<rules.md>')
-})
-
-test('under the guard, the note on a reply opens the next turn', { plugins: [guard] }, async ($: any, on: any) => {
+test('the note on a reply opens the next turn', async ($: any, on: any) => {
   world(on)
   native(on)
   session.read = ['<rules.md>']
@@ -216,7 +176,7 @@ test('under the guard, the note on a reply opens the next turn', { plugins: [gua
 const bash = async ($: any, agentId?: string) => (await $.tool.call({ tool: 'Bash', command: 'ls', ...(agentId && { agentId }) })).context ?? []
 const restored = { result: 'ok\n\n<system-reminder>\ntool.call hook additional context: <rules.md>\n</system-reminder>' }
 
-test('under the guard, a Workflow agent gets the rules with its first tool result only, and an Agent subagent once its task is compacted away', { plugins: [guard] }, async ($: any, on: any) => {
+test('a Workflow agent gets the rules with its first tool result only, and an Agent subagent once its task is compacted away', async ($: any, on: any) => {
   world(on)
   native(on)
   session.read = ['<rules.md>']
@@ -230,7 +190,7 @@ test('under the guard, a Workflow agent gets the rules with its first tool resul
   expect(await bash($, 'a1')).toEqual([])
 })
 
-test('under the guard, the rules are added to one tool result after a compaction, until the model reads them there', { plugins: [guard] }, async ($: any, on: any) => {
+test('the rules are added to one tool result after a compaction, until the model reads them there', async ($: any, on: any) => {
   world(on)
   const w = native(on)
   session.read = ['<rules.md>']
@@ -249,16 +209,7 @@ test('under the guard, the rules are added to one tool result after a compaction
   expect(await bash($)).toEqual(['<rules.md>'])
 })
 
-test('where the classic events run, nothing is added to a tool result', async ($: any, on: any) => {
-  world(on)
-  native(on)
-  await $.classic.SessionStart({ source: 'startup' })
-  session.read = ['a summary']
-  expect(await bash($)).toEqual([])
-  expect(await bash($, 'w1')).toEqual([])
-})
-
-test('on an older CLI a Workflow agent gets no rules', { plugins: [guard] }, async ($: any, on: any) => {
+test('on an older CLI a Workflow agent gets no rules', async ($: any, on: any) => {
   world(on, '2.1.200')
   native(on)
   session.read = ['<rules.md>']

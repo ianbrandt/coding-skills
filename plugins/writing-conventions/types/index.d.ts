@@ -1,7 +1,0 @@
-// The values this plugin keeps in $.state: whether a classic event reached it
-// in this session, and whether classic.SessionStart did.
-declare module 'claude-code' {
-  interface PluginState {
-    'writing-conventions': { classic: boolean; started: boolean }
-  }
-}

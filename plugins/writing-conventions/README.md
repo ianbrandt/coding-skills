@@ -9,13 +9,12 @@ it.
 /plugin install writing-conventions@ianbrandt
 ```
 
-Claude Code 2.1.286 or later is required. On an older CLI only the session-start rules load, and
-only with `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1` set.
+Claude Code 2.1.308 or later is required.
 
 ## What you will see
 
-- The rules in [`hooks/rules.md`](hooks/rules.md) are loaded at the start of every session, after
-  `/clear` and compaction, and in every subagent. They cost about 1,800 tokens each time.
+- The rules in [`hooks/rules.md`](hooks/rules.md) are added to the first prompt of every session,
+  again after `/clear` and compaction, and to every subagent's task. They cost about 1,800 tokens each time.
 - A reply is linted when the turn ends. Hits such as a banned word are passed to the session with
   your next message to be fixed in the next reply, and the flagged reply stands as sent.
 - A spaced em dash is closed up as the reply streams.
