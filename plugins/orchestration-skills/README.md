@@ -48,10 +48,10 @@ settling it silently, which is why this skill is in the same plugin as the deleg
 
 ## How it is wired
 
-One hooks module, `hooks/register.ts`, which is a Claude Code mod and needs Claude Code 2.1.286 or
-later, the oldest version supported. No shell is involved. At session start `hooks/rules.md` is
-added to every session, including after `/clear`, compaction, and a fork. That file is the short
-form that is always loaded, and the full protocols are in the four skills. A subagent starts with
+One hooks module, `hooks/register.ts`, which is a Claude Code mod and needs Claude Code 2.1.308 or
+later, the oldest version supported. No shell is involved. `hooks/rules.md` is added to the first
+prompt of every session, and again after `/clear` and compaction. That file is the short
+form that is always loaded, and the full protocols are in the four skills. A subagent's task starts with
 one rule only, the escalation paragraph addressed to a subagent: a hard-to-reverse decision is reported in its result with the options
 instead of being settled silently. The rest of the file applies to the agent doing the delegating,
 so it is not injected into subagents.
