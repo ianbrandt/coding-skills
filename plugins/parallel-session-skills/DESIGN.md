@@ -8,7 +8,7 @@ Nothing is added to a session's context at its start: nothing here applies to a 
 opens a lane, and the skill descriptions are enough to trigger both skills. The always-on cost is the
 three tool definitions below.
 
-One hooks module, `hooks/register.ts`, which is a Claude Code mod and needs Claude Code 2.1.286 or
+One hooks module, `hooks/register.ts`, which is a Claude Code mod and needs Claude Code 2.1.308 or
 later, the oldest version supported. No shell or interpreter is involved, and git is run directly.
 All three tools need git 2.36 or later, since the worktree list is read with `-z`.
 
