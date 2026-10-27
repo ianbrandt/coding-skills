@@ -372,3 +372,22 @@ test('where the classic events run, a push is recorded from classic.PostToolUse 
   await end($, 'Done.')
   expect(w.sent).toEqual([])
 })
+
+test('a push mentioned only inside a quoted argument is not recorded', async ($: any, on: any) => {
+  const w = turnEnd(on)
+  // Each quoted string is a false positive: a nested claude -p invocation, a
+  // commit message, and an echoed note.
+  await $.classic.PostToolUse(ran('claude -p "wait for git push --dry-run origin main"'))
+  await $.classic.PostToolUse(ran(`git commit -m 'I will git push later'`))
+  await $.classic.PostToolUse(ran('echo "git push" > note.txt'))
+  await end($, 'Done.')
+  expect(w.sent).toEqual([])
+})
+
+test('under the guard, a push mentioned only inside a quoted argument is not recorded', { plugins: [guard] }, async ($: any, on: any) => {
+  const w = turnEnd(on)
+  await $.tool.call({ tool: 'Bash', command: `claude -p 'wait for git push --dry-run origin main'` })
+  await $.tool.call({ tool: 'Bash', command: 'echo "git push" > note.txt' })
+  await end($, 'Done.')
+  expect(w.sent).toEqual([])
+})

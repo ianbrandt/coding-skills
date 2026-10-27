@@ -560,15 +560,21 @@ export const register: Register = on => {
   // event arrives.
   const pushed = new Set<string>()
   const PUSH = /\bgit(\s+-C\s+\S+)?\s+push\b/
+  // Each quoted argument is replaced with X so the regex matches only text the
+  // shell executes: a mention of git push inside a quoted argument, such as
+  // `claude -p "...git push..."`, no longer counts.
+  // shortcut: a push run as `bash -c 'git push'` is no longer detected, and a here-document is not parsed.
+  const unquoted = (cmd: string) =>
+    cmd.replace(/"(?:[^"\\]|\\.)*"?/g, 'X').replace(/'[^']*'?/g, 'X')
   on('classic.PostToolUse', async ($, e: any, next: any) => {
     await $.state.set(CLASSIC, true).catch(() => {})
-    if (e.tool_name === 'Bash' && PUSH.test(String(e.tool_input?.command ?? ''))) pushed.add(e.session_id)
+    if (e.tool_name === 'Bash' && PUSH.test(unquoted(String(e.tool_input?.command ?? '')))) pushed.add(e.session_id)
     return next(e)
   })
   on('tool.call', { tool: 'Bash' }, async ($, e: any, next: any) => {
     const ran = await next(e)
     // classic.PostToolUse does not fire for a denied or failed call.
-    if (ran.deny === undefined && !(ran as any).isError && PUSH.test(String(e.command ?? '')) && !(await isClassic($))) pushed.add(await $.session.id())
+    if (ran.deny === undefined && !(ran as any).isError && PUSH.test(unquoted(String(e.command ?? ''))) && !(await isClassic($))) pushed.add(await $.session.id())
     return ran
   })
   on('turn.complete', async ($, e, next) => {
