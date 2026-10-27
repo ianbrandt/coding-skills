@@ -32,11 +32,11 @@ A test passes when:
 Run each kind several times before trusting a pass, one at a time, since a session given the same
 prompt does not always make the same calls.
 
-## The `tool.call` probe
+## The guard probes
 
-This check is for the `cc-plugin-sec-default` guard, which is seated only under managed settings.
-It runs one headless session and looks its markers up in the session transcript on disk, so a
-result does not depend on the model quoting a marker back.
+Two separate checks are for the `cc-plugin-sec-default` guard, which is seated only under managed
+settings. Each runs one headless session and looks its markers up in the session transcripts on
+disk, so a result does not depend on the model quoting a marker back.
 
 [`tool-call-probe.sh`](tool-call-probe.sh) loads a scratch plugin that changes an Agent prompt and
 a Bash command, denies a Grep call, and adds context to a Read result and a Write result. For each
@@ -44,6 +44,12 @@ case it prints whether the hook ran and whether the change was recorded and sent
 log lines about the guard. [`tool-call-rounds.sh`](tool-call-rounds.sh) runs it until three runs of
 each setup are complete: project settings, user settings too, and 2.1.310 from npm.
 
+[`fallback-probe.sh`](fallback-probe.sh) loads every plugin in this checkout and checks the four
+fallbacks that add text through `tool.call`: the rules in an Agent subagent's task and in a
+Workflow agent's, the re-read request after a Markdown Write, and the voice data beside the
+ghostwrite Skill's result.
+
 ```bash
 e2e/tool-call-rounds.sh /tmp/rounds-1
+e2e/fallback-probe.sh /tmp/fallback-1
 ```
