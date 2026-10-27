@@ -29,8 +29,10 @@ Claude Code 2.1.308 or later is required.
   reviewed when the turn ends, and after a finding a follow-up prompt asks the session to correct
   it, in a turn of its own. After two corrections in a row with a finding in each, you are told and
   the draft stands until your next message.
-- The headings of a repo's issue template are allowed in an issue to that repo, and the template is
-  read with `gh`. Any other heading in an issue is still flagged.
+- A heading in a short commit message, issue, PR, or comment is flagged, and so is a bulleted list
+  of the changes in the diff. Headings are allowed in a long body and where they follow the
+  target's issue or PR template. A GitHub repo's issue template is read with `gh`, and its headings
+  are removed before the review.
 
 Each review is one model call, Sonnet by default, and usually takes a few seconds. When no model can
 be called, the command goes through and you are told once per session, in a toast, that review is

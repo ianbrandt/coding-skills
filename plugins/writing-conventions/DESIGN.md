@@ -107,12 +107,23 @@ commit ungated on a Windows session where the PowerShell tool is the shell.
 [`hooks/gate.ts`](hooks/gate.ts) sends the command to a model, which pulls out the commit message or
 the title and body and checks that text against the four prohibitions: inanimate agency, mechanics
 (spaced em dashes and the Oxford comma), the banned words, and rule 4's epigrams, paired contrasts,
-and matched clauses. A fifth check is a string match rather than a judgment: a Markdown heading or a
-bullet changelog in a commit message, an issue, a pull request, or a comment. Draft release notes
+and matched clauses. The model also judges structure in a commit message, an issue, a pull request,
+or a comment: a Markdown heading in a body of about ten sentences or fewer, and a bullet changelog
+at any length. Headings and lists in a longer body are allowed. So are parallel bullets of evidence
+or findings, and the headings and checkboxes of the target's issue or PR template, including a
+template the gate cannot read, such as a YouTrack one. On Sonnet 5.5, when this check was a string
+match, three bodies were refused 3 times out of 3: a PR body of 9 paragraphs under five headings, a
+short PR body filled in on a GitHub PR template, and a YouTrack issue on its template. With the
+judgment, both templates passed 5 times out of 5, and no heading in the long body was flagged on 5
+checks. A one-sentence PR body under two headings with a bullet changelog, and a two-sentence issue
+under two headings, were still refused 5 times out of 5. With "headings over sections of a sentence
+or two" as the example, the long body was refused 2 times out of 3, so the model is told to judge
+the length of the whole body. Draft release notes
 in a pull request body are allowed when they are introduced as release notes, as they are in a
 release bump PR. On Sonnet 5.5 one such body was refused 3 times out of 3 before that case was
 added and passed 3 times out of 3 after, and its bullets with no introduction, or under "Changes:",
-were still refused 3 times out of 3. Length is never judged, and no other form is. Tense and mood
+were still refused 3 times out of 3. Length is judged only in this check, and no other form is
+judged. Tense and mood
 are not judged either, since the tense of a commit subject is chosen per project, and the rewrite in
 a finding is in the tense of the quoted words. On Sonnet 5.5 the past-tense subjects "Removed R484
 from the roadmap" and "Removed R486 from the roadmap" were blocked with an imperative rewrite on 6

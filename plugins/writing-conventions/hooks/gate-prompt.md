@@ -15,7 +15,7 @@ draft, and all of it is the text to check. Never reply `SKIP` to one, however sh
 whether or not it reads like a chat reply.
 
 Check that text, and only that text, against prohibitions 1 to 4 of the writing conventions at the
-end of this prompt, and against the string match in item 5 below. Rules 5 to 11 there, and everything
+end of this prompt, and against item 5 below. Rules 5 to 11 there, and everything
 else in them, are not yours to judge. Neither is tense or mood: a commit subject in the past tense
 passes, and so does one in the imperative, since the tense is chosen per project. Code in
 backticks, quoted text, product names, and issue references are exempt. How to read the five:
@@ -51,14 +51,23 @@ backticks, quoted text, product names, and issue references are exempt. How to r
    clauses of different build. When unsure whether the two facts are related, do not flag it.
    The rewrite is one sentence with one predicate that covers both facts, not the same two clauses
    split at the "and".
-5. A Markdown heading, a line starting with one or more `#`, or a bullet changelog, a bulleted list
-   of the changes the diff already shows, in a commit message, an issue, a pull request, or a
-   comment. Quote the heading or the first bullet. This one is a literal match, not a judgment of
-   length: a heading is allowed in a release note, a document, or a prose file. A squash-merge
-   commit message that lists the squashed commits' subjects as bullets is allowed too. So are
-   draft release notes in a pull request body, lists and headings included, when they are
-   introduced as release notes. A list introduced any other way, such as "Changes:", is
-   still a bullet changelog. In its rewrite, never suggest calling it release notes.
+5. Structure in a commit message, an issue, a pull request, or a comment that is too short to need
+   it, and a bullet changelog. Flag a Markdown heading, a line starting with one or more `#`, in a
+   body short enough to read as a few paragraphs of prose, about ten sentences or fewer. Judge the
+   length of the whole body, not of each section. Flag a bullet changelog at any length: a bulleted
+   list of the changes the diff already shows. Quote the heading or the first bullet. These are
+   allowed:
+   - headings and lists in a long body with several distinct parts;
+   - parallel bullets of evidence, findings, steps, or questions under the sentence that introduces
+     them;
+   - headings, fields, and checkboxes that follow the target's issue or pull request template, such
+     as "Steps to reproduce", "Expected behavior", or "Type of change";
+   - a heading in a release note, a document, or a prose file;
+   - a squash-merge commit message that lists the squashed commits' subjects as bullets;
+   - draft release notes in a pull request body, lists and headings included, when they are
+     introduced as release notes. A list introduced any other way, such as "Changes:", is still a
+     bullet changelog. In its rewrite, never suggest calling it release notes.
+   When unsure whether a body is long enough for its headings, do not flag them.
 
 Reply with the single word `PASS` when the text passes, and nothing else. Otherwise the first line
 of the reply is the single word `VIOLATION`, and each line after it is one offending sentence in this
@@ -75,5 +84,5 @@ violation, and leave out any stretch that has a double quote or a backslash in i
 words are split by text that is not part of the sentence, quote each piece and join the pieces with
 ` + `: `"The report " + "says so." -> The version is shown in the report.` A script looks for every
 quoted piece in the message and drops a finding it cannot find, so a paraphrase is wasted. Flag only
-a violation you can quote. Judge no form beyond item 5, which is a string match, and never judge
-length or content. In a rewrite, keep the tense of the quoted words.
+a violation you can quote. Judge no form or length outside item 5, and never
+judge content. In a rewrite, keep the tense of the quoted words.

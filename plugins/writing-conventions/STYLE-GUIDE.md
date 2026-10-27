@@ -120,12 +120,15 @@ Write the amount of detail that lets the reader do the next thing, and no more.
   as surely as a twenty-sentence body on a small one. The test is whether a reviewer could act on
   it without asking, not a sentence count, and a genre's usual size is where most pieces land
   rather than a limit any piece has to hit.
-- A heading in a short genre usually means the text is too long. A Markdown heading or a bullet
-  changelog in a commit message, an issue, or a PR body usually means the text is too long for its
-  genre, not that it needed organizing. Cut it to the genre's usual size, and structure only what is
-  left: twenty paragraphs do read better under headings, and more than a few parallel items do read
-  better as bullets. The gate checks this one as a string match, and allows a heading in a release
-  note and the list of squashed commits in a squash-merge message.
+- A heading in a short genre usually means the text is too long. A Markdown heading or a bulleted
+  list in a short commit message, issue, or PR body usually means the text is too long for its
+  genre. Cut it to the genre's usual size, and structure only what is left: a complex change may
+  use headings and lists, since twenty paragraphs do read better under headings and more than a few
+  parallel items do read better as bullets. A bullet changelog that repeats the diff is cut at any
+  length. A target's issue or PR template is followed, headings included, even on a tracker the
+  gate cannot read, such as YouTrack. The gate judges whether a body is long enough for its
+  headings, and allows a heading in a release note and the list of squashed commits in a
+  squash-merge message.
 
 ## 5. Close a turn with a status sign-off, not a report
 
