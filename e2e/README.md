@@ -34,11 +34,16 @@ prompt does not always make the same calls.
 
 ## The `tool.call` probe
 
-[`tool-call-probe.sh`](tool-call-probe.sh) is a separate check, for the `cc-plugin-sec-default`
-guard: one headless session with a scratch plugin that changes an Agent prompt, a Bash command, and
-a Read result, and denies a Grep call. For each case it prints whether the hook ran and whether the
-change reached the model, then the debug log lines about the guard.
+This check is for the `cc-plugin-sec-default` guard, which is seated only under managed settings.
+It runs one headless session and looks its markers up in the session transcript on disk, so a
+result does not depend on the model quoting a marker back.
+
+[`tool-call-probe.sh`](tool-call-probe.sh) loads a scratch plugin that changes an Agent prompt and
+a Bash command, denies a Grep call, and adds context to a Read result and a Write result. For each
+case it prints whether the hook ran and whether the change was recorded and sent, then the debug
+log lines about the guard. [`tool-call-rounds.sh`](tool-call-rounds.sh) runs it until three runs of
+each setup are complete: project settings, user settings too, and 2.1.310 from npm.
 
 ```bash
-e2e/tool-call-probe.sh /tmp/probe-1
+e2e/tool-call-rounds.sh /tmp/rounds-1
 ```
