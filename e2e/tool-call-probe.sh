@@ -42,13 +42,15 @@ prompt="Make exactly these four tool calls, one at a time, then reply with the w
 2. Bash, command: echo original
 3. Grep, pattern: zzz, path: $here
 4. Read, file_path: $here/a.txt"
-# --setting-sources project leaves out the installed plugins and user hooks; managed settings still apply.
-claude -p "$prompt" --model haiku --plugin-dir "$here/plug" --setting-sources project \
+# project leaves out the installed plugins and user hooks; managed settings still apply. Set
+# PROBE_SETTING_SOURCES=user,project where the API key or apiKeyHelper is in user settings.
+claude -p "$prompt" --model haiku --plugin-dir "$here/plug" --setting-sources "${PROBE_SETTING_SOURCES:-project}" \
   --allowedTools=Agent,Bash,Grep,Read --output-format stream-json --verbose \
   --debug-file "$here/debug.log" < /dev/null > stream.jsonl 2> stderr.txt
 echo "exit $?"
 
 echo "claude $(claude --version)"
+grep -o '"apiKeySource":"[^"]*"' stream.jsonl | head -1
 printf 'classic.PreToolUse reached the plugin: %s\n' "$([ -e fired/classic ] && echo yes || echo no)"
 for c in agent bash grep read; do
   mark="PROBE-$(echo "$c" | tr a-z A-Z)-MARK"
