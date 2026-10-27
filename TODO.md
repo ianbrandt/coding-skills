@@ -1,37 +1,78 @@
 # To do
 
-## Needs a Windows machine
+## Four native fallbacks don't fire under the guard on Windows
 
-On a machine with managed settings, the built-in `cc-plugin-sec-default` plugin sends every
-`classic.*` event and `skill.prompt` past user plugins. The guard code is the same in 2.1.308,
-2.1.309, and 2.1.310. The classic hooks are still the main path, and the native fallbacks run only
-where the classic events do not reach a plugin: the rules as `prompt.submit` context where
-`classic.SessionStart` did not run, re-added once the model no longer reads them, and the subagent
-rules prepended to an Agent `tool.call` where no classic event has arrived yet. The rules of
-writing-conventions, session-skills, orchestration-skills, and roadmap-skills are also added to the
-next tool result after a compaction in the middle of a turn, and the subagent rules to a Workflow
-agent's first tool result. The per-turn style reminder, the reply lint, the Write/Edit check, the
-draft check, and the next-step check after a push run on native events only. The ghostwriting voice
-text comes back beside the Skill tool's result when `skill.prompt` does not run. The fallbacks were
-checked on macOS with a copy of the guard in the plugin test kit, not under the real guard.
+Checked on a managed-settings Windows 11 machine, Claude Code 2.1.310, right after a
+`/plugin` update. `cc-plugin-sec-default` forwards past every `classic.*` event as
+expected, and the native fallbacks on `prompt.submit` and `turn.complete` work: the
+rules land on the first prompt and again after `/compact`, the per-turn style reminder
+and the lint note arrive on their prompts, the title tool refuses in the terminal and
+the `/rename` block is printed, the push follow-up fires after a `git push` turn with
+no fenced block, and the draft-lint follow-up fires on a reply with
+`The report says so.` in a `draft` block.
 
-On the work machine, after updating the plugins, start a session and check nine things:
+The fallbacks that modify a `tool.call` request or result don't land. Four checks
+fail with the same pattern:
 
-1. The first reply follows the session rules, and `/compact` followed by a prompt brings them back.
-2. A subagent started with the Agent tool can quote `WRITING CONVENTIONS ACTIVE` and the line
-   `You are a subagent with no user to ask` from its task.
-3. Writing a Markdown file with Write prints the re-read request in the tool result.
-4. The voice spec is added once when `ghostwrite` runs through the Skill tool.
-5. A second prompt opens with the `Style, for this reply` reminder, and after a reply with
-   `load-bearing` in it, with the note `A house-style lint flagged the previous reply`.
-6. In the terminal, a request for a session title gets an error from `set_session_title` and a
-   printed `/rename` block.
-7. A turn that runs `git push` and ends with no fenced block is followed by one prompt from
-   `session-skills` asking for the next step.
-8. A reply with `The report says so.` in a `draft` block is followed by one prompt from
-   `writing-conventions` that quotes it and asks for the corrected draft.
-9. A Workflow agent that runs one command can then quote `WRITING CONVENTIONS ACTIVE` and the line
-   `You are a subagent with no user to ask`.
+- A subagent started with the Agent tool is given neither `WRITING CONVENTIONS ACTIVE`
+  nor `You are a subagent with no user to ask` in its task.
+- A Workflow agent is given neither rule, same root cause.
+- A Write to a Markdown file returns the standard tool result with no re-read request
+  appended by session-skills.
+- The ghostwrite Skill returns the skill text with no `## Voice data, loaded by the
+  plugin` section appended.
 
-One thing stays off under the guard: the title from `set_session_title` in the terminal, since no
-native event can set it.
+The five passing checks go through `prompt.submit` or `turn.complete`; the four failing
+checks all go through `tool.call` modification. A diagnostic probe narrowed this to one
+case. The `{ tool: 'Agent' }` wrapper in orchestration-skills' register.ts was patched
+to log one line per call to `C:\Dev\.claude\jobs\<id>\tmp\probe.log` via `$.fs.write`,
+since no telemetry is written on this machine (`DISABLE_TELEMETRY=1` is set in
+`settings.json`). One Agent subagent produced the line
+`tool.call Agent fired: classic=false, agentId=, prompt starts "Reply with the single
+word: pong. Do not call any tool."` and the subagent reached the model with no
+`SUBAGENT_RULE` prepended. So: **the hook fires, `isClassic` is correctly false, the
+mutation branch runs, and the mutated `prompt` returned via `next({ ...e, prompt: ...
+})` is dropped by the engine before the subagent is spawned.**
+
+The probe is reverted. The fix is upstream in Claude Code: under managed settings a
+`tool.call` hook's return of a mutated `prompt` on the Agent tool is dropped. Any
+workaround here either spawns the subagent differently or has to wait for the engine
+fix.
+
+### Upstream issue to file
+
+Repo: `anthropics/claude-code` (public). Title suggestion:
+
+> `tool.call` hook's mutated request is dropped under `cc-plugin-sec-default` managed-settings guard
+
+Body outline:
+- Env: Windows 11 Enterprise, Claude Code 2.1.311, managed `cc-plugin-sec-default`
+  plugin at tier `prepend` that calls `next.to(e, 'append')` on every `classic.*`
+  event, so no `classic.*` event reaches user plugins.
+- Repro: a user plugin registers `on('tool.call', { tool: 'Agent' }, ($, e, next) =>
+  next({ ...e, prompt: '<PREFIX>\n\n' + e.prompt }))`. Fire one Agent subagent.
+- Expected: the subagent's first message starts with `<PREFIX>`.
+- Observed: the subagent receives the original prompt. The diagnostic written with
+  `$.fs.write` at the top of the hook shows that the hook fires and the mutation
+  branch runs.
+- Scope: the same drop pattern is seen for a Workflow agent, for a tool result returned
+  from `on('tool.call', ..., async (…) => { const r = await next(e); return { ...r,
+  context: [...] } })` on the `Write` tool, and for a Skill text augmentation. The five
+  checks that go through `prompt.submit` or `turn.complete` all work; the four that go
+  through `tool.call` all fail.
+- Hypothesis: under the guard, a `tool.call` hook's return value is read for `deny`
+  but its mutated request/result fields are discarded. The classic-event path reads
+  the whole return value; the native-event path does not.
+- Note: `$.telemetry.log` is a no-op where `DISABLE_TELEMETRY=1` is set in
+  `settings.json`, so a diagnostic probe wanting to run on such a machine needs
+  `$.fs.write` instead.
+
+## Push detector matches command text, not git state
+
+The regex `/\bgit(\s+-C\s+\S+)?\s+push\b/` in session-skills' register.ts matched
+`git push` wherever it appeared in a Bash command. In the testing above it fired twice
+on this parent session, each time because the string sat inside a quoted argument of a
+`claude -p ... "...git push --dry-run origin main..."` Bash call. Each quoted argument
+is now replaced with X before the regex runs, so a push mentioned only inside a quoted
+argument no longer counts. A push run as `bash -c 'git push'` is now missed, which is
+rare and left as a known shortcut.
