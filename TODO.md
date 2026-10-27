@@ -53,4 +53,84 @@ read  hook ran: yes  change reached the model: yes
 
 ### Results from Windows
 
-Not run yet.
+Microsoft Windows [Version 10.0.22631.7652]
+
+The first two runs with the default settings sources failed to authenticate (`"apiKeySource":"none"`,
+exit 1, no tool calls in the transcript), so the third was run with
+`PROBE_SETTING_SOURCES=user,project`:
+
+```
+exit 0
+claude 2.1.311 (Claude Code)
+"apiKeySource":"apiKeyHelper"
+classic.PreToolUse reached the plugin: no
+agent hook ran: yes  change reached the model: yes
+bash  hook ran: yes  change reached the model: yes
+grep  hook ran: yes  change reached the model: yes
+read  hook ran: yes  change reached the model: no
+Tool calls in the transcript:
+      1 Agent
+      1 Bash
+      1 Grep
+      1 Read
+      1 SubagentHandback
+Debug log lines that mention the guard or the probe plugin:
+2026-10-27T02:19:55.287Z [DEBUG] Ignoring dangerous permission Agent(*) from cliArg (bypasses classifier)
+2026-10-27T02:19:55.287Z [DEBUG] Ignoring dangerous permission Bash(*) from cliArg (bypasses classifier)
+2026-10-27T02:19:55.403Z [DEBUG] Read hooks.json for plugin tool-call-probe (enabled=true): C:\Dev\Temp\tmp.8wdNRVytEu\plug\hooks\hooks.json
+2026-10-27T02:19:55.405Z [DEBUG] Loaded inline plugin from path: tool-call-probe
+2026-10-27T02:19:55.419Z [DEBUG] Checking plugin tool-call-probe: skillsPath=none, skillsPaths=0 paths
+2026-10-27T02:19:55.420Z [DEBUG] Checking plugin cc-plugin-sec-default: skillsPath=none, skillsPaths=0 paths
+2026-10-27T02:19:55.428Z [DEBUG] cc-plugin-sec-default@builtin seated outermost: this machine has managed settings
+2026-10-27T02:19:57.727Z [DEBUG] hooks module cc-plugin-sec-default@builtin loaded (native, environment 1, tier prepend); events: classic.*,prompt.section,prompt.context,prompt.attachment,prompt.compose,skill.prompt,attribution.text,session.append,session.compact,settings.read,tool.describe,command.describe,agent.offer,agent.spawn,tool.register,tool.list,tool.check,ui.log,env.get,env.set,plugin.register
+2026-10-27T02:19:57.775Z [DEBUG] hooks module tool-call-probe@inline loaded (worker, environment 2, tier user); events: classic.PreToolUse,tool.call
+2026-10-27T02:19:57.839Z [DEBUG] engine.create: no plugin-provided interfaces; $ built for cc-plugin-sec-default,tool-call-probe,ponytail,orchestration-skills,session-skills,powershell,writing-conventions,ghostwriting-skills,parallel-session-skills,cc-plugin-agents-md,cc-plugin-plugin-authoring
+2026-10-27T02:19:57.839Z [DEBUG] plugin.register: cc-plugin-sec-default (prepend, cc-plugin-sec-default@builtin), judged by core alone: admitted
+2026-10-27T02:19:57.841Z [DEBUG] hooks module cc-plugin-sec-default@builtin (native): settings.read nested in cc-plugin-sec-default#24
+2026-10-27T02:19:57.842Z [DEBUG] hooks module cc-plugin-sec-default@builtin settings.read settled in 0.3ms (native link, next() included)
+2026-10-27T02:19:57.842Z [DEBUG] hooks module cc-plugin-sec-default@builtin plugin.register settled in 1.8ms (native link, next() included)
+2026-10-27T02:19:57.842Z [DEBUG] plugin.register: tool-call-probe (user, tool-call-probe@inline), judged by cc-plugin-sec-default: admitted
+2026-10-27T02:19:57.842Z [DEBUG] hooks module cc-plugin-sec-default@builtin (native): settings.read nested in cc-plugin-sec-default#24
+2026-10-27T02:19:57.842Z [DEBUG] hooks module cc-plugin-sec-default@builtin settings.read settled in 0.1ms (native link, next() included)
+2026-10-27T02:19:57.842Z [DEBUG] hooks module cc-plugin-sec-default@builtin plugin.register settled in 0.4ms (native link, next() included)
+2026-10-27T02:19:57.842Z [DEBUG] plugin.register: ponytail (user, ponytail@ponytail), judged by cc-plugin-sec-default: admitted
+2026-10-27T02:19:57.843Z [DEBUG] hooks module cc-plugin-sec-default@builtin (native): settings.read nested in cc-plugin-sec-default#24
+2026-10-27T02:19:57.843Z [DEBUG] hooks module cc-plugin-sec-default@builtin settings.read settled in 0.1ms (native link, next() included)
+2026-10-27T02:19:57.843Z [DEBUG] hooks module cc-plugin-sec-default@builtin plugin.register settled in 0.3ms (native link, next() included)
+2026-10-27T02:19:57.843Z [DEBUG] plugin.register: orchestration-skills (user, orchestration-skills@ianbrandt), judged by cc-plugin-sec-default: admitted
+2026-10-27T02:19:57.843Z [DEBUG] hooks module cc-plugin-sec-default@builtin (native): settings.read nested in cc-plugin-sec-default#24
+2026-10-27T02:19:57.843Z [DEBUG] hooks module cc-plugin-sec-default@builtin settings.read settled in 0.1ms (native link, next() included)
+2026-10-27T02:19:57.843Z [DEBUG] hooks module cc-plugin-sec-default@builtin plugin.register settled in 0.3ms (native link, next() included)
+2026-10-27T02:19:57.843Z [DEBUG] plugin.register: session-skills (user, session-skills@ianbrandt), judged by cc-plugin-sec-default: admitted
+2026-10-27T02:19:57.843Z [DEBUG] hooks module cc-plugin-sec-default@builtin (native): settings.read nested in cc-plugin-sec-default#24
+2026-10-27T02:19:57.844Z [DEBUG] hooks module cc-plugin-sec-default@builtin settings.read settled in 0.1ms (native link, next() included)
+2026-10-27T02:19:57.844Z [DEBUG] hooks module cc-plugin-sec-default@builtin plugin.register settled in 0.3ms (native link, next() included)
+2026-10-27T02:19:57.844Z [DEBUG] plugin.register: powershell (user, powershell@jre-team), judged by cc-plugin-sec-default: admitted
+2026-10-27T02:19:57.844Z [DEBUG] hooks module cc-plugin-sec-default@builtin (native): settings.read nested in cc-plugin-sec-default#24
+2026-10-27T02:19:57.844Z [DEBUG] hooks module cc-plugin-sec-default@builtin settings.read settled in 0.1ms (native link, next() included)
+2026-10-27T02:19:57.844Z [DEBUG] hooks module cc-plugin-sec-default@builtin plugin.register settled in 0.3ms (native link, next() included)
+2026-10-27T02:19:57.844Z [DEBUG] plugin.register: writing-conventions (user, writing-conventions@ianbrandt), judged by cc-plugin-sec-default: admitted
+2026-10-27T02:19:57.844Z [DEBUG] hooks module cc-plugin-sec-default@builtin (native): settings.read nested in cc-plugin-sec-default#24
+2026-10-27T02:19:57.844Z [DEBUG] hooks module cc-plugin-sec-default@builtin settings.read settled in 0.1ms (native link, next() included)
+2026-10-27T02:19:57.844Z [DEBUG] hooks module cc-plugin-sec-default@builtin plugin.register settled in 0.3ms (native link, next() included)
+2026-10-27T02:19:57.844Z [DEBUG] plugin.register: ghostwriting-skills (user, ghostwriting-skills@ianbrandt), judged by cc-plugin-sec-default: admitted
+2026-10-27T02:19:57.845Z [DEBUG] hooks module cc-plugin-sec-default@builtin (native): settings.read nested in cc-plugin-sec-default#24
+2026-10-27T02:19:57.845Z [DEBUG] hooks module cc-plugin-sec-default@builtin settings.read settled in 0.1ms (native link, next() included)
+2026-10-27T02:19:57.845Z [DEBUG] hooks module cc-plugin-sec-default@builtin plugin.register settled in 0.3ms (native link, next() included)
+2026-10-27T02:19:57.845Z [DEBUG] plugin.register: parallel-session-skills (user, parallel-session-skills@ianbrandt), judged by cc-plugin-sec-default: admitted
+2026-10-27T02:19:57.853Z [DEBUG] hooks module cc-plugin-sec-default@builtin (native): settings.read nested in
+2026-10-27T02:19:57.854Z [DEBUG] orchestration-skills+session-skills+powershell+writing-conventions: classic.SessionStart bypassed by cc-plugin-sec-default (tier user); beneath runs
+2026-10-27T02:19:57.854Z [DEBUG] [orchestration-skills] $.ui.log: its classic.SessionStart hook was skipped. "cc-plugin-sec-default" runs first and sent the event on past it.
+2026-10-27T02:19:57.855Z [DEBUG] [session-skills] $.ui.log: its classic.SessionStart hook was skipped. "cc-plugin-sec-default" runs first and sent the event on past it.
+2026-10-27T02:19:57.855Z [DEBUG] [powershell] $.ui.log: its classic.SessionStart hook was skipped. "cc-plugin-sec-default" runs first and sent the event on past it.
+2026-10-27T02:19:57.855Z [DEBUG] [writing-conventions] $.ui.log: its classic.SessionStart hook was skipped. "cc-plugin-sec-default" runs first and sent the event on past it.
+2026-10-27T02:19:57.857Z [DEBUG] hooks module cc-plugin-sec-default@builtin settings.read settled in 3.8ms (native link, next() included)
+2026-10-27T02:19:58.617Z [DEBUG] hooks module cc-plugin-sec-default@builtin classic.SessionStart settled in 763.0ms (native link, next() included)
+2026-10-27T02:20:03.314Z [DEBUG] hooks module cc-plugin-sec-default@builtin (native): tool.register nested in session-skills#0
+2026-10-27T02:20:03.314Z [DEBUG] hooks module cc-plugin-sec-default@builtin (native): settings.read nested in session-skills#0 > cc-plugin-sec-default#18
+2026-10-27T02:20:03.314Z [DEBUG] hooks module cc-plugin-sec-default@builtin settings.read settled in 0.2ms (native link, next() included)
+2026-10-27T02:20:03.422Z [DEBUG] hooks module cc-plugin-sec-default@builtin tool.register settled in 108.7ms (native link, next() included)
+2026-10-27T02:20:03.423Z [DEBUG] hooks module cc-plugin-sec-default@builtin (native): tool.register nested in session-skills#0
+2026-10-27T02:20:03.509Z [DEBUG] hooks module cc-plugin-sec-default@builtin tool.register settled in 85.8ms (native link, next() included)
+2026-10-27T02:20:03.510Z [DEBUG] hooks module cc-plugin-sec-default@builtin tool.register settled in 20.7ms (native link, next() included)
+```
