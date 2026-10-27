@@ -84,8 +84,11 @@ rule you broke and fixed yourself still goes to §4 as a procedure failure, reco
 
 **Then run the lint over the draft.** With `writing-conventions` installed, call its
 `mcp__writing-conventions__lint` tool with the draft as `text`. It returns one line per flagged
-sentence, or `clean` for clean text. Fix a real hit by hand, in place, and leave a false positive
-alone. With no such tool in the session, use the hand-over line to say the lint did not run.
+sentence and the review model's findings, each with a suggested rewrite, or `clean` for clean text.
+Fix a real hit by hand, in place, and leave a false positive alone. Call it last on the draft
+exactly as you hand it over: a draft with no clean result is reviewed again after the reply, and a
+finding then costs a fix-up turn. With no such tool in the session, use the hand-over line to say
+the lint did not run.
 
 **A short draft with no lint hits skips the rewrite below and goes straight to the hand-over.**
 Short means up to about five sentences of prose, which covers most PR bodies, comments, and commit
