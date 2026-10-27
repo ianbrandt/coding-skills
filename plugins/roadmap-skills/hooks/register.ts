@@ -38,12 +38,6 @@ const added = ($: any) => find($).then(
   err => `The roadmap lookup failed, so it is not known whether this repo has a roadmap: ${(err as Error).message}`,
 )
 
-// Set when a classic event reaches this plugin. Under managed settings
-// `cc-plugin-sec-default` sends every `classic.*` event past it, and the native
-// event below stands in. Kept in $.state, which outlives a hot reload.
-const CLASSIC = { plugin: 'roadmap-skills', key: 'classic' } as const
-const isClassic = async ($: any) => (await $.state.get(CLASSIC).catch(() => ({}))).value === true
-
 // The conversation as the model reads it, or undefined where it is not read
 // back.
 const conversation = async ($: any): Promise<any[] | undefined> => {
@@ -84,28 +78,19 @@ export const register: Register = on => {
     return next(e)
   })
 
-  // A fork starts with its parent's context, where the rule already is.
-  on('classic.SessionStart', async ($, e: any, next: any) => {
-    await $.state.set(CLASSIC, true).catch(() => {})
-    const ran = await next(e)
-    if (e.source === 'fork') return ran
-    const text = await added($)
-    return text ? { ...ran, additionalContext: [...(ran.additionalContext ?? []), text] } : ran
-  })
-
-  // The rule found at the last prompt in each session, for the tool calls of its
-  // turn. Where the classic events run there is none.
+  // The rule goes with the first prompt, and again once the model no longer
+  // reads it. A fork starts with its parent's context, where the rule already
+  // is. The rule found at the last prompt in each session is kept for the tool
+  // calls of its turn.
   const found = new Map<string, string>()
-  // ponytail: under the guard the lookup runs on every prompt, since the rule is compared whole with what the model still reads.
+  // ponytail: the lookup runs on every prompt, since the rule is compared whole with what the model still reads.
   on('prompt.submit', async ($, e: any, next: any) => {
-    if (await isClassic($)) return next(e)
     const text = await added($)
     found.set(await $.session.id().catch(() => ''), text)
     return next(text && !isRead((await conversation($)) ?? [], text) ? { ...e, context: [...(e.context ?? []), text] } : e)
   })
 
-  // Under the guard, after an automatic compaction in the middle of a turn the
-  // main loop goes without the rule until the next prompt. It is added to the
+  // After an automatic compaction in the middle of a turn the main loop goes without the rule until the next prompt. It is added to the
   // next tool result, and not again until the model reads it back, since calls
   // that run in parallel all start before any result is read back. The first
   // message, the summary, is kept with that, so a second compaction adds it

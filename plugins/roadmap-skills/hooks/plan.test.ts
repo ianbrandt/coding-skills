@@ -1,4 +1,4 @@
-// claude plugin test: where the plan of record is, the rule at session start,
+// claude plugin test: where the plan of record is, the rule added to a prompt,
 // and the tool that reports both.
 import { expect, test } from 'claude-code/testing'
 import { planOf } from './plan'
@@ -34,18 +34,18 @@ function world(on: any, first: Repo) {
     if (failed) return { value: { stdout: '', ...failed } }
     return e.argv.includes('remote') ? out(w.now.hasUpstream ? 0 : 2) : out(0, (w.now.tracked ?? []).map(p => p + '\n').join(''))
   })
-  on('classic.SessionStart', () => ({ additionalContext: ['from a settings hook'] }))
+  on('prompt.submit', (_$: any, e: any) => ({ text: e.text, context: e.context }))
   return w
 }
-const start = async ($: any, source = 'startup') => (await $.classic.SessionStart({ source })).additionalContext
+const start = async ($: any) => (await $.prompt.submit({ text: 'hi' })).context ?? []
 const FIND = 'mcp__roadmap-skills__find_roadmap'
 const found = async ($: any) => (await $.tool.call({ tool: FIND })).result
 
 test('the rule is added in a repo with a roadmap, read from the primary checkout', async ($: any, on: any) => {
   const w = world(on, { root: '/repo', files: ['/repo/ROADMAP.local.md'] })
   const added = await start($)
-  expect(added[0]).toBe('from a settings hook')
-  expect(added[1]).toMatch(/^ROADMAP RULE ACTIVE\n\nThis repo's plan of record is `ROADMAP.local.md`, in the primary checkout at `\/repo`\./)
+  expect(added).toHaveLength(1)
+  expect(added[0]).toMatch(/^ROADMAP RULE ACTIVE\n\nThis repo's plan of record is `ROADMAP.local.md`, in the primary checkout at `\/repo`\./)
   expect(w.argvs).toHaveLength(2)
   expect(w.argvs.every(a => a[0] === 'git' && a[1] === '-C' && a[2] === '/repo')).toBe(true)
 })
@@ -62,13 +62,13 @@ test('the rule has an item written as its ID with a few words of its heading', a
 // lane's worktree, which is not open until next-roadmap-item has run.
 test('the item is written before next-roadmap-item on a local-only roadmap, and after it on a tracked one', async ($: any, on: any) => {
   const w = world(on, { root: '/repo', files: ['/repo/ROADMAP.local.md'] })
-  const local = (await start($))[1]
+  const local = (await start($))[0]
   expect(local.indexOf('write it as a new item')).toBeGreaterThan(0)
   expect(local.indexOf('write it as a new item')).toBeLessThan(local.indexOf('Run `next-roadmap-item <Rn>`'))
   expect(local).toContain('edited in the primary checkout')
   expect(local).not.toContain('worktree directory names')
   w.now = { root: '/repo', tracked: ['ROADMAP.md'] }
-  const tracked = (await start($))[1].replace(/\s+/g, ' ')
+  const tracked = (await start($))[0].replace(/\s+/g, ' ')
   expect(tracked.indexOf('Run `next-roadmap-item <Rn>`')).toBeGreaterThan(0)
   expect(tracked.indexOf('Run `next-roadmap-item <Rn>`')).toBeLessThan(tracked.indexOf("write the new item in the worktree's copy of `ROADMAP.md`"))
   expect(tracked).toContain('one more than the highest among that line, the roadmap, parked, and declined files, the open worktree directory names (`r78-...`), and the items in live claims')
@@ -79,7 +79,7 @@ test('the item is written before next-roadmap-item on a local-only roadmap, and 
 // session reads. A local-only roadmap has a changelog with every ID in it.
 test('on a tracked roadmap the highest ID used is a line in the header, first set from the headings git shows as deleted', async ($: any, on: any) => {
   const w = world(on, { root: '/repo', tracked: ['docs/roadmap.md'] })
-  const tracked = (await start($))[1].replace(/\s+/g, ' ')
+  const tracked = (await start($))[0].replace(/\s+/g, ' ')
   expect(tracked).toContain('one line in the roadmap\'s header, `Highest ID used: R127`')
   expect(tracked).toContain("Where the roadmap has no such line, also read, this one time, the headings of the items that were deleted: `git -C \"/repo\" log -p --format= <default branch> -- docs/roadmap.md | grep -E '^-#+ R[0-9]+'`")
   const raise = tracked.indexOf('raise the `Highest ID used` line to the new ID, adding the line to the header where there is none')
@@ -87,19 +87,16 @@ test('on a tracked roadmap the highest ID used is a line in the header, first se
   expect(tracked.indexOf('Commit the edit there')).toBeGreaterThan(raise)
   expect(tracked).toContain('The line only goes up, and a merge conflict on it is settled by taking the higher number')
   w.now = { root: '/repo', files: ['/repo/ROADMAP.local.md'] }
-  expect((await start($))[1]).not.toContain('Highest ID used')
+  expect((await start($))[0]).not.toContain('Highest ID used')
 })
 
-test('nothing is added with no roadmap, in a fork with only a tracked one, outside a repo, or to a fork of a session', async ($: any, on: any) => {
+test('nothing is added with no roadmap, in a fork with only a tracked one, or outside a repo', async ($: any, on: any) => {
   const w = world(on, { root: '/repo' })
-  expect(await start($)).toEqual(['from a settings hook'])
+  expect(await start($)).toEqual([])
   w.now = { root: '/repo', hasUpstream: true, tracked: ['ROADMAP.md'] }
-  expect(await start($)).toEqual(['from a settings hook'])
+  expect(await start($)).toEqual([])
   w.now = {}
-  expect(await start($)).toEqual(['from a settings hook'])
-  w.now = { root: '/repo', tracked: ['ROADMAP.md'] }
-  expect(await start($, 'fork')).toEqual(['from a settings hook'])
-  expect((await start($, 'compact'))[1]).toContain('`ROADMAP.md`')
+  expect(await start($)).toEqual([])
 })
 
 test('the tool returns absolute paths in the primary checkout', async ($: any, on: any) => {
@@ -139,43 +136,27 @@ test('a list of the tracked paths that failed is reported by the tool, and in on
   expect(ran.isError).toBe(true)
   expect(ran.text).toBe('find_roadmap: git ls-files in /repo: fatal: index file corrupt')
   const lookup = 'The roadmap lookup failed, so it is not known whether this repo has a roadmap: '
-  expect(await start($)).toEqual(['from a settings hook', `${lookup}git ls-files in /repo: fatal: index file corrupt`])
+  expect(await start($)).toEqual([`${lookup}git ls-files in /repo: fatal: index file corrupt`])
   w.now = { root: '/repo', remote: { exitCode: 1, stderr: '' } }
-  expect(await start($)).toEqual(['from a settings hook', `${lookup}git remote get-url upstream in /repo: exit 1`])
-  expect(await start($, 'fork')).toEqual(['from a settings hook'])
+  expect(await start($)).toEqual([`${lookup}git remote get-url upstream in /repo: exit 1`])
 })
 
-// Under managed settings cc-plugin-sec-default sends every classic.* event past
-// user plugins, as this copy of its rule does. The rule then comes with a
-// prompt, once the model no longer reads it.
-const guard = { name: 'guard', tier: 'prepend' as const, register(on: any) {
-  on('classic.*', (_$: any, e: any, next: any) => next.to(e, 'append'))
-} }
+// The rule comes with a prompt, once the model no longer reads it.
 function prompts(on: any) {
   const w = { read: [] as string[] }
   on('session.messages', () => ({ value: w.read.map(text => ({ role: 'user', content: [{ type: 'text', text }] })) }))
-  on('prompt.submit', (_$: any, e: any) => ({ text: e.text, context: e.context }))
   return w
 }
-const submit = async ($: any) => (await $.prompt.submit({ text: 'hi' })).context ?? []
 
-test('where the classic events run, nothing is added to a prompt', async ($: any, on: any) => {
-  world(on, { root: '/repo', files: ['/repo/ROADMAP.local.md'] })
-  prompts(on)
-  await start($)
-  expect(await submit($)).toEqual([])
-})
-
-test('under the guard, the rule is added to a prompt while the model does not read it', { plugins: [guard] }, async ($: any, on: any) => {
+test('the rule is added to a prompt while the model does not read it', async ($: any, on: any) => {
   const repo = world(on, { root: '/repo', files: ['/repo/ROADMAP.local.md'] })
   const w = prompts(on)
-  expect(await start($)).toEqual(['from a settings hook'])
-  const [rule] = await submit($)
+  const [rule] = await start($)
   expect(rule).toMatch(/^ROADMAP RULE ACTIVE\n/)
   w.read = [`<system-reminder>\n${rule}\n</system-reminder>`]
-  expect(await submit($)).toEqual([])
+  expect(await start($)).toEqual([])
   repo.now = { root: '/repo' }
-  expect(await submit($)).toEqual([])
+  expect(await start($)).toEqual([])
 })
 
 // The conversation read back: a string is a text block, as a prompt's context
@@ -183,17 +164,15 @@ test('under the guard, the rule is added to a prompt while the model does not re
 function results(on: any) {
   const w = { read: [] as (string | { result: string })[], deny: false }
   on('session.messages', () => ({ value: w.read.map(t => ({ role: 'user', content: [typeof t === 'string' ? { type: 'text', text: t } : { type: 'tool_result', tool_use_id: 't', content: t.result }] })) }))
-  on('prompt.submit', (_$: any, e: any) => ({ text: e.text, context: e.context }))
   on('tool.call', () => (w.deny ? { deny: 'not now' } : { result: 'ok' }))
   return w
 }
 const call = async ($: any, more: any = {}) => (await $.tool.call({ tool: 'Read', file_path: '/p/a.md', ...more })).context ?? []
 
-test('under the guard, the rule is added to one tool result after each compaction, until the model reads it there', { plugins: [guard] }, async ($: any, on: any) => {
+test('the rule is added to one tool result after each compaction, until the model reads it there', async ($: any, on: any) => {
   const repo = world(on, { root: '/repo', files: ['/repo/ROADMAP.local.md'] })
   const w = results(on)
-  await start($)
-  const [rule] = await submit($)
+  const [rule] = await start($)
   const runs = repo.argvs.length
   w.read = [`<system-reminder>\n${rule}\n</system-reminder>`]
   expect(await call($)).toEqual([])
@@ -214,19 +193,10 @@ test('under the guard, the rule is added to one tool result after each compactio
   expect(repo.argvs).toHaveLength(runs)
 })
 
-test('with no roadmap, nothing is added to a tool result', { plugins: [guard] }, async ($: any, on: any) => {
+test('with no roadmap, nothing is added to a tool result', async ($: any, on: any) => {
   world(on, { root: '/repo' })
   const w = results(on)
-  expect(await submit($)).toEqual([])
-  w.read = ['a summary']
-  expect(await call($)).toEqual([])
-})
-
-test('where the classic events run, nothing is added to a tool result', async ($: any, on: any) => {
-  world(on, { root: '/repo', files: ['/repo/ROADMAP.local.md'] })
-  const w = results(on)
-  await start($)
-  expect(await submit($)).toEqual([])
+  expect(await start($)).toEqual([])
   w.read = ['a summary']
   expect(await call($)).toEqual([])
 })

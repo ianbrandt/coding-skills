@@ -140,7 +140,7 @@ priority position, with the problem and the paths it touches. On a local-only ro
 before anything else. On a tracked roadmap, take the ID before §2 and write the item now, in the
 copy under `$WT`, raise the `Highest ID used` line to the new ID in the same edit, and commit it
 there: the lane's worktree is where a tracked roadmap is edited, and it was not open before §2. Then it is a hinted pick like any other, and the gates above still
-apply to it. The same instruction is injected at session start by this plugin's hook, in every repo
+apply to it. The same instruction is added to the first prompt by this plugin's hook, in every repo
 that has a roadmap, because a session handed "upgrade X" does not otherwise reach this skill.
 
 **The next free ID.** An ID is never reused. On a local-only roadmap, check the parked, declined,
@@ -177,7 +177,7 @@ Then write the claim, per `claim-a-lane` §3—where the repo has a ledger at al
 ## 4. Give the session a descriptive title
 
 As soon as the claim lands and any tiebreaker re-pick settles, **title the session the way
-`session-skills`' session rules specify**. Those rules load at session start and state the one way
+`session-skills`' session rules specify**. Those rules load with the first prompt and state the one way
 this session sets its title.
 
 The title is always the claimed item's `Rn` ID, a colon, then a short noun phrase for the
