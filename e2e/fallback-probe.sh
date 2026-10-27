@@ -65,9 +65,10 @@ echo "skip notices for these plugins: $(grep -E "\[($mine)\].*was skipped" debug
 echo "agent    transcripts: $(echo $a | wc -w)  rules: $(has "$rules" $a)  subagent rule: $(has "$sub" $a)"
 echo "workflow transcripts: $(echo $w | wc -w)  rules: $(has "$rules" $w)  subagent rule: $(has "$sub" $w)"
 nudge='You just wrote prose to a file'
-voice='Voice data, loaded by the plugin'
+# The voice data heading appears in the skill's text too, so this is a line only the hook writes.
+voice='MODE=bootstrap: there is no'
 echo "write re-read request as hook context: $(rows attachment "$nudge")  in an API request: $(rows api-request-blob "$nudge")"
-# Without the guard the voice data is added to the skill's prompt, a user row, by skill.prompt.
+# The voice data is added as hook context, never to the skill's prompt, a user row.
 echo "skill voice data in the skill prompt: $(rows user "$voice")  as hook context: $(rows attachment "$voice")  in an API request: $(rows api-request-blob "$voice")"
 echo 'Tool calls in the output stream, the agents included:'
 grep -o '"type":"tool_use","id":"[^"]*","name":"[^"]*"' stream.jsonl | sed 's/.*"name":"//; s/"$//' | sort | uniq -c
