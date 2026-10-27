@@ -31,3 +31,14 @@ A test passes when:
 
 Run each kind several times before trusting a pass, one at a time, since a session given the same
 prompt does not always make the same calls.
+
+## The `tool.call` probe
+
+[`tool-call-probe.sh`](tool-call-probe.sh) is a separate check, for the `cc-plugin-sec-default`
+guard: one headless session with a scratch plugin that changes an Agent prompt, a Bash command, and
+a Read result, and denies a Grep call. For each case it prints whether the hook ran and whether the
+change reached the model, then the debug log lines about the guard.
+
+```bash
+e2e/tool-call-probe.sh /tmp/probe-1
+```
