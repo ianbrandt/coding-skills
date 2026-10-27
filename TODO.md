@@ -41,4 +41,173 @@ look for a "hook was skipped" notice from any of these plugins.
 
 ### Results from Windows
 
-Not run yet.
+```
+exit 0
+claude 2.1.311 (Claude Code)
+cc-plugin-sec-default seated: yes
+main loop rules: writing-conventions yes  session-skills yes  orchestration-skills yes
+skip notices for these plugins: 1
+agent    transcripts: 1  rules: yes  subagent rule: yes
+workflow transcripts: 1  rules: yes  subagent rule: yes
+write re-read request as hook context: yes  in an API request: yes
+skill voice data in the skill prompt: yes  as hook context: yes  in an API request: yes
+Tool calls in the output stream, the agents included:
+      1 Agent
+      1 Bash
+      1 Skill
+      1 Workflow
+      1 Write
+Debug log lines that mention the guard:
+2026-10-27T05:36:17.137Z [DEBUG] Checking plugin cc-plugin-sec-default: skillsPath=none, skillsPaths=0 paths
+2026-10-27T05:36:17.144Z [DEBUG] cc-plugin-sec-default@builtin seated outermost: this machine has managed settings
+2026-10-27T05:36:18.395Z [DEBUG] hooks module cc-plugin-sec-default@builtin loaded (native, environment 1, tier prepend); events: classic.*,prompt.section,prompt.context,prompt.attachment,prompt.compose,skill.prompt,attribution.text,session.append,session.compact,settings.read,tool.describe,command.
+2026-10-27T05:36:20.211Z [DEBUG] engine.create: no plugin-provided interfaces; $ built for cc-plugin-sec-default,ghostwriting-skills,orchestration-skills,parallel-session-skills,roadmap-skills,session-skills,writing-conventions,cc-plugin-agents-md,cc-plugin-plugin-authoring
+2026-10-27T05:36:20.211Z [DEBUG] plugin.register: cc-plugin-sec-default (prepend, cc-plugin-sec-default@builtin), judged by core alone: admitted
+2026-10-27T05:36:20.213Z [DEBUG] hooks module cc-plugin-sec-default@builtin (native): settings.read nested in cc-plugin-sec-default#24
+2026-10-27T05:36:20.213Z [DEBUG] hooks module cc-plugin-sec-default@builtin settings.read settled in 0.3ms (native link, next() included)
+2026-10-27T05:36:20.214Z [DEBUG] hooks module cc-plugin-sec-default@builtin plugin.register settled in 1.4ms (native link, next() included)
+2026-10-27T05:36:20.214Z [DEBUG] plugin.register: ghostwriting-skills (user, ghostwriting-skills@inline), judged by cc-plugin-sec-default: admitted
+2026-10-27T05:36:20.214Z [DEBUG] hooks module cc-plugin-sec-default@builtin (native): settings.read nested in cc-plugin-sec-default#24
+2026-10-27T05:36:20.214Z [DEBUG] hooks module cc-plugin-sec-default@builtin settings.read settled in 0.1ms (native link, next() included)
+2026-10-27T05:36:20.214Z [DEBUG] hooks module cc-plugin-sec-default@builtin plugin.register settled in 0.4ms (native link, next() included)
+2026-10-27T05:36:20.214Z [DEBUG] plugin.register: orchestration-skills (user, orchestration-skills@inline), judged by cc-plugin-sec-default: admitted
+2026-10-27T05:36:20.214Z [DEBUG] hooks module cc-plugin-sec-default@builtin (native): settings.read nested in cc-plugin-sec-default#24
+2026-10-27T05:36:20.215Z [DEBUG] hooks module cc-plugin-sec-default@builtin settings.read settled in 0.1ms (native link, next() included)
+2026-10-27T05:36:20.215Z [DEBUG] hooks module cc-plugin-sec-default@builtin plugin.register settled in 0.3ms (native link, next() included)
+2026-10-27T05:36:20.215Z [DEBUG] plugin.register: parallel-session-skills (user, parallel-session-skills@inline), judged by cc-plugin-sec-default: admitted
+2026-10-27T05:36:20.215Z [DEBUG] hooks module cc-plugin-sec-default@builtin (native): settings.read nested in cc-plugin-sec-default#24
+2026-10-27T05:36:20.215Z [DEBUG] hooks module cc-plugin-sec-default@builtin settings.read settled in 0.1ms (native link, next() included)
+2026-10-27T05:36:20.215Z [DEBUG] hooks module cc-plugin-sec-default@builtin plugin.register settled in 0.3ms (native link, next() included)
+2026-10-27T05:36:20.215Z [DEBUG] plugin.register: roadmap-skills (user, roadmap-skills@inline), judged by cc-plugin-sec-default: admitted
+2026-10-27T05:36:20.215Z [DEBUG] hooks module cc-plugin-sec-default@builtin (native): settings.read nested in cc-plugin-sec-default#24
+2026-10-27T05:36:20.215Z [DEBUG] hooks module cc-plugin-sec-default@builtin settings.read settled in 0.1ms (native link, next() included)
+2026-10-27T05:36:20.215Z [DEBUG] hooks module cc-plugin-sec-default@builtin plugin.register settled in 0.3ms (native link, next() included)
+2026-10-27T05:36:20.215Z [DEBUG] plugin.register: session-skills (user, session-skills@inline), judged by cc-plugin-sec-default: admitted
+2026-10-27T05:36:20.216Z [DEBUG] hooks module cc-plugin-sec-default@builtin (native): settings.read nested in cc-plugin-sec-default#24
+2026-10-27T05:36:20.216Z [DEBUG] hooks module cc-plugin-sec-default@builtin settings.read settled in 0.1ms (native link, next() included)
+2026-10-27T05:36:20.216Z [DEBUG] hooks module cc-plugin-sec-default@builtin plugin.register settled in 0.3ms (native link, next() included)
+2026-10-27T05:36:20.216Z [DEBUG] plugin.register: writing-conventions (user, writing-conventions@inline), judged by cc-plugin-sec-default: admitted
+2026-10-27T05:36:20.223Z [DEBUG] hooks module cc-plugin-sec-default@builtin (native): settings.read nested in
+2026-10-27T05:36:20.225Z [DEBUG] hooks module cc-plugin-sec-default@builtin settings.read settled in 2.0ms (native link, next() included)
+2026-10-27T05:36:20.236Z [DEBUG] hooks module cc-plugin-sec-default@builtin (native): tool.register nested in parallel-session-skills#0
+2026-10-27T05:36:20.237Z [DEBUG] hooks module cc-plugin-sec-default@builtin (native): settings.read nested in parallel-session-skills#0 > cc-plugin-sec-default#18
+2026-10-27T05:36:20.237Z [DEBUG] hooks module cc-plugin-sec-default@builtin settings.read settled in 0.1ms (native link, next() included)
+2026-10-27T05:36:20.309Z [DEBUG] hooks module cc-plugin-sec-default@builtin tool.register settled in 72.1ms (native link, next() included)
+2026-10-27T05:36:20.310Z [DEBUG] hooks module cc-plugin-sec-default@builtin (native): tool.register nested in parallel-session-skills#0
+2026-10-27T05:36:20.355Z [DEBUG] hooks module cc-plugin-sec-default@builtin tool.register settled in 44.8ms (native link, next() included)
+2026-10-27T05:36:20.355Z [DEBUG] hooks module cc-plugin-sec-default@builtin (native): tool.register nested in parallel-session-skills#0
+2026-10-27T05:36:20.373Z [DEBUG] hooks module cc-plugin-sec-default@builtin tool.register settled in 17.7ms (native link, next() included)
+2026-10-27T05:36:20.375Z [DEBUG] hooks module cc-plugin-sec-default@builtin (native): tool.register nested in roadmap-skills#0
+exit 0
+claude 2.1.311 (Claude Code)
+cc-plugin-sec-default seated: yes
+main loop rules: writing-conventions yes  session-skills yes  orchestration-skills yes
+skip notices for these plugins: 1
+agent    transcripts: 1  rules: yes  subagent rule: yes
+workflow transcripts: 1  rules: yes  subagent rule: yes
+write re-read request as hook context: yes  in an API request: yes
+skill voice data in the skill prompt: yes  as hook context: yes  in an API request: yes
+Tool calls in the output stream, the agents included:
+      1 Agent
+      1 Bash
+      1 Skill
+      1 Workflow
+      1 Write
+Debug log lines that mention the guard:
+2026-10-27T05:37:08.982Z [DEBUG] Checking plugin cc-plugin-sec-default: skillsPath=none, skillsPaths=0 paths
+2026-10-27T05:37:08.987Z [DEBUG] cc-plugin-sec-default@builtin seated outermost: this machine has managed settings
+2026-10-27T05:37:09.877Z [DEBUG] hooks module cc-plugin-sec-default@builtin loaded (native, environment 1, tier prepend); events: classic.*,prompt.section,prompt.context,prompt.attachment,prompt.compose,skill.prompt,attribution.text,session.append,session.compact,settings.read,tool.describe,command.
+2026-10-27T05:37:11.204Z [DEBUG] engine.create: no plugin-provided interfaces; $ built for cc-plugin-sec-default,ghostwriting-skills,orchestration-skills,parallel-session-skills,roadmap-skills,session-skills,writing-conventions,cc-plugin-agents-md,cc-plugin-plugin-authoring
+2026-10-27T05:37:11.205Z [DEBUG] plugin.register: cc-plugin-sec-default (prepend, cc-plugin-sec-default@builtin), judged by core alone: admitted
+2026-10-27T05:37:11.206Z [DEBUG] hooks module cc-plugin-sec-default@builtin (native): settings.read nested in cc-plugin-sec-default#24
+2026-10-27T05:37:11.207Z [DEBUG] hooks module cc-plugin-sec-default@builtin settings.read settled in 0.4ms (native link, next() included)
+2026-10-27T05:37:11.207Z [DEBUG] hooks module cc-plugin-sec-default@builtin plugin.register settled in 1.5ms (native link, next() included)
+2026-10-27T05:37:11.207Z [DEBUG] plugin.register: ghostwriting-skills (user, ghostwriting-skills@inline), judged by cc-plugin-sec-default: admitted
+2026-10-27T05:37:11.207Z [DEBUG] hooks module cc-plugin-sec-default@builtin (native): settings.read nested in cc-plugin-sec-default#24
+2026-10-27T05:37:11.207Z [DEBUG] hooks module cc-plugin-sec-default@builtin settings.read settled in 0.1ms (native link, next() included)
+2026-10-27T05:37:11.207Z [DEBUG] hooks module cc-plugin-sec-default@builtin plugin.register settled in 0.5ms (native link, next() included)
+2026-10-27T05:37:11.208Z [DEBUG] plugin.register: orchestration-skills (user, orchestration-skills@inline), judged by cc-plugin-sec-default: admitted
+2026-10-27T05:37:11.208Z [DEBUG] hooks module cc-plugin-sec-default@builtin (native): settings.read nested in cc-plugin-sec-default#24
+2026-10-27T05:37:11.208Z [DEBUG] hooks module cc-plugin-sec-default@builtin settings.read settled in 0.1ms (native link, next() included)
+2026-10-27T05:37:11.208Z [DEBUG] hooks module cc-plugin-sec-default@builtin plugin.register settled in 0.3ms (native link, next() included)
+2026-10-27T05:37:11.208Z [DEBUG] plugin.register: parallel-session-skills (user, parallel-session-skills@inline), judged by cc-plugin-sec-default: admitted
+2026-10-27T05:37:11.208Z [DEBUG] hooks module cc-plugin-sec-default@builtin (native): settings.read nested in cc-plugin-sec-default#24
+2026-10-27T05:37:11.208Z [DEBUG] hooks module cc-plugin-sec-default@builtin settings.read settled in 0.1ms (native link, next() included)
+2026-10-27T05:37:11.208Z [DEBUG] hooks module cc-plugin-sec-default@builtin plugin.register settled in 0.3ms (native link, next() included)
+2026-10-27T05:37:11.208Z [DEBUG] plugin.register: roadmap-skills (user, roadmap-skills@inline), judged by cc-plugin-sec-default: admitted
+2026-10-27T05:37:11.209Z [DEBUG] hooks module cc-plugin-sec-default@builtin (native): settings.read nested in cc-plugin-sec-default#24
+2026-10-27T05:37:11.209Z [DEBUG] hooks module cc-plugin-sec-default@builtin settings.read settled in 0.1ms (native link, next() included)
+2026-10-27T05:37:11.209Z [DEBUG] hooks module cc-plugin-sec-default@builtin plugin.register settled in 0.3ms (native link, next() included)
+2026-10-27T05:37:11.209Z [DEBUG] plugin.register: session-skills (user, session-skills@inline), judged by cc-plugin-sec-default: admitted
+2026-10-27T05:37:11.209Z [DEBUG] hooks module cc-plugin-sec-default@builtin (native): settings.read nested in cc-plugin-sec-default#24
+2026-10-27T05:37:11.209Z [DEBUG] hooks module cc-plugin-sec-default@builtin settings.read settled in 0.1ms (native link, next() included)
+2026-10-27T05:37:11.209Z [DEBUG] hooks module cc-plugin-sec-default@builtin plugin.register settled in 0.3ms (native link, next() included)
+2026-10-27T05:37:11.209Z [DEBUG] plugin.register: writing-conventions (user, writing-conventions@inline), judged by cc-plugin-sec-default: admitted
+2026-10-27T05:37:11.217Z [DEBUG] hooks module cc-plugin-sec-default@builtin (native): settings.read nested in
+2026-10-27T05:37:11.219Z [DEBUG] hooks module cc-plugin-sec-default@builtin settings.read settled in 2.0ms (native link, next() included)
+2026-10-27T05:37:11.230Z [DEBUG] hooks module cc-plugin-sec-default@builtin (native): tool.register nested in parallel-session-skills#0
+2026-10-27T05:37:11.230Z [DEBUG] hooks module cc-plugin-sec-default@builtin (native): settings.read nested in parallel-session-skills#0 > cc-plugin-sec-default#18
+2026-10-27T05:37:11.231Z [DEBUG] hooks module cc-plugin-sec-default@builtin settings.read settled in 0.1ms (native link, next() included)
+2026-10-27T05:37:11.337Z [DEBUG] hooks module cc-plugin-sec-default@builtin tool.register settled in 106.8ms (native link, next() included)
+2026-10-27T05:37:11.345Z [DEBUG] hooks module cc-plugin-sec-default@builtin (native): tool.register nested in parallel-session-skills#0
+2026-10-27T05:37:11.365Z [DEBUG] hooks module cc-plugin-sec-default@builtin tool.register settled in 19.5ms (native link, next() included)
+2026-10-27T05:37:11.365Z [DEBUG] hooks module cc-plugin-sec-default@builtin (native): tool.register nested in parallel-session-skills#0
+2026-10-27T05:37:11.392Z [DEBUG] hooks module cc-plugin-sec-default@builtin tool.register settled in 27.1ms (native link, next() included)
+2026-10-27T05:37:11.394Z [DEBUG] hooks module cc-plugin-sec-default@builtin (native): tool.register nested in roadmap-skills#0
+exit 0
+claude 2.1.311 (Claude Code)
+cc-plugin-sec-default seated: yes
+main loop rules: writing-conventions yes  session-skills yes  orchestration-skills yes
+skip notices for these plugins: 1
+agent    transcripts: 1  rules: yes  subagent rule: yes
+workflow transcripts: 1  rules: yes  subagent rule: yes
+write re-read request as hook context: yes  in an API request: yes
+skill voice data in the skill prompt: yes  as hook context: yes  in an API request: yes
+Tool calls in the output stream, the agents included:
+      1 Agent
+      1 Bash
+      1 Skill
+      1 Workflow
+      1 Write
+Debug log lines that mention the guard:
+2026-10-27T05:37:43.849Z [DEBUG] Checking plugin cc-plugin-sec-default: skillsPath=none, skillsPaths=0 paths
+2026-10-27T05:37:43.855Z [DEBUG] cc-plugin-sec-default@builtin seated outermost: this machine has managed settings
+2026-10-27T05:37:44.729Z [DEBUG] hooks module cc-plugin-sec-default@builtin loaded (native, environment 1, tier prepend); events: classic.*,prompt.section,prompt.context,prompt.attachment,prompt.compose,skill.prompt,attribution.text,session.append,session.compact,settings.read,tool.describe,command.
+2026-10-27T05:37:46.078Z [DEBUG] engine.create: no plugin-provided interfaces; $ built for cc-plugin-sec-default,ghostwriting-skills,orchestration-skills,parallel-session-skills,roadmap-skills,session-skills,writing-conventions,cc-plugin-agents-md,cc-plugin-plugin-authoring
+2026-10-27T05:37:46.078Z [DEBUG] plugin.register: cc-plugin-sec-default (prepend, cc-plugin-sec-default@builtin), judged by core alone: admitted
+2026-10-27T05:37:46.080Z [DEBUG] hooks module cc-plugin-sec-default@builtin (native): settings.read nested in cc-plugin-sec-default#24
+2026-10-27T05:37:46.080Z [DEBUG] hooks module cc-plugin-sec-default@builtin settings.read settled in 0.3ms (native link, next() included)
+2026-10-27T05:37:46.080Z [DEBUG] hooks module cc-plugin-sec-default@builtin plugin.register settled in 1.5ms (native link, next() included)
+2026-10-27T05:37:46.080Z [DEBUG] plugin.register: ghostwriting-skills (user, ghostwriting-skills@inline), judged by cc-plugin-sec-default: admitted
+2026-10-27T05:37:46.081Z [DEBUG] hooks module cc-plugin-sec-default@builtin (native): settings.read nested in cc-plugin-sec-default#24
+2026-10-27T05:37:46.081Z [DEBUG] hooks module cc-plugin-sec-default@builtin settings.read settled in 0.1ms (native link, next() included)
+2026-10-27T05:37:46.081Z [DEBUG] hooks module cc-plugin-sec-default@builtin plugin.register settled in 0.4ms (native link, next() included)
+2026-10-27T05:37:46.081Z [DEBUG] plugin.register: orchestration-skills (user, orchestration-skills@inline), judged by cc-plugin-sec-default: admitted
+2026-10-27T05:37:46.081Z [DEBUG] hooks module cc-plugin-sec-default@builtin (native): settings.read nested in cc-plugin-sec-default#24
+2026-10-27T05:37:46.081Z [DEBUG] hooks module cc-plugin-sec-default@builtin settings.read settled in 0.1ms (native link, next() included)
+2026-10-27T05:37:46.081Z [DEBUG] hooks module cc-plugin-sec-default@builtin plugin.register settled in 0.3ms (native link, next() included)
+2026-10-27T05:37:46.082Z [DEBUG] plugin.register: parallel-session-skills (user, parallel-session-skills@inline), judged by cc-plugin-sec-default: admitted
+2026-10-27T05:37:46.082Z [DEBUG] hooks module cc-plugin-sec-default@builtin (native): settings.read nested in cc-plugin-sec-default#24
+2026-10-27T05:37:46.082Z [DEBUG] hooks module cc-plugin-sec-default@builtin settings.read settled in 0.1ms (native link, next() included)
+2026-10-27T05:37:46.082Z [DEBUG] hooks module cc-plugin-sec-default@builtin plugin.register settled in 0.3ms (native link, next() included)
+2026-10-27T05:37:46.082Z [DEBUG] plugin.register: roadmap-skills (user, roadmap-skills@inline), judged by cc-plugin-sec-default: admitted
+2026-10-27T05:37:46.082Z [DEBUG] hooks module cc-plugin-sec-default@builtin (native): settings.read nested in cc-plugin-sec-default#24
+2026-10-27T05:37:46.082Z [DEBUG] hooks module cc-plugin-sec-default@builtin settings.read settled in 0.1ms (native link, next() included)
+2026-10-27T05:37:46.082Z [DEBUG] hooks module cc-plugin-sec-default@builtin plugin.register settled in 0.3ms (native link, next() included)
+2026-10-27T05:37:46.082Z [DEBUG] plugin.register: session-skills (user, session-skills@inline), judged by cc-plugin-sec-default: admitted
+2026-10-27T05:37:46.083Z [DEBUG] hooks module cc-plugin-sec-default@builtin (native): settings.read nested in cc-plugin-sec-default#24
+2026-10-27T05:37:46.083Z [DEBUG] hooks module cc-plugin-sec-default@builtin settings.read settled in 0.1ms (native link, next() included)
+2026-10-27T05:37:46.083Z [DEBUG] hooks module cc-plugin-sec-default@builtin plugin.register settled in 0.3ms (native link, next() included)
+2026-10-27T05:37:46.083Z [DEBUG] plugin.register: writing-conventions (user, writing-conventions@inline), judged by cc-plugin-sec-default: admitted
+2026-10-27T05:37:46.090Z [DEBUG] hooks module cc-plugin-sec-default@builtin (native): settings.read nested in
+2026-10-27T05:37:46.093Z [DEBUG] hooks module cc-plugin-sec-default@builtin settings.read settled in 2.0ms (native link, next() included)
+2026-10-27T05:37:46.104Z [DEBUG] hooks module cc-plugin-sec-default@builtin (native): tool.register nested in parallel-session-skills#0
+2026-10-27T05:37:46.104Z [DEBUG] hooks module cc-plugin-sec-default@builtin (native): settings.read nested in parallel-session-skills#0 > cc-plugin-sec-default#18
+2026-10-27T05:37:46.105Z [DEBUG] hooks module cc-plugin-sec-default@builtin settings.read settled in 0.1ms (native link, next() included)
+2026-10-27T05:37:46.177Z [DEBUG] hooks module cc-plugin-sec-default@builtin tool.register settled in 73.2ms (native link, next() included)
+2026-10-27T05:37:46.179Z [DEBUG] hooks module cc-plugin-sec-default@builtin (native): tool.register nested in parallel-session-skills#0
+2026-10-27T05:37:46.222Z [DEBUG] hooks module cc-plugin-sec-default@builtin tool.register settled in 43.7ms (native link, next() included)
+2026-10-27T05:37:46.223Z [DEBUG] hooks module cc-plugin-sec-default@builtin (native): tool.register nested in parallel-session-skills#0
+2026-10-27T05:37:46.240Z [DEBUG] hooks module cc-plugin-sec-default@builtin tool.register settled in 17.1ms (native link, next() included)
+2026-10-27T05:37:46.241Z [DEBUG] hooks module cc-plugin-sec-default@builtin (native): tool.register nested in roadmap-skills#0
+```
