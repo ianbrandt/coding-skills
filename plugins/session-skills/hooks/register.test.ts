@@ -380,8 +380,21 @@ test('a push mentioned only inside a quoted argument is not recorded', async ($:
   await $.classic.PostToolUse(ran('claude -p "wait for git push --dry-run origin main"'))
   await $.classic.PostToolUse(ran(`git commit -m 'I will git push later'`))
   await $.classic.PostToolUse(ran('echo "git push" > note.txt'))
+  await $.classic.PostToolUse(ran(`git commit -F - <<'EOF'\nThen git push it\nEOF`))
   await end($, 'Done.')
   expect(w.sent).toEqual([])
+})
+
+test('a push after a commit message heredoc with an odd quote in it is recorded', async ($: any, on: any) => {
+  const w = turnEnd(on)
+  for (const command of [
+    `git commit -F - <<'EOF'\nIt's done\nEOF\ngit push`,
+    `git commit -m "$(cat <<'EOF'\nQuote a " here\nEOF\n)" && git push`,
+  ]) {
+    await $.classic.PostToolUse(ran(command))
+    await end($, 'Pushed.')
+  }
+  expect(w.sent).toHaveLength(2)
 })
 
 test('under the guard, a push mentioned only inside a quoted argument is not recorded', { plugins: [guard] }, async ($: any, on: any) => {

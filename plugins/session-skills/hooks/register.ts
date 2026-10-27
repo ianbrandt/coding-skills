@@ -562,10 +562,12 @@ export const register: Register = on => {
   const PUSH = /\bgit(\s+-C\s+\S+)?\s+push\b/
   // Each quoted argument is replaced with X so the regex matches only text the
   // shell executes: a mention of git push inside a quoted argument, such as
-  // `claude -p "...git push..."`, no longer counts.
-  // shortcut: a push run as `bash -c 'git push'` is no longer detected, and a here-document is not parsed.
+  // `claude -p "...git push..."`, no longer counts. The body of a heredoc whose
+  // delimiter is quoted goes first, since a quote in it closes nothing.
+  // shortcut: a push run as `bash -c 'git push'` is no longer detected, and an unquoted heredoc delimiter is not parsed.
   const unquoted = (cmd: string) =>
-    cmd.replace(/"(?:[^"\\]|\\.)*"?/g, 'X').replace(/'[^']*'?/g, 'X')
+    cmd.replace(/(<<-?[ \t]*(["'])([^"'\s]+)\2[^\n]*\n)[\s\S]*?^([ \t]*\3)$/gm, '$1$4')
+      .replace(/"(?:[^"\\]|\\.)*"?/g, 'X').replace(/'[^']*'?/g, 'X')
   on('classic.PostToolUse', async ($, e: any, next: any) => {
     await $.state.set(CLASSIC, true).catch(() => {})
     if (e.tool_name === 'Bash' && PUSH.test(unquoted(String(e.tool_input?.command ?? '')))) pushed.add(e.session_id)
