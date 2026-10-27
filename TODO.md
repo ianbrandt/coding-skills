@@ -1,78 +1,49 @@
 # To do
 
-## Four native fallbacks don't fire under the guard on Windows
+## Measure which `tool.call` changes are dropped under the guard on Windows
 
-Checked on a managed-settings Windows 11 machine, Claude Code 2.1.310, right after a
-`/plugin` update. `cc-plugin-sec-default` forwards past every `classic.*` event as
-expected, and the native fallbacks on `prompt.submit` and `turn.complete` work: the
-rules land on the first prompt and again after `/compact`, the per-turn style reminder
-and the lint note arrive on their prompts, the title tool refuses in the terminal and
-the `/rename` block is printed, the push follow-up fires after a `git push` turn with
-no fenced block, and the draft-lint follow-up fires on a reply with
-`The report says so.` in a `draft` block.
+On the managed-settings Windows 11 machine, on Claude Code 2.1.310, four native fallbacks did not
+take effect: the subagent rule on an Agent call and on a Workflow agent, the re-read request after a
+Markdown Write, and the voice data after the ghostwrite Skill. Each one changes a `tool.call`
+request, or adds context to the result returned by `next()`. The checks that passed went through
+`prompt.submit`, `turn.complete`, a Bash `tool.call` hook that only reads the call, and the title
+tool's `tool.call` hook, which returns its own result. In the probe log, the Agent hook ran and passed
+a changed prompt to `next()`, but the subagent still received the original prompt.
 
-The fallbacks that modify a `tool.call` request or result don't land. Four checks
-fail with the same pattern:
+On macOS, on 2.1.311 with no guard, every change lands, so the drop is tied to the guard or to
+Windows. The upstream issue is filed from the Mac, since this machine has no `gh`. A session on this
+machine files nothing and drafts no issue text: it runs the probe and records the output here.
 
-- A subagent started with the Agent tool is given neither `WRITING CONVENTIONS ACTIVE`
-  nor `You are a subagent with no user to ask` in its task.
-- A Workflow agent is given neither rule, same root cause.
-- A Write to a Markdown file returns the standard tool result with no re-read request
-  appended by session-skills.
-- The ghostwrite Skill returns the skill text with no `## Voice data, loaded by the
-  plugin` section appended.
+Everything below runs in the session through its Bash tool, with no step done by hand.
 
-The five passing checks go through `prompt.submit` or `turn.complete`; the four failing
-checks all go through `tool.call` modification. A diagnostic probe narrowed this to one
-case. The `{ tool: 'Agent' }` wrapper in orchestration-skills' register.ts was patched
-to log one line per call to `C:\Dev\.claude\jobs\<id>\tmp\probe.log` via `$.fs.write`,
-since no telemetry is written on this machine (`DISABLE_TELEMETRY=1` is set in
-`settings.json`). One Agent subagent produced the line
-`tool.call Agent fired: classic=false, agentId=, prompt starts "Reply with the single
-word: pong. Do not call any tool."` and the subagent reached the model with no
-`SUBAGENT_RULE` prepended. So: **the hook fires, `isClassic` is correctly false, the
-mutation branch runs, and the mutated `prompt` returned via `next({ ...e, prompt: ...
-})` is dropped by the engine before the subagent is spawned.**
+1. `git pull`, then run the probe into a new empty directory. It takes about a minute and calls
+   Haiku:
 
-The probe is reverted. The fix is upstream in Claude Code: under managed settings a
-`tool.call` hook's return of a mutated `prompt` on the Agent tool is dropped. Any
-workaround here either spawns the subagent differently or has to wait for the engine
-fix.
+   ```bash
+   e2e/tool-call-probe.sh "$(mktemp -d)"
+   ```
 
-### Upstream issue to file
+2. Each of Agent, Bash, Grep, and Read should be listed once under `Tool calls in the
+   transcript`. If one is missing, Haiku skipped it: run the probe again into a new directory, up to
+   three runs, and keep the output of the first complete run.
+3. Replace the text under `Results from Windows` below with the probe's whole output in a fenced
+   block, verbatim, and the Windows version from `cmd //c ver`. If the probe fails to run, for
+   example because `claude` is not on the Git Bash `PATH`, record the error output there instead.
+4. Commit `TODO.md` alone, with the message `Record the Windows tool.call probe results`, and push
+   it to `main`. Ian asked for this push when he set up the run, on 2026-10-26.
 
-Repo: `anthropics/claude-code` (public). Title suggestion:
+For comparison, this is the run on the Mac:
 
-> `tool.call` hook's mutated request is dropped under `cc-plugin-sec-default` managed-settings guard
+```
+claude 2.1.311 (Claude Code)
+classic.PreToolUse reached the plugin: yes
+agent hook ran: yes  change reached the model: yes
+bash  hook ran: yes  change reached the model: yes
+grep  hook ran: yes  change reached the model: yes
+read  hook ran: yes  change reached the model: yes
+[DEBUG] cc-plugin-sec-default@builtin not seated: no managed settings and not a Team or Enterprise organization (max)
+```
 
-Body outline:
-- Env: Windows 11 Enterprise, Claude Code 2.1.311, managed `cc-plugin-sec-default`
-  plugin at tier `prepend` that calls `next.to(e, 'append')` on every `classic.*`
-  event, so no `classic.*` event reaches user plugins.
-- Repro: a user plugin registers `on('tool.call', { tool: 'Agent' }, ($, e, next) =>
-  next({ ...e, prompt: '<PREFIX>\n\n' + e.prompt }))`. Fire one Agent subagent.
-- Expected: the subagent's first message starts with `<PREFIX>`.
-- Observed: the subagent receives the original prompt. The diagnostic written with
-  `$.fs.write` at the top of the hook shows that the hook fires and the mutation
-  branch runs.
-- Scope: the same drop pattern is seen for a Workflow agent, for a tool result returned
-  from `on('tool.call', ..., async (…) => { const r = await next(e); return { ...r,
-  context: [...] } })` on the `Write` tool, and for a Skill text augmentation. The five
-  checks that go through `prompt.submit` or `turn.complete` all work; the four that go
-  through `tool.call` all fail.
-- Hypothesis: under the guard, a `tool.call` hook's return value is read for `deny`
-  but its mutated request/result fields are discarded. The classic-event path reads
-  the whole return value; the native-event path does not.
-- Note: `$.telemetry.log` is a no-op where `DISABLE_TELEMETRY=1` is set in
-  `settings.json`, so a diagnostic probe wanting to run on such a machine needs
-  `$.fs.write` instead.
+### Results from Windows
 
-## Push detector matches command text, not git state
-
-The regex `/\bgit(\s+-C\s+\S+)?\s+push\b/` in session-skills' register.ts matched
-`git push` wherever it appeared in a Bash command. In the testing above it fired twice
-on this parent session, each time because the string sat inside a quoted argument of a
-`claude -p ... "...git push --dry-run origin main..."` Bash call. Each quoted argument
-is now replaced with X before the regex runs, so a push mentioned only inside a quoted
-argument no longer counts. A push run as `bash -c 'git push'` is now missed, which is
-rare and left as a known shortcut.
+Not run yet.
