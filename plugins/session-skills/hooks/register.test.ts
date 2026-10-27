@@ -1,5 +1,5 @@
-// claude plugin test: the context added at a session's start, and the edit to a
-// file in the primary checkout.
+// claude plugin test: the rules added to a prompt and a tool result, the
+// follow-up after a push, and the edit to a file in the primary checkout.
 import { expect, test } from 'claude-code/testing'
 import { splice } from './splice'
 
@@ -9,35 +9,29 @@ function world(on: any, entry?: string) {
     return { value: name === 'rules.md' ? 'before\n{{title}}\n{{wrap-up}}after\n' : `<${name}>\n` }
   })
   on('env.get', () => ({ value: entry }))
-  on('classic.SessionStart', () => ({ additionalContext: ['from a settings hook'] }))
+  on('prompt.submit', (_$: any, e: any) => ({ text: e.text, context: e.context }))
 }
-const rules = (title: string, wrapUp = '') => ['from a settings hook', `before\n<${title}>\n${wrapUp}after\n`]
+const rules = (title: string, wrapUp = '') => [`before\n<${title}>\n${wrapUp}after\n`]
+const submit = async ($: any) => (await $.prompt.submit({ text: 'hi' })).context ?? []
 
-test('a session starts with rules.md, after the context of a settings hook', async ($: any, on: any) => {
+test('rules.md is added to the first prompt', async ($: any, on: any) => {
   world(on)
-  for (const source of ['startup', 'resume', 'clear', 'compact']) {
-    expect((await $.classic.SessionStart({ source })).additionalContext).toEqual(rules('title-print.md'))
-  }
+  expect(await submit($)).toEqual(rules('title-print.md'))
 })
 
 test('the desktop app gets the title instruction for its tool and the rule for its wrap_up tool', async ($: any, on: any) => {
   world(on, 'claude-desktop')
-  expect((await $.classic.SessionStart({ source: 'startup' })).additionalContext).toEqual(rules('title-desktop.md', '<wrap-up-desktop.md>\n\n'))
+  expect(await submit($)).toEqual(rules('title-desktop.md', '<wrap-up-desktop.md>\n\n'))
 })
 
-test('a terminal session gets the title instruction for the tool registered there', async ($: any, on: any) => {
+test('in a terminal session the title is printed, since no tool sets one there', async ($: any, on: any) => {
   world(on, 'cli')
-  expect((await $.classic.SessionStart({ source: 'startup' })).additionalContext).toEqual(rules('title-cli.md'))
+  expect(await submit($)).toEqual(rules('title-print.md'))
 })
 
 test('any other entry point gets the printed title block', async ($: any, on: any) => {
   world(on, 'sdk-cli')
-  expect((await $.classic.SessionStart({ source: 'startup' })).additionalContext).toEqual(rules('title-print.md'))
-})
-
-test('a fork gets nothing added', async ($: any, on: any) => {
-  world(on)
-  expect((await $.classic.SessionStart({ source: 'fork' })).additionalContext).toEqual(['from a settings hook'])
+  expect(await submit($)).toEqual(rules('title-print.md'))
 })
 
 test('a passage is replaced where it occurs once, and a replacement with $& in it is literal', () => {
@@ -123,109 +117,57 @@ test('the tool writes nothing when the file changed after it was first read', as
   expect(files['/repo/a.md']).toBe('a\nadded by a sibling\n')
 })
 
-const TITLE = 'mcp__session-skills__set_session_title'
-const prompt = ($: any, session_title?: string) => $.classic.UserPromptSubmit({ session_id: 's1', prompt: 'next', session_title })
-function session(on: any, id: string) {
-  on('session.id', () => ({ value: id }))
-  on('classic.UserPromptSubmit', () => ({ additionalContext: ['from a settings hook'] }))
-}
-
-test('a title set with the tool is returned once, with the next prompt', async ($: any, on: any) => {
-  session(on, 's1')
-  expect((await prompt($)).sessionTitle).toBeUndefined()
-  expect((await $.tool.call({ tool: TITLE, title: ' Parser cache ' })).result).toContain('next prompt')
-  expect(await prompt($)).toEqual({ additionalContext: ['from a settings hook'], sessionTitle: 'Parser cache' })
-  expect((await prompt($, 'Parser cache')).sessionTitle).toBeUndefined()
-  // A second title replaces the first, which the session now has.
-  await $.tool.call({ tool: TITLE, title: 'R12: parser cache' })
-  expect((await prompt($, 'Parser cache')).sessionTitle).toBe('R12: parser cache')
-})
-
-test('a title is dropped when the user renamed the session after the last prompt', async ($: any, on: any) => {
-  session(on, 's1')
-  await prompt($, 'Typed by the user')
-  expect((await $.tool.call({ tool: TITLE, title: 'Parser cache' })).result).toContain('next prompt')
-  expect((await prompt($, 'Typed again')).sessionTitle).toBeUndefined()
-  expect((await prompt($, 'Typed again')).sessionTitle).toBeUndefined()
-})
-
-test('a title set in one session is not returned in another', async ($: any, on: any) => {
-  session(on, 's2')
-  await prompt($)
-  expect((await $.tool.call({ tool: TITLE, title: 'Parser cache' })).result).toContain('next prompt')
-  expect((await prompt($)).sessionTitle).toBeUndefined()
-})
-
-test('after a load in the middle of a turn, a title set with the tool waits for the next prompt', async ($: any, on: any) => {
-  session(on, 's1')
-  on('classic.PostToolUse', () => ({}))
-  await $.classic.PostToolUse({ session_id: 's1', tool_name: 'Read', tool_input: {}, tool_response: {}, tool_use_id: 't' })
-  expect((await $.tool.call({ tool: TITLE, title: 'Parser cache' })).result).toContain('next prompt')
-  expect((await prompt($)).sessionTitle).toBe('Parser cache')
-})
-
-test('after a load in the middle of a turn, a title set before any other event waits for the next prompt', async ($: any, on: any) => {
-  session(on, 's1')
-  expect((await $.tool.call({ tool: TITLE, title: 'Parser cache' })).result).toContain('next prompt')
-  expect((await prompt($)).sessionTitle).toBe('Parser cache')
-})
-
-test('an empty title is an error', async ($: any, on: any) => {
-  session(on, 's1')
-  expect((await $.tool.call({ tool: TITLE, title: '  ' })).isError).toBe(true)
-  expect((await prompt($)).sessionTitle).toBeUndefined()
-})
-
-test('the title tool is registered in the terminal only', async ($: any, on: any) => {
+test('no title tool is registered', async ($: any, on: any) => {
   let entry: string | undefined
   let names: string[] = []
   on('env.get', () => ({ value: entry }))
   on('tool.register', (_$: any, e: any) => { names.push(e.name); return { value: undefined } })
   on('session.start', (_$: any, e: any) => e)
-  for (const [from, listed] of [['cli', true], ['claude-desktop', false], ['sdk-cli', false], [undefined, false]] as const) {
+  for (const from of ['cli', 'claude-desktop', 'sdk-cli', undefined]) {
     entry = from
     names = []
     await $.session.start({ cwd: '/repo' })
     expect(names).toContain('edit_primary_file')
-    expect(names.includes('set_session_title')).toBe(listed)
+    expect(names).not.toContain('set_session_title')
   }
 })
 
-const ran = (command: string, session_id = 's1') => ({ session_id, tool_name: 'Bash', tool_input: { command }, tool_response: {}, tool_use_id: 't' })
 const end = ($: any, answer: string, more: any = {}) => $.turn.complete({ answer, reason: 'answer', isAborted: false, durationMs: 1, turnId: 't1', ...more })
 const BLOCK = 'Start it in `/repo`:\n\n```\n/next-roadmap-item R12\n```\n\n**Opus + High**'
 // The prompts the plugin submits, in a session with an id the test sets.
 function turnEnd(on: any) {
   const w = { id: 's1', sent: [] as string[], bash: { result: {} } as any }
   on('session.id', () => ({ value: w.id }))
-  on('classic.PostToolUse', () => ({}))
   on('turn.complete', (_$: any, e: any) => ({ text: e.answer }))
   on('prompt.submit', (_$: any, e: any) => { w.sent.push(e.text); return { text: e.text } })
   on('tool.call', { tool: 'Bash' }, () => w.bash)
   return w
 }
+const bash = ($: any, command: string) => $.tool.call({ tool: 'Bash', command })
 
 test('after a push, one follow-up is submitted when no next step is written at the end of the turn', async ($: any, on: any) => {
   const w = turnEnd(on)
-  await $.classic.PostToolUse(ran('git -C "/repo" push origin main'))
+  await bash($, 'git -C "/repo" push origin main')
   await end($, 'I pushed 47e3656 to origin/main.')
   expect(w.sent).toHaveLength(1)
   expect(w.sent[0]).toContain('next step')
   // The model answers the follow-up with nothing to come next.
   await end($, 'Nothing comes next: R96 waits on its post count.')
-  await $.classic.PostToolUse(ran('git fetch -q origin && git push'))
+  await bash($, 'git fetch -q origin && git push')
   await end($, `Pushed.\n\n${BLOCK}`)
   // A fence of tildes is a fenced block too, as writing-conventions reads a draft.
-  await $.classic.PostToolUse(ran('git push'))
+  await bash($, 'git push')
   await end($, 'Pushed. The release note:\n\n~~~draft\nPlain.\n~~~')
   expect(w.sent).toHaveLength(1)
 })
 
 test('no follow-up is submitted after a turn that pushed nothing, or pushed in another session', async ($: any, on: any) => {
   const w = turnEnd(on)
-  await $.classic.PostToolUse(ran('git log --oneline origin/main..main && echo push'))
+  await bash($, 'git log --oneline origin/main..main && echo push')
   await end($, 'One commit waits for the push.')
-  await $.classic.PostToolUse(ran('git push', 's2'))
+  w.id = 's2'
+  await bash($, 'git push')
+  w.id = 's1'
   await end($, 'Done.')
   expect(w.sent).toEqual([])
   w.id = 's2'
@@ -235,42 +177,27 @@ test('no follow-up is submitted after a turn that pushed nothing, or pushed in a
 
 test('a push from an interrupted turn is dropped, and the end of a subagent turn leaves it for the main loop', async ($: any, on: any) => {
   const w = turnEnd(on)
-  await $.classic.PostToolUse(ran('git push'))
+  await bash($, 'git push')
   await end($, '', { reason: 'aborted', isAborted: true })
   await end($, 'Done.')
   expect(w.sent).toEqual([])
-  await $.classic.PostToolUse(ran('git push'))
+  await bash($, 'git push')
   await end($, 'Pushed.', { agentId: 'a1' })
   expect(w.sent).toEqual([])
   await end($, 'Done.')
   expect(w.sent).toHaveLength(1)
 })
 
-// Under managed settings cc-plugin-sec-default sends every classic.* event past
-// user plugins, as this copy of its rule does. The rules then come with a
-// prompt, once the model no longer reads them.
-const guard = { name: 'guard', tier: 'prepend' as const, register(on: any) {
-  on('classic.*', (_$: any, e: any, next: any) => next.to(e, 'append'))
-} }
+// The rules come with a prompt, once the model no longer reads them.
 function prompts(on: any) {
   const w = { read: [] as string[] }
   on('session.messages', () => ({ value: w.read.map(text => ({ role: 'user', content: [{ type: 'text', text }] })) }))
-  on('prompt.submit', (_$: any, e: any) => ({ text: e.text, context: e.context }))
   return w
 }
-const submit = async ($: any) => (await $.prompt.submit({ text: 'hi' })).context ?? []
 
-test('where the classic events run, nothing is added to a prompt', async ($: any, on: any) => {
-  world(on)
-  prompts(on)
-  await $.classic.SessionStart({ source: 'startup' })
-  expect(await submit($)).toEqual([])
-})
-
-test('under the guard, the rules are added to a prompt while the model does not read them', { plugins: [guard] }, async ($: any, on: any) => {
+test('the rules are added to a prompt while the model does not read them', async ($: any, on: any) => {
   world(on, 'claude-desktop')
   const w = prompts(on)
-  expect((await $.classic.SessionStart({ source: 'startup' })).additionalContext).toEqual(['from a settings hook'])
   const rules = 'before\n<title-desktop.md>\n<wrap-up-desktop.md>\n\nafter\n'
   expect(await submit($)).toEqual([rules])
   w.read = [`<system-reminder>\n${rules}</system-reminder>`]
@@ -290,7 +217,7 @@ function results(on: any) {
 }
 const call = async ($: any, more: any = {}) => (await $.tool.call({ tool: 'Read', file_path: '/p/a.md', ...more })).context ?? []
 
-test('under the guard, the rules are added to one tool result after a compaction, until the model reads them there', { plugins: [guard] }, async ($: any, on: any) => {
+test('the rules are added to one tool result after a compaction, until the model reads them there', async ($: any, on: any) => {
   world(on)
   const w = results(on)
   const rules = 'before\n<title-print.md>\nafter\n'
@@ -311,37 +238,7 @@ test('under the guard, the rules are added to one tool result after a compaction
   expect(await call($)).toEqual([rules])
 })
 
-test('where the classic events run, nothing is added to a tool result', async ($: any, on: any) => {
-  world(on)
-  const w = results(on)
-  await $.classic.SessionStart({ source: 'startup' })
-  w.read = ['a summary']
-  expect(await call($)).toEqual([])
-})
-
-test('after a mid-session load, the rules are added to a prompt while the model does not read them', async ($: any, on: any) => {
-  session(on, 's1')
-  world(on)
-  const w = prompts(on)
-  await prompt($)
-  const rules = 'before\n<title-print.md>\nafter\n'
-  expect(await submit($)).toEqual([rules])
-  w.read = [rules]
-  expect(await submit($)).toEqual([])
-})
-
-test('under the guard, a call to the title tool is an error with the /rename fallback', { plugins: [guard] }, async ($: any, on: any) => {
-  session(on, 's1')
-  prompts(on)
-  await prompt($)
-  await $.prompt.submit({ text: 'next' })
-  const ran = await $.tool.call({ tool: TITLE, title: 'Parser cache' })
-  expect(ran.isError).toBe(true)
-  expect(ran.text).toContain('`/rename`')
-})
-
-
-test('under the guard, a push is recorded from the Bash call, and the follow-up is submitted', { plugins: [guard] }, async ($: any, on: any) => {
+test('a push is recorded from the Bash call, and the follow-up is submitted', async ($: any, on: any) => {
   const w = turnEnd(on)
   await $.tool.call({ tool: 'Bash', command: 'git status' })
   await end($, 'Done.')
@@ -365,22 +262,14 @@ test('under the guard, a push is recorded from the Bash call, and the follow-up 
   expect(w.sent[0]).toContain('next step')
 })
 
-test('where the classic events run, a push is recorded from classic.PostToolUse alone', async ($: any, on: any) => {
-  const w = turnEnd(on)
-  await $.classic.PostToolUse(ran('git status'))
-  await $.tool.call({ tool: 'Bash', command: 'git push origin main' })
-  await end($, 'Done.')
-  expect(w.sent).toEqual([])
-})
-
 test('a push mentioned only inside a quoted argument is not recorded', async ($: any, on: any) => {
   const w = turnEnd(on)
   // Each quoted string is a false positive: a nested claude -p invocation, a
   // commit message, and an echoed note.
-  await $.classic.PostToolUse(ran('claude -p "wait for git push --dry-run origin main"'))
-  await $.classic.PostToolUse(ran(`git commit -m 'I will git push later'`))
-  await $.classic.PostToolUse(ran('echo "git push" > note.txt'))
-  await $.classic.PostToolUse(ran(`git commit -F - <<'EOF'\nThen git push it\nEOF`))
+  await bash($, 'claude -p "wait for git push --dry-run origin main"')
+  await bash($, `git commit -m 'I will git push later'`)
+  await bash($, 'echo "git push" > note.txt')
+  await bash($, `git commit -F - <<'EOF'\nThen git push it\nEOF`)
   await end($, 'Done.')
   expect(w.sent).toEqual([])
 })
@@ -391,16 +280,8 @@ test('a push after a commit message heredoc with an odd quote in it is recorded'
     `git commit -F - <<'EOF'\nIt's done\nEOF\ngit push`,
     `git commit -m "$(cat <<'EOF'\nQuote a " here\nEOF\n)" && git push`,
   ]) {
-    await $.classic.PostToolUse(ran(command))
+    await bash($, command)
     await end($, 'Pushed.')
   }
   expect(w.sent).toHaveLength(2)
-})
-
-test('under the guard, a push mentioned only inside a quoted argument is not recorded', { plugins: [guard] }, async ($: any, on: any) => {
-  const w = turnEnd(on)
-  await $.tool.call({ tool: 'Bash', command: `claude -p 'wait for git push --dry-run origin main'` })
-  await $.tool.call({ tool: 'Bash', command: 'echo "git push" > note.txt' })
-  await end($, 'Done.')
-  expect(w.sent).toEqual([])
 })

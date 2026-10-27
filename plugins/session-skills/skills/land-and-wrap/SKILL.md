@@ -243,7 +243,7 @@ The rest, in order:
   snippet's entry point: it finds the in-flight work itself, so state the unfinished **branch**
   alongside it and leave the recap out.
 - **Title the session if it has no title yet, or a better one fits now**, the way the session rules
-  specify—they load at every session start, so the rule is already in context. Only a title given
+  specify—they load with the first prompt of every session, so the rule is already in context. Only a title given
   earlier in this session that still fits is left alone.
 
 How the wrap-up reads is covered by the always-on rules of `writing-conventions`, where it is

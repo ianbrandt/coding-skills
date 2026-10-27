@@ -442,33 +442,20 @@ async function answer(name: string, run: () => Promise<string>) {
   }
 }
 
-const TITLE_RULES: Record<string, string> = { 'claude-desktop': 'desktop', cli: 'cli' }
-
 const NEXT_STEP = 'The last turn pushed work, and no next step is written at the end of its reply. Write it now, under the session rules: the hand-off block for the next unit of work, or one line saying that this session carries on with it. When nothing can start yet, write one line on what the next item waits on, then the block for when it can start. When nothing comes next at all, say so in one line.'
 
 // The session rules: the title instruction and, in the desktop app, the
 // wrap-up instruction.
 async function readRules($: any): Promise<string> {
   const read = (name: string) => $.fs.read(`${$.plugin.root}/hooks/${name}.md`).catch(() => '')
-  // One title instruction per surface: a session given all three called the
-  // terminal's tool in the desktop app and printed the title when that failed.
+  // One title instruction per surface: a session given several called another
+  // surface's tool in the desktop app and printed the title when that failed.
   const entry = await $.env.get('CLAUDE_CODE_ENTRYPOINT').catch(() => '')
-  const title = (await read(`title-${TITLE_RULES[entry as string] ?? 'print'}`)).trimEnd()
+  const title = (await read(entry === 'claude-desktop' ? 'title-desktop' : 'title-print')).trimEnd()
   // The desktop app ends a turn with its wrap_up tool, which nothing else has.
   const wrapUp = entry === 'claude-desktop' ? `${(await read('wrap-up-desktop')).trimEnd()}\n\n` : ''
   return (await read('rules')).replace('{{title}}', () => title).replace('{{wrap-up}}', () => wrapUp)
 }
-
-// Set when a classic event reaches this plugin, and when classic.SessionStart
-// added the rules. Under managed settings `cc-plugin-sec-default` sends every
-// `classic.*` event past it, and the native event below stands in for the
-// rules. Kept in $.state, which outlives a hot reload. A plugin loaded
-// mid-session sees no classic.SessionStart, so the rules fallback waits on that
-// one alone.
-const CLASSIC = { plugin: 'session-skills', key: 'classic' } as const
-const STARTED = { plugin: 'session-skills', key: 'started' } as const
-const isClassic = async ($: any) => (await $.state.get(CLASSIC).catch(() => ({}))).value === true
-const isStarted = async ($: any) => (await $.state.get(STARTED).catch(() => ({}))).value === true
 
 // Whether the model still reads this text: false after /clear, a compaction,
 // or a plugin update that changed it, and undefined where the conversation is
@@ -504,49 +491,7 @@ export const register: Register = on => {
       isDeferred: false,
     })
     for (const [name, tool] of Object.entries(TOOLS)) await $.tool.register({ name, ...tool, isDeferred: false })
-    // The desktop app has a title tool of its own, and a session run with -p
-    // has no next prompt.
-    if ((await $.env.get('CLAUDE_CODE_ENTRYPOINT').catch(() => '')) === 'cli') {
-      await $.tool.register({
-        name: 'set_session_title',
-        description: "Set this session's title, as /rename does. The title is applied when the user sends the next prompt, so call it before the reply ends.",
-        inputSchema: { type: 'object', properties: { title: { type: 'string', description: 'The title, with its first word capitalized.' } }, required: ['title'] },
-        isDeferred: false,
-      })
-    }
     return next(e)
-  })
-
-  // No call sets a title from a tool. A prompt-submit hook can return one, so
-  // the title waits here for the next prompt. Under the guard that hook never
-  // runs. The tool stays registered, since in the terminal session.start and
-  // classic.SessionStart run at the same time. classic.UserPromptSubmit runs
-  // inside the next() of prompt.submit, so a prompt that comes back with no
-  // classic event seen is the guard.
-  // ponytail: held in memory, so a title set in the last turn before the process exits is lost.
-  // ponytail: after a load in the middle of a turn under the guard, a title set before the next prompt is held and never set.
-  const titles = new Map<string, { pending?: string; seen?: string }>()
-  let guarded = false
-  on('tool.call', { tool: 'mcp__session-skills__set_session_title' }, async ($, e: any) =>
-    answer('set_session_title', async () => {
-      const title = String(e.title ?? '').trim()
-      if (!title) throw new Error('the title is empty')
-      if (guarded) throw new Error('no title can be set in this session. End the reply with a `**Session title:**` label line, then `/rename` and the title alone in a plain untagged fenced block.')
-      const id = await $.session.id()
-      titles.set(id, { ...titles.get(id), pending: title })
-      return `The title is set to ${JSON.stringify(title)} when the user sends the next prompt.`
-    }),
-  )
-  // A title that differs from the one at the last prompt is one the user typed
-  // since, with /rename, and it is kept.
-  on('classic.UserPromptSubmit', async ($, e: any, next: any) => {
-    await $.state.set(CLASSIC, true).catch(() => {})
-    const ran = await next(e)
-    const held = titles.get(e.session_id)
-    const renamed = held !== undefined && 'seen' in held && held.seen !== e.session_title
-    const title = renamed ? undefined : held?.pending
-    titles.set(e.session_id, { seen: title ?? e.session_title })
-    return title ? { ...ran, sessionTitle: title } : ran
   })
 
   // The turn that pushes is the last turn of a landing, and in October 2026 13
@@ -555,9 +500,8 @@ export const register: Register = on => {
   // writing-conventions submits a fix-up only for a draft in a fence, so the two
   // follow-ups never come after the same reply. The follow-up turn pushed
   // nothing, so it gets no follow-up of its own when the model answers that
-  // nothing comes next. The push is recorded from classic.PostToolUse, which
-  // sees a command a settings hook rewrote, and from the call where no classic
-  // event arrives.
+  // nothing comes next. The push is recorded from the call as it reached this
+  // plugin, so a command a settings hook rewrote into a push is not seen.
   const pushed = new Set<string>()
   const PUSH = /\bgit(\s+-C\s+\S+)?\s+push\b/
   // Each quoted argument is replaced with X so the regex matches only text the
@@ -568,15 +512,9 @@ export const register: Register = on => {
   const unquoted = (cmd: string) =>
     cmd.replace(/(<<-?[ \t]*(["'])([^"'\s]+)\2[^\n]*\n)[\s\S]*?^([ \t]*\3)$/gm, '$1$4')
       .replace(/"(?:[^"\\]|\\.)*"?/g, 'X').replace(/'[^']*'?/g, 'X')
-  on('classic.PostToolUse', async ($, e: any, next: any) => {
-    await $.state.set(CLASSIC, true).catch(() => {})
-    if (e.tool_name === 'Bash' && PUSH.test(unquoted(String(e.tool_input?.command ?? '')))) pushed.add(e.session_id)
-    return next(e)
-  })
   on('tool.call', { tool: 'Bash' }, async ($, e: any, next: any) => {
     const ran = await next(e)
-    // classic.PostToolUse does not fire for a denied or failed call.
-    if (ran.deny === undefined && !(ran as any).isError && PUSH.test(unquoted(String(e.command ?? ''))) && !(await isClassic($))) pushed.add(await $.session.id())
+    if (ran.deny === undefined && !(ran as any).isError && PUSH.test(unquoted(String(e.command ?? '')))) pushed.add(await $.session.id())
     return ran
   })
   on('turn.complete', async ($, e, next) => {
@@ -586,33 +524,21 @@ export const register: Register = on => {
     return ran
   })
 
-  // A fork starts with its parent's context, where the rules already are.
-  on('classic.SessionStart', async ($, e: any, next: any) => {
-    await $.state.set(CLASSIC, true).catch(() => {})
-    await $.state.set(STARTED, true).catch(() => {})
-    const ran = await next(e)
-    if (e.source === 'fork') return ran
-    const rules = await readRules($)
-    return rules ? { ...ran, additionalContext: [...(ran.additionalContext ?? []), rules] } : ran
-  })
-
-  // ponytail: under the guard the title is not set, since no native event sets one.
+  // The rules go with the first prompt, and again once the model no longer
+  // reads them. A fork starts with its parent's context, where they already are.
   on('prompt.submit', async ($, e: any, next: any) => {
-    const rules = (await isStarted($)) ? '' : await readRules($)
-    const ran = await next(rules && !(await isRead($, rules)) ? { ...e, context: [...(e.context ?? []), rules] } : e)
-    if (!(await isClassic($))) guarded = true
-    return ran
+    const rules = await readRules($)
+    return next(rules && !(await isRead($, rules)) ? { ...e, context: [...(e.context ?? []), rules] } : e)
   })
 
-  // Under the guard, after an automatic compaction in the middle of a turn the
-  // main loop goes without the rules until the next prompt. They are added to
+  // After an automatic compaction in the middle of a turn the main loop goes without the rules until the next prompt. They are added to
   // the next tool result, and not again until the model reads them back or the
   // conversation is compacted again, since calls that run in parallel all start
   // before any result is read back. A subagent never gets them.
   const added = new Map<string, string>()
   on('tool.call', async ($, e: any, next: any) => {
     const ran = await next(e)
-    if (ran.deny !== undefined || e.agentId || (await isStarted($))) return ran
+    if (ran.deny !== undefined || e.agentId) return ran
     const rules = await readRules($).catch(() => '')
     const read = rules ? await isRead($, rules) : undefined
     const id = await $.session.id().catch(() => '')

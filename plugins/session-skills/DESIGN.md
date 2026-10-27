@@ -4,7 +4,7 @@ How the plugin is wired, for anyone changing it. The [README](README.md) covers 
 
 ## Tools and session rules
 
-One hooks module, `hooks/register.ts`, which is a Claude Code mod and needs Claude Code 2.1.286 or
+One hooks module, `hooks/register.ts`, which is a Claude Code mod and needs Claude Code 2.1.308 or
 later, the oldest version supported. It registers six tools, named `mcp__session-skills__<tool>`,
 and the skills call them where they once had bash to adapt:
 
@@ -24,27 +24,22 @@ and the skills call them where they once had bash to adapt:
   roadmap: one passage is replaced, or text is appended, and nothing is written when the passage
   has drifted.
 
-In a terminal session a seventh tool, `set_session_title`, is registered, since the CLI has no tool
-that sets the session title. No call in the mod API sets one either, so the title is kept until the
-user's next prompt and returned there as the `sessionTitle` of a `UserPromptSubmit` hook, which
-renames the session as `/rename` does. A title is dropped when the user renamed the session in
-between. The tool is registered only where `CLAUDE_CODE_ENTRYPOINT` is `cli`: the desktop app has a
-title tool, and a `claude -p` session has no next prompt. Once a prompt has come with no classic
-event, as under managed settings, a call to the tool returns an error, and the model is told to
-print the `/rename` block instead. `classic.UserPromptSubmit` runs inside the `next()` of
-`prompt.submit`, so that prompt settles it.
+The terminal has no tool that sets the session title, and no call in the mod API sets one. A
+`UserPromptSubmit` hook can return a `sessionTitle`, but under managed settings
+`cc-plugin-sec-default` sends every `classic.*` event past user plugins. The module registers no
+classic hook, so the model prints a `/rename` block in the terminal instead.
 
 `hooks/checkouts.test.ts` and `hooks/register.test.ts` run under `claude plugin test`. The
 tool definitions are in every session's context, at roughly 600 tokens by estimate for the six.
 
-At session start the module adds `hooks/rules.md` to every session, including after `/clear` and
-compaction. That file has three rules that cannot go in a skill. One is the session title, given
+The module adds `hooks/rules.md` to the first prompt of every session, and again to a prompt or
+a tool result once the model no longer reads it: after `/clear`, a compaction, or a plugin update
+that changed the text. A fork starts with its parent's context, where the rules already are. That file has three rules that cannot go in a skill. One is the session title, given
 once the subject of the session is known and again when a better one fits. How the title is set
-differs by surface, so `{{title}}` in `rules.md` is replaced with one of three files, chosen by
-`CLAUDE_CODE_ENTRYPOINT`: `title-desktop.md` for the desktop app's tool, `title-cli.md` for this
-plugin's, and `title-print.md` anywhere else, for a `/rename` command the user pastes. A session
-given all three instructions at once called the terminal's tool in the desktop app and printed the
-title when the call failed. Another runs every turn:
+differs by surface, so `{{title}}` in `rules.md` is replaced with one of two files, chosen by
+`CLAUDE_CODE_ENTRYPOINT`: `title-desktop.md` for the desktop app's tool, and `title-print.md`
+anywhere else, for a `/rename` command the user pastes. A session given several instructions at
+once called another surface's tool in the desktop app and printed the title when the call failed. Another runs every turn:
 weigh continuing this session against handing off to a fresh one without writing the weighing out,
 and end a turn that closed a unit with the outcome: a hand-off block, a line that this session goes
 on, or a line on what the next item waits on. The third applies whenever something out of scope turns up: raise it in the reply, write it
@@ -68,10 +63,16 @@ hook submits one follow-up prompt with `$.prompt.submit`, asking for the next st
 saying there is none. The follow-up turn pushed nothing, so a reply that states there is no next
 step costs one extra turn. A writing-conventions fix-up is submitted only for a draft in a fence, so
 the two follow-ups never come after the same reply.
-The check runs under managed settings too, where `cc-plugin-sec-default` sends `classic.Stop` past
-user plugins. A push is recorded from the `PostToolUse` hook for `Bash`, which sees a command that a
-settings hook rewrote, and from the `tool.call` for `Bash` where no classic event has arrived, for a
-call that was not denied and did not fail. A push is dropped when its turn is interrupted or ends on
+A push is recorded from the `tool.call` for `Bash`, for a call that was not denied and did not
+fail. A command that a settings hook rewrote into a push is not seen. A push is dropped when its turn is interrupted or ends on
 an error, and kept past the end of a subagent's turn for the main loop.
 
-There is no `SubagentStart` hook, because a subagent doesn't end a session.
+No hook adds the rules to a subagent, because a subagent doesn't end a session.
+
+## Native events only
+
+Every hook is on a native event. Under managed settings, or a Team or Enterprise sign-in,
+`cc-plugin-sec-default` sends each `classic.*` event past user plugins and prints a notice that the
+hook was skipped, every session. On a managed Windows machine on 2.1.311 the native paths reached
+the model in every run, so the classic hooks were removed on every machine, leaving one path to
+test.

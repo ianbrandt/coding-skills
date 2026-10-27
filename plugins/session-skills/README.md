@@ -67,11 +67,11 @@ in the marketplace's README.
 ## How it is wired
 
 The skills call six tools that the plugin registers as `mcp__session-skills__<tool>`, and the session
-rules in [`hooks/rules.md`](hooks/rules.md) are loaded at every session start, including after
+rules in [`hooks/rules.md`](hooks/rules.md) are added to the first prompt, and again after
 `/clear` and compaction. After a turn that ran `git push`, a reply with no next step at its end
 gets one follow-up prompt that asks for it. With `claude -p` and the default text output, both
 replies are printed, and under `--output-format json` only the last one is in `result`. Claude Code
-2.1.286 or later is required. [DESIGN.md](DESIGN.md) covers each tool, how the session title is
+2.1.308 or later is required. [DESIGN.md](DESIGN.md) covers each tool, how the session title is
 set, and why the rules are loaded by a hook.
 
 ## Measuring it
