@@ -45,7 +45,7 @@ log lines about the guard. [`tool-call-rounds.sh`](tool-call-rounds.sh) runs it 
 each setup are complete: project settings, user settings too, and 2.1.310 from npm.
 
 [`fallback-probe.sh`](fallback-probe.sh) loads every plugin in this checkout and checks the four
-fallbacks that add text through `tool.call`: the rules in an Agent subagent's task and in a
+hooks that add text through `tool.call`: the rules in an Agent subagent's task and in a
 Workflow agent's, the re-read request after a Markdown Write, and the voice data beside the
 ghostwrite Skill's result. It also checks the main-loop rules of three plugins, and counts the
 notices that a hook of one of these plugins was skipped, which should be 0.

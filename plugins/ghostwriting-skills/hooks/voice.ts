@@ -1,8 +1,8 @@
-// The voice data, appended to the `ghostwrite` skill's text as the skill loads,
+// The voice data, added beside the `ghostwrite` skill's text as the skill loads,
 // so the spec, the samples, and the always-on rules are in front of the model
 // whole. Left to the model, the reads were a locate snippet and three or more
 // file reads, any of which could be skipped or cut short. The voice directory
-// alone is appended to `share-ghostwriting-spec`, which reads the spec itself.
+// alone is added for `share-ghostwriting-spec`, which reads the spec itself.
 import type { Register } from 'claude-code'
 
 // ponytail: every sample is appended up to this many characters of corpus, and
@@ -111,30 +111,12 @@ async function added($: any, skill: string, configured: unknown): Promise<string
 }
 
 export const register: Register = (on, options) => {
-  // How many times skill.prompt added the text, so a Skill call can tell
-  // whether it ran.
-  let appended = 0
-  // The skill typed as a slash command, while prompt.submit adds its text.
-  let typed: string | undefined
-  on('skill.prompt', async ($, e, next) => {
-    const prompt = await next(e)
-    if (typed !== undefined && e.skill.split(':').pop() === typed) return prompt
-    try {
-      const text = await added($, e.skill, (options as any)?.voice_dir)
-      if (!text) return prompt
-      appended++
-      return { ...prompt, text: prompt.text + text }
-    } catch {
-      return prompt
-    }
-  })
-
-  // Under managed settings `cc-plugin-sec-default` sends `skill.prompt` past
-  // this plugin, so the text comes back beside the Skill tool's result.
+  // Not skill.prompt: under managed settings `cc-plugin-sec-default` sends it
+  // past this plugin and prints a notice, so the text goes beside the Skill
+  // tool's result instead.
   on('tool.call', { tool: 'Skill' }, async ($, e: any, next: any) => {
-    const before = appended
     const ran = await next(e)
-    if (appended !== before || ran.deny !== undefined || ran.isError) return ran
+    if (ran.deny !== undefined || ran.isError) return ran
     try {
       const text = await added($, String(e.skill ?? ''), (options as any)?.voice_dir)
       return text ? { ...ran, context: [...(ran.context ?? []), text] } : ran
@@ -143,18 +125,11 @@ export const register: Register = (on, options) => {
     }
   })
 
-  // No Skill call is made for a typed slash command, and its skill.prompt runs
-  // inside next() here, where the guard may skip it too. Context added after next() is
-  // dropped, so the text goes in before it, and skill.prompt adds none.
+  // No Skill call is made for a typed slash command. Context added after next()
+  // is dropped, so the text goes in before it.
   on('prompt.submit', async ($, e: any, next: any) => {
     const skill = String(e.command?.name ?? '')
     const text = skill ? await added($, skill, (options as any)?.voice_dir).catch(() => '') : ''
-    if (!text) return next(e)
-    typed = skill.split(':').pop()
-    try {
-      return await next({ ...e, context: [...(e.context ?? []), text] })
-    } finally {
-      typed = undefined
-    }
+    return next(text ? { ...e, context: [...(e.context ?? []), text] } : e)
   })
 }

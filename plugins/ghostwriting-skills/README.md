@@ -12,14 +12,14 @@ hand-written samples. The directory is asked for when the plugin is enabled (the
 option); left empty, the skills use `$GHOSTWRITING_DIR`, then `~/.claude/ghostwriting/`. The
 directory can be a symlink into a private repo.
 
-[`hooks/voice.ts`](hooks/voice.ts) appends that data to the `ghostwrite` skill's text as the skill
-loads, through a `skill.prompt` hook: the spec, every corpus sample up to 64,000 characters in all,
-and the `writing-conventions` rules file when that plugin is installed. Past that size the samples
-are listed by name for the model to read by genre. For `share-ghostwriting-spec` only the directory
-is appended, with whether it has a spec. When a skill is typed as a slash command, the same text is
-added as context on the prompt instead, as checked on 2.1.310. Under managed settings, where
-`cc-plugin-sec-default` passes over `skill.prompt`, the text is added beside the Skill tool's
-result when the model runs a skill. A hooks module is a Claude Code mod, and 2.1.308 is the oldest version supported, so neither
+[`hooks/voice.ts`](hooks/voice.ts) adds that data beside the Skill tool's result when the model runs
+the `ghostwrite` skill: the spec, every corpus sample up to 64,000 characters in all, and the
+`writing-conventions` rules file when that plugin is installed. Past that size the samples are
+listed by name for the model to read by genre. For `share-ghostwriting-spec` only the directory is
+added, with whether it has a spec. When a skill is typed as a slash command, the same text is added
+as context on the prompt instead, as checked on 2.1.310. No `skill.prompt` hook is registered:
+under managed settings `cc-plugin-sec-default` passes over it and prints a notice that it was
+skipped. A hooks module is a Claude Code mod, and 2.1.308 is the oldest version supported, so neither
 skill has a shell snippet to locate the directory by hand.
 [`hooks/voice.test.ts`](hooks/voice.test.ts) runs under `claude plugin test`.
 

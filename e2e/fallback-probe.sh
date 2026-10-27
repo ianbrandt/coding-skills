@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Checks the four plugin fallbacks that add text through tool.call: the rules in an Agent
+# Checks the four plugin hooks that add text through tool.call: the rules in an Agent
 # subagent's task, the rules in a Workflow agent's first tool result, the re-read request after a
 # Markdown Write, and the voice data beside the ghostwrite Skill's result. It also checks the rules
 # of three plugins in the main loop, and counts the notices for a skipped hook of a plugin in this

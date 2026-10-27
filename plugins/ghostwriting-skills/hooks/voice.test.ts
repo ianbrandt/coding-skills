@@ -27,11 +27,14 @@ function files(on: any, texts: Record<string, string>, env: Record<string, strin
     if (names.size === 0) return { deny: 'no such directory' }
     return { value: [...names].map(name => ({ name, kind: Object.keys(texts).includes(`${dir}/${name}`) ? 'file' : 'dir', size: (texts[`${dir}/${name}`] ?? '').length, mtimeMs: 0, isLink: false })) }
   })
-  on('skill.prompt', (_$: any, e: any) => ({ text: e.text }))
+  on('tool.call', () => ({ result: 'Launching skill' }))
   return reads
 }
 
-test('the spec, every sample, and the newest rules file follow the skill text', async ($: any, on: any) => {
+// loaded <skill>: what the plugin adds beside the Skill tool's result.
+const loaded = async ($: any, skill: string) => ((await $.tool.call({ tool: 'Skill', skill })).context ?? []).join('\n')
+
+test('the spec, every sample, and the newest rules file are added beside the Skill result', async ($: any, on: any) => {
   files(on, {
     [SPEC]: 'SPEC TEXT',
     '/v/corpus/issues.md': 'ISSUE SAMPLE',
@@ -40,67 +43,66 @@ test('the spec, every sample, and the newest rules file follow the skill text', 
     [`${CACHE}/m/writing-conventions/0.9.0/hooks/rules.md`]: 'OLD RULES',
     [`${CACHE}/m/writing-conventions/0.44.0/hooks/rules.md`]: 'NEW RULES',
   })
-  const { text } = await $.skill.prompt({ skill: 'ghostwriting-skills:ghostwrite', text: 'SKILL' })
-  expect(text.startsWith('SKILL\n')).toBe(true)
+  const text = await loaded($, 'ghostwriting-skills:ghostwrite')
   for (const part of ['VOICE=/v\n', 'SPEC TEXT', 'ISSUE SAMPLE', 'PR SAMPLE', 'NEW RULES']) expect(text).toContain(part)
   for (const part of ['NOT A SAMPLE', 'OLD RULES']) expect(text).not.toContain(part)
 })
 
 test('with no spec the model is sent to the bootstrap section', async ($: any, on: any) => {
   files(on, { '/v/corpus/issues.md': 'ISSUE SAMPLE' })
-  const { text } = await $.skill.prompt({ skill: 'ghostwrite', text: 'SKILL' })
+  const text = await loaded($, 'ghostwrite')
   expect(text).toContain('MODE=bootstrap')
   expect(text).not.toContain('ISSUE SAMPLE')
 })
 
 test('a corpus over the cap is listed by name for the model to read', async ($: any, on: any) => {
   files(on, { [SPEC]: 'SPEC TEXT', '/v/corpus/a.md': 'x'.repeat(40000), '/v/corpus/b.md': 'y'.repeat(40000) })
-  const { text } = await $.skill.prompt({ skill: 'ghostwrite', text: 'SKILL' })
+  const text = await loaded($, 'ghostwrite')
   expect(text).toContain('`/v/corpus/a.md`, `/v/corpus/b.md`')
   expect(text).not.toContain('xxxx')
 })
 
 test('without GHOSTWRITING_DIR the default directory is read', async ($: any, on: any) => {
   files(on, { '/home/.claude/ghostwriting/voice-spec.md': 'HOME SPEC' }, { GHOSTWRITING_DIR: '' })
-  const { text } = await $.skill.prompt({ skill: 'ghostwrite', text: 'SKILL' })
+  const text = await loaded($, 'ghostwrite')
   expect(text).toContain('HOME SPEC')
 })
 
-test('the text of another skill is left unchanged', async ($: any, on: any) => {
+test('no text is added for another skill', async ($: any, on: any) => {
   files(on, { [SPEC]: 'SPEC TEXT' })
-  const { text } = await $.skill.prompt({ skill: 'session-skills:land-and-wrap', text: 'SKILL' })
-  expect(text).toBe('SKILL')
+  const text = await loaded($, 'session-skills:land-and-wrap')
+  expect(text).toBe('')
 })
 
 test('the share skill gets the directory and whether it has a spec, and no file', async ($: any, on: any) => {
   const reads = files(on, { [SPEC]: 'SPEC TEXT' })
-  const { text } = await $.skill.prompt({ skill: 'ghostwriting-skills:share-ghostwriting-spec', text: 'SKILL' })
-  expect(text).toBe('SKILL\n\n---\n\n## Voice directory, located by the plugin\n\nVOICE=/v\nspec: /v/voice-spec.md\n')
+  const text = await loaded($, 'ghostwriting-skills:share-ghostwriting-spec')
+  expect(text).toBe('\n\n---\n\n## Voice directory, located by the plugin\n\nVOICE=/v\nspec: /v/voice-spec.md\n')
   expect(reads).toEqual([])
 })
 
 test('the share skill is told when there is no spec', async ($: any, on: any) => {
   files(on, {}, { GHOSTWRITING_DIR: '' })
-  const { text } = await $.skill.prompt({ skill: 'share-ghostwriting-spec', text: 'SKILL' })
+  const text = await loaded($, 'share-ghostwriting-spec')
   expect(text).toContain('VOICE=/home/.claude/ghostwriting\nNO SPEC\n')
 })
 
 test('a spec that is there and cannot be read is not a bootstrap', async ($: any, on: any) => {
   files(on, { [SPEC]: 'SPEC TEXT' }, {}, [SPEC])
-  const { text } = await $.skill.prompt({ skill: 'ghostwrite', text: 'SKILL' })
+  const text = await loaded($, 'ghostwrite')
   expect(text).toContain('VOICE=/v\n\nThe plugin could not read `/v/voice-spec.md`.')
   expect(text).not.toContain('MODE=bootstrap')
 })
 
 test('with no HOME the default directory is under USERPROFILE', async ($: any, on: any) => {
   files(on, { '/u/.claude/ghostwriting/voice-spec.md': 'PROFILE SPEC' }, { GHOSTWRITING_DIR: '', HOME: '', USERPROFILE: '/u' })
-  const { text } = await $.skill.prompt({ skill: 'ghostwrite', text: 'SKILL' })
+  const text = await loaded($, 'ghostwrite')
   expect(text).toContain('PROFILE SPEC')
 })
 
 test('a sample that cannot be read is listed, and the corpus is not called whole', async ($: any, on: any) => {
   files(on, { [SPEC]: 'SPEC TEXT', '/v/corpus/issues.md': 'ISSUE SAMPLE', '/v/corpus/pr-bodies.md': 'PR SAMPLE' }, {}, ['/v/corpus/pr-bodies.md'])
-  const { text } = await $.skill.prompt({ skill: 'ghostwrite', text: 'SKILL' })
+  const text = await loaded($, 'ghostwrite')
   expect(text).toContain('ISSUE SAMPLE')
   expect(text).not.toContain('every sample')
   expect(text).toMatch(/could not read[^\n]*`\/v\/corpus\/pr-bodies\.md`/)
@@ -108,7 +110,7 @@ test('a sample that cannot be read is listed, and the corpus is not called whole
 
 test('a corpus far over the cap is not read at all', async ($: any, on: any) => {
   const reads = files(on, { [SPEC]: 'SPEC TEXT', '/v/corpus/a.txt': 'x'.repeat(300000) })
-  const { text } = await $.skill.prompt({ skill: 'ghostwrite', text: 'SKILL' })
+  const text = await loaded($, 'ghostwrite')
   expect(text).toContain('`/v/corpus/a.txt`')
   expect(reads).not.toContain('/v/corpus/a.txt')
 })
@@ -120,67 +122,47 @@ test('a cache entry that is not a version is passed over', async ($: any, on: an
     [`${CACHE}/m/writing-conventions/0.44.0/hooks/rules.md`]: 'NEW RULES',
     [`${CACHE}/m/writing-conventions/main/hooks/rules.md`]: 'BRANCH RULES',
   })
-  const { text } = await $.skill.prompt({ skill: 'ghostwrite', text: 'SKILL' })
+  const text = await loaded($, 'ghostwrite')
   expect(text).toContain('NEW RULES')
   expect(text).not.toContain('BRANCH RULES')
 })
 
 test('with no rules file the model is told to re-read it by hand', async ($: any, on: any) => {
   files(on, { [SPEC]: 'SPEC TEXT' })
-  const { text } = await $.skill.prompt({ skill: 'ghostwrite', text: 'SKILL' })
+  const text = await loaded($, 'ghostwrite')
   expect(text).toContain('did not find the always-on rules file')
 })
 
-// Under managed settings `skill.prompt` is sent past this plugin. The Skill
-// tool's result then includes the text, unless skill.prompt already added it.
-test('a Skill call that skill.prompt did not reach gets the spec beside its result', async ($: any, on: any) => {
+// Under managed settings `cc-plugin-sec-default` sends `skill.prompt` past every
+// plugin and prints a notice for each one it skips, so the plugin registers none.
+test('the skill prompt is left as it is', async ($: any, on: any) => {
   files(on, { [SPEC]: 'SPEC TEXT' })
-  on('tool.call', () => ({ result: 'Launching skill' }))
-  const ran = await $.tool.call({ tool: 'Skill', skill: 'ghostwriting-skills:ghostwrite' })
-  expect(ran.context.join('\n')).toContain('SPEC TEXT')
-  expect((await $.tool.call({ tool: 'Skill', skill: 'session-skills:land-and-wrap' })).context).toBeUndefined()
+  on('skill.prompt', (_$: any, e: any) => ({ text: e.text }))
+  expect((await $.skill.prompt({ skill: 'ghostwriting-skills:ghostwrite', text: 'SKILL' })).text).toBe('SKILL')
 })
 
 // For a typed slash command the engine runs skill.prompt inside prompt.submit's
 // next(), as this stand-in does, and makes no Skill call.
 function typed($: any, on: any) {
+  on('skill.prompt', (_$: any, e: any) => ({ text: e.text }))
   on('prompt.submit', async (_$: any, e: any) => {
     const skill = e.command ? (await $.skill.prompt({ skill: e.command.name, text: 'SKILL' })).text : ''
     return { text: e.text, context: e.context, skill }
   })
 }
 
-const guard = { name: 'guard', tier: 'prepend' as const, register(on: any) {
-  on('skill.prompt', (_$: any, e: any, next: any) => next.to(e, 'append'))
-} }
-
 const count = (r: any) => [...(r.context ?? []), r.skill].join('\n').split('SPEC TEXT').length - 1
 
-test('a typed command gets the spec once', async ($: any, on: any) => {
+test('the spec is added once for a typed command', async ($: any, on: any) => {
   files(on, { [SPEC]: 'SPEC TEXT' })
   typed($, on)
   expect(count(await $.prompt.submit({ text: '/ghostwrite', command: { name: 'ghostwrite', args: '' } }))).toBe(1)
   expect(count(await $.prompt.submit({ text: '/ghostwriting-skills:ghostwrite a PR', command: { name: 'ghostwriting-skills:ghostwrite', args: 'a PR' } }))).toBe(1)
 })
 
-test('under the guard, a typed command still gets the spec once', { plugins: [guard] }, async ($: any, on: any) => {
-  files(on, { [SPEC]: 'SPEC TEXT' })
-  typed($, on)
-  const r = await $.prompt.submit({ text: '/ghostwriting-skills:ghostwrite', command: { name: 'ghostwriting-skills:ghostwrite', args: '' } })
-  expect(r.skill).toBe('SKILL')
-  expect(count(r)).toBe(1)
-})
-
-test('a prompt that is not one of these commands gets no context', async ($: any, on: any) => {
+test('no context is added for a prompt that is not one of these commands', async ($: any, on: any) => {
   files(on, { [SPEC]: 'SPEC TEXT' })
   typed($, on)
   expect((await $.prompt.submit({ text: 'draft a PR' })).context ?? []).toEqual([])
   expect((await $.prompt.submit({ text: '/land-and-wrap', command: { name: 'session-skills:land-and-wrap', args: '' } })).context ?? []).toEqual([])
-})
-
-test('after a typed command, the skill loaded another way gets the spec again', async ($: any, on: any) => {
-  files(on, { [SPEC]: 'SPEC TEXT' })
-  typed($, on)
-  await $.prompt.submit({ text: '/ghostwrite', command: { name: 'ghostwrite', args: '' } })
-  expect((await $.skill.prompt({ skill: 'ghostwrite', text: 'SKILL' })).text).toContain('SPEC TEXT')
 })
