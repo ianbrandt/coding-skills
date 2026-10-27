@@ -211,3 +211,13 @@ Debug log lines that mention the guard:
 2026-10-27T05:37:46.240Z [DEBUG] hooks module cc-plugin-sec-default@builtin tool.register settled in 17.1ms (native link, next() included)
 2026-10-27T05:37:46.241Z [DEBUG] hooks module cc-plugin-sec-default@builtin (native): tool.register nested in roadmap-skills#0
 ```
+
+### Skip traced
+
+The one notice in each run is `[ghostwriting-skills] skill.prompt was skipped`, taken from the
+debug logs under the probe's temp directory. The hook is registered in
+`plugins/ghostwriting-skills/hooks/voice.ts:119`, and a `tool.call` fallback at line 134 is the
+designed path for exactly this guard case. So the plugin moved off classic hooks; the
+`was skipped` regex in `e2e/fallback-probe.sh:62` is broader than classic and matches this one
+too. Either narrow the regex to `classic\.` for the expected `0`, or raise the baseline in the
+paragraph above to `1` with this cause named.
