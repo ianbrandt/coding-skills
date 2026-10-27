@@ -30,7 +30,8 @@ when it is prose, or is a source file with comments and test names in it (`.md`,
 `.txt`, `.kt`, `.kts`, `.java`, `.groovy`, in any letter case). The lint itself is `lint()` in
 [`hooks/lint.ts`](hooks/lint.ts), a pure function over text, tested in
 [`hooks/lint.test.ts`](hooks/lint.test.ts). The module also registers it as a tool,
-`mcp__writing-conventions__lint`, which the `ghostwrite` skill calls on a draft.
+`mcp__writing-conventions__lint`, which the session calls on each chat draft before the reply ends
+([Chat drafts](#chat-drafts)).
 
 A word is letters and digits in ASCII and Latin-1, so `café` is one word, and a character outside
 those is read whole.
@@ -360,19 +361,29 @@ is read. A draft written to a file with a shell redirect is not read at all.
 
 A draft the session hands its user to paste somewhere else is never in a shell command or an MCP
 tool call. A draft for publication goes in its own fenced block with the info string `draft`; that rule
-is loaded into every session. On `turn.complete`, the text inside each `draft` fence is sent to the
-review model, and nothing else in the reply is. A turn with no such fence costs one scan and no model
-call. An interrupted turn and a subagent's turn are not checked.
+is loaded into every session.
+
+The review runs before the reply ends where it can. Under the same rule, the session calls
+`mcp__writing-conventions__lint` on each draft and fixes what comes back in the same reply. The tool
+runs the reply lint and then sends the draft to the review model. A draft with no finding is kept in
+memory as passed, by its text with the whitespace at either end trimmed. Without the fence, the
+whole `text` is read as one draft. Claude Code has no hook that runs before a reply is displayed,
+and a `turn.complete` hook can return only text and usage, so a finding after the reply needs a
+turn of its own.
+
+On `turn.complete`, the text inside each `draft` fence is sent to the review model, except the
+drafts passed by the tool, and nothing else in the reply is. A turn with no such fence, or with only
+drafts the tool passed, costs one scan and no model call. A draft changed after the tool passed it
+is read again. An interrupted turn and a subagent's turn are not checked.
 
 A verified finding is submitted as a fix-up prompt with `$.prompt.submit`, so the session emits a
-corrected draft in one more turn. Claude Code has no hook that runs before a reply is displayed, so
-review happens afterward, and the reply is re-emitted whole. The fix-ups are counted per session and
+corrected draft in one more turn, and the reply is re-emitted whole. The fix-ups are counted per session and
 stop after two in a row; the third time, the user is told that review is unresolved, and the reply
 stands. A prompt that no plugin submitted starts the count over, so session-skills' request for a
 next step does not. No lint note is added to a fix-up prompt, because the note's instruction is to
 leave the reply alone. The note on the fix-up reply replaces it. The note is saved before the event
 is passed on to other plugins, so a follow-up prompt from one of them opens with it.
-Set `WRITING_CONVENTIONS_STOP_READER=0` to turn this check off.
+Set `WRITING_CONVENTIONS_STOP_READER=0` to turn this check off, in the tool and after the reply.
 
 Tagging keeps this check cheap, since an untagged draft has no reliable form: without the rule,
 drafts came back in plain fences, blockquotes, and between `---` rules, and a plain fence of 8 words

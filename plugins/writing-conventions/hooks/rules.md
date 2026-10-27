@@ -96,7 +96,10 @@ clients, unreleased plans) never enter a public artifact.
 A draft for publication—any text the user will paste, post, send, or file somewhere else—goes in
 its own fenced block with the info string `draft`, even mid-task, and in a longer fence when the
 draft itself contains one. Nothing else takes that info string. A draft written to a file goes
-through `Write` or `Edit`, never a shell redirect.
+through `Write` or `Edit`, never a shell redirect. Before the reply ends, call
+`mcp__writing-conventions__lint` with each draft exactly as it will appear, fix what it flags, and
+call it again on the fixed text. A draft emitted without a clean result is reviewed after the reply
+and comes back as a fix-up turn.
 
 When the user flags a word as jargon or as AI writing, grep the target document for it before
 conceding, since the defect is often in the construction around the word. A word that is confirmed

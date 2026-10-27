@@ -356,23 +356,52 @@ const LOCAL_TOOLS: Record<string, [string, string] | null> = {
 // rewrite. A prompt that no plugin submitted starts the count over.
 const fixups = new Map<string, number>()
 
+// The drafts the review model passed when the lint tool was called on them, by
+// their text, so that the check at the end of the turn sends only the others.
+// ponytail: kept in memory, so after a hot reload a draft is reviewed again.
+const passed = new Set<string>()
+const keyOf = (draft: string) => draft.replace(/^[ \t\r\n]+|[ \t\r\n]+$/g, '')
+
+// review($, text, from): the verified findings on `text`, drafts that each end
+// on a line with only \x01. Each one stays a source of its own, so no finding
+// can quote across two of them. A draft may be an issue, to a repo linked in
+// `from` or to the session's. Its destination is not known, so these headings
+// are removed from a pull request draft too, and they are flagged at the gh pr
+// gate instead.
+async function review($: any, text: string, from: string): Promise<string> {
+  const kept = await headings($, await $.session.cwd(), [text], linked(from), true)
+  return (await read($, unheaded(text, kept).replace(/\x01/g, '\n'), text.split('\x01'))).found
+}
+
+const readerOff = async ($: any) => (await $.env.get('WRITING_CONVENTIONS_STOP_READER')) === '0'
+
+// The lint tool's answer: the reply lint's lines, then the review model's
+// findings on the drafts in `input`, or on all of it where no draft fence is
+// in it. A draft with no finding is kept as passed.
+async function lintTool($: any, input: string): Promise<string> {
+  const flagged = lint(drafts(input, { unwrap: true })).replace(/\n+$/, '')
+  const verdict = await gate($, async () => {
+    const text = (drafts(input) || `${input}\x01\n`).slice(0, CAP)
+    if ((await readerOff($)) || !/[^ \t\r\n\x01]/.test(text)) return {}
+    const found = await review($, text, input)
+    if (found === '') for (const d of text.split('\x01')) passed.add(keyOf(d))
+    return { context: found && join(found, `Rewrite the quoted text, then call this tool again on the new draft. ${ADVICE}`) }
+  })
+  return join(flagged, verdict.context ?? '') || 'clean'
+}
+
 // A reply in which a draft for publication is tagged. Only the text inside a
 // `draft` fence is reviewed, so nothing else in the reply is judged by the
-// model, and a reply with no such fence costs no call. An untagged draft is read
-// by the reply lint alone. A finding comes back as the fix-up prompt.
+// model, and a reply with no such fence, or only drafts the lint tool passed,
+// costs no call. An untagged draft is read by the reply lint alone. A finding
+// comes back as the fix-up prompt.
 async function stop($: any, answer: string): Promise<Verdict> {
-  if ((await $.env.get('WRITING_CONVENTIONS_STOP_READER')) === '0') return {}
-  // Each draft ends on a line with only \x01, and the cap comes off before
-  // the review model is sent them, so a quote from past it is never verified.
-  const text = drafts(answer).slice(0, CAP)
+  if (await readerOff($)) return {}
+  // The cap comes off before the review model is sent the drafts, so a quote
+  // from past it is never verified.
+  const text = drafts(answer).split('\x01\n').filter(d => d !== '' && !passed.has(keyOf(d))).map(d => `${d}\x01\n`).join('').slice(0, CAP)
   if (text === '') return {}
-  // The review model is sent the drafts and nothing else. Each one stays a source of
-  // its own, so no finding can quote across two of them.
-  // A draft may be an issue, to a repo the reply links or to the session's. Its
-  // destination is not known, so these headings are removed from a pull request
-  // draft too, and they are flagged at the gh pr gate instead.
-  const kept = await headings($, await $.session.cwd(), [text], linked(answer), true)
-  const { found } = await read($, unheaded(text, kept).replace(/\x01/g, '\n'), text.split('\x01'))
+  const found = await review($, text, answer)
   if (found === '') return {}
   const session = await $.session.id().catch(() => '')
   const count = fixups.get(session) ?? 0
@@ -470,7 +499,7 @@ async function turnNote($: any, session: unknown): Promise<string> {
 // runs. The rules are added at the start of a subagent's task.
 async function call($: any, e: any, next: any): Promise<any> {
   // A draft may come inside its fence, and lint() drops every closed fence.
-  if (e.tool === TOOL) return { result: lint(drafts(String((e as any).text ?? ''), { unwrap: true })).replace(/\n+$/, '') || 'clean' }
+  if (e.tool === TOOL) return { result: await lintTool($, String((e as any).text ?? '')) }
   if (e.tool === 'Agent') {
     const rules = (await isChecked($).catch(() => false)) ? await $.fs.read(`${$.plugin.root}/hooks/rules.md`).catch(() => '') : ''
     return next(rules ? { ...e, prompt: `${rules}\n\n${(e as any).prompt}` } as any : e)
@@ -536,7 +565,7 @@ export const register: Register = on => {
     if (await isChecked($)) {
       await $.tool.register({
         name: 'lint',
-        description: 'Lint prose against the writing-conventions patterns: inanimate agency, spaced em dashes, banned words, a missing Oxford comma, and a bold list label. Returns one line per flagged sentence, <group><TAB><matched text>, or "clean".',
+        description: 'Lint prose against the writing-conventions patterns (inanimate agency, spaced em dashes, banned words, a missing Oxford comma, and a bold list label), then have a review model read it against the writing conventions. Returns one line per flagged sentence, <group><TAB><matched text>, then each finding of the review model as "quote" -> rewrite, or "clean". Call it on each draft for publication before the reply ends.',
         inputSchema: { type: 'object', properties: { text: { type: 'string', description: 'The prose to lint.' } }, required: ['text'] },
       })
     }

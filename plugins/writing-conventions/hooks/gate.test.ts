@@ -520,8 +520,45 @@ test('an interrupted turn, a subagent\'s turn, and a turn with no review model s
 test('the off switch for the draft check makes no call', async ($: any, on: any) => {
   const off = world(on, { verdict: FINDING, env: { WRITING_CONVENTIONS_STOP_READER: '0' } })
   await end($, DRAFT)
+  await lintTool($, 'The report says so.')
   expect(off.reader).toHaveLength(0)
   expect(off.sent).toEqual([])
+})
+
+const lintTool = async ($: any, text: string) => (await $.tool.call({ tool: 'mcp__writing-conventions__lint', text: text.replace(/~/g, F) })).result
+const PLAIN = 'VIOLATION\n"Plain text." -> Plainer text.'
+
+test('the lint tool returns the review model\'s findings on the draft', async ($: any, on: any) => {
+  const seen = world(on, { verdict: PLAIN })
+  const result = await lintTool($, 'Plain text.')
+  expect(result).toMatch(/^"Plain text\." -> Plainer text\.[\s\S]*call this tool again/)
+  expect(seen.reader).toEqual(['Plain text.\n\n'])
+})
+
+test('a draft the lint tool passed is not read again at the end of the turn, and any other draft is', async ($: any, on: any) => {
+  const w: World = { verdict: 'PASS' }
+  const seen = world(on, w)
+  expect(await lintTool($, '~draft\nPlain text.\n~')).toBe('clean')
+  w.verdict = PLAIN
+  await end($, 'Here:\n~draft\nPlain text.\n~')
+  expect(seen.reader).toHaveLength(1)
+  expect(seen.sent).toEqual([])
+  await end($, '~draft\nPlain text.\n~\n~draft\nOther text.\n~')
+  expect(seen.reader[1]).toBe('Other text.\n\n\n')
+})
+
+test('a draft the lint tool flagged, or could not review, is read at the end of the turn', async ($: any, on: any) => {
+  const w: World = { verdict: PLAIN }
+  const seen = world(on, w)
+  await lintTool($, 'Plain text.')
+  await end($, '~draft\nPlain text.\n~')
+  expect(seen.sent).toHaveLength(1)
+  w.down = true
+  expect(await lintTool($, 'Other text.')).toBe('clean')
+  w.down = false
+  w.verdict = 'VIOLATION\n"Other text." -> Another.'
+  await end($, '~draft\nOther text.\n~')
+  expect(seen.sent).toHaveLength(2)
 })
 
 // The file is checked from the Write or Edit result: a hook beneath may have

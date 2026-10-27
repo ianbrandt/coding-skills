@@ -25,10 +25,11 @@ Claude Code 2.1.308 or later is required.
   able to publish text, such as `glab mr create` or a Jira tool.
 - After a `Write` or `Edit` to a `.md`, `.markdown`, `.txt`, `.adoc`, or `.rst` file, the new text
   is reviewed and the session fixes what is found. Nothing is blocked.
-- A draft the session hands you to post elsewhere goes in a fenced block tagged `draft`. It is
-  reviewed when the turn ends, and after a finding a follow-up prompt asks the session to correct
-  it, in a turn of its own. After two corrections in a row with a finding in each, you are told and
-  the draft stands until your next message.
+- A draft the session hands you to post elsewhere goes in a fenced block tagged `draft`. The
+  session has it reviewed with the plugin's lint tool and fixes it before the reply ends. A draft
+  that was not reviewed that way is reviewed when the turn ends, and after a finding a follow-up
+  prompt asks the session to correct it, in a turn of its own. After two corrections in a row with
+  a finding in each, you are told and the draft stands until your next message.
 - A heading in a short commit message, issue, PR, or comment is flagged, and so is a bulleted list
   of the changes in the diff. Headings are allowed in a long body and where they follow the
   target's issue or PR template. A GitHub repo's issue template is read with `gh`, and its headings
@@ -45,7 +46,7 @@ Set these in the `env` block of a settings file:
 - `WRITING_CONVENTIONS_GATE_MODEL`: the review model, `sonnet` by default. Any model ID the
   session's endpoint serves works.
 - `WRITING_CONVENTIONS_SHELL_CLASSIFIER=0`: review only `git commit` and `gh`.
-- `WRITING_CONVENTIONS_STOP_READER=0`: skip review of `draft` blocks.
+- `WRITING_CONVENTIONS_STOP_READER=0`: skip review of `draft` blocks, in the lint tool too.
 
 The classifier's answers are cached in `${CLAUDE_CONFIG_DIR:-~/.claude}/writing-conventions/`, one
 line per command or tool. You can edit those files. Where a command or tool has both a
