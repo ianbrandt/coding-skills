@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Checks the four plugin fallbacks that add text through tool.call: the rules in an Agent
 # subagent's task, the rules in a Workflow agent's first tool result, the re-read request after a
-# Markdown Write, and the voice data beside the ghostwrite Skill's result. One headless session
+# Markdown Write, and the voice data beside the ghostwrite Skill's result. It also checks the rules
+# of three plugins in the main loop, and counts the notices for a skipped hook of a plugin in this
+# checkout, which none should get since none registers a classic hook. One headless session
 # loads every plugin in this checkout with project settings only, so the installed copies are not
 # loaded, and each text is then looked up in the session transcripts on disk. Under managed
 # settings the cc-plugin-sec-default guard still applies.
@@ -57,6 +59,9 @@ rows() { [ "$(grep -F "\"type\":\"$1\"" "$t" | grep -cF "$2")" -gt 0 ] && echo y
 a=$(ls "${t%.jsonl}"/subagents/agent-*.jsonl 2>/dev/null)
 w=$(ls "${t%.jsonl}"/subagents/workflows/*/agent-*.jsonl 2>/dev/null)
 echo "cc-plugin-sec-default seated: $(has 'sec-default@builtin seated' debug.log)"
+echo "main loop rules: writing-conventions $(has "$rules" "$t")  session-skills $(has 'SESSION RULES ACTIVE' "$t")  orchestration-skills $(has 'ORCHESTRATION MODE ACTIVE' "$t")"
+mine='ghostwriting-skills|orchestration-skills|parallel-session-skills|roadmap-skills|session-skills|writing-conventions|gradle-skills'
+echo "skip notices for these plugins: $(grep -E "\[($mine)\].*was skipped" debug.log 2>/dev/null | wc -l | tr -d ' ')"
 echo "agent    transcripts: $(echo $a | wc -w)  rules: $(has "$rules" $a)  subagent rule: $(has "$sub" $a)"
 echo "workflow transcripts: $(echo $w | wc -w)  rules: $(has "$rules" $w)  subagent rule: $(has "$sub" $w)"
 nudge='You just wrote prose to a file'
