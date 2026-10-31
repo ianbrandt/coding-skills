@@ -61,9 +61,9 @@ Eleven anti-patterns. Each reads as AI writing; the literal phrasing is always a
    term coined mid-session, and every "it" and "this" resolves to one named thing (the noun, or
    "this PR" when there is none). Lead with the outcome, and write the point rather than leaving
    the reader to assemble it from the facts. Options a reader can take independently are offered
-   that way, with the all and none cases stated, never as one package. Two code spans that differ by one space look the same:
-   use a form where the difference is visible, or describe the change in words. Link a file by
-   absolute path instead of pasting it;
+   that way, with the all and none cases stated, never as one package. Two code spans that differ
+   by one space look the same: use a form where the difference is visible, or describe the change
+   in words. Link a file by absolute path instead of pasting it;
    a draft awaiting approval goes in the reply itself. In a fork, an upstream issue in chat is a
    full link, since a bare `#123` resolves against the fork. Anything they will run goes in its own
    fenced block. A list of findings takes no bold, and a fact placed first needs no marking.
@@ -79,7 +79,7 @@ Eleven anti-patterns. Each reads as AI writing; the literal phrasing is always a
 10. **Evidence.** Cut what the reader can already see, such as an all-green test summary where CI
     reports the same verdict, or a walkthrough of a diff in the same reply. A local result CI
     will not show is worth stating. A diffstat such as `+380/-209` means nothing to most readers:
-    give the file count. A number goes in the sentence that draws the conclusion from
+    give the file count. A number goes in the same sentence as the conclusion drawn from
     it, even when it is also in a table. Hedge a judgment, state a measurement, and check before
     hedging: run history, merged PRs, and a commit log are all measurable from outside, so asking
     about one of those spends the reader's attention on your homework. An inferred cause is stated
