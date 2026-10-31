@@ -2,6 +2,7 @@
 // system, so what is tested is the plumbing: which events lead to a model call,
 // which replies block, and that a call which fails lets the event through.
 import { expect, mock, test } from 'claude-code/testing'
+import { hold } from './hold'
 
 const SAYS = 'git commit -m "The report says so."'
 const FINDING = 'VIOLATION\n"The report says so." -> It is shown in the report.'
@@ -630,6 +631,21 @@ test('a draft with CRLF line ends is held however its fence line is cut', async 
   for (const pieces of [undefined, 1, 2, 7, 8, 9]) {
     expect(kinds(await reply($, '~draft\r\nThe report says so.\r\n~\r\n', { pieces, turnId: `t${++turn}` }))).toBe('tool input stop')
   }
+})
+
+// The dash repair passes whole lines, so this cut reaches the hold only on its own.
+test('a fence line cut just after its carriage return is kept back until its line ends', async () => {
+  async function* stream() {
+    yield { kind: 'text', index: 0, text: `${F}draft\r` }
+    yield { kind: 'text', index: 0, text: '\nPlain.\r\n' }
+    yield { kind: 'stop', stopReason: 'end_turn', usage: null }
+    return {}
+  }
+  let read = ''
+  const out: any[] = []
+  for await (const c of hold(stream(), async answer => { read = answer; return { tool: 'lint', id: 'toolu_1' } })) out.push(c)
+  expect(read).toBe(`${F}draft\r\nPlain.\r\n`)
+  expect(kinds(out)).toBe('tool input stop')
 })
 
 test('a reply that ends on a stop sequence, or with its stop only in the result, is reviewed too', async ($: any, on: any) => {
