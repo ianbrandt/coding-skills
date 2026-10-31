@@ -75,6 +75,14 @@ Write the amount of detail that lets the reader do the next thing, and no more.
   number, the reader has to go back to the table to check the claim.
 - Give a count a reader can use. A diffstat is notation: "rewriting 33 files for +380/-209" drew
   "That's not going to mean anything to your average human", and "rewriting 33 files" is enough.
+- Spell out whole numbers zero through nine in prose, and use numerals for 10 or greater: "five
+  databases", "28 days". Numerals stay in measurements, percentages, versions, error codes, numbered
+  sections, tables, and notation such as `65s`. A count beside a number of another kind is spelled
+  out even above nine, as in the Microsoft guide's "fifteen 20-page articles". "(8 returned 404)"
+  became "(eight returned 404)", since eight is a count and 404 is an error code. Rewrite a sentence
+  that would start with a numeral: "8 of those returned 404." became a parenthetical on the sentence
+  before. The same guide's rule that one numeral in a type makes the rest numerals is not used here,
+  since "the other 37" and "eight" were written side by side by hand.
 - Show a small change so that the difference is visible. "`version("3.18.2")` becomes
   `version ("3.18.2")`" drew "You showed the before and after as the same", since two inline code
   spans that differ by one space look identical. Use a form where the difference is visible, or

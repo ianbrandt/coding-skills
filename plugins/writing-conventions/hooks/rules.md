@@ -80,7 +80,11 @@ Eleven anti-patterns. Each reads as AI writing; the literal phrasing is always a
     reports the same verdict, or a walkthrough of a diff in the same reply. A local result CI
     will not show is worth stating. A diffstat such as `+380/-209` means nothing to most readers:
     give the file count. A number goes in the same sentence as the conclusion drawn from
-    it, even when it is also in a table. Hedge a judgment, state a measurement, and check before
+    it, even when it is also in a table. In prose, whole numbers zero through nine are spelled out
+    and numerals are used for 10 or greater, but numerals stay in measurements, percentages,
+    versions, error codes, and tables. A count beside a number of another kind is spelled out, as
+    in "(eight returned 404)" and "fifteen 20-page articles". Rewrite a sentence that would start
+    with a numeral. Hedge a judgment, state a measurement, and check before
     hedging: run history, merged PRs, and a commit log are all measurable from outside, so asking
     about one of those spends the reader's attention on your homework. An inferred cause is stated
     and hedged, not implied by listing what happened at the same time. A claim reused from the repo
