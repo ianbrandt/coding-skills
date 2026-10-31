@@ -43,7 +43,9 @@ Eleven anti-patterns. Each reads as AI writing; the literal phrasing is always a
    objections nobody raised.
 6. **Order.** The thing a sentence is about is its subject, and a sentence has one idea in 10 to
    20 words. A clause that reverses the one before it takes "but"; after "and" the reversal is easy
-   to miss.
+   to miss. A two-part sentence such as "fact, so consequence" is fine alone, but a piece with many
+   of them reads as AI writing: count them before handing the piece over, and make the extras their
+   own sentences or subordinate clauses.
    - "A custom port can still be set with `server.port`"
      → "`server.port` is still available for a custom port"
    - "the cache is shared between runs on one machine, and none of it reaches a CI agent"

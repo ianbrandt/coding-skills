@@ -192,6 +192,14 @@ One idea per sentence, 10 to 20 words. A sentence with two subordinate clauses g
 drafts land at 30 to 40 words, which is the usual reason a paragraph reads as written by a model, so
 the count is worth checking on a paragraph that reads heavy.
 
+Count two-part sentences across a piece. A "fact, so consequence" sentence is fine on its own, and
+people write them too. The defect is how many there are: 14 of them in three commit messages and a
+PR body read as AI-generated, though none was wrong alone. Make each extra consequence its own
+sentence or a subordinate clause, and leave a sentence the user wrote alone. "A jar is then read as
+an automatic module named after the file, where javac keeps it in the unnamed module" became "A jar
+is then read as an automatic module named after the file. javac keeps that jar in the unnamed module
+instead." This is separate from matched clauses (§8), which are two unrelated facts in one sentence.
+
 Use emphasis rarely. This covers `**bold**`, `*italic*`, and `_italic_` alike. A list of
 findings takes none, and a fact placed first needs no marking. Two reasons to keep it rare in prose:
 none of it survives where the text is read plain, in a terminal, a commit message, or a log, and in
