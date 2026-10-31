@@ -442,7 +442,7 @@ async function answer(name: string, run: () => Promise<string>) {
   }
 }
 
-const NEXT_STEP = 'The last turn pushed work, and no next step is written at the end of its reply. Write it now, under the session rules: the hand-off block for the next unit of work, or one line saying that this session carries on with it. When nothing can start yet, write one line on what the next item waits on, then the block for when it can start. When nothing comes next at all, say so in one line.'
+const NEXT_STEP = 'This command pushed work. End the reply with the next step, under the session rules: the hand-off block for the next unit of work, or one line stating that this session carries on with it. When nothing can start yet, write one line on what the next item waits on, then the block for when it can start. When nothing comes next at all, say so in one line.'
 
 // The session rules: the title instruction and, in the desktop app, the
 // wrap-up instruction.
@@ -495,14 +495,10 @@ export const register: Register = on => {
   })
 
   // The turn that pushes is the last turn of a landing, and in October 2026 13
-  // of 16 such turns ended with no next step. When the reply of such a turn has
-  // no fenced block, one follow-up prompt asks for it. A fence of tildes counts:
-  // writing-conventions submits a fix-up only for a draft in a fence, so the two
-  // follow-ups never come after the same reply. The follow-up turn pushed
-  // nothing, so it gets no follow-up of its own when the model answers that
-  // nothing comes next. The push is recorded from the call as it reached this
-  // plugin, so a command a settings hook rewrote into a push is not seen.
-  const pushed = new Set<string>()
+  // of 16 such turns ended with no next step. The request for one is added to the
+  // push's own result, so the reply is written with it in view. The push is read
+  // from the call as it reached this plugin, so a command a settings hook rewrote
+  // into a push is not seen.
   const PUSH = /\bgit(\s+-C\s+\S+)?\s+push\b/
   // Each quoted argument is replaced with X so the regex matches only text the
   // shell executes: a mention of git push inside a quoted argument, such as
@@ -512,17 +508,13 @@ export const register: Register = on => {
   const unquoted = (cmd: string) =>
     cmd.replace(/(<<-?[ \t]*(["'])([^"'\s]+)\2[^\n]*\n)[\s\S]*?^([ \t]*\3)$/gm, '$1$4')
       .replace(/"(?:[^"\\]|\\.)*"?/g, 'X').replace(/'[^']*'?/g, 'X')
-  on('tool.call', { tool: 'Bash' }, async ($, e: any, next: any) => {
-    const ran = await next(e)
-    if (ran.deny === undefined && !(ran as any).isError && PUSH.test(unquoted(String(e.command ?? '')))) pushed.add(await $.session.id())
-    return ran
-  })
-  on('turn.complete', async ($, e, next) => {
-    const ran = await next(e)
-    if (e.agentId || !pushed.delete(await $.session.id()) || e.reason !== 'answer' || /^\s*(```|~~~)/m.test(e.answer)) return ran
-    await $.prompt.submit({ text: NEXT_STEP }).catch(() => {})
-    return ran
-  })
+  for (const tool of ['Bash', 'PowerShell']) {
+    on('tool.call', { tool }, async ($, e: any, next: any) => {
+      const ran = await next(e)
+      if (e.agentId || ran.deny !== undefined || (ran as any).isError || !PUSH.test(unquoted(String(e.command ?? '')))) return ran
+      return { ...ran, context: [...(ran.context ?? []), NEXT_STEP] }
+    })
+  }
 
   // The rules go with the first prompt, and again once the model no longer
   // reads them. A fork starts with its parent's context, where they already are.

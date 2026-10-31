@@ -1,5 +1,5 @@
 // claude plugin test: the rules added to a prompt and a tool result, the
-// follow-up after a push, and the edit to a file in the primary checkout.
+// request for the next step on a push, and the edit to a file in the primary checkout.
 import { expect, test } from 'claude-code/testing'
 import { splice } from './splice'
 
@@ -133,59 +133,43 @@ test('no title tool is registered', async ($: any, on: any) => {
 })
 
 const end = ($: any, answer: string, more: any = {}) => $.turn.complete({ answer, reason: 'answer', isAborted: false, durationMs: 1, turnId: 't1', ...more })
-const BLOCK = 'Start it in `/repo`:\n\n```\n/next-roadmap-item R12\n```\n\n**Opus + High**'
-// The prompts the plugin submits, in a session with an id the test sets.
-function turnEnd(on: any) {
-  const w = { id: 's1', sent: [] as string[], bash: { result: {} } as any }
-  on('session.id', () => ({ value: w.id }))
-  on('turn.complete', (_$: any, e: any) => ({ text: e.answer }))
-  on('prompt.submit', (_$: any, e: any) => { w.sent.push(e.text); return { text: e.text } })
-  on('tool.call', { tool: 'Bash' }, () => w.bash)
+// The context added to a command's result, with the command's own result beneath.
+function pushes(on: any) {
+  const w = { result: { result: {} } as any }
+  on('tool.call', { tool: 'Bash' }, () => w.result)
+  on('tool.call', { tool: 'PowerShell' }, () => w.result)
   return w
 }
-const bash = ($: any, command: string) => $.tool.call({ tool: 'Bash', command })
+const bash = async ($: any, command: string, more: any = {}, tool = 'Bash') => {
+  const ran = await $.tool.call({ tool, command, ...more })
+  return (ran.context ?? []).filter((c: string) => c.includes('pushed work'))
+}
 
-test('after a push, one follow-up is submitted when no next step is written at the end of the turn', async ($: any, on: any) => {
-  const w = turnEnd(on)
-  await bash($, 'git -C "/repo" push origin main')
-  await end($, 'I pushed 47e3656 to origin/main.')
-  expect(w.sent).toHaveLength(1)
-  expect(w.sent[0]).toContain('next step')
-  // The model answers the follow-up with nothing to come next.
-  await end($, 'Nothing comes next: R96 waits on its post count.')
-  await bash($, 'git fetch -q origin && git push')
-  await end($, `Pushed.\n\n${BLOCK}`)
-  // A fence of tildes is a fenced block too, as writing-conventions reads a draft.
-  await bash($, 'git push')
-  await end($, 'Pushed. The release note:\n\n~~~draft\nPlain.\n~~~')
-  expect(w.sent).toHaveLength(1)
+test('the next step is requested in the result of a push, in either shell', async ($: any, on: any) => {
+  pushes(on)
+  for (const command of ['git -C "/repo" push origin main', 'git fetch -q origin && git push', 'git push']) expect(await bash($, command)).toHaveLength(1)
+  expect(await bash($, 'git push origin main', {}, 'PowerShell')).toHaveLength(1)
 })
 
-test('no follow-up is submitted after a turn that pushed nothing, or pushed in another session', async ($: any, on: any) => {
-  const w = turnEnd(on)
-  await bash($, 'git log --oneline origin/main..main && echo push')
-  await end($, 'One commit waits for the push.')
-  w.id = 's2'
-  await bash($, 'git push')
-  w.id = 's1'
-  await end($, 'Done.')
-  expect(w.sent).toEqual([])
-  w.id = 's2'
-  await end($, 'Done.')
-  expect(w.sent).toHaveLength(1)
+test('no request comes with a command that pushed nothing, a failed push, or a subagent\'s push', async ($: any, on: any) => {
+  const w = pushes(on)
+  expect(await bash($, 'git log --oneline origin/main..main && echo push')).toEqual([])
+  expect(await bash($, `claude -p "run git push"`)).toEqual([])
+  expect(await bash($, 'git push', { agentId: 'a1' })).toEqual([])
+  w.result = { result: 'rejected', isError: true }
+  expect(await bash($, 'git push')).toEqual([])
+  w.result = { deny: 'no' }
+  expect(await bash($, 'git push')).toEqual([])
 })
 
-test('a push from an interrupted turn is dropped, and the end of a subagent turn leaves it for the main loop', async ($: any, on: any) => {
-  const w = turnEnd(on)
+test('no prompt is submitted at the end of a turn that pushed', async ($: any, on: any) => {
+  pushes(on)
+  const sent: string[] = []
+  on('turn.complete', (_$: any, e: any) => ({ text: e.answer }))
+  on('prompt.submit', (_$: any, e: any) => { sent.push(e.text); return { text: e.text } })
   await bash($, 'git push')
-  await end($, '', { reason: 'aborted', isAborted: true })
-  await end($, 'Done.')
-  expect(w.sent).toEqual([])
-  await bash($, 'git push')
-  await end($, 'Pushed.', { agentId: 'a1' })
-  expect(w.sent).toEqual([])
-  await end($, 'Done.')
-  expect(w.sent).toHaveLength(1)
+  await end($, 'Pushed.')
+  expect(sent).toEqual([])
 })
 
 // The rules come with a prompt, once the model no longer reads them.
@@ -238,50 +222,22 @@ test('the rules are added to one tool result after a compaction, until the model
   expect(await call($)).toEqual([rules])
 })
 
-test('a push is recorded from the Bash call, and the follow-up is submitted', async ($: any, on: any) => {
-  const w = turnEnd(on)
-  await $.tool.call({ tool: 'Bash', command: 'git status' })
-  await end($, 'Done.')
-  expect(w.sent).toEqual([])
-  // A push refused at the permission prompt, or rejected by the remote.
-  for (const bash of [{ deny: 'not now' }, { result: 'rejected', text: 'rejected', isError: true }]) {
-    w.bash = bash
-    await $.tool.call({ tool: 'Bash', command: 'git push origin main' })
-    await end($, 'Done.')
-  }
-  expect(w.sent).toEqual([])
-  w.bash = { result: {} }
-  w.id = 's2'
-  await $.tool.call({ tool: 'Bash', command: 'git push origin main' })
-  w.id = 's1'
-  await end($, 'Pushed.')
-  expect(w.sent).toEqual([])
-  w.id = 's2'
-  await end($, 'Pushed.')
-  expect(w.sent).toHaveLength(1)
-  expect(w.sent[0]).toContain('next step')
-})
-
-test('a push mentioned only inside a quoted argument is not recorded', async ($: any, on: any) => {
-  const w = turnEnd(on)
+test('a push mentioned only inside a quoted argument gets no request', async ($: any, on: any) => {
+  pushes(on)
   // Each quoted string is a false positive: a nested claude -p invocation, a
   // commit message, and an echoed note.
-  await bash($, 'claude -p "wait for git push --dry-run origin main"')
-  await bash($, `git commit -m 'I will git push later'`)
-  await bash($, 'echo "git push" > note.txt')
-  await bash($, `git commit -F - <<'EOF'\nThen git push it\nEOF`)
-  await end($, 'Done.')
-  expect(w.sent).toEqual([])
+  for (const command of [
+    'claude -p "wait for git push --dry-run origin main"',
+    `git commit -m 'I will git push later'`,
+    'echo "git push" > note.txt',
+    `git commit -F - <<'EOF'\nThen git push it\nEOF`,
+  ]) expect(await bash($, command)).toEqual([])
 })
 
-test('a push after a commit message heredoc with an odd quote in it is recorded', async ($: any, on: any) => {
-  const w = turnEnd(on)
+test('a push after a commit message heredoc with an odd quote in it gets the request', async ($: any, on: any) => {
+  pushes(on)
   for (const command of [
     `git commit -F - <<'EOF'\nIt's done\nEOF\ngit push`,
     `git commit -m "$(cat <<'EOF'\nQuote a " here\nEOF\n)" && git push`,
-  ]) {
-    await bash($, command)
-    await end($, 'Pushed.')
-  }
-  expect(w.sent).toHaveLength(2)
+  ]) expect(await bash($, command)).toHaveLength(1)
 })

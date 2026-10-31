@@ -55,17 +55,17 @@ which one session took as a reason to skip the hand-off block after a unit lande
 before any tool call is folded into that call's activity, and another session wrote the block before
 two more calls and closed with a pointer to it, so the block now goes after the last call.
 
-A `turn.complete` hook checks the turn that ran `git push`, the last turn of a landing. In a census
-of October 2026 transcripts from the four owned repos, 13 of the 16 turns that pushed held work
-ended with no next step, often after a landing turn that had asked for the push and deferred the
-hand-off to it. When such a turn's final reply has no fenced block, of backticks or tildes, the
-hook submits one follow-up prompt with `$.prompt.submit`, asking for the next step or for one line
-saying there is none. The follow-up turn pushed nothing, so a reply that states there is no next
-step costs one extra turn. A writing-conventions fix-up is submitted only for a draft in a fence, so
-the two follow-ups never come after the same reply.
-A push is recorded from the `tool.call` for `Bash`, for a call that was not denied and did not
-fail. A command that a settings hook rewrote into a push is not seen. A push is dropped when its turn is interrupted or ends on
-an error, and kept past the end of a subagent's turn for the main loop.
+The turn that runs `git push` is the last turn of a landing. In a census of October 2026 transcripts
+from the four owned repos, 13 of the 16 turns that pushed held work ended with no next step, often
+after a landing turn that had asked for the push and deferred the hand-off to it. A `tool.call` hook
+adds the request for the next step to the result of a push, for a call on the main loop that was not
+denied and did not fail. A command that a settings hook rewrote into a push is not seen. In four
+runs of each arm on Sonnet 5.5, the first reply stated a next step 4 of 4 times with the request and
+0 of 4 without it. Opus 5.5 stated one 2 of 2 times either way.
+
+A follow-up prompt after the reply used to do this. It showed in the transcript as a message from the
+plugin, it took a fenced block as the only sign of a next step, so it fired after "This session
+carries on with R104", and it cost a turn.
 
 No hook adds the rules to a subagent, because a subagent doesn't end a session.
 
