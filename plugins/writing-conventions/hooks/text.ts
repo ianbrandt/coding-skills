@@ -26,6 +26,23 @@ export function bytes(s: string): number {
   return n
 }
 
+// What a line does to the open fence, or undefined where it opens and closes
+// nothing: the fence open after it, '' once closed, and whether a fence it opens
+// is tagged `draft`. A closing marker is at least as long as the opening one, of
+// the same character, with nothing after it.
+export function fenceLine(line: string, fence: string): { fence: string; draft: boolean } | undefined {
+  const marker = /^[ \t]*(`{3,}|~{3,})/.exec(line)
+  if (!marker) return undefined
+  const m = marker[1]
+  const rest = line.slice(marker[0].length)
+  if (fence === '') {
+    // the lookbehind keeps the scan of a long run of spaces to one pass
+    const info = rest.replace(/^[ \t]+/, '').replace(/(?<![ \t\r])[ \t\r]+$/, '')
+    return { fence: m, draft: info === 'draft' || /^draft[ \t]/.test(info) }
+  }
+  return m[0] === fence[0] && m.length >= fence.length && /^[ \t\r]*$/.test(rest) ? { fence: '', draft: false } : undefined
+}
+
 // drafts(reply): the fenced blocks tagged `draft` in a reply. The gate sends the
 // blocks to the model, and the lint unwraps them so that they are still linted
 // as prose.
@@ -57,20 +74,13 @@ export function drafts(reply: string, options?: { unwrap?: boolean }): string {
     buf = ''
   }
   for (const line of records(reply)) {
-    const marker = /^[ \t]*(`{3,}|~{3,})/.exec(line)
-    if (marker) {
-      const m = marker[1]
-      const rest = line.slice(marker[0].length)
-      if (fence === '') {
-        // the lookbehind keeps the scan of a long run of spaces to one pass
-        const info = rest.replace(/^[ \t]+/, '').replace(/(?<![ \t\r])[ \t\r]+$/, '')
-        fence = m
-        draft = info === 'draft' || /^draft[ \t]/.test(info)
+    const step = fenceLine(line, fence)
+    if (step) {
+      fence = step.fence
+      if (step.fence !== '') {
+        draft = step.draft
         if (draft) { buf = ''; continue }
-      } else if (m[0] === fence[0] && m.length >= fence.length && /^[ \t\r]*$/.test(rest)) {
-        fence = ''
-        if (draft) { draft = false; flush(); continue }
-      }
+      } else if (draft) { draft = false; flush(); continue }
     }
     if (draft) { if (unwrap) out += `${line}\n`; else buf += `${line}\n`; continue }
     if (unwrap) out += `${line}\n`

@@ -34,7 +34,12 @@ type World = {
   cwd?: string
   // The session's id, where it is not s1.
   session?: string
+  // A policy that refuses the lint tool's registration.
+  unlisted?: boolean
 }
+
+// What the model streams beneath the plugin for the next response.
+const response: { chunks: any[]; fail: boolean } = { chunks: [], fail: false }
 
 // world(on, w): answers every call the gate makes to the engine, and records the
 // model calls by the prompt file each was made with, the files written, and the
@@ -99,6 +104,16 @@ function world(on: any, w: World = {}) {
     return out(files === undefined ? '' : JSON.stringify({ data: { repository: { object: files && { entries } } } }))
   })
   on('turn.complete', (_$: any, e: any) => ({ text: e.answer }))
+  on('session.start', (_$: any, e: any) => e)
+  on('tool.register', (_$: any, e: any) => {
+    if (w.unlisted) throw new Error('refused')
+    return { value: { tool: e.name } }
+  })
+  on('turn.step', async function* (_$: any, e: any) {
+    for (const c of response.chunks) yield c
+    if (response.fail) throw new Error('stream cut')
+    return { turnId: e.turnId, index: e.index, answer: '', toolUses: [], stopReason: 'end_turn', usage: null }
+  })
   on('prompt.submit', (_$: any, e: any) => { seen.sent.push(e.text); seen.origins.push(e.origin); seen.contexts.push(e.context ?? []); return { text: e.text, context: e.context } })
   return seen
 }
@@ -429,103 +444,155 @@ test('what is not reviewed in an edit is stated', async ($: any, on: any) => {
 })
 
 const F = '```'
-const end = ($: any, text: string, more: any = {}) => $.turn.complete({ answer: text.replace(/~/g, F), reason: 'answer', isAborted: false, durationMs: 1, turnId: 't1', ...more })
+const LINT = 'mcp__writing-conventions__lint'
+// A lone tilde stands for a backtick fence, and a run of tildes is a tilde fence.
+const fenced = (text: string) => text.replace(/(?<!~)~(?!~)/g, F)
+// One model response through the plugin's stream, as it leaves the plugin.
+async function reply($: any, text: string, more: any = {}): Promise<any[]> {
+  const { stopReason = 'end_turn', pieces, ...input } = more
+  const body = fenced(text)
+  const cut: string[] = pieces ? body.match(new RegExp(`[\\s\\S]{1,${pieces}}`, 'g')) ?? [] : [body]
+  response.chunks = [...cut.map(t => ({ kind: 'text', index: 0, text: t })), { kind: 'stop', stopReason, usage: null }]
+  response.fail = false
+  await $.session.start({ cwd: '/proj' })
+  const out: any[] = []
+  for await (const c of $.turn.step({ turnId: 't1', index: 0, model: 'm', messageCount: 1, ...input })) out.push(c)
+  return out
+}
+const shown = (out: any[]) => out.filter(c => c.kind === 'text').map(c => c.text).join('')
+// The kinds in order, with a run of text as one: how a reply is cut into chunks
+// is the dash repair's business.
+const kinds = (out: any[]) => out.map(c => c.kind).filter((k, i, all) => k !== 'text' || all[i - 1] !== 'text').join(' ')
 const DRAFT = '~draft\nThe report says so.\n~'
 
-test('only the text in a draft fence is read, and a reply without one costs no call', async ($: any, on: any) => {
+test('text before a draft streams, and a flagged reply becomes a call to the lint tool in the same turn', async ($: any, on: any) => {
   const seen = world(on, { verdict: FINDING })
-  await end($, 'The report says so.')
-  await end($, 'A draft:\n~sh\nThe report says so.\n~')
-  expect(seen.reader).toHaveLength(0)
-  expect(seen.sent).toEqual([])
-  await end($, 'Outside text.\n~draft\nThe report says so.\n~\nMore outside.')
-  expect(seen.sent).toHaveLength(1)
-  expect(seen.sent[0]).toMatch(/^The draft in your last reply[\s\S]*"The report says so\."[\s\S]*emit the corrected draft/)
+  const out = await reply($, 'Outside text.\n~draft\nThe report says so.\n~\nMore outside.')
   expect(seen.reader[0]).toBe('The report says so.\n\n\n')
+  expect(kinds(out)).toBe('text tool input stop')
+  expect(shown(out)).toBe('Outside text.\n')
+  const tool = out.find(c => c.kind === 'tool')
+  expect(tool.name).toBe(LINT)
+  expect(tool.index).toBe(1)
+  expect(out.at(-1).stopReason).toBe('tool_use')
+  expect(JSON.parse(out.find(c => c.kind === 'input').json).text).toBe(`${F}draft\nThe report says so.\n${F}\nMore outside.`)
+  // No prompt is submitted, and the call returns the findings with no second review.
+  expect(seen.sent).toEqual([])
+  const result = (await $.tool.call({ tool: LINT, text: 'ignored', tool_use_id: tool.id })).result
+  expect(result).toMatch(/^"The report says so\."[\s\S]*made this call[\s\S]*Continue with the draft/)
+  expect(seen.reader).toHaveLength(1)
+  // Only that call does: a call the model makes itself reviews its text.
+  await $.tool.call({ tool: LINT, text: 'Plain.', tool_use_id: tool.id })
+  expect(seen.reader).toHaveLength(2)
 })
 
-test('a finding that quotes text outside every draft fence submits no fix-up', async ($: any, on: any) => {
-  const seen = world(on, { verdict: FINDING })
-  await end($, 'The report says so.\n~draft\nPlain text.\n~')
-  // Each draft is a source of its own, so one quote cannot span two.
-  await end($, '~draft\nThe report\n~\n~draft\nsays so.\n~')
-  expect(seen.reader).toHaveLength(2)
+test('a clean reply is shown whole and in order, however it is cut into pieces', async ($: any, on: any) => {
+  const seen = world(on, { verdict: 'PASS' })
+  const text = `Intro \`code\` here.\n\n~~~sh\n${F}draft\nnot a draft\n~~~\n\n  ~draft md\nOne.\n~\nAfter.\r\n~draft\r\nTwo.\r\n~\r\nThe end`
+  for (const pieces of [undefined, 1, 2, 3, 7]) {
+    const out = await reply($, text, { pieces })
+    expect(shown(out)).toBe(fenced(text))
+    expect(out.at(-1).kind).toBe('stop')
+  }
+  expect(seen.reader.length).toBeGreaterThan(0)
   expect(seen.sent).toEqual([])
 })
 
-test('a draft gets two fix-ups, then the user is told and it stands', async ($: any, on: any) => {
+test('plain text streams as it comes, and only a line that could open a fence is kept back', async ($: any, on: any) => {
+  world(on, { verdict: 'PASS' })
+  const out = await reply($, 'Word by word\n`` two ticks\n~~', { pieces: 4 })
+  expect(out[0].text).toBe('Word')
+  expect(shown(out)).toBe('Word by word\n`` two ticks\n~~')
+})
+
+test('a reply with no draft, or a draft only inside a code fence, costs no call', async ($: any, on: any) => {
   const seen = world(on, { verdict: FINDING })
-  for (let i = 0; i < 3; i++) await end($, DRAFT)
-  expect(seen.sent).toHaveLength(2)
-  expect(seen.origins).toEqual([{ kind: 'plugin', name: 'writing-conventions' }, { kind: 'plugin', name: 'writing-conventions' }])
+  for (const text of ['The report says so.', 'A draft:\n~sh\nThe report says so.\n~', `~~~\n${F}draft\nThe report says so.\n${F}\n~~~\n`, `  draft\n \`${F}draft\` inline\n`]) {
+    expect(shown(await reply($, text))).toBe(fenced(text))
+  }
+  expect(seen.reader).toHaveLength(0)
+})
+
+test('a finding that quotes text outside every draft fence replaces nothing', async ($: any, on: any) => {
+  const seen = world(on, { verdict: FINDING })
+  expect(kinds(await reply($, 'The report says so.\n~draft\nPlain text.\n~'))).toBe('text stop')
+  // Each draft is a source of its own, so one quote cannot span two.
+  expect(kinds(await reply($, '~draft\nThe report\n~\n~draft\nsays so.\n~'))).toBe('text stop')
+  expect(seen.reader).toHaveLength(2)
+})
+
+test('a turn gets two rewrites, then the user is told and the draft is shown', async ($: any, on: any) => {
+  const seen = world(on, { verdict: FINDING })
+  expect(kinds(await reply($, DRAFT))).toBe('tool input stop')
+  expect(kinds(await reply($, DRAFT))).toBe('tool input stop')
+  const third = await reply($, DRAFT)
+  expect(shown(third)).toBe(`${F}draft\nThe report says so.\n${F}`)
+  expect(third.at(-1).stopReason).toBe('end_turn')
   expect(seen.toasts.join()).toContain('Review is unresolved')
-  // A prompt from the user starts the count over.
-  await $.prompt.submit({ text: 'Try again.' })
-  await end($, DRAFT)
-  expect(seen.sent).toHaveLength(4)
+  // The next turn starts the count over.
+  expect(kinds(await reply($, DRAFT, { turnId: 't2' }))).toBe('tool input stop')
 })
 
-test('a fix-up prompt gets no lint note, and the next prompt gets it', async ($: any, on: any) => {
+test('a response that asks for tools is shown as it came, with no review', async ($: any, on: any) => {
   const seen = world(on, { verdict: FINDING })
-  await end($, DRAFT)
-  expect(seen.contexts[0].join()).not.toContain('house-style lint')
-  await $.prompt.submit({ text: 'next' })
-  expect(seen.contexts[1].join()).toContain('A house-style lint flagged the previous reply')
+  const out = await reply($, `Text.\n${DRAFT}`, { stopReason: 'tool_use' })
+  expect(shown(out)).toBe(`Text.\n${F}draft\nThe report says so.\n${F}`)
+  expect(out.at(-1).stopReason).toBe('tool_use')
+  expect(seen.reader).toHaveLength(0)
 })
 
-// A plugin that submits a follow-up at the end of every turn, as session-skills
-// does after a push, above this plugin or beneath it.
-const other = (tier: 'prepend' | 'append') => ({ name: 'other', tier, register(on: any) {
-  on('turn.complete', async ($: any, e: any, next: any) => {
-    const ran = await next(e)
-    await $.prompt.submit({ text: 'What comes next?' })
-    return ran
-  })
-} })
-
-for (const tier of ['prepend', 'append'] as const) {
-  test(`another plugin's follow-up gets the note and leaves the fix-up count, from ${tier}`, { plugins: [other(tier)] }, async ($: any, on: any) => {
-    const seen = world(on, { verdict: FINDING })
-    for (let i = 0; i < 3; i++) await end($, DRAFT)
-    expect(seen.sent.filter(t => t.startsWith('The draft in your last reply'))).toHaveLength(2)
-    expect(seen.toasts.join()).toContain('Review is unresolved')
-    expect(seen.contexts[seen.sent.indexOf('What comes next?')].join()).toContain('A house-style lint flagged the previous reply')
-  })
-}
-
-test('the fix-ups are counted per session', async ($: any, on: any) => {
+test('a subagent\'s reply and a reply with no review model are shown as written', async ($: any, on: any) => {
   const w: World = { verdict: FINDING }
   const seen = world(on, w)
-  await end($, DRAFT)
-  await end($, DRAFT)
-  w.session = 's2'
-  await end($, DRAFT)
-  w.session = undefined
-  await end($, DRAFT)
-  expect(seen.sent).toHaveLength(3)
-})
-
-test('an interrupted turn, a subagent\'s turn, and a turn with no review model submit no fix-up', async ($: any, on: any) => {
-  const w: World = { verdict: FINDING }
-  const seen = world(on, w)
-  await end($, DRAFT, { reason: 'aborted', isAborted: true })
-  await end($, DRAFT, { agentId: 'a1' })
+  expect(kinds(await reply($, DRAFT, { agentId: 'a1' }))).toBe('text stop')
   expect(seen.reader).toHaveLength(0)
   w.down = true
-  await end($, DRAFT)
-  expect(seen.sent).toEqual([])
+  expect(kinds(await reply($, DRAFT))).toBe('text stop')
   expect(seen.toasts.join()).toContain('model review is off')
+})
+
+test('where the lint tool could not be listed, a draft is shown as written', async ($: any, on: any) => {
+  const seen = world(on, { verdict: FINDING, unlisted: true })
+  expect(kinds(await reply($, DRAFT))).toBe('text stop')
+  expect(seen.reader).toHaveLength(0)
+})
+
+test('what was held is shown when the stream fails, and the failure goes on', async ($: any, on: any) => {
+  const seen = world(on, { verdict: FINDING })
+  await $.session.start({ cwd: '/proj' })
+  response.chunks = [{ kind: 'text', index: 0, text: `Before.\n${F}draft\nThe report ` }]
+  response.fail = true
+  const out: any[] = []
+  let thrown = false
+  try {
+    for await (const c of $.turn.step({ turnId: 't1', index: 0, model: 'm', messageCount: 1 })) out.push(c)
+  } catch {
+    thrown = true
+  }
+  expect(thrown).toBe(true)
+  expect(shown(out)).toBe(`Before.\n${F}draft\nThe report `)
+  expect(seen.reader).toHaveLength(0)
+})
+
+test('thinking before a draft goes first, and the tool call takes the next block', async ($: any, on: any) => {
+  world(on, { verdict: FINDING })
+  await $.session.start({ cwd: '/proj' })
+  response.chunks = [{ kind: 'thinking', index: 0, text: 'hm' }, { kind: 'text', index: 1, text: `${F}draft\nThe report says so.\n${F}` }, { kind: 'stop', stopReason: 'end_turn', usage: null }]
+  response.fail = false
+  const out: any[] = []
+  for await (const c of $.turn.step({ turnId: 't1', index: 0, model: 'm', messageCount: 1 })) out.push(c)
+  expect(kinds(out)).toBe('thinking tool input stop')
+  expect(out[1].index).toBe(2)
 })
 
 test('the off switch for the draft check makes no call', async ($: any, on: any) => {
   const off = world(on, { verdict: FINDING, env: { WRITING_CONVENTIONS_STOP_READER: '0' } })
-  await end($, DRAFT)
+  expect(kinds(await reply($, DRAFT))).toBe('text stop')
   await lintTool($, 'The report says so.')
   expect(off.reader).toHaveLength(0)
-  expect(off.sent).toEqual([])
 })
 
-const lintTool = async ($: any, text: string) => (await $.tool.call({ tool: 'mcp__writing-conventions__lint', text: text.replace(/~/g, F) })).result
+const lintTool = async ($: any, text: string) => (await $.tool.call({ tool: LINT, text: fenced(text) })).result
 const PLAIN = 'VIOLATION\n"Plain text." -> Plainer text.'
 
 test('the lint tool returns the review model\'s findings on the draft', async ($: any, on: any) => {
@@ -540,25 +607,22 @@ test('a draft the lint tool passed is not read again at the end of the turn, and
   const seen = world(on, w)
   expect(await lintTool($, '~draft\nPlain text.\n~')).toBe('clean')
   w.verdict = PLAIN
-  await end($, 'Here:\n~draft\nPlain text.\n~')
+  expect(kinds(await reply($, 'Here:\n~draft\nPlain text.\n~'))).toBe('text stop')
   expect(seen.reader).toHaveLength(1)
-  expect(seen.sent).toEqual([])
-  await end($, '~draft\nPlain text.\n~\n~draft\nOther text.\n~')
+  await reply($, '~draft\nPlain text.\n~\n~draft\nOther text.\n~')
   expect(seen.reader[1]).toBe('Other text.\n\n\n')
 })
 
 test('a draft the lint tool flagged, or could not review, is read at the end of the turn', async ($: any, on: any) => {
   const w: World = { verdict: PLAIN }
-  const seen = world(on, w)
+  world(on, w)
   await lintTool($, 'Plain text.')
-  await end($, '~draft\nPlain text.\n~')
-  expect(seen.sent).toHaveLength(1)
+  expect(kinds(await reply($, '~draft\nPlain text.\n~'))).toBe('tool input stop')
   w.down = true
   expect(await lintTool($, 'Other text.')).toBe('clean')
   w.down = false
   w.verdict = 'VIOLATION\n"Other text." -> Another.'
-  await end($, '~draft\nOther text.\n~')
-  expect(seen.sent).toHaveLength(2)
+  expect(kinds(await reply($, '~draft\nOther text.\n~'))).toBe('tool input stop')
 })
 
 // The file is checked from the Write or Edit result: a hook beneath may have
@@ -655,7 +719,7 @@ test('with no --repo, the headings of the repo gh picks are kept, and none in a 
 
 test('template headings are kept in a draft or a prose file, from a repo linked there and the session\'s repo', async ($: any, on: any) => {
   const seen = world(on, { verdict: 'PASS', here: 'o4/r4', templates: { 'o3/r3': { 'feature.yml': FORM }, 'o4/r4': { 'bug.md': TEMPLATE } } })
-  await end($, 'For https://github.com/o3/r3/issues:\n~draft\n### Problem Statement\nPlain.\n### Steps\nRun it.\n### Summary\nMore.\n~')
+  await reply($, 'For https://github.com/o3/r3/issues:\n~draft\n### Problem Statement\nPlain.\n### Steps\nRun it.\n### Summary\nMore.\n~')
   expect(seen.reader[0]).toBe('Plain.\nRun it.\n### Summary\nMore.\n\n\n')
   await write($, '/proj/issue.md', '## Steps\nRun it.\n### Problem Statement\nPlain.\n')
   expect(seen.reader[1]).toBe('File: /proj/issue.md\n\nRun it.\n### Problem Statement\nPlain.\n')

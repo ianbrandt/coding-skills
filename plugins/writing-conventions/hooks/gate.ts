@@ -14,6 +14,7 @@
 // failure lets the event through, and the user is told once. Only a finding with its
 // quote in the text under review blocks a command, a call, or a reply.
 import type { Register } from 'claude-code'
+import type { Call } from './hold'
 import { bodyFiles, keys, type Mode, walk } from './keys'
 import { lint } from './lint'
 import { headings, linked, literal, repoFlag, unheaded, unquoted } from './template'
@@ -351,10 +352,9 @@ const LOCAL_TOOLS: Record<string, [string, string] | null> = {
   'mcp__parallel-session-skills__write_claim': null,
 }
 
-// The fix-up prompts submitted in a row, by session. Each one costs a whole
-// re-emitted reply, so they stop after two when something is found in each
-// rewrite. A prompt that no plugin submitted starts the count over.
-const fixups = new Map<string, number>()
+// The rewrites asked for in this turn. Each one costs a whole re-emitted reply,
+// so they stop after two when something is found in each rewrite.
+let fixups = { turn: '', count: 0 }
 
 // The drafts the review model passed when the lint tool was called on them, by
 // their text, so that the check at the end of the turn sends only the others.
@@ -373,7 +373,9 @@ async function review($: any, text: string, from: string): Promise<string> {
   return (await read($, unheaded(text, kept).replace(/\x01/g, '\n'), text.split('\x01'))).found
 }
 
-const readerOff = async ($: any) => (await $.env.get('WRITING_CONVENTIONS_STOP_READER')) === '0'
+async function readerOff($: any): Promise<boolean> {
+  return (await $.env.get('WRITING_CONVENTIONS_STOP_READER')) === '0'
+}
 
 // The lint tool's answer: the reply lint's lines, then the review model's
 // findings on the drafts in `input`, or on all of it where no draft fence is
@@ -393,9 +395,8 @@ async function lintTool($: any, input: string): Promise<string> {
 // A reply in which a draft for publication is tagged. Only the text inside a
 // `draft` fence is reviewed, so nothing else in the reply is judged by the
 // model, and a reply with no such fence, or only drafts the lint tool passed,
-// costs no call. An untagged draft is read by the reply lint alone. A finding
-// comes back as the fix-up prompt.
-async function stop($: any, answer: string): Promise<Verdict> {
+// costs no call. An untagged draft is read by the reply lint alone.
+async function stop($: any, turnId: string, answer: string): Promise<Verdict> {
   if (await readerOff($)) return {}
   // The cap comes off before the review model is sent the drafts, so a quote
   // from past it is never verified.
@@ -403,14 +404,32 @@ async function stop($: any, answer: string): Promise<Verdict> {
   if (text === '') return {}
   const found = await review($, text, answer)
   if (found === '') return {}
-  const session = await $.session.id().catch(() => '')
-  const count = fixups.get(session) ?? 0
-  if (count >= 2) {
+  if (fixups.turn !== turnId) fixups = { turn: turnId, count: 0 }
+  if (fixups.count >= 2) {
     $.ui.toast('writing-conventions: the draft in this reply still reads as a violation after two rewrites. Review is unresolved and the reply stands.', { timeoutMs: 15000 })
     return {}
   }
-  fixups.set(session, count + 1)
-  return { block: join(`The draft in your last reply breaks the writing conventions:\n${found}`, `Rewrite the quoted text and emit the corrected draft. ${ADVICE}`) }
+  fixups.count++
+  return { block: join(found, `The writing-conventions plugin made this call when your reply ended, and you did not. The user has seen your reply up to its first draft and nothing after that, so do not repeat what came before it. Continue with the draft, with the quoted text rewritten, then the rest of the reply. Say nothing about this review. ${ADVICE}`) }
+}
+
+// Set once the lint tool is listed: a reply cannot be replaced with a call to a
+// tool that is not there, so a draft is then shown as written.
+let listed = false
+export async function checksDrafts($: any): Promise<boolean> {
+  return listed && (await isChecked($).catch(() => false)) && !(await readerOff($))
+}
+
+// What a held reply is replaced with, if anything: a call to the lint tool, with
+// the findings kept for that call to return, so the draft is not reviewed twice.
+const awaiting = new Map<string, string>()
+let calls = 0
+export async function flagged($: any, turnId: string, answer: string): Promise<Call | undefined> {
+  const verdict = await gate($, () => stop($, turnId, answer))
+  if (!verdict.block) return undefined
+  const id = `toolu_writing_conventions_${Date.now()}_${++calls}`
+  awaiting.set(id, verdict.block)
+  return { tool: TOOL, id }
 }
 
 // Runs one check. A check that throws does not stop the event.
@@ -422,9 +441,9 @@ async function gate($: any, check: () => Promise<Verdict>): Promise<Verdict> {
   }
 }
 
-// The reply lint and the reminders around it. None of them asks for a fix-up:
-// a hook cannot patch a reply, so a fix-up costs a full re-emission of an answer
-// the user has already seen. The correction is made in the next reply instead.
+// The reply lint and the reminders around it. None of them asks for a rewrite,
+// since that costs a full re-emission of an answer the user has already seen.
+// The correction is made in the next reply instead.
 const REMINDER = 'Style, for this reply and any prose written to files: an inanimate subject takes no agentive verb—"the entry declared in the `plugins` block", never "the `plugins` block owns/says/gives". Em dashes unspaced (word—word). Plain words.'
 const NUDGE = "You just wrote prose to a file. Re-read it now for inanimate agency (report/build/entry/declaration as subject of says/gives/owns/configures/carries), spaced em dashes, and banned vocabulary; fix in place before moving on. If this text will publish under the user's name, have a fresh-context subagent sweep it against the rules before hand-over."
 
@@ -499,7 +518,11 @@ async function turnNote($: any, session: unknown): Promise<string> {
 // runs. The rules are added at the start of a subagent's task.
 async function call($: any, e: any, next: any): Promise<any> {
   // A draft may come inside its fence, and lint() drops every closed fence.
-  if (e.tool === TOOL) return { result: await lintTool($, String((e as any).text ?? '')) }
+  if (e.tool === TOOL) {
+    const found = awaiting.get((e as any).tool_use_id)
+    awaiting.delete((e as any).tool_use_id)
+    return { result: found ?? await lintTool($, String((e as any).text ?? '')) }
+  }
   if (e.tool === 'Agent') {
     const rules = (await isChecked($).catch(() => false)) ? await $.fs.read(`${$.plugin.root}/hooks/rules.md`).catch(() => '') : ''
     return next(rules ? { ...e, prompt: `${rules}\n\n${(e as any).prompt}` } as any : e)
@@ -563,11 +586,11 @@ export const register: Register = on => {
 
   on('session.start', async ($, e, next) => {
     if (await isChecked($)) {
-      await $.tool.register({
+      listed = await $.tool.register({
         name: 'lint',
         description: 'Lint prose against the writing-conventions patterns (inanimate agency, spaced em dashes, banned words, a missing Oxford comma, and a bold list label), then have a review model read it against the writing conventions. Returns one line per flagged sentence, <group><TAB><matched text>, then each finding of the review model as "quote" -> rewrite, or "clean". Call it on each draft for publication before the reply ends.',
         inputSchema: { type: 'object', properties: { text: { type: 'string', description: 'The prose to lint.' } }, required: ['text'] },
-      })
+      }).then(() => true, () => false)
     }
     return next(e)
   })
@@ -575,36 +598,25 @@ export const register: Register = on => {
   // The final reply is linted and the note saved. lint() drops every closed
   // fence, so the fence lines of a draft block come off first and its text stays
   // in place: a draft is prose, and this is the one check left on it when the
-  // review model cannot run. Then the gate reads the drafts, and a finding is
-  // submitted as a fix-up prompt. An interrupted turn and a subagent's turn
-  // are not checked. The note is written before next(), where another plugin
-  // may submit a prompt that reads it.
+  // review model cannot run. An interrupted turn and a subagent's turn are not
+  // checked.
   on('turn.complete', async ($, e, next) => {
     if (e.agentId || e.reason !== 'answer') return next(e)
-    const text = String(e.answer ?? '')
     if (await isChecked($).catch(() => false)) {
-      const note = lint(drafts(text, { unwrap: true }), { note: true })
+      const note = lint(drafts(String(e.answer ?? ''), { unwrap: true }), { note: true })
       const path = await notePath($, await $.session.id().catch(() => '')).catch(() => '')
       // After a clean reply the note from the one before it is cleared.
       if (path && (note || (await $.fs.exists(path).catch(() => false)))) await $.fs.write(path, note).catch(() => {})
     }
-    const verdict = text.includes('draft') ? await gate($, () => stop($, text)) : {}
-    if (verdict.block) await $.prompt.submit({ text: verdict.block }).catch(() => {})
     return next(e)
   })
 
   // The note and the reminder go with every prompt, and the rules come first
   // on the first prompt and once the model no longer reads them.
-  // A fix-up gets no note or reminder: the note's instruction is to leave the
-  // reply alone, and the fix-up reply's own note replaces it.
   on('prompt.submit', async ($, e: any, next: any) => {
-    const isFixup = e.origin?.kind === 'plugin' && e.origin.name === 'writing-conventions'
-    // Another plugin's follow-up, such as session-skills' request for the next
-    // step, does not start the count over.
-    if (e.origin?.kind !== 'plugin') fixups.delete(await $.session.id().catch(() => ''))
     const rules = await $.fs.read(`${$.plugin.root}/hooks/rules.md`).catch(() => '')
     const added = rules && !(await isRead($, rules)) ? [rules] : []
-    if (!isFixup && (await isChecked($).catch(() => false))) added.push(await turnNote($, await $.session.id().catch(() => '')))
+    if (await isChecked($).catch(() => false)) added.push(await turnNote($, await $.session.id().catch(() => '')))
     return next(added.length > 0 ? { ...e, context: [...(e.context ?? []), ...added] } : e)
   })
 }

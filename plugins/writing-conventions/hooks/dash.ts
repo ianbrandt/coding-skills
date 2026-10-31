@@ -10,7 +10,6 @@
 // table cell. A span left open at the end of a line may close on a later one, so
 // the text is left as written until the span closes or a blank line ends the
 // paragraph, and the reply lint still reports it.
-import type { Register } from 'claude-code'
 import { atLeast } from './gate'
 
 // One text block's position: the text held back while the next piece could
@@ -162,42 +161,41 @@ export function feed(s: Dash, piece: string, end = false): string {
   return out
 }
 
-export const register: Register = on => {
-  on('turn.step', async function* ($, e, next) {
-    // The chunk format is part of an early-access API, so on a CLI the module was
-    // not checked on, the reply is passed through as written.
-    if (!atLeast((await $.session.version().catch(() => ({}))).base)) return yield* next(e)
-    const blocks = new Map<number, Dash>()
-    const stream = next(e)[Symbol.asyncIterator]()
-    for (;;) {
-      let step: IteratorResult<any, any>
-      let failed: unknown
-      try {
-        step = await stream.next()
-      } catch (error) {
-        step = { done: true, value: undefined }
-        failed = error ?? new Error('turn.step failed')
-      }
-      const chunk: any = step.done ? undefined : step.value
-      if (chunk?.kind === 'text') {
-        if (!blocks.has(chunk.index)) blocks.set(chunk.index, start())
-        const s = blocks.get(chunk.index)!
-        yield s.off ? chunk : { ...chunk, text: feed(s, chunk.text) }
-        continue
-      }
-      // Any other chunk can end a text block, so held text is written ahead of it
-      // and the block is switched off. No other chunk was seen inside a block in
-      // a long reply, so later text with the same index comes from a retry or a
-      // cut-off reply. Its position in the block is unknown, and it is passed
-      // through as written.
-      for (const [index, s] of blocks) {
-        const text = s.off ? '' : feed(s, '', true)
-        s.off = true
-        if (text !== '') yield { kind: 'text', index, text }
-      }
-      if (failed) throw failed
-      if (step.done) return step.value
-      yield chunk
+// The reply with its spaced em dashes taken out, as a stream.
+export async function* repair($: any, e: any, next: any): AsyncGenerator<any, any> {
+  // The chunk format is part of an early-access API, so on a CLI the module was
+  // not checked on, the reply is passed through as written.
+  if (!atLeast((await $.session.version().catch(() => ({}))).base)) return yield* next(e)
+  const blocks = new Map<number, Dash>()
+  const stream = next(e)[Symbol.asyncIterator]()
+  for (;;) {
+    let step: IteratorResult<any, any>
+    let failed: unknown
+    try {
+      step = await stream.next()
+    } catch (error) {
+      step = { done: true, value: undefined }
+      failed = error ?? new Error('turn.step failed')
     }
-  })
+    const chunk: any = step.done ? undefined : step.value
+    if (chunk?.kind === 'text') {
+      if (!blocks.has(chunk.index)) blocks.set(chunk.index, start())
+      const s = blocks.get(chunk.index)!
+      yield s.off ? chunk : { ...chunk, text: feed(s, chunk.text) }
+      continue
+    }
+    // Any other chunk can end a text block, so held text is written ahead of it
+    // and the block is switched off. No other chunk was seen inside a block in
+    // a long reply, so later text with the same index comes from a retry or a
+    // cut-off reply. Its position in the block is unknown, and it is passed
+    // through as written.
+    for (const [index, s] of blocks) {
+      const text = s.off ? '' : feed(s, '', true)
+      s.off = true
+      if (text !== '') yield { kind: 'text', index, text }
+    }
+    if (failed) throw failed
+    if (step.done) return step.value
+    yield chunk
+  }
 }

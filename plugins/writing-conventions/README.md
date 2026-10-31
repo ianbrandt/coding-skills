@@ -27,9 +27,11 @@ Claude Code 2.1.308 or later is required.
   is reviewed and the session fixes what is found. Nothing is blocked.
 - A draft the session hands you to post elsewhere goes in a fenced block tagged `draft`. The
   session has it reviewed with the plugin's lint tool and fixes it before the reply ends. A draft
-  that was not reviewed that way is reviewed when the turn ends, and after a finding a follow-up
-  prompt asks the session to correct it, in a turn of its own. After two corrections in a row with
-  a finding in each, you are told and the draft stands until your next message.
+  that was not reviewed that way is held back as it streams and reviewed when the reply ends. After
+  a finding the session rewrites it in the same turn, and you see a lint tool call and then the
+  corrected draft, with no extra prompt. After two rewrites with a finding in each, you are told and
+  the draft is shown as written. A held draft appears only once it is reviewed, about 10 to 15
+  seconds after it is written.
 - A heading in a short commit message, issue, PR, or comment is flagged, and so is a bulleted list
   of the changes in the diff. Headings are allowed in a long body and where they follow the
   target's issue or PR template. A GitHub repo's issue template is read with `gh`, and its headings

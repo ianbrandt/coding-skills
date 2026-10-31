@@ -50,7 +50,7 @@ matched 44 of 582 sentences in this repo's last 400 commit messages and 27 of 41
 nearly all of them ordinary compound sentences, and it did not match the sentence the rule was
 written from. Whether two facts are related cannot be told from a pattern match.
 
-The lint never asks for a fix-up turn. A hook cannot patch a reply, so a corrected answer requires
+The lint never asks for a rewrite. A reply is shown as it streams, so a corrected answer requires
 re-emitting the entire original, which you have already read and which stays in the
 transcript beside it. Carrying the hits into the next turn costs a few dozen tokens instead, and the
 flagged reply stands as sent.
@@ -367,23 +367,30 @@ The review runs before the reply ends where it can. Under the same rule, the ses
 `mcp__writing-conventions__lint` on each draft and fixes what comes back in the same reply. The tool
 runs the reply lint and then sends the draft to the review model. A draft with no finding is kept in
 memory as passed, by its text with the whitespace at either end trimmed. Without the fence, the
-whole `text` is read as one draft. Claude Code has no hook that runs before a reply is displayed,
-and a `turn.complete` hook can return only text and usage, so a finding after the reply needs a
-turn of its own.
+whole `text` is read as one draft. A `turn.complete` hook can return only text and usage, so the check runs on the stream.
 
-On `turn.complete`, the text inside each `draft` fence is sent to the review model, except the
-drafts passed by the tool, and nothing else in the reply is. A turn with no such fence, or with only
-drafts the tool passed, costs one scan and no model call. A draft changed after the tool passed it
-is read again. An interrupted turn and a subagent's turn are not checked.
+A reply's text streams through a `turn.step` hook (`hooks/hold.ts`) up to its first `draft` fence,
+and the rest of the response is held. A line is kept back only while it could still be a fence
+marker, so plain text is not delayed. When the response ends the turn, the text inside each `draft`
+fence is sent to the review model, except the drafts passed by the tool, and nothing else in the reply
+is. A clean reply is then released whole and in order. A reply with no such fence costs one scan and
+no model call. A draft changed after the tool passed it is read again. A response that asks for
+tools is released with no review, since it does not end the turn. A subagent's response is not held.
 
-A verified finding is submitted as a fix-up prompt with `$.prompt.submit`, so the session emits a
-corrected draft in one more turn, and the reply is re-emitted whole. The fix-ups are counted per session and
-stop after two in a row; the third time, the user is told that review is unresolved, and the reply
-stands. A prompt that no plugin submitted starts the count over, so session-skills' request for a
-next step does not. No lint note is added to a fix-up prompt, because the note's instruction is to
-leave the reply alone. The note on the fix-up reply replaces it. The note is saved before the event
-is passed on to other plugins, so a follow-up prompt from one of them opens with it.
-Set `WRITING_CONVENTIONS_STOP_READER=0` to turn this check off, in the tool and after the reply.
+After a verified finding, what was held is replaced with a call to `mcp__writing-conventions__lint`,
+and the findings are kept for that call to return, so the draft is not reviewed twice. The engine runs the
+tool and the same turn goes on, so there is no second turn and no prompt in the transcript. This was
+measured on 2.1.316, on Sonnet and on Opus with thinking on, in auto mode and with default
+permissions, and on 2.1.309 (R513). The tool result includes two facts: the plugin made the call, and
+the user has seen the reply only up to the draft. Without that, the model apologized for calling a tool
+and repeated its introduction. A request sent again with a hidden `$.session.append` row in place
+of the tool call did not work, because the row is not in that request.
+
+The rewrites are counted per turn and stop after two; the third time, the user is told that review
+is unresolved, and the reply is released. The hold is off where the lint tool could not be listed,
+since there is no tool to call. The stream fails open: a failed review or a broken stream
+releases what was held.
+Set `WRITING_CONVENTIONS_STOP_READER=0` to turn this check off, in the tool and at the end of a reply.
 
 Tagging keeps this check cheap, since an untagged draft has no reliable form: without the rule,
 drafts came back in plain fences, blockquotes, and between `---` rules, and a plain fence of 8 words
@@ -430,8 +437,7 @@ claude plugin eval . --runs 2 --judge-model sonnet --no-publish -j 4
 Each run scores the same prompts with and without the plugin loaded and reports the difference. A
 run costs a fraction of a dollar, so the suite is for a change to the rules file or the hooks, not
 for every commit. Results go under `evals/results/`, which is ignored. The draft check is on during
-a run, and a fix-up is a second turn under `-p`. Whether a plugin-loaded draft is scored before or
-after that turn is not checked yet. `max_turns` is 8 in every case.
+a run, and a rewrite adds a tool call to the turn's count. `max_turns` is 8 in every case.
 
 The latest whole-suite run, on 2026-10-08, scored 0.94 with the plugin and 0.83 without. The score
 without the plugin moved by 0.05 between two runs of the same prompts, so a gain from a single run is
