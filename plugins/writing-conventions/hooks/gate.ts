@@ -354,7 +354,7 @@ const LOCAL_TOOLS: Record<string, [string, string] | null> = {
 
 // The rewrites asked for in this turn. Each one costs a whole re-emitted reply,
 // so they stop after two when something is found in each rewrite.
-let fixups = { turn: '', count: 0 }
+let fixups = { turn: '', count: 0, from: '' }
 
 // The drafts the review model passed when the lint tool was called on them, by
 // their text, so that the check at the end of the turn sends only the others.
@@ -402,9 +402,13 @@ async function stop($: any, turnId: string, answer: string): Promise<Verdict> {
   // from past it is never verified.
   const text = drafts(answer).split('\x01\n').filter(d => d !== '' && !passed.has(keyOf(d))).map(d => `${d}\x01\n`).join('').slice(0, CAP)
   if (text === '') return {}
-  const found = await review($, text, answer)
+  if (fixups.turn !== turnId) fixups = { turn: turnId, count: 0, from: '' }
+  // A rewrite starts at its draft, so a repo linked before the draft is read from
+  // the reply it replaced.
+  const from = fixups.from + answer
+  const found = await review($, text, from)
   if (found === '') return {}
-  if (fixups.turn !== turnId) fixups = { turn: turnId, count: 0 }
+  fixups.from = from
   if (fixups.count >= 2) {
     $.ui.toast('writing-conventions: the draft in this reply still reads as a violation after two rewrites. Review is unresolved and the reply stands.', { timeoutMs: 15000 })
     return {}

@@ -36,6 +36,8 @@ export function fenceLine(line: string, fence: string): { fence: string; draft: 
   const m = marker[1]
   const rest = line.slice(marker[0].length)
   if (fence === '') {
+    // Inline code, as on a line that opens with ```draft``` and goes on.
+    if (m[0] === '`' && rest.includes('`')) return undefined
     // the lookbehind keeps the scan of a long run of spaces to one pass
     const info = rest.replace(/^[ \t]+/, '').replace(/(?<![ \t\r])[ \t\r]+$/, '')
     return { fence: m, draft: info === 'draft' || /^draft[ \t]/.test(info) }

@@ -3,14 +3,15 @@
 // clean reply is then shown whole, and a flagged one is replaced with a call to a
 // tool, so the same turn goes on and the model writes it again. The user sees the
 // tool call and the corrected reply, with no prompt in between. A response that
-// asks for tools is shown as it came, since it does not end the turn.
+// asks for tools is shown as it came, since it does not end the turn, and so is
+// one cut off by max_tokens or a refusal, which the reply lint still reads.
 //
 // The fence is read as drafts() in text.ts reads it. A line is kept back only
 // while it could still turn out to be a fence marker, so plain text streams as it
 // comes.
 import { fenceLine } from './text'
 
-const mayBeMarker = (line: string) => /^[ \t]*(`{0,2}|~{0,2}|`{3,}.*|~{3,}.*)$/.test(line)
+const mayBeMarker = (line: string) => /^[ \t]*(`{0,2}|~{0,2}|`{3,}[^\n]*|~{3,}[^\n]*)$/.test(line)
 
 // The call that replaces a flagged reply: the tool's name and the call's id.
 export type Call = { tool: string; id: string }
@@ -20,7 +21,10 @@ export async function* hold(
   check: (answer: string) => Promise<Call | undefined>,
 ): AsyncGenerator<any, any> {
   const it = stream[Symbol.asyncIterator]()
+  // The response's text for the review, each block on lines of its own, as it
+  // would be read by the user.
   let answer = ''
+  let before = ''
   let top = -1
   // The open fence, the text kept back from the current line, and whether the
   // current line has already been ruled out as a marker.
@@ -28,6 +32,10 @@ export async function* hold(
   let line = ''
   let inLine = false
   let block: number | undefined
+  const read = (chunk: any) => {
+    if (chunk.index !== block && answer !== '' && !answer.endsWith('\n')) answer += '\n'
+    answer += chunk.text
+  }
   // From the draft fence on: every chunk, and the text in them.
   let held: any[] | undefined
   let text = ''
@@ -47,18 +55,23 @@ export async function* hold(
     if (held) {
       if (chunk) {
         held.push(chunk)
-        if (chunk.kind === 'text') { answer += chunk.text; text += chunk.text }
+        if (chunk.kind === 'text') {
+          read(chunk)
+          block = chunk.index
+          text += chunk.text
+        }
         if (chunk.kind === 'stop') stop = chunk
         continue
       }
-      const call = !failed && stop?.stopReason === 'end_turn' ? await check(answer) : undefined
+      const reason = stop?.stopReason ?? step.value?.stopReason
+      const call = !failed && (reason === 'end_turn' || reason === 'stop_sequence') ? await check(answer) : undefined
       if (call) {
         const index = top + 1
         const input = { text }
         yield { kind: 'tool', index, id: call.id, name: call.tool }
         yield { kind: 'input', index, json: JSON.stringify(input) }
-        yield { ...stop, stopReason: 'tool_use' }
-        return { ...step.value, answer: answer.slice(0, answer.length - text.length), toolUses: [{ name: call.tool, input }], stopReason: 'tool_use' }
+        yield { kind: 'stop', usage: null, ...stop, stopReason: 'tool_use' }
+        return { ...step.value, answer: before, toolUses: [{ name: call.tool, input }], stopReason: 'tool_use' }
       }
       for (const c of held) yield c
       if (failed) throw failed
@@ -66,12 +79,12 @@ export async function* hold(
     }
 
     if (chunk?.kind === 'text') {
+      read(chunk)
       if (chunk.index !== block) {
         block = chunk.index
         fence = ''
         inLine = false
       }
-      answer += chunk.text
       const piece = line + chunk.text
       line = ''
       let out = ''
@@ -84,6 +97,7 @@ export async function* hold(
         const moved = newline < 0 || inLine ? undefined : fenceLine(current, fence)
         if (moved?.draft) {
           text = piece.slice(i)
+          before = answer.slice(0, answer.length - text.length)
           held = [{ ...chunk, text }]
           break
         }

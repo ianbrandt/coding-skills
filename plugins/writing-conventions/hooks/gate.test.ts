@@ -585,6 +585,73 @@ test('thinking before a draft goes first, and the tool call takes the next block
   expect(out[1].index).toBe(2)
 })
 
+test('each text block is read on its own lines', async ($: any, on: any) => {
+  const seen = world(on, { verdict: FINDING })
+  await $.session.start({ cwd: '/proj' })
+  const run = async (chunks: any[]) => {
+    response.chunks = [...chunks, { kind: 'stop', stopReason: 'end_turn', usage: null }]
+    response.fail = false
+    const out: any[] = []
+    for await (const c of $.turn.step({ turnId: 't1', index: 0, model: 'm', messageCount: 1 })) out.push(c)
+    return out
+  }
+  // A draft in a later block is a draft.
+  const later = await run([{ kind: 'text', index: 0, text: 'Let me check that.' }, { kind: 'text', index: 2, text: `${F}draft\nThe report says so.\n${F}` }])
+  expect(kinds(later)).toBe('text tool input stop')
+  expect(later.find(c => c.kind === 'tool').index).toBe(3)
+  // Prose in a later block is not in the draft before it.
+  const after = await run([{ kind: 'text', index: 0, text: `${F}draft\nPlain.\n${F}` }, { kind: 'thinking', index: 1, text: 'hm' }, { kind: 'text', index: 2, text: 'Prose: The report says so.' }])
+  expect(kinds(after)).toBe('text thinking text stop')
+  expect(shown(after)).toBe(`${F}draft\nPlain.\n${F}Prose: The report says so.`)
+  expect(seen.reader.at(-1)).toBe('Plain.\n\n\n')
+})
+
+test('a backtick in the info string opens no fence, so the draft after that line is held', async ($: any, on: any) => {
+  const seen = world(on, { verdict: FINDING })
+  const out = await reply($, '~draft~ is the tag.\n\n~draft\nThe report says so.\n~\n')
+  expect(kinds(out)).toBe('text tool input stop')
+  expect(shown(out)).toBe(`${F}draft${F} is the tag.\n\n`)
+  expect(seen.reader).toHaveLength(1)
+})
+
+test('a kept-back line with a carriage return in it is still shown in order', async ($: any, on: any) => {
+  world(on, { verdict: 'PASS' })
+  await $.session.start({ cwd: '/proj' })
+  response.chunks = [{ kind: 'text', index: 0, text: `${F}sh\r` }, { kind: 'thinking', index: 1, text: 'hm' }, { kind: 'text', index: 2, text: 'After.' }, { kind: 'stop', stopReason: 'end_turn', usage: null }]
+  response.fail = false
+  const out: any[] = []
+  for await (const c of $.turn.step({ turnId: 't1', index: 0, model: 'm', messageCount: 1 })) out.push(c)
+  expect(shown(out)).toBe(`${F}sh\rAfter.`)
+})
+
+test('a draft with CRLF line ends is held however its fence line is cut', async ($: any, on: any) => {
+  world(on, { verdict: FINDING })
+  let turn = 0
+  for (const pieces of [undefined, 1, 2, 7, 8, 9]) {
+    expect(kinds(await reply($, '~draft\r\nThe report says so.\r\n~\r\n', { pieces, turnId: `t${++turn}` }))).toBe('tool input stop')
+  }
+})
+
+test('a reply that ends on a stop sequence, or with its stop only in the result, is reviewed too', async ($: any, on: any) => {
+  const seen = world(on, { verdict: FINDING })
+  expect(kinds(await reply($, DRAFT, { stopReason: 'stop_sequence' }))).toBe('tool input stop')
+  await $.session.start({ cwd: '/proj' })
+  response.chunks = [{ kind: 'text', index: 0, text: `${F}draft\nThe report says so.\n${F}` }]
+  response.fail = false
+  const out: any[] = []
+  for await (const c of $.turn.step({ turnId: 't2', index: 0, model: 'm', messageCount: 1 })) out.push(c)
+  expect(kinds(out)).toBe('tool input stop')
+  expect(out.at(-1).stopReason).toBe('tool_use')
+  expect(seen.reader).toHaveLength(2)
+})
+
+test('a rewrite is read with the text before the draft it replaced, so a repo linked there still counts', async ($: any, on: any) => {
+  const seen = world(on, { verdict: FINDING, templates: { 'o3/r3': { 'bug.yml': 'body:\n  - attributes:\n      label: Problem Statement\n' } } })
+  await reply($, 'For https://github.com/o3/r3/issues:\n~draft\n### Problem Statement\nThe report says so.\n~')
+  await reply($, '~draft\n### Problem Statement\nThe report says so.\n~')
+  for (const text of seen.reader) expect(text).not.toContain('### Problem Statement')
+})
+
 test('the off switch for the draft check makes no call', async ($: any, on: any) => {
   const off = world(on, { verdict: FINDING, env: { WRITING_CONVENTIONS_STOP_READER: '0' } })
   expect(kinds(await reply($, DRAFT))).toBe('text stop')

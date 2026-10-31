@@ -389,8 +389,13 @@ of the tool call did not work, because the row is not in that request.
 
 The rewrites are counted per turn and stop after two; the third time, the user is told that review
 is unresolved, and the reply is released. The hold is off where the lint tool could not be listed,
-since there is no tool to call. The stream fails open: a failed review or a broken stream
-releases what was held.
+since there is no tool to call. A failed review or a broken stream releases what was held. A reply
+cut off by `max_tokens` or a refusal is released with no review, and the reply lint still reads it.
+
+A lint tool removed with `--disallowedTools` comes back to the model as an error, and the reply is
+then written and shown. Under `claude -p --max-turns`, a flagged reply on the last allowed turn is
+lost, since the call uses up the limit and the run ends in `error_max_turns`. A run with room for the
+rewrite is not affected, and the evals allow 8 turns.
 Set `WRITING_CONVENTIONS_STOP_READER=0` to turn this check off, in the tool and at the end of a reply.
 
 Tagging keeps this check cheap, since an untagged draft has no reliable form: without the rule,

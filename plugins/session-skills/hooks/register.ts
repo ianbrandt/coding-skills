@@ -535,16 +535,17 @@ export const register: Register = on => {
   let title = ''
   on('tool.call', { tool: 'mcp__session-skills__set_session_title' }, async ($, e: any) =>
     answer('set_session_title', async () => {
-      title = String(e.title ?? '').trim()
-      if (!title) throw new Error('the title is empty')
-      return `The title is set to ${JSON.stringify(title)} when this turn ends.`
+      const given = String(e.title ?? '').trim().replace(/\s+/g, ' ')
+      if (!given) throw new Error('the title is empty')
+      if (!e.agentId) title = given
+      return `The title is set to ${JSON.stringify(given)} when this turn ends.`
     }))
   on('turn.complete', async ($, e, next) => {
     const ran = await next(e)
     if (e.agentId || !title) return ran
     const args = title
     title = ''
-    await $.command.run({ command: 'rename', args }).catch(() => {})
+    await $.command.run({ command: 'rename', args }).catch(() => $.ui.toast(`session-skills: the session title "${args}" could not be set. Use /rename.`))
     return ran
   })
 

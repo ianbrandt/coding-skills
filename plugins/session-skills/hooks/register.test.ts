@@ -170,6 +170,25 @@ test('an empty title is an error, a subagent\'s turn leaves a title for the main
   expect((await end($, 'Done.')).text).toBe('Done.')
 })
 
+test('an empty title leaves the one already set, a title is one line, and a subagent sets none', async ($: any, on: any) => {
+  const w = titles(on)
+  await $.tool.call({ tool: TITLE, title: 'Parser\n  core' })
+  await $.tool.call({ tool: TITLE, title: '  ' })
+  await $.tool.call({ tool: TITLE, title: 'Other', agentId: 'a1' })
+  await end($, 'Done.')
+  expect(w.run.map(r => r.args)).toEqual(['Parser core'])
+})
+
+test('the user is told when the rename is refused', async ($: any, on: any) => {
+  const w = titles(on)
+  const toasts: string[] = []
+  on('ui.toast', (_$: any, e: any) => { toasts.push(e.text ?? String(e)); return { value: undefined } })
+  w.fail = true
+  await $.tool.call({ tool: TITLE, title: 'Parser core' })
+  await end($, 'Done.')
+  expect(toasts.join()).toContain('Parser core')
+})
+
 // The context added to a command's result, with the command's own result beneath.
 function pushes(on: any) {
   const w = { result: { result: {} } as any }
