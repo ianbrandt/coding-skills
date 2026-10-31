@@ -60,7 +60,8 @@ Eleven anti-patterns. Each reads as AI writing; the literal phrasing is always a
 8. **For the reader.** They have read nothing since their last message: no "as noted above", no
    term coined mid-session, and every "it" and "this" resolves to one named thing (the noun, or
    "this PR" when there is none). Lead with the outcome, and write the point rather than leaving
-   the reader to assemble it from the facts. Two code spans that differ by one space look the same:
+   the reader to assemble it from the facts. Options a reader can take independently are offered
+   that way, with the all and none cases stated, never as one package. Two code spans that differ by one space look the same:
    use a form where the difference is visible, or describe the change in words. Link a file by
    absolute path instead of pasting it;
    a draft awaiting approval goes in the reply itself. Anything they will run goes in its own
