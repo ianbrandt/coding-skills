@@ -63,6 +63,10 @@ Write the amount of detail that lets the reader do the next thing, and no more.
   someone else's report, or on anything you cannot see is hedged; a number you measured is
   stated flat, and hedging that understates evidence you have. A claim you could check gets checked
   before it gets hedged, because otherwise the reader has to do the checking.
+- State an inferred cause, and hedge it. With two facts set side by side, the reader has to infer
+  the link. "`node_repl` was enabled again in `~/.codex/config.toml` about an hour after I disabled
+  it, with the ChatGPT app open" became "If I disable `node_repl`, it seems to be re-enabled in
+  `~/.codex/config.toml` if I happen to open the ChatGPT macOS app."
 - Match the altitude to the reader's next move. Someone reviewing a diff needs enough to
   disagree with it. Someone who asked for status needs the current state and the blocker. Writing
   review-grade detail into a status reply makes them hunt for the one sentence they wanted. When

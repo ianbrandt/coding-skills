@@ -76,7 +76,8 @@ Eleven anti-patterns. Each reads as AI writing; the literal phrasing is always a
     reports the same verdict, or a walkthrough of a diff in the same reply. A local result CI
     will not show is worth stating. Hedge a judgment, state a measurement, and check before
     hedging: run history, merged PRs, and a commit log are all measurable from outside, so asking
-    about one of those spends the reader's attention on your homework. A claim reused from the repo
+    about one of those spends the reader's attention on your homework. An inferred cause is stated
+    and hedged, not implied by listing what happened at the same time. A claim reused from the repo
     gets checked like one you wrote, and a draft already approved gets re-checked against anything
     found after it.
 11. **Err short.** A code comment, a commit message, an issue, and a PR body are short by
