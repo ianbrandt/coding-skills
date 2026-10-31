@@ -72,6 +72,10 @@ Write the amount of detail that lets the reader do the next thing, and no more.
   reader has to go back to the table to check the claim.
 - Give a count a reader can use. A diffstat is notation: "rewriting 33 files for +380/-209" drew
   "That's not going to mean anything to your average human", and "rewriting 33 files" is enough.
+- Show a small change so that the difference is visible. "`version("3.18.2")` becomes
+  `version ("3.18.2")`" drew "You showed the before and after as the same", since two inline code
+  spans that differ by one space look identical. Use a form where the difference is visible, or
+  describe the change in words.
 - Match the altitude to the reader's next move. Someone reviewing a diff needs enough to
   disagree with it. Someone who asked for status needs the current state and the blocker. Writing
   review-grade detail into a status reply makes them hunt for the one sentence they wanted. When

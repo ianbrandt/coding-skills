@@ -60,7 +60,9 @@ Eleven anti-patterns. Each reads as AI writing; the literal phrasing is always a
 8. **For the reader.** They have read nothing since their last message: no "as noted above", no
    term coined mid-session, and every "it" and "this" resolves to one named thing (the noun, or
    "this PR" when there is none). Lead with the outcome, and write the point rather than leaving
-   the reader to assemble it from the facts. Link a file by absolute path instead of pasting it;
+   the reader to assemble it from the facts. Two code spans that differ by one space look the same:
+   use a form where the difference is visible, or describe the change in words. Link a file by
+   absolute path instead of pasting it;
    a draft awaiting approval goes in the reply itself. Anything they will run goes in its own
    fenced block. A list of findings takes no bold, and a fact placed first needs no marking.
    Emphasis elsewhere, bold or italic, is rare and kept for what strongly warrants calling out:
