@@ -97,7 +97,8 @@ Eleven anti-patterns. Each reads as AI writing; the literal phrasing is always a
     means the text is too long for its genre rather than that it needed organizing. A complex
     change may use both once the text is cut: twenty paragraphs read better under headings, and
     more than a few parallel items read better as bullets. A bullet changelog that repeats the diff
-    is cut at any length. Where the target has an issue or PR template, follow it, headings
+    is cut at any length. A doc leads with the fact, with no "In this section we will" intro and no
+    summary outro. Where the target has an issue or PR template, follow it, headings
     included.
 
 A rule broken in a draft is usually broken elsewhere on the branch: sweep commit messages, code

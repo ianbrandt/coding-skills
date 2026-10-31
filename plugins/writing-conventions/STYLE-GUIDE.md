@@ -108,6 +108,8 @@ Write the amount of detail that lets the reader do the next thing, and no more.
 - Do not restate the diff, and do not summarize your own summary. If the code is in the reply or
   one click away in a linked file, a prose walkthrough duplicates it; a closing paragraph that
   repeats the opening one is filler.
+- Leave out a doc's intro and outro. With "In this section we will" and a closing summary, the
+  reader is handed what the headings and the body already include. Open on the fact.
 - Check text already in the repo before reusing it. A claim copied from a doc, a comment, or an
   earlier draft gets checked the way one you wrote does, and the same fix is made in the source it
   came from when the edit lands. An approved draft goes stale the same way: where later work in the
