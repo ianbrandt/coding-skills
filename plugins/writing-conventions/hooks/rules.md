@@ -64,7 +64,8 @@ Eleven anti-patterns. Each reads as AI writing; the literal phrasing is always a
    that way, with the all and none cases stated, never as one package. Two code spans that differ by one space look the same:
    use a form where the difference is visible, or describe the change in words. Link a file by
    absolute path instead of pasting it;
-   a draft awaiting approval goes in the reply itself. Anything they will run goes in its own
+   a draft awaiting approval goes in the reply itself. In a fork, an upstream issue in chat is a
+   full link, since a bare `#123` resolves against the fork. Anything they will run goes in its own
    fenced block. A list of findings takes no bold, and a fact placed first needs no marking.
    Emphasis elsewhere, bold or italic, is rare and kept for what strongly warrants calling out:
    none of it survives in plain text, it is overused in rendered text, and reaching for it often

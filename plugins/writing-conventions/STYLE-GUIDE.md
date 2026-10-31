@@ -98,6 +98,9 @@ Write the amount of detail that lets the reader do the next thing, and no more.
   and open nothing. This matters most when a session's notes and its code sit in different trees.
 - Write the file's name and link it in the same breath. Never a bare filename, never an
   unlinked "wrote it to `notes/`". When files from two trees are cited in a reply, link both.
+- In a fork, write an upstream issue in chat as a full Markdown link. A bare `#123` resolves against
+  the fork and 404s where the fork has no such issue. In a commit message or PR body targeting
+  upstream, a bare `#123` is correct.
 
 ## 4. Cut what the reader can already see
 
