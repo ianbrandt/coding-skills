@@ -24,10 +24,12 @@ and the skills call them where they once had bash to adapt:
   roadmap: one passage is replaced, or text is appended, and nothing is written when the passage
   has drifted.
 
-The terminal has no tool that sets the session title, and no call in the mod API sets one. A
-`UserPromptSubmit` hook can return a `sessionTitle`, but under managed settings
-`cc-plugin-sec-default` sends every `classic.*` event past user plugins. The module registers no
-classic hook, so the model prints a `/rename` block in the terminal instead.
+In the terminal, `set_session_title` keeps the title, and a `turn.complete` hook applies it with
+`$.command.run({ command: 'rename' })`. The call is refused from a `tool.call` hook, since `/rename`
+waits for the session to be idle and that hook holds the turn. The command shows as one line in the
+transcript, and the next turn gets a reminder that the user named the session. No event under
+`cc-plugin-sec-default` is involved. A `claude -p` session and any other entry point have no such
+tool, and the model prints a `/rename` block instead.
 
 `hooks/checkouts.test.ts` and `hooks/register.test.ts` run under `claude plugin test`. The
 tool definitions are in every session's context, at roughly 600 tokens by estimate for the six.

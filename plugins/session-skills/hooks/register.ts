@@ -444,6 +444,8 @@ async function answer(name: string, run: () => Promise<string>) {
 
 const NEXT_STEP = 'This command pushed work. End the reply with the next step, under the session rules: the hand-off block for the next unit of work, or one line stating that this session carries on with it. When nothing can start yet, write one line on what the next item waits on, then the block for when it can start. When nothing comes next at all, say so in one line.'
 
+const TITLE_RULES: Record<string, string> = { 'claude-desktop': 'title-desktop', cli: 'title-cli' }
+
 // The session rules: the title instruction and, in the desktop app, the
 // wrap-up instruction.
 async function readRules($: any): Promise<string> {
@@ -451,7 +453,7 @@ async function readRules($: any): Promise<string> {
   // One title instruction per surface: a session given several called another
   // surface's tool in the desktop app and printed the title when that failed.
   const entry = await $.env.get('CLAUDE_CODE_ENTRYPOINT').catch(() => '')
-  const title = (await read(entry === 'claude-desktop' ? 'title-desktop' : 'title-print')).trimEnd()
+  const title = (await read(TITLE_RULES[entry as string] ?? 'title-print')).trimEnd()
   // The desktop app ends a turn with its wrap_up tool, which nothing else has.
   const wrapUp = entry === 'claude-desktop' ? `${(await read('wrap-up-desktop')).trimEnd()}\n\n` : ''
   return (await read('rules')).replace('{{title}}', () => title).replace('{{wrap-up}}', () => wrapUp)
@@ -491,6 +493,16 @@ export const register: Register = on => {
       isDeferred: false,
     })
     for (const [name, tool] of Object.entries(TOOLS)) await $.tool.register({ name, ...tool, isDeferred: false })
+    // The desktop app has a title tool of its own, and a session run with -p has
+    // no title to set.
+    if ((await $.env.get('CLAUDE_CODE_ENTRYPOINT').catch(() => '')) === 'cli') {
+      await $.tool.register({
+        name: 'set_session_title',
+        description: "Set this session's title, as /rename does. The title is applied when this turn ends, so call it before the reply ends.",
+        inputSchema: { type: 'object', properties: { title: { type: 'string', description: 'The title, with its first word capitalized.' } }, required: ['title'] },
+        isDeferred: false,
+      })
+    }
     return next(e)
   })
 
@@ -515,6 +527,26 @@ export const register: Register = on => {
       return { ...ran, context: [...(ran.context ?? []), NEXT_STEP] }
     })
   }
+
+  // A title set in a turn is applied when the turn ends, since /rename waits for
+  // the session to be idle and a hook on the call would wait on it. In the
+  // terminal the command shows as one line.
+  // ponytail: held in memory, so a title set just before a hot reload is lost, and the model is asked for one again only when a better one fits.
+  let title = ''
+  on('tool.call', { tool: 'mcp__session-skills__set_session_title' }, async ($, e: any) =>
+    answer('set_session_title', async () => {
+      title = String(e.title ?? '').trim()
+      if (!title) throw new Error('the title is empty')
+      return `The title is set to ${JSON.stringify(title)} when this turn ends.`
+    }))
+  on('turn.complete', async ($, e, next) => {
+    const ran = await next(e)
+    if (e.agentId || !title) return ran
+    const args = title
+    title = ''
+    await $.command.run({ command: 'rename', args }).catch(() => {})
+    return ran
+  })
 
   // The rules go with the first prompt, and again once the model no longer
   // reads them. A fork starts with its parent's context, where they already are.

@@ -24,9 +24,9 @@ test('the desktop app gets the title instruction for its tool and the rule for i
   expect(await submit($)).toEqual(rules('title-desktop.md', '<wrap-up-desktop.md>\n\n'))
 })
 
-test('in a terminal session the title is printed, since no tool sets one there', async ($: any, on: any) => {
+test('in a terminal session the title is set with the plugin\'s tool', async ($: any, on: any) => {
   world(on, 'cli')
-  expect(await submit($)).toEqual(rules('title-print.md'))
+  expect(await submit($)).toEqual(rules('title-cli.md'))
 })
 
 test('any other entry point gets the printed title block', async ($: any, on: any) => {
@@ -117,22 +117,59 @@ test('the tool writes nothing when the file changed after it was first read', as
   expect(files['/repo/a.md']).toBe('a\nadded by a sibling\n')
 })
 
-test('no title tool is registered', async ($: any, on: any) => {
+test('the title tool is registered in the terminal only', async ($: any, on: any) => {
   let entry: string | undefined
   let names: string[] = []
   on('env.get', () => ({ value: entry }))
   on('tool.register', (_$: any, e: any) => { names.push(e.name); return { value: undefined } })
   on('session.start', (_$: any, e: any) => e)
-  for (const from of ['cli', 'claude-desktop', 'sdk-cli', undefined]) {
+  for (const from of ['claude-desktop', 'sdk-cli', undefined]) {
     entry = from
     names = []
     await $.session.start({ cwd: '/repo' })
     expect(names).toContain('edit_primary_file')
     expect(names).not.toContain('set_session_title')
   }
+  entry = 'cli'
+  names = []
+  await $.session.start({ cwd: '/repo' })
+  expect(names).toContain('set_session_title')
 })
 
+const TITLE = 'mcp__session-skills__set_session_title'
 const end = ($: any, answer: string, more: any = {}) => $.turn.complete({ answer, reason: 'answer', isAborted: false, durationMs: 1, turnId: 't1', ...more })
+function titles(on: any) {
+  const w = { run: [] as any[], fail: false }
+  on('turn.complete', (_$: any, e: any) => ({ text: e.answer }))
+  on('command.run', (_$: any, e: any) => {
+    if (w.fail) throw new Error('refused')
+    w.run.push(e)
+    return { text: 'Session renamed' }
+  })
+  return w
+}
+
+test('a title is applied with /rename when the turn ends, once', async ($: any, on: any) => {
+  const w = titles(on)
+  const ran = await $.tool.call({ tool: TITLE, title: ' Parser core ' })
+  expect(ran.result).toContain('when this turn ends')
+  expect(w.run).toEqual([])
+  await end($, 'Done.')
+  expect(w.run.map(r => [r.command, r.args])).toEqual([['rename', 'Parser core']])
+  await end($, 'Done.')
+  expect(w.run).toHaveLength(1)
+})
+
+test('an empty title is an error, a subagent\'s turn leaves a title for the main loop, and a refused rename ends the turn normally', async ($: any, on: any) => {
+  const w = titles(on)
+  expect((await $.tool.call({ tool: TITLE, title: '  ' })).isError).toBe(true)
+  await $.tool.call({ tool: TITLE, title: 'Parser core' })
+  await end($, 'Done.', { agentId: 'a1' })
+  expect(w.run).toEqual([])
+  w.fail = true
+  expect((await end($, 'Done.')).text).toBe('Done.')
+})
+
 // The context added to a command's result, with the command's own result beneath.
 function pushes(on: any) {
   const w = { result: { result: {} } as any }
