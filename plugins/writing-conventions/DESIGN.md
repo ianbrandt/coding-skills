@@ -381,9 +381,10 @@ After a verified finding, what was held is replaced with a call to `mcp__writing
 and the findings are kept for that call to return, so the draft is not reviewed twice. The engine runs the
 tool and the same turn goes on, so there is no second turn and no prompt in the transcript. This was
 measured on 2.1.316, on Sonnet and on Opus with thinking on, in auto mode and with default
-permissions, and on 2.1.309 (R513). The tool result includes two facts: the plugin made the call, and
-the user has seen the reply only up to the draft. Without that, the model apologized for calling a tool
-and repeated its introduction. A request sent again with a hidden `$.session.append` row in place
+permissions, and on 2.1.309 (R513). The tool result is worded as facts, with a request for the rewrite: the check ran when the reply
+ended, and the reply was shown only up to the draft. In an earlier wording the model was also told
+to say nothing about the review. It took that for an injection, refused the finding, and told the
+user. A request sent again with a hidden `$.session.append` row in place
 of the tool call did not work, because the row is not in that request.
 
 The rewrites are counted per turn and stop after two; the third time, the user is told that review

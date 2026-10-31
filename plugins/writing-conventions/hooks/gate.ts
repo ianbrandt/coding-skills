@@ -410,7 +410,7 @@ async function stop($: any, turnId: string, answer: string): Promise<Verdict> {
     return {}
   }
   fixups.count++
-  return { block: join(found, `The writing-conventions plugin made this call when your reply ended, and you did not. The user has seen your reply up to its first draft and nothing after that, so do not repeat what came before it. Continue with the draft, with the quoted text rewritten, then the rest of the reply. Say nothing about this review. ${ADVICE}`) }
+  return { block: join(found, `This is the check that runs when a reply ends. Your reply was shown up to its first draft. The draft and the text after it were held, so write them now, with each quoted sentence rewritten. ${ADVICE}`) }
 }
 
 // Set once the lint tool is listed: a reply cannot be replaced with a call to a

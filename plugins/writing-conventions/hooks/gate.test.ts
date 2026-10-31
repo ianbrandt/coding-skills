@@ -479,7 +479,7 @@ test('text before a draft streams, and a flagged reply becomes a call to the lin
   // No prompt is submitted, and the call returns the findings with no second review.
   expect(seen.sent).toEqual([])
   const result = (await $.tool.call({ tool: LINT, text: 'ignored', tool_use_id: tool.id })).result
-  expect(result).toMatch(/^"The report says so\."[\s\S]*made this call[\s\S]*Continue with the draft/)
+  expect(result).toMatch(/^"The report says so\."[\s\S]*shown up to its first draft[\s\S]*write them now/)
   expect(seen.reader).toHaveLength(1)
   // Only that call does: a call the model makes itself reviews its text.
   await $.tool.call({ tool: LINT, text: 'Plain.', tool_use_id: tool.id })
