@@ -50,7 +50,13 @@ Workflow agent's, the re-read request after a Markdown Write, and the voice data
 ghostwrite Skill's result. It also checks the main-loop rules of three plugins, and counts the
 notices that a hook of one of these plugins was skipped, which should be 0.
 
+[`followup-probe.sh`](followup-probe.sh) loads `writing-conventions` and `session-skills`, then runs
+one turn that pushes and writes a draft the review model should flag. It prints the count of plugin
+prompts in the transcript, which should be 0, the lint calls the hook made, and whether the push
+result includes the request for the next step.
+
 ```bash
 e2e/tool-call-rounds.sh /tmp/rounds-1
 e2e/fallback-probe.sh /tmp/fallback-1
+e2e/followup-probe.sh /tmp/followup-1
 ```
