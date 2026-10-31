@@ -45,11 +45,14 @@ Eleven anti-patterns. Each reads as AI writing; the literal phrasing is always a
    20 words. A clause that reverses the one before it takes "but"; after "and" the reversal is easy
    to miss. A two-part sentence such as "fact, so consequence" is fine alone, but a piece with many
    of them reads as AI writing: count them before handing the piece over, and make the extras their
-   own sentences or subordinate clauses.
+   own sentences or subordinate clauses. An effect that has not happened yet takes the future
+   tense, and the event it waits on takes "after", not "from".
    - "A custom port can still be set with `server.port`"
      → "`server.port` is still available for a custom port"
    - "the cache is shared between runs on one machine, and none of it reaches a CI agent"
      → "the cache is shared between runs on one machine, but none of it reaches a CI agent"
+   - "The declaration is shown as a badge from the next release"
+     → "The declaration will be shown as a badge after the next release"
 7. **Coinages.** A term minted this session, or lifted from a class name, is not the reader's
    word. Use the reader's noun, and the literal act over the abstract one (printed, not marked).
    Take the noun a target document already uses for a concept, take none of its phrasing, and fix

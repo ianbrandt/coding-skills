@@ -200,6 +200,11 @@ an automatic module named after the file, where javac keeps it in the unnamed mo
 is then read as an automatic module named after the file. javac keeps that jar in the unnamed module
 instead." This is separate from matched clauses (§8), which are two unrelated facts in one sentence.
 
+Write an effect that has not happened yet in the future tense, and introduce the event it waits on
+with "after". "The declaration is shown as a badge on the Plugin Portal from the next release" was
+hard to follow, since the present tense reads as already true. It became "The declaration will be
+shown as a badge on the Plugin Portal after the next release."
+
 Use emphasis rarely. This covers `**bold**`, `*italic*`, and `_italic_` alike. A list of
 findings takes none, and a fact placed first needs no marking. Two reasons to keep it rare in prose:
 none of it survives where the text is read plain, in a terminal, a commit message, or a log, and in
