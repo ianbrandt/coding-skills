@@ -70,6 +70,8 @@ Write the amount of detail that lets the reader do the next thing, and no more.
 - Put a number in the sentence that draws the conclusion from it, even when it is also in a table
   above: "The majority (~70%) of the builds in the corpus don't filter at all." Without the number, the
   reader has to go back to the table to check the claim.
+- Give a count a reader can use. A diffstat is notation: "rewriting 33 files for +380/-209" drew
+  "That's not going to mean anything to your average human", and "rewriting 33 files" is enough.
 - Match the altitude to the reader's next move. Someone reviewing a diff needs enough to
   disagree with it. Someone who asked for status needs the current state and the blocker. Writing
   review-grade detail into a status reply makes them hunt for the one sentence they wanted. When
